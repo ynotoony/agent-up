@@ -41,7 +41,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `README.md` | 目录索引 | 本 README | 目录创建 | 无 | 模板 manifest 与短码登记。 |
 | `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：先读什么、快速规则、工作类型路由与停止条件。 |
-| `development-process.md.tmpl` | Seed | `docs/development-process.md` | always | `DP` | 生成唯一流程权威：读取阶梯、权威层级、产物生命周期、三阶段协作、门禁、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、验证与提交。 |
+| `development-process.md.tmpl` | Seed | `docs/development-process.md` | always | `DP` | 生成唯一流程权威：读取阶梯、权威层级、产物生命周期、三阶段协作、门禁、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、验证与提交、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）。 |
 | `progress.md.tmpl` | Seed | `docs/progress.md` | always | 无 | 生成进度紧凑索引（每票 ≤5 行，Checkpoint 指针）。 |
 | `changes.md.tmpl` | Seed | `docs/changes.md` | always | 无 | 生成按日期追加的变更审计记录骨架。 |
 | `requests-README.md.tmpl` | Seed | `docs/requests/README.md` | always | `RQ` | 生成 REQ 队列规则：请求状态机、Intake/Triage 边界、Intake/Delivery 并行规则与写入所有权矩阵。 |
@@ -66,3 +66,4 @@
 - `CONTEXT/dir-README/issues/specs/research/scripts` 模板保留为条件性模板（触发矩阵命中才使用）；票 10（2026-09-03）收窄执行：该批模板正文维持票 06～09 已验收的结构化短文形态，不改写为规则块——其生成物是面向人的目录索引，规则权威在 development-process；各模板补 `read_when` 元数据注记行（对齐 `CONTEXT.md.tmpl` 先例，只做导航），语义未变。
 - `artifacts-yaml.tmpl` 契约头以 YAML `#` 注释承载（文件第 1～3 行 `# Input:` / `# Output:` / `# Pos:`）：生成物 `docs/agent/artifacts.yaml` 是 YAML，顶部 HTML 注释会破坏解析，故不采用 `<!-- -->` 形态；包完整性检查（票 11）对该模板的 `^<!-- Input:` 扫描按 `../schemas/README.md` 登记的 JSON 例外同口径豁免（票 10，2026-09-03）。
 - `development-process.md.tmpl` §5.2 触发矩阵补 C2/C3 指引句（票 10 Fix，2026-09-03，收口票 10 Checkpoint 未决项①）：复杂度与 Profile 权威表位置写为【按项目填写】占位，不硬编码 Agent Up 包路径；包内默认基线落 `../protocol/complexity-profile.md`（短码 `CP`，登记见 `../protocol/README.md`）。
+- `development-process.md.tmpl` 增补治理生成收敛模式节（票 18，2026-09-04）：新增 §13 六小节与规则块 R-DP-022～027（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记），原 §13 解释与例外顺延为 §14；§1 快速摘要补一行、契约头 Output 同步；既有 §1～§12 与规则块 R-DP-001～021 零改动，manifest 行功能描述同步。

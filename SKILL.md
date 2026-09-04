@@ -33,11 +33,13 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 
 盘点 → 模式判定 → 访谈与待定 → 差异清单确认 → 安装/补缺 → Implementation → Review → Commit → 收尾报告。
 
-1. **盘点**：查清 Git 状态、既有规则文件（如 `AGENTS.md`、`CONTRIBUTING.md`、其他宿主规则文件）、技术栈标记、测试/构建/验证命令与顶层目录实际用途；目录职责抽查内部文件确认，不凭目录名猜。
+全程按五段检查点管线（checkpoint pipeline）推进：discovery → confirm → generate → verify → handoff。六项生成治理收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）在各步骤落位，规则权威是生成的 `docs/development-process.md` §13，本文件只标注落点。
+
+1. **盘点**：查清 Git 状态、既有规则文件（如 `AGENTS.md`、`CONTRIBUTING.md`、其他宿主规则文件）、技术栈标记、测试/构建/验证命令与顶层目录实际用途；目录职责抽查内部文件确认，不凭目录名猜。盘点结果落为 Discovery Record：逐项登记来源、作用域、冲突与未知，未知写 `【待定：...】`；盘点先于任何生成动作，未登记来源的候选不生成。
 2. **模式判定**：全新（空目录或无治理骨架）/ 已有代码（先读 `references/old-project.md`）/ 部分治理（只补缺）。目标目录不是 Git 仓库时，是否 `git init` 由用户确认决定，不自行初始化。
 3. **访谈与待定**：新项目先把定位、角色、核心对象、状态与合法转换、主要流程、范围边界、技术栈与验证方式问清（一次一个问题，附推荐答案；能从仓库查到的事实自己查）；项目特有术语敲定后按 `CONTEXT.md.tmpl` 的词条格式写入领域上下文；没问到的一律 `【待定：...】`，不编造。
-4. **差异清单确认**：任何写入之前，先给用户差异清单并等待确认，确认前一个字都不写；清单含现状与目标，按四类分组——将新建 / 将修改 / 登记不动 / 冲突待决。每张任务票评估 Complexity 与 Requirement Profile 并写入任务合同；分级、拆票与委派合同规则的权威在生成的 `docs/development-process.md`（何时拆票、委派合同、三道门禁各节），本文件不复制其表格。
-5. **安装/补缺**：按 `references/templates/README.md` 的 manifest 生成 seed 七件套、命中的条件产物与三阶段角色合同（生成到 `docs/agent/roles/`）；生成件自带契约头；模板中"按项目填写"处用盘点与访谈结果填充，没问到写 `【待定：...】`。旧项目和部分治理只补缺失件，登记既有权威来源。
+4. **差异清单确认**：任何写入之前，先给用户差异清单并等待确认，确认前一个字都不写；清单含现状与目标，按四类分组——将新建 / 将修改 / 登记不动 / 冲突待决。每张任务票评估 Complexity 与 Requirement Profile 并写入任务合同；分级、拆票与委派合同规则的权威在生成的 `docs/development-process.md`（何时拆票、委派合同、三道门禁各节），本文件不复制其表格。取信按 precedence/trust 排序：既有事实 > 用户确认 > 模板 > 自动推断，未知只登记不推断；确认时同时与用户选定 profile 档位（minimum/full）并落盘 capability manifest——逐项标 enabled/excluded/pending，排除与待定附原因。
+5. **安装/补缺**：按 `references/templates/README.md` 的 manifest 生成 seed 七件套、命中的条件产物与三阶段角色合同（生成到 `docs/agent/roles/`）；生成件自带契约头；模板中"按项目填写"处用盘点与访谈结果填充，没问到写 `【待定：...】`。旧项目和部分治理只补缺失件，登记既有权威来源。每个生成件登记 generation manifest（来源、日期、目标、用户确认、版本与恢复说明）；重复执行走 reconcile：检测到人工漂移即停并报告而非覆盖，写入前先备份保证可逆。
 6. **Implementation**：按任务合同实现变更并运行相关验证，记录检查点；完整交付后停止，不提交。
 7. **Review**：由独立于实现者的执行体只读审查；失败则回 Implementation 修复并完整交付后重新独立审查。
 8. **Commit**：仅在用户授权与白名单满足后提交；不 push、不部署。
@@ -61,4 +63,5 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 - 全部 `【待定】`项与用户否决的项进入最终报告，不悄悄绕过。
 - 权威冲突按停改、报告、给选项、等裁决处理，证据落盘（见 `references/protocol/read-policy.md`）。
 - 报告说明安装了哪些治理件、登记了哪些既有权威来源、差异清单四类的落点。
+- 登记外部引用与证据链：规范标识加取阅日期，许可证经条款核验而非信任徽标；涉及侧通道（网络、遥测、后台动作）的工具登记其文档化关闭开关，无开关不引入。
 - 未获用户明确要求，不执行 `git add`、`git commit`、push、部署或发布。
