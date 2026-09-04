@@ -1,0 +1,37 @@
+{
+  "x-sample": true,
+  "run_id": "20260903-example01",
+  "mode": "delivery",
+  "phase": "implementation",
+  "task": "EXAMPLE-TICKET-007（样例占位，非真实任务票）",
+  "status": {
+    "session": "interrupted",
+    "task": "in_progress"
+  },
+  "scope": [
+    "/absolute/path/EXAMPLE/one.md",
+    "/absolute/path/EXAMPLE/two.md"
+  ],
+  "baseline": {
+    "vcs_ref": "N/A + reason: 样例文件，非真实仓库状态",
+    "workspace_fingerprint": "fp-v1:0000000000000000"
+  },
+  "modified_files": [
+    "/absolute/path/EXAMPLE/one.md"
+  ],
+  "last_verified": {
+    "command": "EXAMPLE-COMMAND --example（样例占位，非真实执行记录）",
+    "result": "N/A + reason: 样例文件，不含真实验证结果",
+    "at": "2026-09-03"
+  },
+  "next_step": "样例文件：字段仅供格式参考，不承载真实运行数据；真实 run record 见目标项目 docs/agent/runs/。",
+  "blocker": "",
+  "network": "unknown",
+  "updated_at": "2026-09-03T00:00:00+00:00",
+  "independent_review": {
+    "verdict": "pass",
+    "ticket_ref": "EXAMPLE-TICKET-007（样例占位）",
+    "checkpoint": "Independent Review Checkpoint（2026-09-03，pass）（样例占位）",
+    "at": "2026-09-03"
+  }
+}

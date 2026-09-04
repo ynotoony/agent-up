@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agent-up/references/schemas/run-record.schema.json",
+  "title": "Agent Up run record schema",
+  "description": "运行记录（run record）机器 schema，落盘位置 docs/agent/runs/<run-id>.json。生成条件（满足其一）：C2/C3 任务；跨会话交接；发生中断；无 Git 基线；改动归属不明。C0/C1 任务写任务票 Checkpoint，不强制 run record。本 schema 收敛 SPEC-04 §6 字段语义、SPEC-04 §14 第一项待决（workspace_fingerprint 算法 fp-v1）与 SPEC-05 §8 第二项待决（independent_review 字段落盘位置与格式）。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "mode",
+    "phase",
+    "task",
+    "status",
+    "scope",
+    "baseline",
+    "modified_files",
+    "last_verified",
+    "next_step",
+    "blocker",
+    "network",
+    "updated_at"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}-[a-z0-9]{6,}$",
+      "description": "日期（YYYYMMDD）+ 随机后缀的唯一标识。"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["delivery", "intake", "triage"],
+      "description": "运行模式（Delivery/Intake/Triage，对齐 SPEC-04 §3）。"
+    },
+    "phase": {
+      "type": "string",
+      "minLength": 1,
+      "description": "所属阶段；已知取值 implementation / review / commit，新增取值先更新本 schema 并登记。"
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "关联任务票标识（路径或票号）。"
+    },
+    "status": {
+      "type": "object",
+      "description": "会话与任务状态摘要（对齐 development-process 会话恢复协议三套状态机；取值固定，不得自造）。",
+      "additionalProperties": false,
+      "required": ["session", "task"],
+      "properties": {
+        "session": {
+          "type": "string",
+          "enum": ["active", "interrupted", "unknown", "recovering", "closed"]
+        },
+        "task": {
+          "type": "string",
+          "pattern": "^(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done)$",
+          "description": "Task 状态机取值；blocked 须带原因（如 blocked: scope-change）。"
+        }
+      }
+    },
+    "scope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "本次运行的任务 Scope（允许修改的路径清单）。"
+    },
+    "baseline": {
+      "type": "object",
+      "description": "运行起点基线。",
+      "additionalProperties": false,
+      "required": ["vcs_ref", "workspace_fingerprint"],
+      "properties": {
+        "vcs_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Git 提交号或分支引用；无 Git 时记 N/A + reason，不编造。"
+        },
+        "workspace_fingerprint": {
+          "type": "string",
+          "pattern": "^fp-v1:[0-9a-f]{16}$",
+          "description": "工作区指纹，算法定稿（fp-v1）：①收集工作区全部文件，排除 .git/、依赖与构建产物目录（node_modules/、dist/、build/、coverage/、__pycache__/、.venv/）与 docs/agent/runs/（运行记录自身不参与指纹，避免自引用漂移）；②按相对路径字典序排序，每文件一行 <相对路径>\\t<字节数>\\t<mtime 纪元秒>；③拼接后取 SHA-256 十六进制前 16 位，记 fp-v1:<hex16>。同算法两次计算不一致即工作区自基线后有变化。"
+        }
+      }
+    },
+    "modified_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "本次运行修改的文件清单。"
+    },
+    "last_verified": {
+      "type": "object",
+      "description": "最后一次验证。",
+      "additionalProperties": false,
+      "required": ["command", "result", "at"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "最后一条验证命令原文。"
+        },
+        "result": {
+          "type": "string",
+          "minLength": 1,
+          "description": "真实结果（如 pass、fail: 原因）；未运行记 N/A + reason。"
+        },
+        "at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}",
+          "description": "验证时间，ISO 8601 日期或日期时间。"
+        }
+      }
+    },
+    "next_step": {
+      "type": "string",
+      "minLength": 1,
+      "description": "下一步动作（可判定，不写状态性散文）。"
+    },
+    "blocker": {
+      "type": "string",
+      "description": "阻塞与原因；无阻塞写空字符串。"
+    },
+    "network": {
+      "type": "string",
+      "enum": ["available", "unavailable", "unknown"],
+      "description": "网络可用性状态；unavailable 时只能 fallback 或明确阻塞，不得假装在线或编造远程事实。"
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}",
+      "description": "最后更新时间，ISO 8601 日期时间。"
+    },
+    "independent_review": {
+      "type": "object",
+      "description": "可选。独立 Review 结论指针（定稿）：审查记录本体落盘任务票 Independent Review Checkpoint（Review 唯一写入目标；格式：日期、结论 pass/fail、逐项证据 文件:行号区间、验证命令与环境）；本字段由当前运行执行体在 Review 结论落盘后回填，仅承载机器可检索指针，不承载审查本体。",
+      "additionalProperties": false,
+      "required": ["verdict", "ticket_ref", "at"],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": ["pass", "fail"],
+          "description": "独立 Review 结论；未完成的 Review 不得记 pass。"
+        },
+        "ticket_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "承载 Independent Review Checkpoint 的任务票路径或标识。"
+        },
+        "checkpoint": {
+          "type": "string",
+          "description": "票内 Checkpoint 锚点（如日期标题文本）。"
+        },
+        "at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}",
+          "description": "Review 结论落盘时间，ISO 8601 日期或日期时间。"
+        }
+      }
+    },
+    "x-sample": {
+      "type": "boolean",
+      "description": "样例标记：true 表示本文件为公开包格式样例，全部字段值为占位，不含真实仓库或运行数据。"
+    }
+  }
+}
