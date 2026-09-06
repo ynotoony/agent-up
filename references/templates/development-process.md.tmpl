@@ -17,7 +17,7 @@
 - 产物状态机：absent → proposed → approved → generated → stale → refreshed/superseded；用户拒绝记 deferred + 原因。
 - 初始化与产物增删自动评估 Artifact Plan（Required/Recommended/Deferred + 理由）；治理产物逐件登记 `docs/agent/artifacts.yaml`（十三字段）。
 - 三道门禁：语义变化未经用户确认不写文件；无验证证据不算完成；无独立 Review 通过不提交。
-- 主 agent 零写入：理解、拆分、派发、验收；委派必须给全 14 个固定字段；任何执行体不得创建下级执行体。
+- 主 agent 零写入：理解、拆分、派发、验收；委派必须给全 16 个固定字段；任何执行体不得创建下级执行体。
 - `docs/progress.md` 每票不超过 5 行，明细写任务票 Checkpoint 区；检查点必须可验证，不写"xx 开发中"。
 - 中断恢复只从事实出发：Session 置 `recovering` 后按八步固定顺序（AGENTS.md → progress → 任务票/Checkpoint → run record → 实际文件/Git → 重跑验证 → 判定 resume/blocked/conflict → Review 补审规则）得出结论；事实优先级四层（实际文件/测试/Git > Checkpoint/run record > progress > 聊天记录）；禁止用破坏性操作"恢复干净"。
 - 三套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）、Request（proposed/triaged/accepted/specified/ready + rejected/deferred/needs-user-decision）；写入所有权按五角色矩阵执行。
@@ -287,9 +287,11 @@ Output Contract:
 Dependencies / Blockers:
 Risks:
 Budget / Checkpoints:
+Estimated Time:
+Actual Time:
 ```
 
-`Goal` 用可观察结果描述；`Scope` 列允许修改的绝对路径；`Context / Evidence` 列出子代理必须先读的文件使其不依赖聊天上下文；`Output Contract` 规定返回的报告格式，不接受只有"完成"的摘要；`Budget / Checkpoints` 未写明时默认每段上限 80 次工具调用，超预算必须先落盘 Checkpoint 再继续。
+`Goal` 用可观察结果描述；`Scope` 列允许修改的绝对路径；`Context / Evidence` 列出子代理必须先读的文件使其不依赖聊天上下文；`Output Contract` 规定返回的报告格式，不接受只有"完成"的摘要；`Budget / Checkpoints` 未写明时默认每段上限 80 次工具调用，超预算必须先落盘 Checkpoint 再继续。`Estimated Time`（预计工作时间）：档位制四档 `≤0.5h / 0.5-2h / 半天 / 多天`，Triage/Planning 定级时填写，C0 票豁免（该字段记 `N/A`）；预估不是承诺。`Actual Time`（实际完成时间）：票收口时填写，为去除断线影响的净工作时长（测量与记录口径见"检查点纪律"）；不因记录工时声称任何效率或成本收益（未测量不声明）。
 
 派发前逐项检查字段完整、范围互斥、完成条件可验收；任一缺失不得派发。子代理发现事实冲突或前置未满足时停止并按 Output Contract 返回。
 
@@ -322,6 +324,8 @@ Budget / Checkpoints:
 ### 检查点纪律
 
 检查点必须是可验证状态（"状态转换测试通过"），不能写"xx 开发中"。达到检查点立即运行最近的相关测试并报告真实结果，然后才继续剩余范围；未完整交付不得派发 Review 或 Commit。
+
+票收口填写实际完成时间（净工时口径）：基于 Checkpoint 与 run record 时间戳的会话段累计，会话段=自会话开工至最后一次治理写入/Checkpoint 的时间跨度；中断段（session 状态 interrupted/unknown，或无任何治理写入超过 30 分钟的间隔）不计入；测量基础（会话段清单）随票 Checkpoint 落盘供复核，不因记录工时声称任何效率或成本收益（未测量不声明）。
 
 ## 7. 开发节点
 
