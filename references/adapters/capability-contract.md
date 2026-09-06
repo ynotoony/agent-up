@@ -27,7 +27,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 - 无独立 subagent 执行体时依序走降级路径 a/b/c，记录 `independent_review: unavailable`；同一执行体自检不得标 pass；三条路径均不可用停在 review_ready。
 - capability profile 分 `minimum` / `full` 两档：minimum 为读取阶梯 L0-L2 最小集（定稿清单见 `read-policy.md` §2.4），full 按任务型范围执行并按需加载至 L4。
 - 档位只描述治理资源加载范围，不是宿主性能、可靠性或功能承诺。
-- platform 枚举已知集合 `neutral` / `zcode`；新增宿主值先在 artifacts-yaml 模板 platform 注释区登记，再建 `adapters/<host>.md` 映射文件。
+- platform 枚举已知集合 `neutral` / `zcode` / `claude-code` / `codex` / `pi` / `dsh`；新增宿主值先在 artifacts-yaml 模板 platform 注释区登记，再建 `adapters/<host>.md` 映射文件。
 - 未测量不声明：无实验数据不得声称 token 节省、速度或可靠性提升。
 - 本文件规则块前缀 `R-CC-`；宿主映射文件前缀 `R-ZC-`。
 
@@ -111,7 +111,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 
 ### 2.5 platform 枚举与宿主扩展
 
-platform 取值描述产物或文件的平台绑定面：`neutral` 表示平台无关；宿主值仅用于宿主适配层实例与绑定产物。已知集合 `neutral` / `zcode`（与 artifacts-yaml 模板 platform 字段注释区一致）。
+platform 取值描述产物或文件的平台绑定面：`neutral` 表示平台无关；宿主值仅用于宿主适配层实例与绑定产物。已知集合 `neutral` / `zcode` / `claude-code` / `codex` / `pi` / `dsh`（与 artifacts-yaml 模板 platform 字段注释区一致）。
 
 #### R-CC-005 新宿主扩展登记 `MUST`
 
