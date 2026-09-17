@@ -12,7 +12,7 @@
 | --- | --- | --- | --- |
 | `README.md` | 目录索引 | 无 | 说明本目录用途并登记直接成员。 |
 | `adapter-template.md` | 平台适配文件结构模板（单文件 per 平台基线） | `AT` | 新建 `<host>.md` 的结构基线：必填段落、规则块骨架与三要素（能力基元映射、frontmatter 方言、独立执行体声明与降级路径）骨架。 |
-| `capability-contract.md` | 宿主能力契约手册（adapters/ 内宿主映射文件的共同上游） | `CC` | 九能力基元、五阶段→能力表、required_capabilities 声明规则、无 subagent 降级路径、capability profile 档位定稿与 platform 枚举扩展登记。 |
+| `capability-contract.md` | 宿主能力契约手册（adapters/ 内宿主映射文件的共同上游） | `CC` | 九能力基元、五阶段→能力表、required_capabilities 声明规则、无 subagent 降级路径（含分级交付道车道衔接注记）、微任务道能力束、capability profile 档位定稿与 platform 枚举扩展登记。 |
 | `zcode.md` | zcode 宿主映射手册（运行时映射，不是事实源） | `ZC` | 能力→宿主工具对照、三角色 frontmatter 方言模板与适配层地位边界。 |
 | `claude-code.md` | claude-code 宿主映射手册（运行时映射，不是事实源；shell hooks 代表） | `CL` | 能力→宿主工具对照、三角色 subagent frontmatter 方言模板、独立执行体声明与降级路径。 |
 | `codex.md` | codex 宿主映射手册（运行时映射，不是事实源；规则文件代表） | `CX` | 能力→宿主工具对照、三角色 config.toml agents 表方言、独立执行体声明与降级路径。 |

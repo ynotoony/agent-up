@@ -41,7 +41,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `README.md` | 目录索引 | 本 README | 目录创建 | 无 | 模板 manifest 与短码登记。 |
 | `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：先读什么、快速规则、工作类型路由与停止条件。 |
-| `development-process.md.tmpl` | Seed | `docs/development-process.md` | always | `DP` | 生成唯一流程权威：读取阶梯、权威层级、产物生命周期、三阶段协作、门禁、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、验证与提交、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）。 |
+| `development-process.md.tmpl` | Seed | `docs/development-process.md` | always | `DP` | 生成唯一流程权威：读取阶梯、权威层级、产物生命周期、三阶段协作、分级交付道（三车道）、门禁、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、验证与提交、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）。 |
 | `progress.md.tmpl` | Seed | `docs/progress.md` | always | 无 | 生成进度紧凑索引（每票 ≤5 行，Checkpoint 指针）。 |
 | `changes.md.tmpl` | Seed | `docs/changes.md` | always | 无 | 生成按日期追加的变更审计记录骨架。 |
 | `requests-README.md.tmpl` | Seed | `docs/requests/README.md` | always | `RQ` | 生成 REQ 队列规则：请求状态机、Intake/Triage 边界、Intake/Delivery 并行规则与写入所有权矩阵。 |
@@ -54,7 +54,7 @@
 | `scripts-README.md.tmpl` | Conditional | `scripts/README.md` | 可重复验证需要沉淀为共享 harness | 无 | 生成共享验证 harness 目录索引与登记约定。 |
 | `agents-implementation.md.tmpl` | Roles | `docs/agent/roles/implementation.md` | 所有项目初始化生成三阶段角色合同 | `RI` | 生成 Implementation 阶段平台无关角色合同（七节 + required_capabilities 能力基元声明 + 规则块 R-RI-001～003）。 |
 | `agents-review.md.tmpl` | Roles | `docs/agent/roles/review.md` | 所有项目初始化生成三阶段角色合同 | `RR` | 生成 Review 阶段平台无关角色合同（七节 + 只读能力声明 + 降级记录规则块 R-RR-001～003）。 |
-| `agents-commit.md.tmpl` | Roles | `docs/agent/roles/commit.md` | 所有项目初始化生成三阶段角色合同 | `RC` | 生成 Commit 阶段平台无关角色合同（七节 + 版本库能力声明 + 规则块 R-RC-001～003）。 |
+| `agents-commit.md.tmpl` | Roles | `docs/agent/roles/commit.md` | 所有项目初始化生成三阶段角色合同 | `RC` | 生成 Commit 阶段平台无关角色合同（七节 + 版本库能力声明 + 规则块 R-RC-001～003；Review pass 证据含车道两类形态：Independent Review Checkpoint / User Review Checkpoint 或机械门禁输出）。 |
 
 ## 取舍与过渡登记
 
@@ -67,3 +67,5 @@
 - `artifacts-yaml.tmpl` 契约头以 YAML `#` 注释承载（文件第 1～3 行 `# Input:` / `# Output:` / `# Pos:`）：生成物 `docs/agent/artifacts.yaml` 是 YAML，顶部 HTML 注释会破坏解析，故不采用 `<!-- -->` 形态；包完整性检查（票 11）对该模板的 `^<!-- Input:` 扫描按 `../schemas/README.md` 登记的 JSON 例外同口径豁免（票 10，2026-09-03）。
 - `development-process.md.tmpl` §5.2 触发矩阵补 C2/C3 指引句（票 10 Fix，2026-09-03，收口票 10 Checkpoint 未决项①）：复杂度与 Profile 权威表位置写为【按项目填写】占位，不硬编码 Agent Up 包路径；包内默认基线落 `../protocol/complexity-profile.md`（短码 `CP`，登记见 `../protocol/README.md`）。
 - `development-process.md.tmpl` 增补治理生成收敛模式节（票 18，2026-09-04）：新增 §13 六小节与规则块 R-DP-022～027（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记），原 §13 解释与例外顺延为 §14；§1 快速摘要补一行、契约头 Output 同步；既有 §1～§12 与规则块 R-DP-001～021 零改动，manifest 行功能描述同步。
+- `development-process.md.tmpl` 增补分级交付道（三车道）协议（票 25，2026-09-16，REQ-20260904-011 用户拍板）：§4 增"微维护（微任务道）"工作类、§6 新增"分级交付道"小节与规则块 R-DP-031（三车道定义、Triage 声明权、道脚本收尾）、R-DP-011 增快道替代形态、§5.2 触发矩阵增微账本 `docs/agent/micro.md` 行（"九行"→"十行"）、§12.5 增道脚本承载注记与派生载体独占写、§12.8 不变量 3 增车道条件、§1 摘要与契约头 Output 同步；`agents-commit.md.tmpl` Review pass 证据扩为车道两类形态；`agents-implementation.md.tmpl`/`agents-review.md.tmpl` 各增适用范围注记；快道准入判据落 `../protocol/complexity-profile.md` §2.3（R-CP-006），微道能力束与车道衔接注记落 `../adapters/capability-contract.md`；规则块编号 R-DP-031 与本仓根治理层 `docs/development-process.md` 的 R-DP-031（编程思想五问）重号为两文件各自连续编号，根治理层同步时统一重排（票 27 面）。
+- `development-process.md.tmpl` 回灌两层代理协作与编程思想五问（票 28，2026-09-17，本仓治理实例 2026-09-16 两层化变更按原文回灌）：契约头 Output 行"两层代理协作"改注"（路由层/编码层职责）"并增"实现纪律与编程思想五问"（插"验证与提交"前）、§1 摘要"主 agent 零写入"条目扩为两层职责句、§6 存在理由段后增"两层职责固定划分"两条 bullet 并标注"主 agent（路由层）是唯一负责人"、§10 标题扩为"实现纪律（编码层规则：最懒可行与编程思想五问）"、§10 末新增 §10.1 编程思想五问（引言 + 五问表七行 + 规则块 R-DP-032）；五问块规则编号在本模板取 R-DP-032（R-DP-031 已被票 25 分级交付道占用，两文件各自连续编号），票 25 条目尾"根治理层同步时统一重排"口径延展为：本地实例 R-DP-031（编程思想五问）块按模板 R-DP-032 口径对齐，归票 27 统一重排。

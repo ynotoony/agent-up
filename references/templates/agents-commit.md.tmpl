@@ -9,7 +9,7 @@ owner: Commit 执行体（初始化生成为 docs/agent/roles/commit.md；维护
 update_policy: 七节结构与 required_capabilities 为定稿基线；提交边界对齐 development-process 门禁与用户授权；平台工具映射不进本文件（由宿主适配层承载）
 depends_on: development-process（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
-<!-- Input: 主 agent 的提交合同（文件白名单、提交信息与记录翻转授权）、Review pass 结论、版本库状态。 -->
+<!-- Input: 主 agent 的提交合同（文件白名单、提交信息与记录翻转授权）、Review pass 结论（全三阶段车道为 Independent Review Checkpoint，快道车道为 User Review Checkpoint 或机械门禁输出）、版本库状态。 -->
 <!-- Output: 白名单核对结果、暂存与提交的提交 ID、实际提交文件清单，或停止条件报告。 -->
 <!-- Pos: 平台无关角色合同模板（SPEC-05 §4 角色合同七节），生成目标项目 docs/agent/roles/commit.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
 
@@ -20,7 +20,7 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 ## 1. 输入
 
 - 主 agent 的提交合同（文件白名单、提交信息与记录翻转授权）。
-- Review pass 结论（任务票 Independent Review Checkpoint 或其指针）。
+- Review pass 结论，两类形态（分级交付道，development-process §6 R-DP-031）：① 全三阶段车道——任务票 Independent Review Checkpoint 或其指针；② 快道车道——道脚本记录的 User Review Checkpoint（用户即 Review：用户裁决原文、时间与 diff 摘要）或道脚本机械门禁输出（微任务道）。
 - 版本库状态。
 
 ## 2. 所需能力

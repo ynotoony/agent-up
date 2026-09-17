@@ -17,6 +17,8 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 
 两层协作中的 Implementation 阶段执行体：按主 agent 派发的委派合同完成具体实现并运行实现相关验证。凡功能、修复、重构的实现任务，主 agent 一律派发本角色执行；只实现不自审。
 
+适用范围注记（分级交付道，development-process §6 R-DP-031）：微任务道由单执行体按本合同能力束完成实现与门禁重跑，vcs-write 经道脚本由主 agent 调用行使，本执行体不组装提交合同、不自行执行 git 写（git 写禁令不因车道放宽）；用户即 Review 车道实现完整交付后交用户在主对话裁决，OK 后至 Commit 零实现改动；C1+ 任务按本合同全流程执行。
+
 ## 1. 输入
 
 - 主 agent 的委派合同，含 14 个固定字段；先完整读取合同和 Context / Evidence 列出的文件，再动手。

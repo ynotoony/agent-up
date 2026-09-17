@@ -25,7 +25,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 1. **路由不复制**：`AGENTS.md` 只做路由和边界声明；流程细节只存在于 development-process 一个事实源。
 2. **不覆盖事实**：既有文档、代码布局、命名和规则一律视为项目事实，只登记、只补缺；冲突报告用户，不静默改写。
 3. **不编造事实**：领域词汇、目录职责、验证命令来自盘点和访谈；没有依据的写 `【待定：...】` 并在报告列出。
-4. **三阶段门禁不裁剪**：Implementation -> Review -> Commit 串行、不得合并；语义变化未经用户确认不写文件，无验证证据不算完成，无独立 Review 通过不提交。
+4. **三阶段门禁不裁剪**：Implementation -> Review -> Commit 串行、不得合并；语义变化未经用户确认不写文件，无验证证据不算完成，无独立 Review 通过不提交。车道例外仅对 C0 且由 Triage 定级时按准入判据声明的任务生效（执行体无权自选车道）：**用户即 Review**——C0 且工作含语义判断，用户在主对话对实际 diff 裁决，裁决原文、时间与 diff 摘要落盘为 Review 证据，OK 后至 Commit 零实现改动；**微任务道**——C0 且每条验收全机械可验或纯记录维护，单执行体全程实现、门禁、提交、记录翻转、账本落行，免票，白名单 ≤3 文件、零新建零删除，pass 证据为机械门禁输出。C1+ 与判据外任务三阶段固定不裁剪；车道语义权威在生成的 `docs/development-process.md`（§6 分级交付道），准入判据权威在 `references/protocol/complexity-profile.md`。
 5. **平台无关**：核心协议与模板只写能力，不写宿主专名与方言；宿主映射只在包内 `references/adapters/`。
 6. **冲突即停**：任何两个权威来源冲突时停止修改、报告双方与层级、给出选项、等用户裁决（规则见 `references/protocol/read-policy.md`）。
 
@@ -51,7 +51,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 | --- | --- |
 | `references/protocol/governance-format.md` | 生成或修改治理文件、核对规则块九字段、元数据承载形态或措辞禁令时 |
 | `references/protocol/read-policy.md` | 判定会话读取范围、处理权威冲突或按 capability profile 档位加载时 |
-| `references/protocol/complexity-profile.md` | 规划、拆票或写任务票前：评估 Complexity 与 Requirement Profile、判定 C2/C3 触发矩阵命中或拆票策略时 |
+| `references/protocol/complexity-profile.md` | 规划、拆票或写任务票前：评估 Complexity 与 Requirement Profile、判定 C2/C3 触发矩阵命中、拆票策略或声明分级交付道车道（两快道准入判据）时 |
 | `references/old-project.md` | 已有代码或部分治理项目的盘点、补缺与交付 |
 | `references/templates/README.md` | 生成治理骨架前：模板 manifest、seed 七件套映射、条件产物触发矩阵与角色合同模板 |
 | `references/adapters/`（成员见其目录 README） | 判定宿主能力、处理 `required_capabilities` 冲突、无独立执行体降级，或在宿主生成角色运行时入口时 |
