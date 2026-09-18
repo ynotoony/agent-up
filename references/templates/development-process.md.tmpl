@@ -212,7 +212,7 @@
 | 契约变化 | Input/Output/Pos 语义、权威归属、所有权、生命周期、对外接口变化 | 更新契约头/元数据/README 登记，级联 `depends_on` |
 | 拓扑变化 | 文件新增/删除/移动/重命名、目录职责变化 | 更新目录 README 成员登记、`docs/agent/artifacts.yaml`、项目地图 |
 | 行为变化 | 流程、门禁、权限、验证要求、公共接口变化 | 更新协议引用与进度状态 |
-| 派生关系变化 | 生成来源、依赖关系、平台绑定变化 | 更新 `generated_from`/`depends_on`/`platform` 并校验 Derived 标注 |
+| 派生关系变化 | 生成来源、依赖关系、平台绑定变化 | 更新 `generated_from`/`depends_on`/`platform` 并校验 Derived 标注；索引条目变更即触发 `docs/progress-current.md` 投影重建（生成器重跑） |
 
 不触发：错别字与排版修正；纯追加记录（`docs/changes.md` 新条目、`docs/progress.md` 状态行、请求追加）。
 
@@ -470,10 +470,12 @@ Session（agent_session）是单次会话的易失上下文，随时可能中断
 | Task | `ready` / `in_progress` / `blocked` / `review_ready` / `review_pass` / `review_fail` / `done` | 阻塞带原因（如 `blocked: scope-change`） |
 | Request | `proposed` / `triaged` / `accepted` / `specified` / `ready`；旁支 `rejected` / `deferred` / `needs-user-decision` | 流转由 Triage 写入；队列规则见 `docs/requests/README.md` |
 
+票据生命周期另有 `superseded` 标签（语义权威＝`docs/issues/README.md`），仅用于状态索引登记历史票据，不属于 Task 状态机流转取值。
+
 #### R-DP-012 状态机取值固定 `MUST`
 
 - **When**：记录或推断 Session、Task、Request 状态时。
-- **Action**：只使用上表取值；状态变更落盘到任务票、REQ 文件、run record 或 progress；`docs/progress.md` 状态行允许记录 Task 子集，完整取值以任务票与 run record 为准。
+- **Action**：只使用上表取值；状态变更落盘到 `docs/issues/index.json` 状态条目、REQ 文件或 run record；票正文 Status 行为索引投影回写，`docs/progress-current.md` 投影行允许记录 Task 子集，完整取值以索引、任务票与 run record 为准。
 - **Forbidden**：自造状态名（如"基本完成"）；状态只存在于聊天中。
 - **Stop if**：实际情况不属于任何取值 → 停止并报告用户补充语义。
 - **Evidence**：状态字段可被静态检索且取值在允许集合内。
@@ -486,7 +488,7 @@ Session（agent_session）是单次会话的易失上下文，随时可能中断
 
 1. 实际文件、测试结果、Git 状态；
 2. Checkpoint / run record；
-3. 现役状态投影 `docs/progress-current.md`（Derived，以真相源 `docs/issues/index.json` 为准）与 `docs/progress.md` 冻结历史档案；
+3. 现役状态投影 `docs/progress-current.md`（Derived）与状态真相源 `docs/issues/index.json`（`docs/progress.md` 为冻结历史档案，归 L4 背景）；
 4. 聊天记录。
 
 低层级信息与高层级矛盾时以高层级为准并修正低层级记录，裁决结果落盘到被修正的记录。
@@ -506,7 +508,7 @@ Session（agent_session）是单次会话的易失上下文，随时可能中断
 Delivery Session（用户说"继续剩余任务"）启动或接管中断任务时，按以下八步执行，得出结论后才动手：
 
 1. 读目标项目 `AGENTS.md`（路由与边界）；
-2. 读 `docs/progress.md`（状态索引）；
+2. 读 `docs/progress-current.md`（现役投影）与 `docs/issues/index.json`（状态真相源）；
 3. 读当前任务票与 Implementation Checkpoint；
 4. 读 run record（如存在）；
 5. 对照实际文件与 Git diff（无 Git 时退化为实际文件对照）；

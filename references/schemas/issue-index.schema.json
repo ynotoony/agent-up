@@ -22,8 +22,8 @@
           },
           "status": {
             "type": "string",
-            "pattern": "^(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done)$",
-            "description": "Task 状态机取值（development-process §12.1，取值固定）；blocked 须带原因。"
+            "pattern": "^(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done|superseded)$",
+            "description": "Task 状态机取值（development-process §12.1）＋票据生命周期标签 `superseded`（语义权威＝docs/issues/README.md，仅用于索引登记历史票据，非 Task 流转取值）。"
           },
           "lane": {
             "type": "string",
