@@ -158,11 +158,11 @@ else
   pass 4 '无绝对路径与根治理引用'
 fi
 
-# 检查 5：templates 下 .tmpl 恰 15 个且逐个登记于 manifest（templates/README.md）。
+# 检查 5：templates 下 .tmpl 恰 13 个且逐个登记于 manifest（templates/README.md）。
 templates_dir="$pkg_root/references/templates"
 manifest="$templates_dir/README.md"
 if [ ! -d "$templates_dir" ]; then
-  fail 5 'templates 下 .tmpl 为 15 个且全部登记' 'references/templates/ 目录不存在'
+  fail 5 'templates 下 .tmpl 为 13 个且全部登记' 'references/templates/ 目录不存在'
 else
   tmpl_list=$(find "$templates_dir" -type f -name '*.tmpl' | sort)
   if [ -n "$tmpl_list" ]; then
@@ -173,9 +173,9 @@ else
   problems=''
   sep='
 '
-  if [ "$tmpl_count" -ne 15 ]; then
+  if [ "$tmpl_count" -ne 13 ]; then
     # 花括号不可省略：$tmpl_count 后紧跟全角字符时，sh 会把多字节字符并入变量名。
-    problems="  - .tmpl 数量为 ${tmpl_count}（预期 15）"
+    problems="  - .tmpl 数量为 ${tmpl_count}（预期 13）"
   fi
   if [ ! -f "$manifest" ]; then
     problems="${problems}${sep}  - templates/README.md（manifest）不存在"
@@ -218,9 +218,9 @@ else
     fi
   fi
   if [ -n "$problems" ]; then
-    fail 5 'templates 下 .tmpl 为 15 个且全部登记' "$problems"
+    fail 5 'templates 下 .tmpl 为 13 个且全部登记' "$problems"
   else
-    pass 5 'templates 下 .tmpl 为 15 个且全部登记'
+    pass 5 'templates 下 .tmpl 为 13 个且全部登记'
   fi
 fi
 

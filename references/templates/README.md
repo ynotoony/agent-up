@@ -1,4 +1,4 @@
-<!-- Input: `SKILL.md` 对新项目治理骨架的生成约定、seed 七件套与触发矩阵约定（`../protocol/` 手册）、SPEC-05 角色合同七节与能力声明约定（能力语义见 `../adapters/capability-contract.md`），以及本目录的模板文件。 -->
+<!-- Input: `SKILL.md` 对新项目治理骨架的生成约定、seed 五件套与触发矩阵约定（`../protocol/` 手册）、SPEC-05 角色合同七节与能力声明约定（能力语义见 `../adapters/capability-contract.md`），以及本目录的模板文件。 -->
 <!-- Output: `agent-up` 生成治理文件时可读取的模板 manifest：直接成员、Emits 目标路径、创建触发条件、产物生命周期与规则块短码登记。 -->
 <!-- Pos: Skill 治理模板目录索引与模板 manifest；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
@@ -21,17 +21,15 @@
 
 公开包 `../protocol/` 手册短码（`GF`、`RP`）见 `../protocol/governance-format.md`；`../adapters/` 手册短码（`CC`、`ZC`）见 `../adapters/capability-contract.md`，与模板短码互不重叠。
 
-## seed 七件套映射
+## seed 五件套映射
 
-新项目初始化默认生成且仅生成七件 seed（其余产物按触发矩阵与 Artifact Plan 处理）：
+新项目初始化默认生成且仅生成五件 seed（其余产物按触发矩阵与 Artifact Plan 处理）：
 
 | seed 件（Emits） | 模板 | 生命周期 | 创建触发条件 |
 | --- | --- | --- | --- |
 | `AGENTS.md` | `AGENTS.md.tmpl` | Seed | always |
 | `docs/README.md` | `dir-README.md.tmpl` | Seed | always |
 | `docs/development-process.md` | `development-process.md.tmpl` | Seed | always |
-| `docs/progress.md` | `progress.md.tmpl` | Seed | always |
-| `docs/changes.md` | `changes.md.tmpl` | Seed | always |
 | `docs/requests/README.md` | `requests-README.md.tmpl` | Seed | always |
 | `docs/agent/artifacts.yaml` | `artifacts-yaml.tmpl` | Seed | always |
 
@@ -42,10 +40,8 @@
 | `README.md` | 目录索引 | 本 README | 目录创建 | 无 | 模板 manifest 与短码登记。 |
 | `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：先读什么、快速规则、工作类型路由、停止条件与三层定位层模型声明。 |
 | `development-process.md.tmpl` | Seed | `docs/development-process.md` | always | `DP` | 生成唯一流程权威：读取阶梯、权威层级、产物生命周期、三阶段协作、分级交付道（三车道）、门禁、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、验证与提交、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）。 |
-| `progress.md.tmpl` | Seed | `docs/progress.md` | always | 无 | 生成进度紧凑索引（每票 ≤5 行，Checkpoint 指针）。 |
-| `changes.md.tmpl` | Seed | `docs/changes.md` | always | 无 | 生成按日期追加的变更审计记录骨架。 |
 | `requests-README.md.tmpl` | Seed | `docs/requests/README.md` | always | `RQ` | 生成 REQ 队列规则：请求状态机、Intake/Triage 边界、Intake/Delivery 并行规则与写入所有权矩阵。 |
-| `artifacts-yaml.tmpl` | Seed | `docs/agent/artifacts.yaml` | always | 无 | 生成产物机器索引：十三字段说明与 seed 七件初始登记。 |
+| `artifacts-yaml.tmpl` | Seed | `docs/agent/artifacts.yaml` | always | 无 | 生成产物机器索引：十三字段说明与 seed 五件初始登记。 |
 | `dir-README.md.tmpl` | Seed（兼条件性） | `<目录>/README.md` | docs 目录：always；其他受 Git 管理目录：新建目录时 | 无 | 生成目录 README 与直接成员登记。 |
 | `CONTEXT.md.tmpl` | Conditional | `docs/CONTEXT.md` | 确认了项目特有术语、角色或状态 | 无 | 生成结构化词条 + 自然语言定义的领域上下文。 |
 | `issues-README.md.tmpl` | Conditional | `docs/issues/README.md` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 | 无 | 生成任务票目录规则与票模板。 |
@@ -71,3 +67,4 @@
 - `development-process.md.tmpl` 回灌两层代理协作与编程思想五问（票 28，2026-09-17，本仓治理实例 2026-09-16 两层化变更按原文回灌）：契约头 Output 行"两层代理协作"改注"（路由层/编码层职责）"并增"实现纪律与编程思想五问"（插"验证与提交"前）、§1 摘要"主 agent 零写入"条目扩为两层职责句、§6 存在理由段后增"两层职责固定划分"两条 bullet 并标注"主 agent（路由层）是唯一负责人"、§10 标题扩为"实现纪律（编码层规则：最懒可行与编程思想五问）"、§10 末新增 §10.1 编程思想五问（引言 + 五问表七行 + 规则块 R-DP-032）；五问块规则编号在本模板取 R-DP-032（R-DP-031 已被票 25 分级交付道占用，两文件各自连续编号），票 25 条目尾"根治理层同步时统一重排"口径延展为：本地实例 R-DP-031（编程思想五问）块按模板 R-DP-032 口径对齐，归票 27 统一重排。
 - `development-process.md.tmpl` 增补道脚本安装路径（票 32，2026-09-18，治理审计 P1"生成项目快道道脚本不可用"修复，用户对话指令"修复"）：§5.2 触发矩阵增道脚本行 `scripts/check-gates.sh`、`scripts/lane-commit.sh`（"十行"→"十一行"，§1 摘要计数同步；触发=用户确认启用分级交付道快道）、§12.5 道脚本承载注记增落位声明句（复制自 agent-up 公开包 `scripts/`、逐件登记、脚本本体以包内版本为生成基线）；道脚本不进本 manifest——脚本不走 `.tmpl` 模板，安装时从包内 `scripts/` 复制（落位与登记口径见 `../SKILL.md` 主流程步骤 5 与模板 §12.5），manifest `.tmpl` 计数保持 15；路线裁决：采用条件产物路线，否决"从 skill 安装位置调用"（目标项目治理须自持）与"seed 必装"（保 seed 七件套承诺与 R-AG-002/R-DP-006 懒创建纪律，快道未启用错配由 R-DP-031 Stop if 兜底）。
 - 状态索引机器 schema 定稿落公开包 `../schemas/issue-index.schema.json`（票 34，2026-09-18，票 33 方案 C 终局拍板 T1/T2/T5/T6 终裁固化）：`docs/issues/index.json` 为票状态机唯一真相源（单文件 JSON、一条目一行、lane 枚举 `full`/`user-review`/`micro`、changes.jsonl `kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`），登记见 `../schemas/README.md`；协议权威文本落位于本仓 `docs/specs/02-governance-format.md`、`docs/specs/03-seed-artifact-lifecycle.md` 与 `docs/development-process.md` 镜像及本模板 §1/§2/§4/§5/§12 对应条款（票 34 同票双改，非本 manifest 结构变化）；`progress.md.tmpl`/`changes.md.tmpl`/`development-process.md.tmpl` 正文协议改造与 check 三脚本、投影生成器 `generate-progress.sh` 改造归 C 票（票 33 草案 5.4 M1-M4/S1-S3），本票不动任何 `.tmpl` 正文之外的本 manifest 成员清单，`.tmpl` 计数保持 15。
+- `progress.md.tmpl`/`changes.md.tmpl` 退役删除（票 36，2026-09-18，票 33 User Review Checkpoint 补记三 T8 终裁"公开包新项目全 JSONL 起步"，否决双轨模板）：`docs/progress.md`/`docs/changes.md` 退出 seed，seed 定为五件（`AGENTS.md`、`docs/README.md`、`docs/development-process.md`、`docs/requests/README.md`、`docs/agent/artifacts.yaml`）；承接关系＝记录面新事实写 `docs/changes.jsonl`（懒创建，一行一事实）与现役状态投影 `docs/progress-current.md`（由 `docs/issues/index.json` 经生成器生成，生成器 `scripts/generate-progress.sh` 入包归票 37）；既有项目按 `../old-project.md` §3 只补缺、不追溯生成；manifest 成员 16→14、`.tmpl` 计数 15→13，`../scripts/check-package.sh` 检查 5 同步；上方各历史登记条目（含票 32"计数保持 15"、票 34 条目中两退役模板文件名引述）为当时决策的过渡记录，按记录不改写纪律保留原文，不做追溯改写。
