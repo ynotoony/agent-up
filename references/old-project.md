@@ -47,6 +47,7 @@ depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模
 | `.gitignore` | 缺失才生成；已存在的只追加明显缺失的条目（依赖、构建产物、`.env`），追加前列出。 |
 | 三阶段角色合同（`docs/agent/roles/`） | 平台无关角色合同缺失才生成（协作固定，不作为决策点），宿主运行时入口由适配层生成；已存在的对照 development-process 代理协作章节校验角色边界是否一致。 |
 | `scripts/` 共享 harness | 已有脚本目录登记为共享验证权威并补 README 约定；已有一次性验证脚本列"待沉淀"清单交用户决定是否迁移；缺失则懒创建。 |
+| 道脚本（`scripts/check-gates.sh`、`scripts/lane-commit.sh`） | 用户确认启用分级交付道快道时才补缺：从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；未启用不补，道脚本不可用停止条件按 development-process R-DP-031 兜底。 |
 
 ## 4. 差异清单先行
 

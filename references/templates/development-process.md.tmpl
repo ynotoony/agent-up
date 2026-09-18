@@ -12,7 +12,7 @@
 - 读取阶梯五级：L0 `AGENTS.md` → L1 `docs/progress.md` 与目录 README → L2 任务票/规格/`docs/agent/artifacts.yaml` → L3 相关源码测试 → L4 按需；按任务类型取最小读取范围。
 - 权威层级六层：用户决策 > 代码/测试/事实记录 > 规格/任务合同 > 流程规则（本文）> Agent Up 模板 > 派生文件；冲突即停报告，不自行择优。
 - 产物五类：Seed 初始化即生成；Conditional 命中触发矩阵才创建；Record 只追加或按状态机更新、模板升级不得覆盖；Derived 可重建但须标注来源/时间/覆盖范围/失效条件；Adapter 仅宿主支持且任务需要时生成。
-- 条件产物按十行触发矩阵默认不创建；不为目录完整性预建空目录或占位文件。
+- 条件产物按十一行触发矩阵默认不创建；不为目录完整性预建空目录或占位文件。
 - 同步门槛：仅契约、拓扑、行为、派生关系四类变化触发级联同步；错别字、排版、纯追加记录不触发。
 - 产物状态机：absent → proposed → approved → generated → stale → refreshed/superseded；用户拒绝记 deferred + 原因。
 - 初始化与产物增删自动评估 Artifact Plan（Required/Recommended/Deferred + 理由）；治理产物逐件登记 `docs/agent/artifacts.yaml`（十三字段）。
@@ -159,6 +159,7 @@
 | 项目地图 | 跨模块导航需要；仓库规模大；用户要求；旧地图过期 |
 | `scripts/` | 可重复验证需要沉淀为共享 harness |
 | `docs/agent/micro.md`（微账本） | 微任务道首次收尾：道脚本懒创建并按行落账（Record 类，一行一操作；道脚本独占写，agent 不手写，见 §12.5 道脚本承载注记） |
+| `scripts/check-gates.sh`、`scripts/lane-commit.sh`（道脚本） | 用户确认启用分级交付道快道（差异清单确认时）；复制落位与登记见 §12.5 道脚本承载注记 |
 
 #### R-DP-006 默认不创建 `MUST`
 
@@ -552,7 +553,7 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 
 run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`independent_review` 指针回填同 owner。禁止两个 session 同时写 `docs/progress.md`；`docs/requests/` 是 Intake 与 Delivery 的唯一目录交集（Intake 写新 REQ，Delivery 不写）。Intake 与 Delivery 并行规则的队列侧表述见 `docs/requests/README.md`，与本矩阵一致；冲突以更严格者为准。
 
-道脚本承载注记（分级交付道，R-DP-031）：快道收尾强制——白名单核对、验证重跑、提交、记录翻转、账本落行——由零依赖 POSIX sh 道脚本承载：`check-gates.sh`（只读门禁核对：工作区改动 ⊆ 提交合同白名单、按合同重跑验证命令并记录退出码）与 `lane-commit.sh`（读行式合同文件（临时输入，不落仓库）→ 门禁 → 白名单提交 → User Review Checkpoint 追加或微账本落行 → 状态翻转（frontmatter + 正文 Status + 派生载体）→ 记录翻转提交）。脚本权限边界 = 提交合同白名单：脚本不执行白名单外任何写入，门禁不过即停（fail-closed）。派生载体独占写：`docs/progress.md` 状态行与 `docs/issues/README.md` 状态行是道脚本独占写的派生面，agent 不手写；frontmatter 与正文 Status 的双写同步由脚本机制保证。微账本 `docs/agent/micro.md`（Record 类，一行一操作）由道脚本懒创建，agent 不代写。
+道脚本承载注记（分级交付道，R-DP-031）：快道收尾强制——白名单核对、验证重跑、提交、记录翻转、账本落行——由零依赖 POSIX sh 道脚本承载：`check-gates.sh`（只读门禁核对：工作区改动 ⊆ 提交合同白名单、按合同重跑验证命令并记录退出码）与 `lane-commit.sh`（读行式合同文件（临时输入，不落仓库）→ 门禁 → 白名单提交 → User Review Checkpoint 追加或微账本落行 → 状态翻转（frontmatter + 正文 Status + 派生载体）→ 记录翻转提交）。脚本权限边界 = 提交合同白名单：脚本不执行白名单外任何写入，门禁不过即停（fail-closed）。派生载体独占写：`docs/progress.md` 状态行与 `docs/issues/README.md` 状态行是道脚本独占写的派生面，agent 不手写；frontmatter 与正文 Status 的双写同步由脚本机制保证。微账本 `docs/agent/micro.md`（Record 类，一行一操作）由道脚本懒创建，agent 不代写。道脚本安装路径：`scripts/check-gates.sh` 与 `scripts/lane-commit.sh` 由初始化/补缺按 §5.2 触发矩阵行复制落位目标项目 `scripts/`（来源 agent-up 公开包 `scripts/`，逐件登记），脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；快道未启用则不复制，道脚本不可用的停止条件按 R-DP-031 兜底（fail-closed 不变）。
 
 #### R-DP-016 写入所有权 `MUST`
 
