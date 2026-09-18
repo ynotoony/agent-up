@@ -9,7 +9,7 @@ owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commi
 update_policy: 硬边界与"只补缺"语义为定稿基线；语义变化须用户确认并同步 SKILL.md 主流程与模板 manifest
 depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模板见 references/templates/README.md manifest
 ---
-<!-- Input: 旧项目盘点事实与既有规则。 -->
+<!-- Input: 旧项目盘点事实与既有规则；票 38（新票/新 REQ JSON 本体补缺行，存量零改写）。 -->
 <!-- Output: 旧项目治理补缺路径。 -->
 <!-- Pos: 旧项目路径参考手册；说明治理体系如何在不改既有事实的前提下补缺。 -->
 
@@ -44,6 +44,7 @@ depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模
 | `docs/CONTEXT.md` | 只在能从既有文档提炼出真实领域语言时生成；提炼不到就只放骨架 + `【待定】`，不编词汇。 |
 | `docs/README.md` | 按模板生成。 |
 | `docs/issues/index.json` | 状态真相源（票状态机唯一真相源，单文件一条目一行）；已有票的项目建快照登记（缺失才建，格式见公开包 `references/schemas/issue-index.schema.json`）。 |
+| `docs/issues/` 新票 JSON 本体 | 既有项目采用本体系后，新开任务票/REQ 以 JSON 文件承载（task `<NN>-<slug>.json`、request `<REQ-id>.json`，schema 见公开包 `references/schemas/ticket-record.schema.json`；本体无 `status` 字段，票状态真相源＝`docs/issues/index.json`）；存量 Markdown 票与既有 REQ 冻结零改写（frontmatter 为历史形态，票 38 定稿）。 |
 | `docs/changes.jsonl` | 新事实账本（一行一事实，只追加，懒创建）；项目尚有旧 `docs/changes.md` 时冻结旧档并加指针注记，新事实只写 JSONL，不迁移历史。 |
 | 根/目录 `README.md` | 缺失才生成；已存在的只把"直接成员登记"补齐，其余内容原样保留。 |
 | `.gitignore` | 缺失才生成；已存在的只追加明显缺失的条目（依赖、构建产物、`.env`），追加前列出。 |
