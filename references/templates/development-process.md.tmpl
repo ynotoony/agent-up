@@ -299,7 +299,20 @@ Estimated Time:
 Actual Time:
 ```
 
-`Goal` 用可观察结果描述；`Scope` 列允许修改的绝对路径；`Context / Evidence` 列出子代理必须先读的文件使其不依赖聊天上下文；`Output Contract` 规定返回的报告格式，不接受只有"完成"的摘要；`Budget / Checkpoints` 未写明时默认每段上限 80 次工具调用，超预算必须先落盘 Checkpoint 再继续。`Estimated Time`（预计工作时间）：档位制四档 `≤0.5h / 0.5-2h / 半天 / 多天`，Triage/Planning 定级时填写，C0 票豁免（该字段记 `N/A`）；预估不是承诺。`Actual Time`（实际完成时间）：票收口时填写，为去除断线影响的净工作时长（测量与记录口径见"检查点纪律"）；不因记录工时声称任何效率或成本收益（未测量不声明）。
+`Goal` 用可观察结果描述；`Scope` 以树结构展示允许修改的路径：首行为仓库绝对根路径，其下按目录层级以 `├──`/`└──` 缩进列相对路径；目录节点以 `/` 结尾表示整目录授权，文件节点为精确文件授权；不以平铺清单罗列，不省略白名单条目；`Context / Evidence` 列出子代理必须先读的文件使其不依赖聊天上下文；`Output Contract` 规定返回的报告格式，不接受只有"完成"的摘要；`Budget / Checkpoints` 未写明时默认每段上限 80 次工具调用，超预算必须先落盘 Checkpoint 再继续。`Estimated Time`（预计工作时间）：档位制四档 `≤0.5h / 0.5-2h / 半天 / 多天`，Triage/Planning 定级时填写，C0 票豁免（该字段记 `N/A`）；预估不是承诺。`Actual Time`（实际完成时间）：票收口时填写，为去除断线影响的净工作时长（测量与记录口径见"检查点纪律"）；不因记录工时声称任何效率或成本收益（未测量不声明）。
+
+`Scope` 树结构示例（其余字段从略）：
+
+```text
+Scope:
+/abs/path/to/repo/
+├── docs/
+│   ├── development-process.md
+│   └── progress.md
+└── agent-up/scripts/
+    ├── check-gates.sh
+    └── lane-commit.sh
+```
 
 派发前逐项检查字段完整、范围互斥、完成条件可验收；任一缺失不得派发。子代理发现事实冲突或前置未满足时停止并按 Output Contract 返回。
 
