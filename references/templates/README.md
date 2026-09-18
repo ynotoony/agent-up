@@ -40,7 +40,7 @@
 | 名字 | 类别 | Emits 目标路径 | 创建触发条件 | 规则块短码 | 功能 |
 | --- | --- | --- | --- | --- | --- |
 | `README.md` | 目录索引 | 本 README | 目录创建 | 无 | 模板 manifest 与短码登记。 |
-| `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：先读什么、快速规则、工作类型路由与停止条件。 |
+| `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：先读什么、快速规则、工作类型路由、停止条件与三层定位层模型声明。 |
 | `development-process.md.tmpl` | Seed | `docs/development-process.md` | always | `DP` | 生成唯一流程权威：读取阶梯、权威层级、产物生命周期、三阶段协作、分级交付道（三车道）、门禁、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、验证与提交、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）。 |
 | `progress.md.tmpl` | Seed | `docs/progress.md` | always | 无 | 生成进度紧凑索引（每票 ≤5 行，Checkpoint 指针）。 |
 | `changes.md.tmpl` | Seed | `docs/changes.md` | always | 无 | 生成按日期追加的变更审计记录骨架。 |
