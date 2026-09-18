@@ -2,8 +2,9 @@
 # Input: 仓库根目录（默认自本脚本位置向上两级推导，第一参数可指定）、本文件登记表内
 #        的易腐状态句条目，与模式开关（第二参数或 STALE_CLAIMS_MODE 环境变量）。
 # Output: 登记条目逐项核对结果——STALE 行（过期断言，含 路径:行号:内容 定位）、
-#         WARN 行（提醒，含登记日期与【待定】阈值标注）、结尾汇总行；
-#         票收口模式（gate）发现过期断言 exit 1，会话启动模式（session）仅输出警告 exit 0。
+#         WARN 行（提醒，含登记日期与【待定】阈值标注）、NOTE 行（比对机制退化说明，
+#         不计入失败）、结尾汇总行；票收口模式（gate）发现过期断言 exit 1，
+#         会话启动模式（session）仅输出警告 exit 0。
 # Pos: 登记表驱动的易腐断言扫描器（REQ-20260904-010 / 票 19）；POSIX sh、
 #      零外部依赖、全程只读（除打印外无写操作，Git 仅使用只读子命令）。
 
@@ -27,6 +28,7 @@ usage() {
   0  gate 模式下无过期断言（提醒照常输出），或 session 模式。
   1  gate 模式下存在过期断言（STALE 行见输出）。
   2  用法或环境错误（参数过多、模式非法、仓库根不存在等）。
+NOTE 行为比对机制退化说明（生成器不可用时退化为内建最小比对），不计入失败。
 登记表条目、校验方式与提醒阈值口径见同目录 README.md。
 USAGE
 }
@@ -53,56 +55,6 @@ emit_warn() {
 
 # ---- 通用小工具 -----------------------------------------------------------
 
-frontmatter_field() {
-  # $1=文件 $2=字段名；输出 frontmatter 内 "字段: 值" 的值部分（无则空）。
-  _f=$1
-  _key=$2
-  awk -v key="$_key" '
-    NR == 1 && $0 == "---" { fm = 1; next }
-    fm && !closed {
-      if ($0 == "---") { exit }
-      if (index($0, key ":") == 1) {
-        val = substr($0, length(key) + 2)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
-        print val
-        exit
-      }
-    }
-  ' "$_f"
-}
-
-nums_of() {
-  # $1=形如 "16" 或 "16 + 23" 或 "[16-governance-generation-refresh, 23-schema-backfill]"
-  # 或 "18/19/20/21" 的标注文本；输出其中的纯数字序列（单空格分隔、无首尾空白、
-  # 升序去重）。分隔符逐个 tr 归空格（BSD tr 对多字符集合的解析有歧义，不用）；
-  # BRE 的 + 是字面量，"一个及以上"的区间语义在此不可用。
-  printf '%s\n' "$1" | tr '[' ' ' | tr ']' ' ' | tr ',' ' ' | tr '/' ' ' | tr '+' ' ' | tr -s ' \t' '\n' | sed -n 's/^\([0-9][0-9]*\).*/\1/p' | sort -n | uniq | tr '\n' ' ' | sed 's/^ *//;s/ *$//'
-}
-
-lists_equal() {
-  # $1 $2=空格分隔的数字序列；集合相等返回 0，否则 1。
-  # 显式用空格分词：调用点可能处于 IFS=换行 的表行循环内，不得依赖外部 IFS。
-  _a=$1
-  _b=$2
-  _l_oldifs=$IFS
-  IFS=' '
-  _bad=0
-  for _x in $_a; do
-    case " $_b " in
-      *" $_x "*) ;;
-      *) _bad=1 ;;
-    esac
-  done
-  for _x in $_b; do
-    case " $_a " in
-      *" $_x "*) ;;
-      *) _bad=1 ;;
-    esac
-  done
-  IFS=$_l_oldifs
-  return "$_bad"
-}
-
 first_grep_line() {
   # $1=模式(BRE) $2=文件；输出首个命中行的 行号:内容，无命中输出空。
   grep -n "$1" "$2" 2>/dev/null | sed -n '1p'
@@ -111,6 +63,11 @@ first_grep_line() {
 trim_git_url() {
   # 归一化 Git 远端地址：去结尾 .git 与结尾空白。
   printf '%s' "$1" | sed 's/\.git$//;s/[[:space:]]*$//'
+}
+
+prog_dir() {
+  # 输出本脚本所在目录绝对路径（供 S3 定位同目录生成器）。
+  CDPATH= cd "$(dirname "$0")" && pwd
 }
 
 # ---- 参数解析 --------------------------------------------------------------
@@ -146,10 +103,10 @@ case $mode in
     ;;
 esac
 
+script_dir=$(prog_dir)
 if [ $# -ge 1 ]; then
   repo_root=$1
 else
-  script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
   repo_root=$(CDPATH= cd "$script_dir/../.." && pwd)
 fi
 if [ ! -d "$repo_root" ]; then
@@ -162,17 +119,20 @@ fi
 #
 # S1 Git 状态句 | docs/progress.md 的「Git 恢复基线」块
 #    | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、
-#      唯一 remote 与宣称地址一致、本地 main 未被他者远端分支包含、工作区存在未提交
-#      改动）；非 Git 工作区按流程退化语义输出提醒跳过。
+#      唯一 remote 与宣称地址一致、本地 main 未被他者远端分支包含）；非 Git 工作区按
+#      流程退化语义输出提醒跳过。（2026-09-18 票 37 修订：移除"工作区存在未提交改动"
+#      子项核对（原 1e）——该陈述为票 13 时点历史快照，docs/progress.md 现为冻结历史
+#      档案（零写入），清洁工作区属稳态，逐字核对构成恒触发误报（S1-1e 已知缺口，
+#      1080560 补记在案）；基线块原文按"不改历史"保留，不因本修订改写。）
 # S2 发布状态句 | 根 README.md 宣称行 + agent-up/README.md 安装行
 #    | machine：文档宣称的仓库地址与实际远端配置归一化比对；远端可达性/可见性本地
 #      不核验（不出网）→ reminder。
-# S3 frontier 句 | docs/issues/README.md 架构节 + 目录清单表行
-#    | machine：表行（票文件、状态标注、by 链）逐票对照票面状态——状态取 frontmatter
-#      status，无 frontmatter 的存量票退化取正文 `**Status:**` 行；表行宣称完成而票面
-#      非完成 → 过期断言（虚假完成宣称）；票文件缺失或 blocked-by 链不一致 →
-#      过期断言；表行标 blocked 而票面已流转（同步滞后）→ reminder（索引同步由
-#      Triage 批量流转承担，滞后属流程常态）；票面无可机读状态 → reminder。
+# S3 frontier 句 | docs/issues/index.json（票状态真相源）+ docs/progress-current.md（现役状态投影）
+#    | machine：投影 vs 索引比对——优先调用 generate-progress.sh --check（exit 0 一致；
+#      exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；
+#      生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明。
+#      （2026-09-18 票 37 修订：原"docs/issues/README.md 表行逐票对照票面状态"实现退役
+#      ——README 状态列已定位为人工登记投影（票 35 起），与索引冲突时以索引为准。）
 
 progress_rel='docs/progress.md'
 readme_rel='README.md'
@@ -234,11 +194,9 @@ check_s1() {
     emit_warn "$_loc" '本地 main 分支不存在，未推送断言未核验'
   fi
 
-  # 1e 基线块宣称工作区存在未提交改动
-  _dirty=$(git -C "$repo_root" status --porcelain 2>/dev/null || true)
-  if [ -z "$_dirty" ]; then
-    emit_stale "$_loc" '基线块宣称存在未提交工作区改动，当前工作区状态为清洁——基线块须收口更新'
-  fi
+  # 1e（已移除，票 37）：基线块"存在未提交工作区改动"为票 13 时点历史快照，
+  # progress.md 现为冻结历史档案（零写入），清洁工作区属稳态——逐字核对恒触发误报
+  # （S1-1e 已知缺口，1080560 补记在案），不再作为活断言核对。
 }
 
 # ---- S2 发布状态句 ---------------------------------------------------------
@@ -279,78 +237,87 @@ check_s2() {
   emit_warn "$_rloc" "远端仓库可达性与 public 可见性本地不核验（零网络依赖），请按登记周期人工复核宣称：$_claim"
 }
 
-# ---- S3 frontier 句 --------------------------------------------------------
+# ---- S3 frontier 句（投影 vs 索引，票 37 改造） -----------------------------
 
-check_s3() {
-  _if="$repo_root/$issues_readme_rel"
-  if [ ! -f "$_if" ]; then
-    emit_stale "$issues_readme_rel" '登记的权威位置失效：文件不存在'
-    return 0
-  fi
-  _arch=$(first_grep_line '^## 架构' "$_if")
-  if [ -z "$_arch" ]; then
-    emit_stale "$issues_readme_rel" '登记的权威位置失效：找不到架构节，frontier 断言锚点丢失'
-    return 0
-  fi
-
-  _rows=$(grep -E '^\| `[0-9]+-[A-Za-z0-9-]*\.md` \| 任务票' "$_if" 2>/dev/null || true)
-  if [ -z "$_rows" ]; then
-    emit_stale "$issues_readme_rel" '目录清单中未找到任何任务票表行，frontier 断言无核对对象'
-    return 0
-  fi
-
-  OLDIFS=$IFS
-  IFS='
-'
-  for _row in $_rows; do
-    # 逐字段独立提取：状态括注（完成时间等注记）与 by 链均可缺省，缺其一不判失败。
-    _fname=$(printf '%s\n' "$_row" | sed -n 's/^| `\([^`]*\)\.md`.*/\1/p')
-    _tno=$(printf '%s\n' "$_row" | sed -n 's/^| `[^`]*` | 任务票 \([0-9][0-9]*\).*/\1/p')
-    _tstate=$(printf '%s\n' "$_row" | sed -n 's/^| `[^`]*` | 任务票 [0-9][0-9]*；`\([a-z_]*\)`.*/\1/p')
-    _tby=$(printf '%s\n' "$_row" | sed -n 's/.*（by \([^）]*\)）.*/\1/p')
-    [ -n "$_fname" ] && [ -n "$_tno" ] && [ -n "$_tstate" ] || continue
-    _tf="$repo_root/docs/issues/${_fname}.md"
-    _iloc="$issues_readme_rel:$(_row_lineno "$_row")"
-    if [ ! -f "$_tf" ]; then
-      emit_stale "$_iloc" "表行宣称任务票 $_tno 存在，但票文件 docs/issues/${_fname}.md 不存在"
-      continue
-    fi
-    _fm_state=$(frontmatter_field "$_tf" 'status')
-    if [ -z "$_fm_state" ]; then
-      # 无 frontmatter 的存量票（01～04 未回填批次）：退化取票面正文 Status 行。
-      _fm_state=$(sed -n 's/^\*\*Status:\*\* `\([a-z_]*\)`.*/\1/p' "$_tf" | sed -n '1p')
-    fi
-    _fm_by=$(frontmatter_field "$_tf" 'blocked_by')
-    if [ -z "$_fm_state" ]; then
-      emit_warn "$_iloc" "票 $_tno 票面无 frontmatter status 也无正文 Status 行，状态现势性未核验"
-      continue
-    fi
-
-    # 断言级：表行宣称完成而票面并非完成（虚假完成宣称）
-    if [ "$_tstate" = "done" ] && [ "$_fm_state" != "done" ]; then
-      emit_stale "$_iloc" "表行宣称票 $_tno 状态 done，票面状态为 $_fm_state"
-    fi
-
-    if [ "$_tstate" = "blocked" ]; then
-      if [ "$_fm_state" != "blocked" ]; then
-        # 提醒级：表行标 blocked 而票面已流转（Triage 批量同步前的常态滞后）
-        emit_warn "$_iloc" "表行标注 blocked，票 $_tno 票面状态已为 ${_fm_state}（索引同步滞后项，交 Triage 流转时更新）"
-      elif [ -z "$_fm_by" ]; then
-        # 提醒级：票面 blocked 但无机读 by 链，表行链条无法机核
-        emit_warn "$_iloc" "票 $_tno 票面无 blocked_by 标注，表行 by 链（${_tby}）无法机核"
-      elif ! lists_equal "$(nums_of "$_tby")" "$(nums_of "$_fm_by")"; then
-        # 断言级：by 链与票面 blocked_by 不一致
-        emit_stale "$_iloc" "表行宣称 blocked-by 链为 ${_tby}，票 $_tno 票面 blocked_by 为 ${_fm_by}，链不一致"
-      fi
-    fi
-  done
-  IFS=$OLDIFS
+s3_index_rows() {
+  # $1=索引文件；输出每条目一行 "id|status|updated_at"（一条目一行排版，行内提取）。
+  awk '
+    function jval(line, key,    i, rest, j) {
+      i = index(line, "\"" key "\": \"")
+      if (i == 0) return ""
+      rest = substr(line, i + length(key) + 5)
+      j = index(rest, "\"")
+      if (j == 0) return ""
+      return substr(rest, 1, j - 1)
+    }
+    index($0, "\"id\": \"") > 0 {
+      id = jval($0, "id"); st = jval($0, "status"); ua = jval($0, "updated_at")
+      if (id == "" || st == "" || ua == "") { bad = 1; next }
+      print id "|" st "|" ua
+    }
+    END { exit bad ? 1 : 0 }
+  ' "$1"
 }
 
-_row_lineno() {
-  # $1=表行内容；在 issues/README.md 中定位该行行号（固定串整行匹配，取首个命中；
-  # 不做转义与截断——按字节截断可能切碎多字节字符致匹配失效）。
-  grep -Fn -- "$1" "$repo_root/$issues_readme_rel" 2>/dev/null | sed -n 's/^\([0-9][0-9]*\):.*/\1/p' | sed -n '1p'
+s3_projection_rows() {
+  # $1=投影文件；输出状态表每行 "id|status|updated_at"（跳过表头与分隔行）。
+  awk '
+    /^\| / {
+      if ($0 ~ /^\| id \|/ || $0 ~ /^\| --- /) next
+      n = split($0, c, "|")
+      if (n < 5) next
+      gsub(/^ +| +$/, "", c[2]); gsub(/^ +| +$/, "", c[3]); gsub(/^ +| +$/, "", c[5])
+      if (c[2] == "" || c[3] == "" || c[5] == "") { bad = 1; next }
+      print c[2] "|" c[3] "|" c[5]
+    }
+    END { exit bad ? 1 : 0 }
+  ' "$1"
+}
+
+check_s3() {
+  _idx="$repo_root/docs/issues/index.json"
+  _proj="$repo_root/docs/progress-current.md"
+  _gen=''
+  if [ -f "$script_dir/generate-progress.sh" ] && [ -r "$script_dir/generate-progress.sh" ]; then
+    _gen="$script_dir/generate-progress.sh"
+  elif [ -f "$repo_root/scripts/generate-progress.sh" ] && [ -r "$repo_root/scripts/generate-progress.sh" ]; then
+    _gen="$repo_root/scripts/generate-progress.sh"
+  fi
+
+  if [ -n "$_gen" ]; then
+    # 优先路径：调用生成器 --check（生成器独占写口径下的一致性权威判定）。
+    _grc=0
+    sh "$_gen" --check "$repo_root" >/dev/null 2>&1 || _grc=$?
+    case $_grc in
+      0) : ;;
+      1) emit_stale "docs/progress-current.md" '投影与索引不一致或投影缺失（generate-progress --check exit 1）——运行生成器刷新投影（docs/progress-current.md 为 Derived，生成器独占写）' ;;
+      2) emit_stale "docs/issues/index.json" '索引缺失、不可读或条目行不合预期（generate-progress --check exit 2）——真相源排版须修复或登记条目重新核对' ;;
+      *) emit_stale "docs/progress-current.md" "投影一致性核对异常（generate-progress --check exit $_grc）——人工核对生成器输出" ;;
+    esac
+    return 0
+  fi
+
+  # 退化路径：生成器不可用 → 内建最小比对（id/status/updated_at 三元组）并输出说明。
+  printf 'NOTE: docs/issues/index.json — 生成器 generate-progress.sh 不可用（脚本同目录与仓库 scripts/ 均未找到），S3 退化为内建最小比对（id/status/updated_at 三元组；checkpoint_ref 等列不参与）\n'
+  if [ ! -f "$_idx" ]; then
+    emit_stale "docs/issues/index.json" '登记的权威位置失效：索引文件不存在（票状态真相源缺失）'
+    return 0
+  fi
+  if [ ! -f "$_proj" ]; then
+    emit_stale "docs/progress-current.md" '现役状态投影缺失——运行生成器落盘（generate-progress.sh，Derived 生成器独占写）'
+    return 0
+  fi
+  _a=$(s3_index_rows "$_idx") || {
+    emit_stale "docs/issues/index.json" '索引条目行缺必备字段（id/status/updated_at）或不合一条目一行排版——真相源排版须修复或登记条目重新核对'
+    return 0
+  }
+  _b=$(s3_projection_rows "$_proj") || {
+    emit_stale "docs/progress-current.md" '投影状态表行缺字段或不含任何状态表行——投影损坏，运行生成器重建'
+    return 0
+  }
+  if [ "$(printf '%s\n' "$_a" | LC_ALL=C sort)" != "$(printf '%s\n' "$_b" | LC_ALL=C sort)" ]; then
+    emit_stale "docs/progress-current.md" '投影与索引不一致（最小比对 id/status/updated_at 三元组存在差异）——运行生成器刷新投影；与 docs/issues/index.json 冲突时以索引为准'
+  fi
 }
 
 # ---- 执行 ------------------------------------------------------------------

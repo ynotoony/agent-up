@@ -2,12 +2,17 @@
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层）与行式提交合同文件
 #        （lane / ticket / whitelist / message / verify / verdict_quote / verdict_at / flips）。
 # Output: 门禁核对、白名单产品提交、记录写入（user-review 道追加 User Review Checkpoint；
-#         micro 道向 docs/agent/micro.md 懒创建落行）、状态翻转与记录提交的逐步输出，
-#         两段提交 ID、各自文件清单与翻转清单分列回报。
-# Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26）；行为基线 = development-process
-#      模板 §12.5 道脚本承载注记与 agents-commit 模板 R-RC-003（先产品提交后纯记录提交）；
-#      POSIX sh、零外部依赖、fail-closed（门禁不过或合同格式不合预期即停止报告，不写不补）。
-#      脚本权限边界 = 提交合同白名单，不执行白名单外任何写入。
+#         micro 道向 docs/agent/micro.jsonl 懒创建落 JSON 行）、索引单写与状态投影
+#         （flips 索引条目口径：单写 docs/issues/index.json → 机械回写受影响票正文
+#         **Status:** 行 → 调 generate-progress.sh 再生 docs/progress-current.md 投影并
+#         --check 核对）与两段提交的逐步输出，两段提交 ID、各自文件清单与翻转清单分列回报。
+# Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26；票 37 行为基线改造）；行为基线 =
+#      development-process 模板 §12.5 道脚本承载注记（单写索引 → 生成正文 Status 行 →
+#      生成投影，票 34 定稿）与 R-RC-003（先产品提交后纯记录提交）；POSIX sh、零外部依赖、
+#      fail-closed（门禁不过、合同格式不合预期、索引/生成器缺失即停止报告，不写不补；
+#      预检先于产品提交，停止时零提交零写入）。脚本权限边界 = 提交合同白名单，不执行
+#      白名单外任何写入；docs/issues/README.md 与 docs/progress.md 状态行不属本脚本写入面
+#      （README 状态列为人工登记投影，票 35/37 口径）。
 
 # 用法、合同行格式与输出格式见同目录 README.md。
 
@@ -31,11 +36,20 @@ usage() {
                    verify: <验证命令>                 （一行一条，可多行）
                    verdict_quote: <用户裁决原文>      （user-review 必填；micro 不得出现）
                    verdict_at: <裁决时间>             （user-review 必填；micro 不得出现）
-                   flips: <file>:<field>:<value>      （一行一条，可多行）
+                   flips: <file>:<field>:<value>      （行翻转：一行一条，可多行；field
+                                                       不得为 status 或 index）
+                   flips: docs/issues/index.json:index:<id>:<status>:<updated_at>
+                                                     （索引条目翻转：user-review 道专用，
+                                                       至多一条；id 须与 ticket 票文件名去
+                                                       .md 一致；status 为状态机裸值；
+                                                       updated_at 允许冒号，取行尾余段）
                  # 注释（行首 #）与空行忽略；其余行判合同格式错误（exit 1）。
-                 flips 语义: field 为 status 时对目标文件做状态双写（frontmatter status 行与
-                 正文 **Status:** 行，两锚点各须恰命中一行，正文翻转为 **Status:** `<value>`）；
-                 否则为整行替换（锚点为字面子串，须恰命中一行，整行换成 value）。
+                 行翻转语义: 锚点为字面子串，须恰命中一行，整行换成 value。
+                 索引条目翻转语义（单写机制，票 37）: 单写 docs/issues/index.json（"id" 锚点
+                 整行替换，仅改 status/updated_at 两值，其余字段原样保留；依赖一条目一行
+                 排版）→ 机械回写 ticket 票正文 **Status:** 行（投影打印件 `value`）→ 调
+                 generate-progress.sh 再生 docs/progress-current.md 并 --check 核对（生成器
+                 同目录优先、PATH 回退；索引或生成器缺失＝预检停止，fail-closed）。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 门禁不过或合同 fail-closed 条件（停止时未产生任何写入或提交）；
         2 用法或环境错误。
@@ -54,9 +68,11 @@ die2() {
 
 tmp_gate=''
 tmp_flip=''
+tmp_idx=''
 cleanup() {
   if [ -n "${tmp_gate}" ]; then rm -f "${tmp_gate}"; fi
-  if [ -n "${tmp_flip}" ]; then rm -f "${tmp_flip}"; fi
+  if [ -n "${tmp_flip}" ]; then tmp_flip=''; rm -f "${tmp_flip}"; fi
+  if [ -n "${tmp_idx}" ]; then tmp_idx=''; rm -f "${tmp_idx}"; fi
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -101,6 +117,7 @@ verdict_at=''
 whitelist=''
 verifies=''
 flips=''
+n_index_flip=0
 
 while IFS= read -r line || [ -n "${line}" ]; do
   case ${line} in
@@ -160,16 +177,45 @@ while IFS= read -r line || [ -n "${line}" ]; do
           f_file=${val%%:*}
           f_rest=${val#*:}
           case ${f_rest} in
-            *:*) f_field=${f_rest%%:*} ; f_val=${f_rest#*:} ;;
+            *:*) f_field=${f_rest%%:*} ; f_rest2=${f_rest#*:} ;;
             *) die1 "flips 行须为 file:field:value 三段: ${val}" ;;
           esac
           f_file=$(printf '%s' "${f_file}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           f_field=$(printf '%s' "${f_field}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          f_val=$(printf '%s' "${f_val}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           [ -n "${f_file}" ] || die1 "flips 行文件名为空: ${val}"
           [ -n "${f_field}" ] || die1 "flips 行 field 为空: ${val}"
-          [ -n "${f_val}" ] || die1 "flips 行 value 为空: ${val}"
-          flips="${flips}${f_file}${TAB}${f_field}${TAB}${f_val}${NL}"
+          if [ "${f_field}" = 'index' ]; then
+            # 索引条目翻转: <file>:index:<id>:<status>:<updated_at>（updated_at 取行尾余段，允许冒号）
+            f_id=${f_rest2%%:*}
+            f_rest3=${f_rest2#*:}
+            case ${f_rest3} in
+              "${f_rest2}") die1 "索引条目翻转须为 file:index:<id>:<status>:<updated_at> 五段: ${val}" ;;
+            esac
+            case ${f_rest3} in
+              *:*) : ;;
+              *) die1 "索引条目翻转缺 updated_at 段: ${val}" ;;
+            esac
+            f_status=${f_rest3%%:*}
+            f_updated=${f_rest3#*:}
+            case ${f_id} in
+              *"${TAB}"*) die1 "flips 行各段不得含制表符: ${val}" ;;
+            esac
+            [ "${f_file}" = 'docs/issues/index.json' ] || \
+              die1 "索引条目翻转目标须为 docs/issues/index.json: ${f_file}"
+            [ -n "${f_id}" ] || die1 "索引条目翻转 id 为空: ${val}"
+            [ -n "${f_status}" ] || die1 "索引条目翻转 status 为空: ${val}"
+            [ -n "${f_updated}" ] || die1 "索引条目翻转 updated_at 为空: ${val}"
+            flips="${flips}${f_file}${TAB}index${TAB}${f_id}${TAB}${f_status}${TAB}${f_updated}${NL}"
+            n_index_flip=$((n_index_flip + 1))
+          else
+            f_val=${f_rest2}
+            f_val=$(printf '%s' "${f_val}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            [ -n "${f_val}" ] || die1 "flips 行 value 为空: ${val}"
+            case ${f_val} in
+              *"${TAB}"*) die1 "flips 行各段不得含制表符: ${val}" ;;
+            esac
+            flips="${flips}${f_file}${TAB}${f_field}${TAB}${f_val}${NL}"
+          fi
           ;;
         *)
           die1 "无法识别的合同行: ${line}"
@@ -205,12 +251,26 @@ case ${lane} in
     ;;
 esac
 
+if [ "${n_index_flip}" -gt 0 ]; then
+  [ "${lane}" = 'user-review' ] || die1 '索引条目翻转仅限 user-review 道（micro 道免票，无票状态可翻）'
+  [ "${n_index_flip}" -eq 1 ] || die1 '索引条目翻转至多一条（单写口径，票 37）'
+  t_stem=${ticket%.md}
+  t_stem=${t_stem##*/}
+fi
+
 n_flip=0
 record_files=''
 for flip in ${flips}; do
   n_flip=$((n_flip + 1))
   f_file=${flip%%"${TAB}"*}
-  [ -f "${repo_root}/${f_file}" ] || die1 "翻转目标文件不存在: ${f_file}"
+  f_rest=${flip#*"${TAB}"}
+  f_field=${f_rest%%"${TAB}"*}
+  [ -f "${repo_root}/${f_file}" ] || {
+    if [ "${f_field}" = 'index' ]; then
+      die1 "索引文件缺失: ${f_file}（票状态真相源，单写不可执行）——先由对应阶段执行体建立索引（issue-index.schema），或改走非快道收尾"
+    fi
+    die1 "翻转目标文件不存在: ${f_file}"
+  }
   fneedle="${NL}${f_file}${NL}"
   case "${NL}${record_files}" in
     *"${fneedle}"*) : ;;
@@ -218,28 +278,20 @@ for flip in ${flips}; do
   esac
 done
 
-# ---- 翻转锚点预校验（只扫描不写入；任何不合规在写入前停止） ----
+# ---- 翻转锚点与索引/生成器预检（只扫描不写入；任何不合规在写入前停止） ----
 
 flip_run() {
-  # $1=仓库根相对路径 $2=输出目标路径(check 传 /dev/null) $3=模式(status|line)
-  # $4=锚点 $5=替换值；锚点不合规 exit 1
+  # $1=仓库根相对路径 $2=输出目标路径(check 传 /dev/null) $3=模式(body|line)
+  # $4=锚点(line 模式字面子串) $5=替换值；锚点不合规 exit 1
   MODE=$3 ANCHOR=$4 VALUE=$5 awk '
     BEGIN {
       MODE = ENVIRON["MODE"]
       anchor = ENVIRON["ANCHOR"]
       value = ENVIRON["VALUE"]
     }
-    FNR == 1 && $0 == "---" { infm = 1; open_seen = 1; print; next }
-    infm && $0 == "---" { infm = 0; done_fm = 1; print; next }
-    infm && $0 ~ /^status:/ {
-      fm++
-      if (MODE == "status") print "status: " value; else print
-      next
-    }
-    infm { print; next }
-    $0 ~ /^\*\*Status:\*\*/ {
+    MODE == "body" && $0 ~ /^\*\*Status:\*\*/ {
       body++
-      if (MODE == "status") print "**Status:** `" value "`"; else print
+      print "**Status:** `" value "`"
       next
     }
     MODE == "line" && index($0, anchor) > 0 {
@@ -250,11 +302,8 @@ flip_run() {
     { print }
     END {
       rc = 0
-      if (MODE == "status") {
-        if (!open_seen) { printf "lane-commit: FAIL: %s 缺 frontmatter 块\n", FILENAME > "/dev/stderr"; rc = 1 }
-        else if (!done_fm) { printf "lane-commit: FAIL: %s frontmatter 未闭合\n", FILENAME > "/dev/stderr"; rc = 1 }
-        else if (fm != 1) { printf "lane-commit: FAIL: %s frontmatter status 行命中 %d 行（须恰 1 行）\n", FILENAME, fm > "/dev/stderr"; rc = 1 }
-        else if (body != 1) { printf "lane-commit: FAIL: %s 正文 Status 行命中 %d 行（须恰 1 行）\n", FILENAME, body > "/dev/stderr"; rc = 1 }
+      if (MODE == "body") {
+        if (body != 1) { printf "lane-commit: FAIL: %s 正文 Status 行命中 %d 行（须恰 1 行）\n", FILENAME, body > "/dev/stderr"; rc = 1 }
       } else {
         if (hits != 1) { printf "lane-commit: FAIL: %s 翻转锚点命中 %d 行（须恰 1 行）\n", FILENAME, hits > "/dev/stderr"; rc = 1 }
       }
@@ -263,14 +312,125 @@ flip_run() {
   ' "${repo_root}/$1" > "$2"
 }
 
+index_precheck() {
+  # $1=索引条目 id；核对一条目一行排版与 id 锚点唯一命中（只读）
+  _id=$1
+  IDX_ID=${_id} awk '
+    BEGIN {
+      id = ENVIRON["IDX_ID"]
+      anchor = "\"id\": \"" id "\""
+    }
+    index($0, "\"id\": \"") > 0 {
+      n++
+      if ($0 !~ /"status": "/ || $0 !~ /"updated_at": "/) {
+        printf "lane-commit: FAIL: 索引第 %d 行条目行缺同行的 status/updated_at 字段——一条目一行排版被破坏（票 33 终裁 T2）\n", FNR > "/dev/stderr"
+        bad = 1
+      }
+      if (index($0, anchor) > 0) hits++
+    }
+    END {
+      rc = 0
+      if (n == 0) { printf "lane-commit: FAIL: 索引中未找到条目行（\"id\": 锚点零命中）\n" > "/dev/stderr"; rc = 1 }
+      if (hits != 1) { printf "lane-commit: FAIL: 索引条目锚点命中 %d 行（须恰 1 行）: %s\n", hits, id > "/dev/stderr"; rc = 1 }
+      if (bad) rc = 1
+      exit rc
+    }
+  ' "${repo_root}/docs/issues/index.json"
+}
+
+index_write() {
+  # $1=id $2=新 status $3=新 updated_at；单写一行（id 锚点整行替换），写 tmp 由调用方 mv
+  IDX_ID=$1 IDX_STATUS=$2 IDX_UA=$3 awk '
+    BEGIN {
+      id = ENVIRON["IDX_ID"]; nstatus = ENVIRON["IDX_STATUS"]; nua = ENVIRON["IDX_UA"]
+      anchor = "\"id\": \"" id "\""
+    }
+    index($0, "\"id\": \"") > 0 {
+      n++
+      if ($0 !~ /"status": "/ || $0 !~ /"updated_at": "/) {
+        printf "lane-commit: FAIL: 索引第 %d 行条目行缺同行的 status/updated_at 字段——拒绝单写\n", FNR > "/dev/stderr"
+        bad = 1
+        print
+        next
+      }
+      if (index($0, anchor) > 0) {
+        hits++
+        line = $0
+        sub(/"status": "[^"]*"/, "\"status\": \"" nstatus "\"", line)
+        sub(/"updated_at": "[^"]*"/, "\"updated_at\": \"" nua "\"", line)
+        print line
+        next
+      }
+      print
+      next
+    }
+    { print }
+    END {
+      rc = 0
+      if (n == 0) { printf "lane-commit: FAIL: 索引中未找到条目行\n" > "/dev/stderr"; rc = 1 }
+      if (hits != 1) { printf "lane-commit: FAIL: 索引条目锚点命中 %d 行（须恰 1 行）: %s\n", hits, id > "/dev/stderr"; rc = 1 }
+      if (bad) rc = 1
+      exit rc
+    }
+  ' "${repo_root}/docs/issues/index.json"
+}
+
+# 生成器定位（索引翻转时必需；同目录优先，PATH 回退；缺失即预检停止）
+# PATH 回退手动迭代而非 command -v：落位脚本不要求可执行位（恒经 sh 调用），
+# command -v 对不可执行文件不报告。
+gen_cmd=''
+if [ "${n_index_flip}" -gt 0 ]; then
+  if [ -f "${script_dir}/generate-progress.sh" ] && [ -r "${script_dir}/generate-progress.sh" ]; then
+    gen_cmd="${script_dir}/generate-progress.sh"
+    printf 'lane-commit: 生成器定位: 同目录 %s\n' "${gen_cmd}"
+  else
+    _rest=${PATH:-}
+    while [ -n "${_rest}" ]; do
+      _dir=${_rest%%:*}
+      case ${_rest} in
+        *:*) _rest=${_rest#*:} ;;
+        *) _rest='' ;;
+      esac
+      [ -n "${_dir}" ] || continue
+      if [ -f "${_dir}/generate-progress.sh" ] && [ -r "${_dir}/generate-progress.sh" ]; then
+        gen_cmd="${_dir}/generate-progress.sh"
+        break
+      fi
+    done
+    if [ -n "${gen_cmd}" ]; then
+      printf 'lane-commit: 生成器定位: PATH %s\n' "${gen_cmd}"
+    else
+      die1 '投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：按 development-process §12.5 派生载体独占写，索引翻转必须伴随投影再生；将生成器落位到本脚本同目录（scripts/）或 PATH 后重跑'
+    fi
+  fi
+fi
+
 for flip in ${flips}; do
+  f_field=$(printf '%s' "${flip}" | cut -f 2)
   f_file=${flip%%"${TAB}"*}
-  f_rest=${flip#*"${TAB}"}
-  f_field=${f_rest%%"${TAB}"*}
-  f_val=${f_rest#*"${TAB}"}
-  if [ "${f_field}" = 'status' ]; then f_mode=status; else f_mode=line; fi
-  flip_run "${f_file}" /dev/null "${f_mode}" "${f_field}" "${f_val}" || \
-    die1 "翻转锚点预校验未通过: ${f_file}（${f_field}）"
+  if [ "${f_field}" = 'index' ]; then
+    f_id=$(printf '%s' "${flip}" | cut -f 3)
+    f_status=$(printf '%s' "${flip}" | cut -f 4)
+    f_updated=$(printf '%s' "${flip}" | cut -f 5)
+    printf '%s' "${f_id}" | grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
+      die1 "索引条目 id 不合 issue-index schema 口径（^[0-9]{2,}-[a-z0-9-]+$）: ${f_id}"
+    printf '%s' "${f_status}" | grep -Eq '^(ready|in_progress|blocked|review_ready|review_pass|review_fail|done|superseded)$' || \
+      die1 "索引条目 status 不合状态机取值（裸值，不带冒号后缀）: ${f_status}"
+    printf '%s' "${f_updated}" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?$' || \
+      die1 "索引条目 updated_at 不合 ISO 8601 口径（YYYY-MM-DDTHH:MM[:SS]）: ${f_updated}"
+    [ "${f_id}" = "${t_stem}" ] || \
+      die1 "索引条目 id 与 ticket 票文件不符: ${f_id} ≠ ${t_stem}（正文 Status 回写目标由 ticket 行决定）"
+    index_precheck "${f_id}" || die1 "索引预检未通过: docs/issues/index.json（${f_id}）——单写已取消，未产生任何写入或提交"
+    flip_run "${ticket}" /dev/null body '' "${f_status}" || \
+      die1 "正文 Status 回写预检未通过: ${ticket}"
+  elif [ "${f_field}" = 'status' ]; then
+    die1 "flips 行 field=status 已退役：票状态经索引条目翻转承载（flips: docs/issues/index.json:index:<id>:<status>:<updated_at>，票 37）"
+  else
+    f_rest=${flip#*"${TAB}"}
+    f_val=${f_rest#*"${TAB}"}
+    flip_run "${f_file}" /dev/null line "${f_field}" "${f_val}" || \
+      die1 "翻转锚点预校验未通过: ${f_file}（${f_field}）"
+  fi
 done
 
 # ---- 门禁核对（调用同目录 check-gates.sh，只读） ----
@@ -314,25 +474,54 @@ cid1=$(git -C "${repo_root}" rev-parse HEAD)
 subject1=$(git -C "${repo_root}" log -1 --format=%s "${cid1}")
 diffsum1=$(git -C "${repo_root}" diff-tree --root --no-commit-id --name-status -r "${cid1}" | tr '\t' ' ' | paste -sd, -)
 
-# ---- 记录写入（翻转 → Checkpoint / 微账本；写入后统一进记录提交） ----
+# ---- 记录写入（索引单写 → 正文 Status 回写 → 行翻转 → Checkpoint / 微账本 → 投影再生） ----
 
 date_today=$(date +%F)
 
 for flip in ${flips}; do
+  f_field=$(printf '%s' "${flip}" | cut -f 2)
   f_file=${flip%%"${TAB}"*}
-  f_rest=${flip#*"${TAB}"}
-  f_field=${f_rest%%"${TAB}"*}
-  f_val=${f_rest#*"${TAB}"}
-  if [ "${f_field}" = 'status' ]; then f_mode=status; else f_mode=line; fi
-  tmp_flip=$(mktemp "${t_dir%/}/lane-flip.XXXXXX")
-  flip_run "${f_file}" "${tmp_flip}" "${f_mode}" "${f_field}" "${f_val}" || {
-    rm -f "${tmp_flip}"
+  if [ "${f_field}" = 'index' ]; then
+    f_id=$(printf '%s' "${flip}" | cut -f 3)
+    f_status=$(printf '%s' "${flip}" | cut -f 4)
+    f_updated=$(printf '%s' "${flip}" | cut -f 5)
+    tmp_idx=$(mktemp "${t_dir%/}/lane-idx.XXXXXX")
+    index_write "${f_id}" "${f_status}" "${f_updated}" > "${tmp_idx}" || {
+      rm -f "${tmp_idx}"
+      tmp_idx=''
+      die1 "索引单写未通过校验: docs/issues/index.json（${f_id}）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建；核对索引排版后重跑（幂等，已翻条目再跑无副作用）"
+    }
+    mv "${tmp_idx}" "${repo_root}/docs/issues/index.json"
+    tmp_idx=''
+    printf 'lane-commit: 索引单写: docs/issues/index.json（%s → %s，updated_at %s）\n' "${f_id}" "${f_status}" "${f_updated}"
+    tmp_flip=$(mktemp "${t_dir%/}/lane-flip.XXXXXX")
+    flip_run "${ticket}" "${tmp_flip}" body '' "${f_status}" || {
+      rm -f "${tmp_flip}"
+      tmp_flip=''
+      die1 "正文 Status 回写未通过锚点校验: ${ticket}——收尾停止：产品提交 ${cid1} 已创建、索引已单写、记录提交未创建"
+    }
+    mv "${tmp_flip}" "${repo_root}/${ticket}"
     tmp_flip=''
-    die1 "翻转写入未通过锚点校验: ${f_file}（${f_field}）"
-  }
-  mv "${tmp_flip}" "${repo_root}/${f_file}"
-  tmp_flip=''
-  printf 'lane-commit: 翻转: %s:%s:%s\n' "${f_file}" "${f_field}" "${f_val}"
+    printf 'lane-commit: 正文 Status 回写（投影打印件）: %s → **Status:** `%s`\n' "${ticket}" "${f_status}"
+    proj_file='docs/progress-current.md'
+    fneedle="${NL}${proj_file}${NL}"
+    case "${NL}${record_files}" in
+      *"${fneedle}"*) : ;;
+      *) record_files="${record_files}${proj_file}${NL}" ;;
+    esac
+  else
+    f_rest=${flip#*"${TAB}"}
+    f_val=${f_rest#*"${TAB}"}
+    tmp_flip=$(mktemp "${t_dir%/}/lane-flip.XXXXXX")
+    flip_run "${f_file}" "${tmp_flip}" line "${f_field}" "${f_val}" || {
+      rm -f "${tmp_flip}"
+      tmp_flip=''
+      die1 "翻转写入未通过锚点校验: ${f_file}（${f_field}）"
+    }
+    mv "${tmp_flip}" "${repo_root}/${f_file}"
+    tmp_flip=''
+    printf 'lane-commit: 翻转: %s:%s:%s\n' "${f_file}" "${f_field}" "${f_val}"
+  fi
 done
 
 if [ "${lane}" = 'user-review' ]; then
@@ -352,20 +541,25 @@ if [ "${lane}" = 'user-review' ]; then
 fi
 
 if [ "${lane}" = 'micro' ]; then
-  micro_file='docs/agent/micro.md'
+  micro_file='docs/agent/micro.jsonl'
   mkdir -p "${repo_root}/docs/agent"
   if [ ! -f "${repo_root}/${micro_file}" ]; then
-    {
-      printf '%s\n' '<!-- Input: 微任务道收尾的机械事实（日期、白名单文件、门禁结果、提交 ID）；本文件由道脚本独占写。 -->'
-      printf '%s\n' '<!-- Output: 一行一操作的微账本记录行。 -->'
-      printf '%s\n' '<!-- Pos: lane-commit.sh 懒创建与独占写（REQ-20260904-011 / 票 25 development-process 模板 §12.5 承载注记）；agent 不手写。 -->'
-    } > "${repo_root}/${micro_file}" || die1 '微账本懒创建失败'
+    : > "${repo_root}/${micro_file}" || die1 '微账本懒创建失败'
   fi
   [ -w "${repo_root}/${micro_file}" ] || die1 "微账本不可写: ${micro_file}"
   wl_joined=$(printf '%s' "${whitelist}" | paste -sd, -)
-  printf '%s | %s | gates=PASS verify=%d | %s\n' "${date_today}" "${wl_joined}" "$(printf '%s' "${verifies}" | grep -c . || true)" "${cid1}" >> "${repo_root}/${micro_file}" || die1 '微账本落行失败'
+  wl_json=$(printf '%s' "${wl_joined}" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  n_verify=$(printf '%s' "${verifies}" | grep -c . || true)
+  printf '{"date": "%s", "lane": "micro", "whitelist": "%s", "gates": "PASS", "verify": %d, "commit": "%s"}\n' \
+    "${date_today}" "${wl_json}" "${n_verify}" "${cid1}" >> "${repo_root}/${micro_file}" || die1 '微账本落行失败'
   record_files="${record_files}${micro_file}${NL}"
   printf 'lane-commit: 微账本已落行: %s\n' "${micro_file}"
+fi
+
+if [ -n "${gen_cmd}" ]; then
+  sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——收尾停止：产品提交 ${cid1} 已创建、索引与正文 Status 已更新、投影未刷新、记录提交未创建；手动运行生成器（sh ${gen_cmd} ${repo_root}）核对报因，修复后重跑收尾（幂等）"
+  sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——收尾停止：投影与索引不一致或不可读，记录提交未创建；按生成器输出指路修复后重跑收尾（幂等）"
+  printf 'lane-commit: 投影已再生并核对: docs/progress-current.md\n'
 fi
 
 # ---- 记录提交（两段式第二段，R-RC-003） ----
@@ -385,4 +579,4 @@ printf 'lane-commit: 产品提交 %s\n' "${cid1}"
 printf 'lane-commit: 产品文件: %s\n' "${c1_files}"
 printf 'lane-commit: 记录提交 %s\n' "${cid2}"
 printf 'lane-commit: 记录文件: %s\n' "${c2_files}"
-printf 'lane-commit: PASS（两段式完成：门禁 PASS、翻转 %d 项、记录已落盘）\n' "${n_flip}"
+printf 'lane-commit: PASS（两段式完成：门禁 PASS、索引单写 %d 处、翻转 %d 项、投影已核对、记录已落盘）\n' "${n_index_flip}" "${n_flip}"
