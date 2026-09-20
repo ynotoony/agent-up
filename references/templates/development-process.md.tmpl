@@ -415,7 +415,13 @@ Scope:
 
 ## 9. Git 提交
 
-- 根目录只有一个 Git 仓库，默认分支 `main`；功能用 `ticket/<NN>-<slug>` 分支，小型单人工作经用户同意可直接在 `main`。
+- 根目录只有一个 Git 仓库，默认分支 `main`；生产性工作按票采用**一票一 worktree 工作流**（用户裁决 2026-09-18，先例票 29～51）：
+  1. 票务与记录面（开票、领取、收口翻转、账本与投影维护）直接落 `main`；
+  2. 实施在独立 worktree 进行：`git worktree add ../wt<N> -b ticket/<NN>-<slug>`；实施执行体零 Git 写操作，交付以工作区改动呈现；
+  3. 独立 Review 通过后，协调层在分支提交，rebase `main`（在 worktree 内执行，防分支占用误切——票 41 教训）后 fast-forward 合并回 `main`，随即删除 worktree 与分支；
+  4. 多会话并行：派发前核对 `git worktree list` 与领取标记，撞号让号；
+  5. 全程零 push（对齐本节末条）。
+  小型单人工作经用户同意可直接在 `main`。
 - 提交格式 `<type>(<scope>): <结果>`，type 允许 `feat` `fix` `docs` `test` `refactor` `build` `chore`。
 - 一个提交是一个可解释的恢复点；不把多个任务塞进一个提交，不为"干净历史"重写或丢弃未确认归属的改动。
 - 未经用户明确要求不 push、不部署、不发布。
