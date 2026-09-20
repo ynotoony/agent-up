@@ -1,6 +1,6 @@
 #!/bin/sh
 # Input: 待检包根目录（默认为本脚本所在目录的父目录）与包内全部文本文件。
-# Output: 七项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1）。
+# Output: 八项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
 # 用法与检查项实现细节（含各例外登记）见同目录 README.md。
@@ -44,10 +44,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  七项检查全部通过
+  0  八项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在等）
-七项检查说明、例外登记与输出格式见同目录 README.md。
+八项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -292,8 +292,34 @@ else
   pass 7 '根治理文件不在包内'
 fi
 
+# 检查 8：脚本必需件存在（8 个文件；六脚本＋语言规则表＋目录 README，票 48 fail-closed 守卫：
+# 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽）。
+missing_scripts=''
+sep=''
+for rel in \
+  scripts/check-gates.sh \
+  scripts/lane-commit.sh \
+  scripts/check-stale-claims.sh \
+  scripts/generate-progress.sh \
+  scripts/generate-module-map.sh \
+  scripts/ticket-ops.sh \
+  scripts/module-map.rules \
+  scripts/README.md
+do
+  if [ ! -f "$pkg_root/$rel" ]; then
+    missing_scripts="$missing_scripts$sep  - $rel"
+    sep='
+'
+  fi
+done
+if [ -n "$missing_scripts" ]; then
+  fail 8 '脚本必需件存在（8 个文件）' "$missing_scripts"
+else
+  pass 8 '脚本必需件存在（8 个文件）'
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 7 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 8 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

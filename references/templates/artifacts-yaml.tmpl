@@ -130,6 +130,20 @@ artifacts:
   #   platform: neutral
   #   update_policy: 状态机更新；一条目一行整行替换
   #
+  # - id: request-index
+  #   path: docs/requests/index.json
+  #   kind: index
+  #   authority: 权威层级第 2 级（事实记录：REQ 状态登记；Request 状态机取值权威＝docs/requests/README.md R-RQ-002 与 development-process §12.1）
+  #   owner: Triage 执行体（状态流转单写）；协调记录 owner（快照建立）
+  #   lifecycle: Conditional
+  #   trigger: docs/requests/ 目录创建且首个 REQ 落盘（REQ 状态分账；存量 REQ 由此只读提取建立快照）
+  #   read_when: 处理 REQ 队列、推进请求状态或核对 REQ 状态漂移时
+  #   sync_on: 无（状态机更新，条目级更新不触发级联）
+  #   depends_on: [requests-readme]
+  #   generated_from: 存量 REQ frontmatter 只读提取快照（非 Derived）
+  #   platform: neutral
+  #   update_policy: 状态机更新；单写一条目一行；REQ 状态冲突以本索引为准
+  #
   # - id: changes-jsonl
   #   path: docs/changes.jsonl
   #   kind: record
