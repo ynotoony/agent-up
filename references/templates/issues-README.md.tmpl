@@ -7,9 +7,10 @@
 
 ## 架构
 
-- 一张票一个文件：`<NN>-<slug>.md`，按依赖顺序编号（blocker 在前）。
+- 一张票一个文件：新开任务票为 `<NN>-<slug>.json`（request 为 `<REQ-id>.json`，同目录承载），按依赖顺序编号（blocker 在前），过 `references/schemas/ticket-record.schema.json` 结构化校验（required＝`id`/`kind`/`title`/`created_at`，task 另必备 `complexity`/`profile`/`blocked_by`），本体无 `status` 字段——票状态真相源＝本目录 `index.json`。
 - 票是 **agent 的任务**，只活在文件里；GitHub Issues 等人向追踪器若启用，只承接人向工作项（bug 报告、外部请求、协作讨论），两边不互为副本、不双写状态。
-- 领取规则：**blocker 全部 `done` 的票才可领取**（frontier）；状态流转 `ready / in_progress / blocked / done` 记录在票内与 `../index.json`（票状态真相源；票内状态行与清单状态列为投影）。
+- 票由 Triage 从已确认需求拆出：Intake 只能在 `../requests/` 新建 `REQ` 文件，不改其他任何治理文件；Triage 负责推进请求状态并产出规格与本目录任务票。
+- 领取规则：**blocker 全部 `done` 的票才可领取**（frontier）；状态流转 `ready / in_progress / blocked / review_ready / review_pass / review_fail / done` 记录在票内与 `../index.json`（票内状态行与清单状态列为人工登记投影），阻塞带原因（如 `blocked: scope-change`）；`superseded` 标签仅用于状态索引登记历史票据（保留原文用于历史追溯、不再领取），不属于状态机流转取值。
 
 ## 切片与依赖规则
 
@@ -27,7 +28,7 @@
 
 **Blocked by:** 依赖票的编号/标题，或"无——可立即开始"。
 
-**Status:** ready-for-agent
+**Status:** ready
 
 - [ ] 验收条件 1
 - [ ] 验收条件 2
