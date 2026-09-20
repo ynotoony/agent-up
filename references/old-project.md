@@ -9,7 +9,7 @@ owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commi
 update_policy: 硬边界与"只补缺"语义为定稿基线；语义变化须用户确认并同步 SKILL.md 主流程与模板 manifest
 depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模板见 references/templates/README.md manifest
 ---
-<!-- Input: 旧项目盘点事实与既有规则；票 38（新票/新 REQ JSON 本体补缺行，存量零改写）。 -->
+<!-- Input: 旧项目盘点事实与既有规则；票 38（新票/新 REQ JSON 本体补缺行，存量零改写）；票 42（模块地图生成器补缺行，项目地图触发行懒创建）。 -->
 <!-- Output: 旧项目治理补缺路径。 -->
 <!-- Pos: 旧项目路径参考手册；说明治理体系如何在不改既有事实的前提下补缺。 -->
 
@@ -53,6 +53,7 @@ depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模
 | `scripts/` 共享 harness | 已有脚本目录登记为共享验证权威并补 README 约定；已有一次性验证脚本列"待沉淀"清单交用户决定是否迁移；缺失则懒创建。 |
 | 道脚本（`scripts/check-gates.sh`、`scripts/lane-commit.sh`） | 用户确认启用分级交付道快道时才补缺：从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；未启用不补，道脚本不可用停止条件按 development-process R-DP-031 兜底。 |
 | `scripts/generate-progress.sh` | 复制落位（道脚本行同款口径）：从 agent-up 公开包 `scripts/` 复制到目标项目 `scripts/` 并逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；现役状态投影 `docs/progress-current.md` 由其从 `docs/issues/index.json` 生成，生成器独占写。 |
+| `scripts/generate-module-map.sh` | 模块地图生成（项目地图触发行命中时才补缺；地图实例不预建，由生成器运行时懒创建——R-DP-006）：从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记（`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；运行生成 `docs/architecture/module-map.json`（Derived 检索索引，不当 Scope 权威），并按 development-process §5.3 登记 `docs/agent/artifacts.yaml`（lifecycle: Derived，generated_from 必填，`sync_on` 对齐拓扑变化行）。 |
 
 ## 4. 差异清单先行
 
