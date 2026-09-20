@@ -47,7 +47,7 @@
 | `issues-README.md.tmpl` | Conditional | `docs/issues/README.md` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 | 无 | 生成任务票目录规则与票模板。 |
 | `specs-README.md.tmpl` | Conditional | `docs/specs/README.md` | 修改公共行为或接口；多条验收路径；跨会话交付；C2/C3 任务合同不足；用户要求 | 无 | 生成规格目录规则与规格模板。 |
 | `research-README.md.tmpl` | Conditional | `docs/research/README.md` | 需要外部调研、方案对比或 spike | 无 | 生成调研目录归档规则与报告模板。 |
-| `scripts-README.md.tmpl` | Conditional | `scripts/README.md` | 可重复验证需要沉淀为共享 harness | 无 | 生成共享验证 harness 目录索引与登记约定。 |
+| `scripts-README.md.tmpl` | Conditional | `scripts/README.md` | 可重复验证需要沉淀为共享 harness；采用任务票体系（随 ticket-ops/generate-progress 落位，票 47/48） | 无 | 生成共享验证 harness 目录索引与登记约定（含落位工具逐件登记：道脚本、ticket-ops、generate-progress、module-map——票 48 逐件登记口径）。 |
 | `agents-implementation.md.tmpl` | Roles | `docs/agent/roles/implementation.md` | 所有项目初始化生成三阶段角色合同 | `RI` | 生成 Implementation 阶段平台无关角色合同（七节 + required_capabilities 能力基元声明 + 规则块 R-RI-001～003）。 |
 | `agents-review.md.tmpl` | Roles | `docs/agent/roles/review.md` | 所有项目初始化生成三阶段角色合同 | `RR` | 生成 Review 阶段平台无关角色合同（七节 + 只读能力声明 + 降级记录规则块 R-RR-001～003）。 |
 | `agents-commit.md.tmpl` | Roles | `docs/agent/roles/commit.md` | 所有项目初始化生成三阶段角色合同 | `RC` | 生成 Commit 阶段平台无关角色合同（七节 + 版本库能力声明 + 规则块 R-RC-001～003；Review pass 证据含车道两类形态：Independent Review Checkpoint / User Review Checkpoint 或机械门禁输出）。 |
