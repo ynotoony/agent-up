@@ -1,0 +1,49 @@
+# Input: 四语言（Python、JS/TS、C/C++、Rust）的静态导入提取知识（票 42/43 落地的 per-language
+#        case 块为迁移源，票 44 表驱动化外置；语言知识唯一承载点）。
+# Output: generate-module-map.sh 引擎启动时 source 本表——每语言一行 mm_rule 调用，六参：
+#         mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>。
+# Pos: 票 44 定稿的语言规则表：引擎为通用管线、零语言专名（AC 硬门禁）；加语言＝加一行＋
+#      fixture、零引擎改动（AC3 哑语言通用性实证口径）。strategy 枚举四类：
+#      extension-map（<exts> 字段承载的语言绑定：文件按扩展名 glob 归入语言）、
+#      unresolved-node（未解析节点引用原串直出产边）、module-path（模块路径文本直出产边）、
+#      direct-file（声明名展开文件候选边并经存在性过滤）。本表、引擎解析器与同目录
+#      README.md 专节三处登记须同步（规则表编码变化时）。
+
+# 字段编码（@ ~ && = 及行内制表符为保留分隔字面量，各字段值不得包含）：
+#   <exts>    空格分隔的文件名 glob（如 *.py），形态＝单个前导 * 加字面后缀；顺序即文件→
+#             语言匹配优先序，跨行重复即 fail-closed（引擎加载时校验）。
+#   <pre_ops> 行级预处理 op 列表，&& 连接；op 形态：s=<ERE>（sub 删除首个匹配）、
+#             g=<ERE>=<替换>（gsub 全量替换，替换串不得含 & 与反斜杠）、Q（单引号归一为
+#             双引号）；空串＝无预处理。
+#   <rules>   提取规则列表，@ 连接，按序执行；单条规则字段以 ~ 连接，两类：
+#     capture~group~gate~match~stage2~prefix~suffix~validate~label~strategy
+#       段捕获：group 同组规则先命中者独占本行后续同组规则（可空）；gate 对整行预检
+#       （可空）；match 对整行取段；stage2 对段内二次取段（可空）；prefix/suffix 对最终
+#       段剥首/尾（可空）；validate 收尾校验（可空）；label=边类别。
+#     scan~gate~ops~selector~paramA~paramB~label~strategy
+#       行变换：gate 对整行预检；ops 依次作用于整行（编码同 <pre_ops>）；selector 取：
+#       emit＝余串整体过 paramA 校验后产边；pair＝空白分词，第 2 词须全等 paramA、第 1 词
+#       过 paramB 校验；list＝按 paramA 分隔逐项取首个非空白词过 paramB 校验、逐项产边；
+#       declfile＝余串过 paramB 校验为声明名，按声明文件位置与 paramA 保留名表展开双候选
+#       文件边（候选一＝<候选目录>/<名><语言扩展名>，候选二＝<候选目录>/<名>/<首个保留名>；
+#       候选目录＝声明文件名属保留名文件（如 mod.rs/main.rs/lib.rs）时取声明文件同目录，
+#       否则取同名子目录）；strategy=direct-file 时候选边均经文件存在性核验后才产边
+#       （无候选零边，fail-closed）。
+#   <coverage> 语言覆盖描述（进 JSON coverage.languages，格式 "<lang>: <coverage>"）。
+#   <limits>   语言级未覆盖声明（并入 JSON coverage.limits 汇总；空串＝无语言级补充，跳过）。
+
+mm_rule 'python' '*.py' 's=#.*' \
+'scan~^[[:space:]]*from[[:space:]]~s=^[[:space:]]*from[[:space:]]+~pair~import~^[A-Za-z_.][A-Za-z0-9_.]*$~python-from~unresolved-node@scan~^[[:space:]]*import[[:space:]]~s=^[[:space:]]*import[[:space:]]+&&g=;= ~list~,~^[A-Za-z_.][A-Za-z0-9_.]*$~python-import~unresolved-node' \
+'import / from-import（.py）' ''
+
+mm_rule 'js-ts' '*.js *.mjs *.cjs *.jsx *.ts *.tsx' 'Q' \
+'capture~~^[[:space:]]*import[[:space:]({*]|^[[:space:]]*import[[:space:]]*"~from[[:space:]]*"[^"]*"~~^from[[:space:]]*"~"$~~js-import~unresolved-node@capture~~^[[:space:]]*import[[:space:]({*]|^[[:space:]]*import[[:space:]]*"~^[[:space:]]*import[[:space:]]*"[^"]+"~~^[[:space:]]*import[[:space:]]*"~"$~~js-import~unresolved-node@capture~req~~(^|[^A-Za-z0-9_$.])require[[:space:]]*\([[:space:]]*"[^"]+"[[:space:]]*\)~"[^"]+"~^"~"$~~js-require~unresolved-node@capture~req~~(^|[^A-Za-z0-9_$.])require[[:space:]]*"[^"]+"~"[^"]+"~^"~"$~~js-require~unresolved-node' \
+'import / require（.js .mjs .cjs .jsx .ts .tsx）' '未覆盖动态 import()、re-export'
+
+mm_rule 'c-cpp' '*.c *.h *.cc *.cpp *.cxx *.hpp *.hh' '' \
+'capture~~~^[[:space:]]*#[[:space:]]*include[[:space:]]*"[^"]+"~~^[[:space:]]*#[[:space:]]*include[[:space:]]*"~"$~~c-include~module-path' \
+'引号 include（.c .h .cc .cpp .cxx .hpp .hh）' '未覆盖尖括号系统头'
+
+mm_rule 'rust' '*.rs' 's=//.*&&s=^[[:space:]]*pub([[:space:]]*\([^)]*\))?[[:space:]]+' \
+'scan~^[[:space:]]*mod[[:space:]]+(r#)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*;~s=^[[:space:]]*mod[[:space:]]+&&s=[[:space:]]*;.*&&s=^r#~declfile~mod.rs,main.rs,lib.rs~^[A-Za-z_][A-Za-z0-9_]*$~rust-mod~direct-file@scan~^[[:space:]]*use[[:space:]]~s=^[[:space:]]*use[[:space:]]+&&s=[[:space:]]*;.*&&s=[[:space:]]*\{.*&&s=[[:space:]]+as[[:space:]].*&&s=::\*[[:space:]]*$&&s=:+$&&s=[[:space:]]+$~emit~^((r#)?[A-Za-z_][A-Za-z0-9_]*(::(r#)?[A-Za-z_][A-Za-z0-9_]*)*|::(r#)?[A-Za-z_][A-Za-z0-9_]*(::(r#)?[A-Za-z_][A-Za-z0-9_]*)*)$~~rust-use~module-path' \
+'mod 文件边 / use 模块路径边（.rs）' '未覆盖宏生成声明、pub use 转发语义、extern crate、#[path] 属性重定位、块注释内文本；mod 候选文件均不存在时零边（存在性核验 fail-closed）；use 路径末段可能为类型/函数项（文本层不区分模块与项）'
