@@ -10,9 +10,14 @@
 #      检索索引不当 Scope 权威，不作为白名单或 watch 依据；Derived 自动生成，agent 不
 #      手写。POSIX sh、无 jq/python；两项平台标配补充：stat（BSD/GNU 双方言自动探测）
 #      与系统 SHA-256 工具（sha256sum/shasum/cksum/openssl 按序探测），缺失即 fail-closed。
-#      语言覆盖如实声明（R-CC-004）：首发三语言（Python import/from、JS/TS import/
-#      require、C/C++ 引号 include）提取规则经 fixture 最小验证；动态 import()、别名与
-#      路径映射解析、re-export、尖括号系统头不在覆盖内。
+#      语言覆盖如实声明（R-CC-004）：四语言（Python import/from、JS/TS import/require、
+#      C/C++ 引号 include、Rust mod/use，票 43 扩展）提取规则经 fixture 最小验证；动态
+#      import()、别名与路径映射解析、re-export、尖括号系统头不在覆盖内。Rust 口径：
+#      mod 声明（分号收尾，排除内联块）按主流惯例映射文件边——子模块目录取声明文件同
+#      目录（mod.rs/main.rs/lib.rs）或同名子目录（其余），候选 x.rs 与 x/mod.rs 经文件
+#      存在性核验后产边（无候选零边，fail-closed）；use 取路径表达式原串（brace 组取
+#      { 前缀、as 别名取前缀、glob 剥 ::*、r# 原始标识符段按原串保留）；宏生成声明、
+#      pub use 转发语义、extern crate、#[path] 属性重定位、块注释内文本不在覆盖内。
 
 # 用法、语言登记表与退出码见同目录 README.md 专节。
 
@@ -72,9 +77,10 @@ tmp_out=''
 tmp_edges=''
 tmp_nodes=''
 tmp_fp=''
+tmp_modf=''
 probe_file=''
 cleanup() {
-  rm -f "$tmp_out" "$tmp_edges" "$tmp_nodes" "$tmp_fp" "$probe_file"
+  rm -f "$tmp_out" "$tmp_edges" "$tmp_nodes" "$tmp_fp" "$tmp_modf" "$probe_file"
 }
 trap cleanup EXIT HUP INT TERM
 tmp_out=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
@@ -112,7 +118,7 @@ else
   die2 'stat 工具不可用或输出不合预期（BSD/GNU 双方言探测均失败）——无法取文件字节与 mtime'
 fi
 
-# ---- 源码文件发现（三语言扩展名；prune 排除 .git、依赖与构建产物目录、docs/agent/runs）----
+# ---- 源码文件发现（四语言扩展名；prune 排除 .git、依赖与构建产物目录、docs/agent/runs）----
 
 src_list=$(cd "$repo_root" && LC_ALL=C find . \
   \( -name .git -o -name node_modules -o -name dist -o -name build -o -name coverage \
@@ -120,10 +126,10 @@ src_list=$(cd "$repo_root" && LC_ALL=C find . \
   -type f \( -name '*.py' -o -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \
      -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \
      -o -name '*.c' -o -name '*.h' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' \
-     -o -name '*.hpp' -o -name '*.hh' \) -print \
+     -o -name '*.hpp' -o -name '*.hh' -o -name '*.rs' \) -print \
   | sed 's|^\./||' | LC_ALL=C sort)
 
-[ -n "$src_list" ] || die1 '未发现受支持语言的源码文件（Python/JS/TS/C/C++）——无可生成的模块地图（fail-closed，不写输出）'
+[ -n "$src_list" ] || die1 '未发现受支持语言的源码文件（Python/JS/TS/C/C++/Rust）——无可生成的模块地图（fail-closed，不写输出）'
 
 if printf '%s\n' "$src_list" | grep -Eq '[[:cntrl:]]'; then
   die1 '源码文件清单含制表符或其他控制字符（无法安全承载于提取层）——fail-closed'
@@ -140,6 +146,7 @@ for rel in ${src_list}; do
     *.py) lang='python' ;;
     *.js|*.mjs|*.cjs|*.jsx|*.ts|*.tsx) lang='js' ;;
     *.c|*.h|*.cc|*.cpp|*.cxx|*.hpp|*.hh) lang='c' ;;
+    *.rs) lang='rust' ;;
     *) continue ;;
   esac
   [ -f "$repo_root/$rel" ] || die1 "源码文件不可读（疑似路径含换行被拆分）: ${rel}"
@@ -214,9 +221,78 @@ for rel in ${src_list}; do
         emit(seg, "c-include")
       }
     }
+    lang == "rust" {
+      line = $0
+      sub(/\/\/.*/, "", line)
+      if (line ~ /^[[:space:]]*pub([[:space:]]*\([^)]*\))?[[:space:]]+/) {
+        sub(/^[[:space:]]*pub([[:space:]]*\([^)]*\))?[[:space:]]+/, "", line)
+      }
+      if (line ~ /^[[:space:]]*mod[[:space:]]+(r#)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*;/) {
+        rest = line
+        sub(/^[[:space:]]*mod[[:space:]]+/, "", rest)
+        sub(/[[:space:]]*;.*/, "", rest)
+        sub(/^r#/, "", rest)
+        if (rest ~ /^[A-Za-z_][A-Za-z0-9_]*$/) {
+          dir = src
+          if (dir ~ /\//) {
+            sub(/\/[^\/]*$/, "", dir)
+          } else {
+            dir = ""
+          }
+          file = src
+          sub(/^.*\//, "", file)
+          sub(/\.rs$/, "", file)
+          if (file == "mod" || file == "main" || file == "lib") cdir = dir
+          else if (dir == "") cdir = file
+          else cdir = dir "/" file
+          if (cdir == "") {
+            emit(rest ".rs", "rust-mod")
+            emit(rest "/mod.rs", "rust-mod")
+          } else {
+            emit(cdir "/" rest ".rs", "rust-mod")
+            emit(cdir "/" rest "/mod.rs", "rust-mod")
+          }
+        }
+      }
+      if (line ~ /^[[:space:]]*use[[:space:]]/) {
+        rest = line
+        sub(/^[[:space:]]*use[[:space:]]+/, "", rest)
+        sub(/[[:space:]]*;.*/, "", rest)
+        sub(/[[:space:]]*\{.*/, "", rest)
+        sub(/[[:space:]]+as[[:space:]].*/, "", rest)
+        sub(/::\*[[:space:]]*$/, "", rest)
+        sub(/:+$/, "", rest)
+        sub(/[[:space:]]+$/, "", rest)
+        if (rest ~ /^(r#)?[A-Za-z_][A-Za-z0-9_]*(::(r#)?[A-Za-z_][A-Za-z0-9_]*)*$/ \
+            || rest ~ /^::(r#)?[A-Za-z_][A-Za-z0-9_]*(::(r#)?[A-Za-z_][A-Za-z0-9_]*)*$/) {
+          emit(rest, "rust-use")
+        }
+      }
+    }
   ' "$repo_root/$rel" >> "$tmp_edges"
 done
 IFS=$OLDIFS
+
+# ---- Rust mod 声明候选边过滤：仅保留真实存在的模块文件边（无候选即零边，fail-closed）----
+
+tab=$(printf '\t')
+if [ -s "$tmp_edges" ]; then
+  tmp_modf=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
+  while IFS= read -r e_line; do
+    e_label=${e_line##*"$tab"}
+    if [ "$e_label" = rust-mod ]; then
+      e_from=${e_line%%"$tab"*}
+      e_to=${e_line#*"$tab"}
+      e_to=${e_to%"$tab"rust-mod}
+      if [ -f "$repo_root/$e_to" ]; then
+        printf '%s\t%s\trust-mod\n' "$e_from" "$e_to" >> "$tmp_modf"
+      fi
+    else
+      printf '%s\n' "$e_line" >> "$tmp_modf"
+    fi
+  done < "$tmp_edges"
+  mv -f "$tmp_modf" "$tmp_edges"
+fi
 
 # ---- fp-v1 工作区指纹（R-DP-015 算法；输入排除本图自身，避免自引用漂移）----
 
@@ -228,7 +304,6 @@ fp_list=$(cd "$repo_root" && LC_ALL=C find . \
 
 [ -n "$fp_list" ] || die1 '工作区文件清单为空——无法计算 fp-v1 指纹'
 
-tab=$(printf '\t')
 IFS=$NL
 for rel in ${fp_list}; do
   case ${rel} in
@@ -286,15 +361,16 @@ generated_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 {
   printf '{\n'
-  printf '  "generated_from": "事实源=仓库源码文件的静态导入行；工具=scripts/generate-module-map.sh（票 30 拍板方案 A 首版，票 42 落位）",\n'
+  printf '  "generated_from": "事实源=仓库源码文件的静态导入行；工具=scripts/generate-module-map.sh（票 30 拍板方案 A 首版，票 42 落位，票 43 Rust 扩展）",\n'
   printf '  "generated_at": "%s",\n' "$generated_at"
   printf '  "coverage": {\n'
   printf '    "languages": [\n'
   printf '      "python: import / from-import（.py）",\n'
   printf '      "js-ts: import / require（.js .mjs .cjs .jsx .ts .tsx）",\n'
-  printf '      "c-cpp: 引号 include（.c .h .cc .cpp .cxx .hpp .hh）"\n'
+  printf '      "c-cpp: 引号 include（.c .h .cc .cpp .cxx .hpp .hh）",\n'
+  printf '      "rust: mod 文件边 / use 模块路径边（.rs）"\n'
   printf '    ],\n'
-  printf '    "limits": "语句文本层提取：不做别名/路径映射解析；未覆盖动态 import()、re-export、尖括号系统头；注释内的导入文本构成已知误报源（规则经 fixture 最小验证，未实测项按一般工程知识保守声明）"\n'
+  printf '    "limits": "语句文本层提取：不做别名/路径映射解析；未覆盖动态 import()、re-export、尖括号系统头；Rust 未覆盖宏生成声明、pub use 转发语义、extern crate、#[path] 属性重定位、块注释内文本，mod 候选文件均不存在时零边（存在性核验 fail-closed），use 路径末段可能为类型/函数项（文本层不区分模块与项）；注释内的导入文本构成已知误报源（规则经 fixture 最小验证，未实测项按一般工程知识保守声明）"\n'
   printf '  },\n'
   printf '  "invalidation": "重算 fp-v1 工作区指纹（R-DP-015 算法）与 workspace_fingerprint 不一致，或文件新增/删除/移动/重命名（拓扑变化）未重新生成本图，即按 development-process R-DP-009 判 stale，不得当可信导航；指纹输入排除本图自身（避免自引用漂移）",\n'
   printf '  "workspace_fingerprint": "%s",\n' "$fingerprint"
