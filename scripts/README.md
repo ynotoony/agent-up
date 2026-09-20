@@ -1,4 +1,4 @@
-<!-- Input: `check-package.sh` 的八项检查实现与 SPEC-06 §5、票 09/11 的例外登记事实（schemas/README.md 的 JSON 契约头例外、templates/README.md 的 artifacts-yaml YAML 契约头例外）；票 12（SPEC-06 §7）11 条场景验收执行记录与沉淀决定（`scenario-checklist.md`）；票 19（REQ-20260904-010）`check-stale-claims.sh` 的两模式、登记表条目与退出码实况；票 37（拆票计划 C 组②）道脚本改造事实——flips 索引条目口径（单写 docs/issues/index.json → 票正文 Status 投影打印件 → 生成器投影再生）、微账本 `docs/agent/micro.jsonl` JSON 行、S3 投影 vs 索引比对与 S1-1e 缺口消除、`generate-progress.sh` 入包（与本仓根 `scripts/` 基线 cmp 一致）；票 43 语言登记表 Rust 扩展事实（mod 文件边存在性核验＋use 路径表达式原串，四语言）；票 44 引擎表驱动化事实（语言知识外置 `module-map.rules`，引擎通用管线零语言专名，四语言边集逐边回归＋哑语言规则行产边实证）；票 45 七语言批量扩展事实（Go/Java/C#/Ruby/PHP/Swift/Kotlin 规则行＋fixture 回归，覆盖语言十一种，零引擎改动）；票 47（ticket-ops.sh 入包采纳：与本仓根 `scripts/` 基线 cmp 零差异复制、专节与落位口径——记录层标配不门控快道，包内不运行声明）；票 48（检查项 8 脚本必需件存在性守卫：六 `.sh`＋`module-map.rules`＋`scripts/README.md` 逐一存在性核对，fail-closed 指名缺失件，计数联动七项→八项）。 -->
+<!-- Input: `check-package.sh` 的八项检查实现与 SPEC-06 §5、票 09/11 的例外登记事实（schemas/README.md 的 JSON 契约头例外、templates/README.md 的 artifacts-yaml YAML 契约头例外）；票 12（SPEC-06 §7）11 条场景验收执行记录与沉淀决定（`scenario-checklist.md`）；票 19（REQ-20260904-010）`check-stale-claims.sh` 的两模式、登记表条目与退出码实况；票 37（拆票计划 C 组②）道脚本改造事实——flips 索引条目口径（单写 docs/issues/index.json → 票正文 Status 投影打印件 → 生成器投影再生）、微账本 `docs/agent/micro.jsonl` JSON 行、S3 投影 vs 索引比对与 S1-1e 缺口消除、`generate-progress.sh` 入包（与本仓根 `scripts/` 基线 cmp 一致）；票 43 语言登记表 Rust 扩展事实（mod 文件边存在性核验＋use 路径表达式原串，四语言）；票 44 引擎表驱动化事实（语言知识外置 `module-map.rules`，引擎通用管线零语言专名，四语言边集逐边回归＋哑语言规则行产边实证）；票 45 七语言批量扩展事实（Go/Java/C#/Ruby/PHP/Swift/Kotlin 规则行＋fixture 回归，覆盖语言十一种，零引擎改动）；票 47（ticket-ops.sh 入包采纳：与本仓根 `scripts/` 基线 cmp 零差异复制、专节与落位口径——记录层标配不门控快道，包内不运行声明）；票 48（检查项 8 脚本必需件存在性守卫：六 `.sh`＋`module-map.rules`＋`scripts/README.md` 逐一存在性核对，fail-closed 指名缺失件，计数联动七项→八项）；票 49（`test-record-layer.sh` 记录层回归 harness 落位：票 41～45/47 六票 fixture 沉淀为四 suite 常驻自检工具，缺省自测同目录包内脚本、mktemp 夹具 trap 清理、预期值独立重建、注入自检）。 -->
 <!-- Output: 公开包 scripts/ 目录索引与共享 harness 约定：脚本用途、用法、八项检查说明、易腐断言扫描器两模式与登记表说明、投影生成器用法与退出码、模块地图生成器用法与语言登记表、道脚本收尾行为（索引单写机制）、票务运维脚本三子命令用法与落位口径、输出格式、退出码与维护联动规则。 -->
 <!-- Pos: 公开包脚本目录索引；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
@@ -17,6 +17,7 @@
 | `generate-module-map.sh` | 模块地图生成器 | 静态导入行提取生成 `<root>/docs/architecture/module-map.json` 检索索引（票 30 拍板方案 A / 票 42 首版 / 票 43 Rust 扩展 / 票 44 表驱动化 / 票 45 七语言批量扩展）：Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌（R-DP-015 算法，输入排除本图自身）；repo-root 参数化（缺省 git toplevel）；引擎为通用规则解释器（加载规则表→发现源码→匹配捕获→策略产边→存在性过滤→组装 JSON），语言知识外置 `module-map.rules`（每语言一行，引擎零语言专名，加语言＝加规则行零引擎改动）；POSIX sh、无 jq/python（stat 与 SHA-256 工具依赖声明见专节）、fail-closed。详见下文专节。 |
 | `module-map.rules` | 模块地图语言规则表 | `generate-module-map.sh` 的语言提取规则唯一承载点（票 44 表驱动化）：每语言一行 `mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>`；strategy 枚举 extension-map（扩展名 glob 语言绑定）/unresolved-node（未解析节点引用直出）/module-path（模块路径文本直出）/direct-file（声明文件候选边＋存在性过滤）；编码语义见本表头部注释与下文专节；规则表缺失或不合预期时引擎 exit 2（fail-closed）。 |
 | `ticket-ops.sh` | 票务运维脚本 | 协调层票务面单入口（票 41 本仓交付 / 票 47 入包采纳）：`open`（开票：索引新增条目 status=ready＋issues-README 目录清单追加行＋账本追加行）／`take`（领取：status=in_progress）／`flip`（状态翻转：状态机任意合法值）三子命令，索引与 README 锚点整行/单 token 机械改写，收尾调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对；校验先于写入、fail-closed（索引一条目一行排版破坏、锚点不唯一、账本行不合键序即停止不写）；POSIX sh、零外部依赖（无 jq/python）。详见下文专节。 |
+| `test-record-layer.sh` | 记录层回归 harness | 六票（41～45/47）fixture 沉淀的常驻自检工具（票 49）：四 suite（module-map/ticket-ops/progress/check-package，`--suite` 参数化，缺省 all）一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、零外部依赖、夹具 trap 清理、仓库零写入。详见下文专节。 |
 | `scenario-checklist.md` | 场景验收清单 | SPEC-06 §7 发布前 11 条场景的验收边界、逐条执行结果与证据指针（票 12 / R-06-008）；S1-S9 为模板语义静态核对、S10 记 check-package.sh 实跑与临时副本负例及 `deferred-to-13` 条件项、S11 记 `N/A + reason`（未测量）；包内容变化后按本清单复验。 |
 
 ## 用途与用法
@@ -350,7 +351,7 @@ JSON 顶层键：`generated_from`、`generated_at`（UTC）、`coverage`（`lang
 
 ### 维护联动
 
-- 语言规则表行增删或匹配规则变化＝编辑 `module-map.rules`＋fixture 回归（加语言零引擎改动，票 44 AC3 口径）；引擎不得引入语言专名（语言知识唯一承载点＝规则表，票 44 AC 硬门禁）；规则表编码（`@`/`~`/`&&`/`=` 分隔与 op 形态）或加载校验口径变化须同步引擎解析器与本专节。fixture 为临时件不入仓（跑法与结果见票 42/票 43/票 44 run record `last_verified`），沉淀为共享验证归后续票。
+- 语言规则表行增删或匹配规则变化＝编辑 `module-map.rules`＋fixture 回归（加语言零引擎改动，票 44 AC3 口径）；引擎不得引入语言专名（语言知识唯一承载点＝规则表，票 44 AC 硬门禁）；规则表编码（`@`/`~`/`&&`/`=` 分隔与 op 形态）或加载校验口径变化须同步引擎解析器与本专节。fixture 为临时件不入仓；六票（42/43/44/45）fixture 已沉淀为 `test-record-layer.sh` 的 module-map 套件（票 49，见下文专节），规则表或引擎行为变化时以 `sh scripts/test-record-layer.sh --suite module-map` 回归（跑法与历史结果另见票 42/票 43/票 44 run record `last_verified`）。
 - 生成项目补缺落位与登记口径见 `../references/old-project.md` §3 项目地图行；本图不预建实例（触发矩阵行命中才创建，R-DP-006）。
 - 排版与转义惯例与 `generate-progress.sh` 同源（`set -f`、TMPDIR mktemp＋trap 清理、LC_ALL=C 排序）；两脚本不共享代码，语义变化互不联动。
 
@@ -380,6 +381,55 @@ sh scripts/ticket-ops.sh [repo-root] <command> [options]
 ### 与 lane-commit.sh 职责边界
 
 `ticket-ops.sh` 只做票务面写入（open/take/flip），不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（投影再生调用 `generate-progress.sh` 不在此限）；快道收尾（白名单核对、验证重跑、提交、记录翻转）仍归道脚本两件。非快道票（C1+ 全三阶段）的状态翻转由 `ticket-ops.sh` 承载——lane-commit 只覆盖快道，两者在 `docs/issues/index.json` 单写机制上同锚点语义（id 锚点整行替换，仅改 status/updated_at 两值）。
+
+## test-record-layer.sh（记录层回归 harness）
+
+记录层共享回归 harness（票 49 沉淀）：把票 41～45/47 六票 Implementation Checkpoint 声明待沉淀的一次性 fixture 组装为常驻自检工具——一条命令回归记录层全链。POSIX sh（`#!/bin/sh`、`set -u`、`set -f`）、零外部依赖（夹具 `git init` 依赖被测脚本自身声明的 Git）。缺省自测同目录包内脚本（check-package.sh 同款路径惯例），`--script-dir`/`--pkg-root` 参数化支持复制落位语境；被测脚本只读零改动（发现缺陷停报告，不顺手修、不为通过测试改预期）；夹具全部构建于 mktemp 临时目录并 trap 清理（异常退出亦清），仓库零写入；预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训；来源票只作场景清单）。
+
+### 用法
+
+```text
+sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
+```
+
+- 无参数：`--suite all`；被测脚本目录缺省＝本脚本所在目录，包根缺省＝被测脚本目录的上一级（check-package.sh 同款）。
+- `--suite module-map|ticket-ops|progress|check-package|all`：场景参数化，缺省 all。
+- `--script-dir <dir>`：被测脚本所在目录（须含五件被测成员：`generate-module-map.sh`＋`module-map.rules`、`ticket-ops.sh`＋`generate-progress.sh`、`check-package.sh`）；对复制落位副本或被测脚本修改副本复跑时使用。
+- `--pkg-root <dir>`：check-package 套件的包根，缺省＝script-dir 的上一级。
+- `-h` / `--help`：打印用法。
+
+### suite 覆盖场景表
+
+| suite | 来源票 | 覆盖场景 | 断言数 |
+| --- | --- | --- | --- |
+| `module-map` | 42/43/44/45 | 11 语言夹具正例（nodes 19／edges 50 逐一相等＋stdout 摘要计数）＋fp-v1 形状／稳定性／变更检出＋负例 3（规则表损坏 exit 2、无源码 exit 1、非 Git exit 2，均零地图写入） | 10 |
+| `ticket-ops` | 41/47 | 生成项目语境 open→take→flip 全链（索引／issues-README／投影全文件逐一相等＋账本行数；updated_at／开票日期捕获后校验形状重建预期）＋收尾投影 `--check`＋负例 6（重复 id／未知 id／账本键序违规／take 非 in_progress／非法状态值／索引排版破坏）exit 1 零写入 | 22 |
+| `progress` | 35 | 投影生成（乱序 id＋checkpoint_ref 列）全文件逐一相等、`--check` 一致 exit 0、篡改检出 exit 1、投影缺失 exit 1、索引缺失／条目行缺必备字段 exit 2 | 7 |
+| `check-package` | 12/48 | 八项正例输出逐行逐一相等（含票 48 检查项 8）＋必需件缺失负例（mktemp 包副本删件）exit 1 指名缺失件（单缺失件为单行 ` — 详情` 形态） | 4 |
+| （仅 all）注入自检 | 49 | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
+
+断言计数为 2026-09-20 交付时点值，随维护增减（suite 汇总行按实际计数输出）。
+
+### 输出格式与退出码
+
+```text
+PASS  [<suite>] <场景>                       # 或 FAIL（附「详情:」行）
+test-record-layer: [<suite>] 断言 N/N 通过
+test-record-layer: PASS（共 N 项断言，全部通过）    # exit 0
+test-record-layer: FAIL（共 N 项断言，M 项失败）    # exit 1
+```
+
+| 退出码 | 语义 |
+| --- | --- |
+| 0 | 全部断言通过。 |
+| 1 | 存在失败断言（逐项 FAIL 行见输出）。 |
+| 2 | 用法或环境错误（`--suite` 不合口径、被测成员缺失、包根不存在、git 不可用）。 |
+
+### 维护规则
+
+- 被测行为合法变更时同步更新本 harness 断言（预期值重新独立重建，不照抄实跑输出）；module-map 专节"维护联动"所述规则表 fixture 回归由此 harness 承载，`--suite module-map` 即回归入口。
+- 夹具不入仓：fixture 由 harness 运行时自建于 mktemp（每语言样例＋去重/注释/字符串负例，票 42～45 fixture 纪律），仓库零留样。
+- 复制落位（生成项目语境）随记录层工具同迁（同 `ticket-ops.sh` 落位口径，见 `../references/templates/scripts-README.md.tmpl` 自检工具落位句）；落位后缺省自测同目录包内脚本，包内/落位两语境同码。
 
 ## 维护联动
 

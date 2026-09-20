@@ -11,6 +11,7 @@
 - 约定：脚本接受场景/票号等作为输入参数；断言结果落 JSON 或结构化输出；截图、日志等产物只作存档，不回流对话上下文。
 - 新增脚本**当场**在本 README 登记；先找已有脚本，没有适用的才写新的。
 - 落位登记口径（对下表全部"从公开包复制落位"的脚本）：逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（kind: script、lifecycle: Conditional、generated_from: `agent-up/scripts/<文件名>`）；落位与登记的完整口径以公开包 `SKILL.md` 主流程步骤 5 与 `references/old-project.md` §3 补缺表为准，三处（SKILL、old-project、本 README）不得出现第四种说法。
+- 自检工具落位：包内 `test-record-layer.sh`（记录层回归 harness）随记录层工具一并复制落位——目标项目采用任务票体系（`docs/issues/` 目录创建）时与 `ticket-ops.sh` 同门控复制到 `scripts/`（缺省自测同目录包内脚本，须与其被测成员同目录在位），落位后按上方逐件登记口径登记。
 
 ## 目录清单
 
