@@ -1,5 +1,5 @@
-# Input: 四语言（Python、JS/TS、C/C++、Rust）的静态导入提取知识（票 42/43 落地的 per-language
-#        case 块为迁移源，票 44 表驱动化外置；语言知识唯一承载点）。
+# Input: 十一语言（Python、JS/TS、C/C++、Rust 为票 42/43 原有，票 45 追加 Go、Java、C#、Ruby、PHP、Swift、Kotlin）的静态导入提取知识
+#        （票 42/43 落地的 per-language case 块为迁移源，票 44 表驱动化外置；语言知识唯一承载点）。
 # Output: generate-module-map.sh 引擎启动时 source 本表——每语言一行 mm_rule 调用，六参：
 #         mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>。
 # Pos: 票 44 定稿的语言规则表：引擎为通用管线、零语言专名（AC 硬门禁）；加语言＝加一行＋
@@ -47,3 +47,31 @@ mm_rule 'c-cpp' '*.c *.h *.cc *.cpp *.cxx *.hpp *.hh' '' \
 mm_rule 'rust' '*.rs' 's=//.*&&s=^[[:space:]]*pub([[:space:]]*\([^)]*\))?[[:space:]]+' \
 'scan~^[[:space:]]*mod[[:space:]]+(r#)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*;~s=^[[:space:]]*mod[[:space:]]+&&s=[[:space:]]*;.*&&s=^r#~declfile~mod.rs,main.rs,lib.rs~^[A-Za-z_][A-Za-z0-9_]*$~rust-mod~direct-file@scan~^[[:space:]]*use[[:space:]]~s=^[[:space:]]*use[[:space:]]+&&s=[[:space:]]*;.*&&s=[[:space:]]*\{.*&&s=[[:space:]]+as[[:space:]].*&&s=::\*[[:space:]]*$&&s=:+$&&s=[[:space:]]+$~emit~^((r#)?[A-Za-z_][A-Za-z0-9_]*(::(r#)?[A-Za-z_][A-Za-z0-9_]*)*|::(r#)?[A-Za-z_][A-Za-z0-9_]*(::(r#)?[A-Za-z_][A-Za-z0-9_]*)*)$~~rust-use~module-path' \
 'mod 文件边 / use 模块路径边（.rs）' '未覆盖宏生成声明、pub use 转发语义、extern crate、#[path] 属性重定位、块注释内文本；mod 候选文件均不存在时零边（存在性核验 fail-closed）；use 路径末段可能为类型/函数项（文本层不区分模块与项）'
+
+mm_rule 'go' '*.go' 's=//.*' \
+'capture~imp~^[[:space:]]*(return|if|for|switch|case|go|defer|func|var|const|type|map|chan|range|select|else|break|continue|goto|fallthrough|panic)[[:space:]]~^[[:space:]]*[A-Za-z_]+~~.*~~~go-import~module-path@capture~imp~^[[:space:]]*import[[:space:]]~^[[:space:]]*import[[:space:]]+[^"]*"[^"]+"~"[^"]+"~^"~"$~^[A-Za-z0-9_./-]+$~go-import~module-path@capture~imp~^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*[[:space:]]+|[._][[:space:]]+)?"[^"]+"[[:space:]]*$~"[^"]+"~~^"~"$~^[A-Za-z0-9_./-]+$~go-import~module-path' \
+'import 单行与括号块内引号行（.go）' '未覆盖 build tag 条件文件判别与块注释内文本；行首引号形态为文本层近似——import 块外行首字符串行可能误报（Go 关键字行已按组屏蔽，raw string 续行等残类仍在）'
+
+mm_rule 'java' '*.java' 's=//.*' \
+'scan~^[[:space:]]*import[[:space:]]+.*;~s=^[[:space:]]*import[[:space:]]+&&s=^static[[:space:]]+&&s=[[:space:]]*;.*&&s=\.\*[[:space:]]*$&&s=[[:space:]]+$~emit~^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$~~java-import~module-path' \
+'import（.java）' '未覆盖 module-info.java 的 requires 句与块注释内文本；static import 末段可能为成员名（文本层不区分类型与成员）；on-demand 星号导入剥尾取包路径'
+
+mm_rule 'csharp' '*.cs' 's=//.*' \
+'scan~^[[:space:]]*using[[:space:]]+.*;~s=^[[:space:]]*using[[:space:]]+&&s=^static[[:space:]]+&&s=[[:space:]]*;.*&&s=[[:space:]]+$~emit~^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$~~csharp-using~module-path' \
+'using（.cs）' '未覆盖 using 别名形态与块注释内文本；using 声明/语句形态经校验拒绝不产边；using static 末段为类型全名'
+
+mm_rule 'ruby' '*.rb' 's=#.*&&Q' \
+'capture~~~(^|[^A-Za-z0-9_$.])require_relative[[:space:]]*\(?[[:space:]]*"[^"]+"~"[^"]+"~^"~"$~^[A-Za-z0-9_./-]+$~ruby-require-relative~module-path@capture~~~(^|[^A-Za-z0-9_$.])require[[:space:]]*\(?[[:space:]]*"[^"]+"~"[^"]+"~^"~"$~^[A-Za-z0-9_./-]+$~ruby-require~module-path' \
+'require / require_relative（.rb）' '未覆盖动态插值路径、__END__ 数据段、begin/end 块注释内文本、heredoc 内文本与 load 语句；require_relative 相对路径未按声明文件位置解析（原串直出，文本层口径）'
+
+mm_rule 'php' '*.php' 's=//.*&&s=#.*&&Q' \
+'scan~^[[:space:]]*use[[:space:]]+.*;~s=^[[:space:]]*use[[:space:]]+&&s=^function[[:space:]]+&&s=^const[[:space:]]+&&s=[[:space:]]+as[[:space:]].*&&s=[[:space:]]*;.*&&s=[[:space:]]+$~emit~^([A-Za-z_][A-Za-z0-9_]*\\)*[A-Za-z_][A-Za-z0-9_]*$~~php-use~module-path@capture~~~(^|[^A-Za-z0-9_$.])(require|include)(_once)?[[:space:]]*\(?[[:space:]]*"[^"]+"~"[^"]+"~^"~"$~^[A-Za-z0-9_./-]+$~php-require~module-path' \
+'use / require / include（.php）' '未覆盖 group use 花括号分组形态与前导反斜杠根相对形态；类内 trait use 文本层无法区分可能误报；require/include 表达式拼接不解析（字面量前缀按原串产边，变量形态不产边）'
+
+mm_rule 'swift' '*.swift' 's=//.*' \
+'scan~^[[:space:]]*([[:punct:]]testable[[:space:]]+|[[:punct:]]_exported[[:space:]]+)?(export[[:space:]]+)?import[[:space:]]~s=^[[:space:]]*([[:punct:]]testable[[:space:]]+|[[:punct:]]_exported[[:space:]]+)?(export[[:space:]]+)?import[[:space:]]+&&s=^(struct|class|func|enum|protocol|typealias)[[:space:]]+&&s=[[:space:]]*;.*&&s=[[:space:]]+$~emit~^[A-Za-z_][A-Za-z0-9_.]*$~~swift-import~module-path' \
+'import（.swift）' '未覆盖条件编译块判别与块注释内文本；testable/exported 属性符号以标点类近似；kind 前缀（struct/class/func/enum/protocol/typealias）剥离后取模块路径'
+
+mm_rule 'kotlin' '*.kt *.kts' 's=//.*' \
+'scan~^[[:space:]]*import[[:space:]]~s=^[[:space:]]*import[[:space:]]+&&s=[[:space:]]+as[[:space:]].*&&s=[[:space:]]*;.*&&s=\.\*[[:space:]]*$&&s=[[:space:]]+$~emit~^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$~~kotlin-import~module-path' \
+'import（.kt .kts）' '未覆盖反引号引用标识符段与块注释内文本；as 别名剥离；on-demand 星号导入剥尾取包路径；分号可选'
