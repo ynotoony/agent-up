@@ -115,3 +115,45 @@ artifacts:
   #   generated_from: 仓库文件清单（N/A + reason 不适用时逐字段说明）
   #   platform: neutral
   #   update_policy: 可重建；重建须标注来源/时间/覆盖范围/失效条件
+  #
+  # - id: issue-index
+  #   path: docs/issues/index.json
+  #   kind: index
+  #   authority: 权威层级第 2 级（事实记录：票状态机唯一真相源；单文件一条目一行）
+  #   owner: 道脚本或对应阶段执行体单写（按写入机制；禁止两个 session 并写）
+  #   lifecycle: Conditional
+  #   trigger: 与 docs/issues/ 同行集（需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接）
+  #   read_when: 领取任务票、核对票状态或状态翻转时（状态冲突以本索引为准）
+  #   sync_on: 无（条目按状态机单写整行更新；派生面重建由 progress-current 生成器承载）
+  #   depends_on: [issues-readme, development-process]
+  #   generated_from: 各阶段执行体/收尾脚本按票状态索引 schema 单写维护（非 Derived）
+  #   platform: neutral
+  #   update_policy: 状态机更新；一条目一行整行替换
+  #
+  # - id: changes-jsonl
+  #   path: docs/changes.jsonl
+  #   kind: record
+  #   authority: 权威层级第 2 级（事实记录：变更历史追加账本，一行一事实）
+  #   owner: 协调记录 owner 与各阶段执行体（按追加条目）
+  #   lifecycle: Record
+  #   trigger: 记录层拍板后首条事实（懒创建）
+  #   read_when: 需要变更背景、审计或追溯决策时
+  #   sync_on: 无（一行一事实纯追加，不触发级联）
+  #   depends_on: [development-process]
+  #   generated_from: 各阶段落账事实（非 Derived）
+  #   platform: neutral
+  #   update_policy: 追加；只增不改，不改写既有行
+  #
+  # - id: progress-current
+  #   path: docs/progress-current.md
+  #   kind: record
+  #   authority: 权威层级第 2 级（事实记录：现役状态投影；非真相源，与 issue-index 冲突时以索引为准）
+  #   owner: 生成器独占写（agent 不手写）
+  #   lifecycle: Derived
+  #   trigger: issue-index 状态条目变更后生成器重跑
+  #   read_when: 接手或恢复会话时（读取阶梯 L1 现役状态）
+  #   sync_on: 派生（issue-index 变更即触发整文件重建）
+  #   depends_on: [issue-index]
+  #   generated_from: docs/issues/index.json ＋ 生成器（Derived 必填）
+  #   platform: neutral
+  #   update_policy: 生成器独占写；可随时整文件重建；投影与索引不一致时以索引为准

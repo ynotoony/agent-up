@@ -11,7 +11,7 @@
 ## 先读什么
 
 1. 本文件（每个会话第一步）。
-2. `docs/progress.md` 与涉及目录的 `README.md`：当前状态与导航。
+2. `docs/progress-current.md` 与涉及目录的 `README.md`：当前状态与导航。
 3. 当前任务票、相关规格与 `docs/agent/artifacts.yaml`：任务合同、规范本体与产物登记。
 4. 与改动相关的源码、测试：实施对象事实。
 5. `docs/changes.md` 等历史与协议资料：按需读取。
@@ -53,7 +53,7 @@
 ## 工作类型路由
 
 - **回答、解释、只读审查或诊断**：只读检查，不领取任务、不修改进度、不实施修复。
-- **治理或文档维护**：按 [`docs/development-process.md`](./docs/development-process.md) 执行；改变项目事实时写入对应规格或 `docs/changes.md`。
+- **治理或文档维护**：按 [`docs/development-process.md`](./docs/development-process.md) 执行；改变项目事实时写入对应规格或 `docs/changes.jsonl`。
 - **功能、修复或重构**：先读上下文、规格、任务票与进度，领取 blocker 已完成的任务，再按流程执行。
 - **代理协作**：主 agent 按阶段派发执行体；角色边界、委派合同与阶段顺序以流程文档为准，执行体不得创建下级执行体。
 

@@ -100,7 +100,7 @@ depends_on: SPEC-02；被 read-policy.md 与票 08/10 的模板、SKILL 重写�
 #### R-GF-005 清单索引关系机器格式 `MUST`
 
 - **When**：表达清单、索引或产物间关系时。
-- **Action**：用 YAML/JSON 机器可读格式（如 artifacts.yaml、项目地图 JSON）；人类可读说明放配套 README。
+- **Action**：用 YAML/JSON 机器可读格式（如 artifacts.yaml、项目地图 JSON、票状态索引 JSON）；JSONL 为机器可读清单/账本合法形态（如 `changes.jsonl` 一行一事实）；人类可读说明放配套 README。
 - **Forbidden**：用表格或散文替代要求机器消费的索引；机器格式中夹叙事。
 - **Stop if**：无。
 - **Evidence**：索引文件可被工具直接解析。
@@ -174,8 +174,11 @@ depends_on: SPEC-02；被 read-policy.md 与票 08/10 的模板、SKILL 重写�
 | `development-process.md` | 完整协议：三阶段、委派、门禁的唯一事实源 |
 | `docs/agent/artifacts.yaml` | 机器索引：产物清单与关系（SPEC-03） |
 | 任务票 | 元数据 + 固定区块 |
-| `progress.md` | 紧凑索引：状态行与检查点指针 |
+| `docs/issues/index.json` | 票状态索引：JSON＋Schema（`agent-up/references/schemas/issue-index.schema.json`），状态机唯一真相源（单文件 JSON，一条目一行） |
+| `progress.md` | 冻结历史档案：指针注记后零写入（票 33 终裁 T12；存量行零改写） |
+| `docs/progress-current.md` | 现役状态投影：Derived，generated_from＝`docs/issues/index.json`＋生成器，生成器独占写 |
 | `changes.md` | 追加历史：只增不改 |
+| `docs/changes.jsonl` | 追加历史（新形态）：JSONL 一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加 |
 | `CONTEXT.md` | 结构化词条 + 自然语言定义 |
 | 项目地图 | JSON |
 | 架构图 | diagram-as-code |

@@ -295,7 +295,7 @@ absent ──用户拒绝──> deferred（记录原因）
 | --- | --- |
 | 路由层 | 根目录 `AGENTS.md`（路由与边界）；§4 工作分类、§5.2 与 §8 拆票分级、委派派发与阶段验收（§6 委派合同）、恢复协议（§12）与三道门禁（§6）条款 |
 | 编码层 | §10 实现纪律与 §10.1 编程思想五问；三阶段角色合同（Implementation / Review / Commit 三件）；宿主适配层运行时入口；道脚本（§12.5 道脚本承载注记） |
-| 文档层 | `docs/` Record 类产物与登记面：`docs/requests/`、`docs/issues/`、`docs/progress.md`、`docs/changes.md`、`docs/agent/runs/`、`docs/CONTEXT.md`、`docs/agent/artifacts.yaml` 及各登记面 |
+| 文档层 | `docs/` Record 类产物与登记面：`docs/requests/`、`docs/issues/`（含 `index.json`）、`docs/progress-current.md`、`docs/changes.jsonl`、`docs/agent/runs/`、`docs/CONTEXT.md`、`docs/agent/artifacts.yaml` 及各登记面 |
 
 - 文档层装事实记录：承载上表所列产物与登记面；写入只追加或按状态机更新（对齐 §5.1 Record 类默认策略）；为中断恢复提供唯一事实记录承载（§12 恢复流程从文档层事实出发，不从聊天记忆出发）。
 - 对应关系：既有称谓"权威文档层"、"Record 类"（§5.1 生命周期五类）与"事实层"同指文档层承载的事实记录面；既有名称表述照旧不改。

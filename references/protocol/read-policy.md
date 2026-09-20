@@ -19,7 +19,7 @@ depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语�
 
 ## 1. 快速摘要
 
-- 读取阶梯五级固定：L0 `AGENTS.md` → L1 `progress.md`+目录 README → L2 任务票/规格/artifacts.yaml → L3 源码、测试、模板 → L4 protocol/历史/架构按需。
+- 读取阶梯五级固定：L0 `AGENTS.md` → L1 `docs/progress-current.md`（现役状态投影，Derived）+目录 README → L2 任务票/规格/artifacts.yaml → L3 源码、测试、模板 → L4 protocol/历史/架构按需。
 - 按任务类型取最小读取范围；必读集合不得跳过，L4 一律按需，不默认加载。
 - 五类任务必读集合：解释 L0；文档/治理维护 L0+L1+L2（涉及件）；新功能/实施 L0-L3；Review L0+L2+实际 diff/文件；Commit L0+L2（含 Review pass 证据）+Git 状态。
 - 权威层级六层固定：用户决策 > 目标项目代码/测试/事实记录 > 规格/任务合同 > 流程规则 > Agent Up 模板 > 项目地图等派生文件。
@@ -37,7 +37,7 @@ depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语�
 | Level | 内容 | 定位 |
 | --- | --- | --- |
 | L0 | 目标项目 `AGENTS.md` | 路由与边界；每个会话第一步 |
-| L1 | `progress.md` + 各目录 `README.md` | 当前状态与导航地图 |
+| L1 | `docs/progress-current.md`（现役状态投影，Derived）+ 各目录 `README.md` | 当前状态与导航地图 |
 | L2 | 当前任务票、相关规格、`docs/agent/artifacts.yaml` | 任务合同与规范本体 |
 | L3 | 与改动相关的源码、测试、模板 | 实施对象事实 |
 | L4 | protocol 手册、`changes.md` 历史、架构资料、ADR、research | 协议细节与背景，按需加载 |
@@ -99,7 +99,7 @@ depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语�
 
 | 档位 | 治理资源加载范围 |
 | --- | --- |
-| `minimum` | L0（目标项目 `AGENTS.md`）+ L1（`progress.md` 与涉及目录 `README.md`）+ L2 最小集（当前任务票 + 直接相关规格；artifacts.yaml 在涉及产物关系时加入）；L3 仅按实施动作所需逐个文件加载；L4 不默认加载，protocol 手册仅按需读相关章节 |
+| `minimum` | L0（目标项目 `AGENTS.md`）+ L1（`docs/progress-current.md` 与涉及目录 `README.md`）+ L2 最小集（当前任务票 + 直接相关规格；artifacts.yaml 在涉及产物关系时加入）；L3 仅按实施动作所需逐个文件加载；L4 不默认加载，protocol 手册仅按需读相关章节 |
 | `full` | §2.2 任务型最小读取范围的完整必读集合；L4 按需加载 |
 
 本表已随票 08（I-04，2026-09-03）联动定稿；档位边界冲突按 R-RP-003 Stop if 处理。

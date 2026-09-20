@@ -27,7 +27,7 @@
 - **Action**：仅 Triage 更新请求状态并产出规格与任务票；`rejected` / `deferred` 必须记录原因；`needs-user-decision` 等待用户裁决，授权前零动作。
 - **Forbidden**：其他阶段直改请求状态；把 `rejected` 当 `deferred` 静默丢弃；状态流转不留证据。
 - **Stop if**：状态无法判定 → 报告用户，不猜。
-- **Evidence**：请求文件状态行与 `../progress.md` 摘要一致，且含流转依据。
+- **Evidence**：请求状态与 `index.json` 状态条目一致（冲突以索引为准），且含流转依据。
 - **Owner**：Triage 执行体。
 - **Authority**：`docs/development-process.md`（产物状态机）。
 
@@ -41,7 +41,7 @@
 ## Intake/Delivery 并行规则
 
 - Intake Session（用户说"加需求"）与 Delivery Session（用户说"继续剩余任务"）可并行存在；二者写入目标不相交，唯一目录交集是本目录——Intake 写新 `REQ` 文件，Delivery 不写本目录。
-- Intake 只写新 REQ：不改当前任务 Scope、验收、`docs/progress.md`、任何规格或任务票；不在 Intake 中做 Triage 结论；REQ 落盘后即结束 Intake 写入。
+- Intake 只写新 REQ：不改当前任务 Scope、验收、`docs/progress-current.md`、任何规格或任务票；不在 Intake 中做 Triage 结论；REQ 落盘后即结束 Intake 写入。
 - 当前任务 Scope 默认冻结；Triage 评估新请求影响：IF 新需求影响当前任务验收 THEN 当前任务标 `blocked: scope-change`，由 Triage 建新规格/票承接 ELSE 当前任务继续；影响评估不确定 → Request 置 `needs-user-decision`，当前任务保持冻结直至裁决。
 - 写入所有权矩阵（与 `docs/development-process.md` 会话恢复协议一致；冲突以更严格者为准）：
 
@@ -55,8 +55,8 @@
 
 #### R-RQ-003 并行写入边界 `MUST`
 
-- **When**：Intake 与 Delivery 并行运行，或任何会话写入触及 `docs/requests/` 或 `docs/progress.md` 时。
-- **Action**：Intake 只在本目录新建 `REQ` 文件并登记目录清单，随后结束写入；Delivery 推进当前任务且不写本目录；两个 session 不得同时写 `docs/progress.md`。
+- **When**：Intake 与 Delivery 并行运行，或任何会话写入触及 `docs/requests/` 或 `docs/progress-current.md` 时。
+- **Action**：Intake 只在本目录新建 `REQ` 文件并登记目录清单，随后结束写入；Delivery 推进当前任务且不写本目录；两个 session 不得同时写 `docs/progress-current.md`。
 - **Forbidden**：Intake 修改当前任务 Scope、验收或 progress；Delivery 借 Intake 扩大当前任务范围；把新需求塞进当前任务的 Scope 或验收。
 - **Stop if**：发现并行写入痕迹（写入目标被其他 session 占用或同一文件被并行修改）→ 停止写、以文件现状为准、报告用户。
 - **Evidence**：每处变更可归属到唯一会话角色；新 REQ 文件五项内容齐备且状态为 `proposed`。
