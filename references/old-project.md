@@ -45,6 +45,7 @@ depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模
 | `docs/README.md` | 按模板生成。 |
 | `docs/issues/index.json` | 状态真相源（票状态机唯一真相源，单文件一条目一行）；已有票的项目建快照登记（缺失才建，格式见公开包 `references/schemas/issue-index.schema.json`）。 |
 | `docs/issues/` 新票 JSON 本体 | 既有项目采用本体系后，新开任务票/REQ 以 JSON 文件承载（task `<NN>-<slug>.json`、request `<REQ-id>.json`，schema 见公开包 `references/schemas/ticket-record.schema.json`；本体无 `status` 字段，票状态真相源＝`docs/issues/index.json`）；存量 Markdown 票与既有 REQ 冻结零改写（frontmatter 为历史形态，票 38 定稿）。 |
+| `docs/requests/index.json` | REQ 状态真相源（Request 状态机，单文件一条目一行，与票账本分账，票 40 定稿）；已有 REQ 的项目建快照登记（缺失才建，格式见公开包 `references/schemas/request-index.schema.json`）。 |
 | `docs/changes.jsonl` | 新事实账本（一行一事实，只追加，懒创建）；项目尚有旧 `docs/changes.md` 时冻结旧档并加指针注记，新事实只写 JSONL，不迁移历史。 |
 | 根/目录 `README.md` | 缺失才生成；已存在的只把"直接成员登记"补齐，其余内容原样保留。 |
 | `.gitignore` | 缺失才生成；已存在的只追加明显缺失的条目（依赖、构建产物、`.env`），追加前列出。 |

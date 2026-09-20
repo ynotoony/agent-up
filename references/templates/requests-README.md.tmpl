@@ -9,7 +9,7 @@
 - 本目录登记从 Intake 进入的需求请求（`REQ-YYYYMMDD-NN.md`）；请求是需求事实记录，不是规格，也不是任务票。
 - 请求状态机：`proposed -> triaged -> accepted -> specified -> ready ->（进入任务流程）`；旁支状态 `rejected`、`deferred`、`needs-user-decision`。
 - 请求正文记录原文、来源、时间、影响评估和待确认项；未确认事实标 `【待定：...】`。
-- 状态与证据摘要在 [`../progress.md`](../progress.md)；状态流转由 Triage 写回本目录成员文件，不以聊天记录为唯一事实。
+- REQ 状态真相源＝本目录 `index.json`（单写，一条目一行，schema 见 `references/schemas/request-index.schema.json`）；状态流转由 Triage 单写索引并同步成员文件状态列（人工登记投影）；不以聊天记录为唯一事实。
 
 #### R-RQ-001 Intake 写入边界 `MUST`
 
