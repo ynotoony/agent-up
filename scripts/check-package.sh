@@ -1,6 +1,8 @@
 #!/bin/sh
-# Input: 待检包根目录（默认为本脚本所在目录的父目录）与包内全部文本文件。
-# Output: 八项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1）。
+# Input: 待检包根目录（默认为本脚本所在目录的父目录）与包清单数据文件
+#        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
+#        platform 枚举五节唯一承载点，票 57 单源化）。
+# Output: 十一项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
 # 用法与检查项实现细节（含各例外登记）见同目录 README.md。
@@ -44,10 +46,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  八项检查全部通过
+  0  十一项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
-  2  用法或环境错误（参数过多、包根不存在等）
-八项检查说明、例外登记与输出格式见同目录 README.md。
+  2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
+十一项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -61,6 +63,7 @@ header_window() {
   ' "$1"
 }
 
+script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
 if [ $# -gt 1 ]; then
   printf 'check-package: 错误：至多接受一个参数\n' >&2
   usage >&2
@@ -75,7 +78,6 @@ if [ $# -eq 1 ]; then
   esac
   pkg_root=$1
 else
-  script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
   pkg_root=$(CDPATH= cd "$script_dir/.." && pwd)
 fi
 if [ ! -d "$pkg_root" ]; then
@@ -83,27 +85,177 @@ if [ ! -d "$pkg_root" ]; then
   exit 2
 fi
 
-# 检查 1：必需入口存在（16 个文件；对照 SPEC-06 §2 目标结构与票 09 Checkpoint 清单）。
+# ---- 包清单数据加载（外置数据＋引擎零专名＋结构校验 fail-closed，票 57；先例
+#      install.sh×install-policy.rules：数据文件与脚本同目录，缺文件/缺节/字段非法/
+#      重复即 exit 2，不产生部分结论）----
+
+TAB=$(printf '\t')
+t_dir=${TMPDIR:-/tmp}
+pm_entries=''
+pm_scripts=''
+pm_templates=''
+pm_codes=''
+pm_platforms=''
+pm_cleanup() {
+  rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms"
+}
+trap pm_cleanup EXIT HUP INT TERM
+pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_scripts=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_templates=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_codes=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_platforms=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+
+pm_die() {
+  printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
+  printf 'check-package: %s\n' "$1" >&2
+  exit 2
+}
+
+pm_report() {
+  # $1=结构校验错误文本（空＝通过）
+  if [ -n "$1" ]; then
+    printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
+    printf '%s\n' "$1" >&2
+    exit 2
+  fi
+}
+
+pm_entry() {
+  [ $# -eq 1 ] || pm_die 'pm_entry 行参数数量不合预期（须恰 1：包内相对路径）'
+  printf '%s\n' "$1" >> "$pm_entries"
+}
+pm_script() {
+  [ $# -eq 3 ] || pm_die 'pm_script 行参数数量不合预期（须恰 3：路径、kind、说明）'
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_scripts"
+}
+pm_template() {
+  [ $# -eq 1 ] || pm_die 'pm_template 行参数数量不合预期（须恰 1：模板文件名）'
+  printf '%s\n' "$1" >> "$pm_templates"
+}
+pm_shortcode() {
+  [ $# -eq 2 ] || pm_die 'pm_shortcode 行参数数量不合预期（须恰 2：短码、所属文件）'
+  printf '%s\t%s\n' "$1" "$2" >> "$pm_codes"
+}
+pm_platform() {
+  [ $# -eq 1 ] || pm_die 'pm_platform 行参数数量不合预期（须恰 1：枚举值）'
+  printf '%s\n' "$1" >> "$pm_platforms"
+}
+
+pm_rules="$script_dir/package-manifest.rules"
+if [ ! -f "$pm_rules" ]; then
+  printf 'check-package: 错误：包清单数据文件缺失: %s\n' "$pm_rules" >&2
+  exit 2
+fi
+# 预校验（source 前）：非空非注释行须为顶格指令行（五指令之一）——source 对行级失败
+# 不具中止性（未知指令行报错后继续执行、尾态可能为 0），故未知指令必须在 source 前
+# 即 exit 2，不能只靠 source 返回码收敛。
+pm_bad=$(LC_ALL=C awk '
+  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform", d, " ") }
+  function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
+  /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
+  /^[[:space:]]/ { bad("行首空白（指令行须顶格）"); next }
+  {
+    ok = 0
+    for (k = 1; k <= 5; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
+    if (!ok) bad("未知指令或非指令行: " substr($0, 1, 40))
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_rules") || true
+pm_report "$pm_bad"
+# source 窗口临时关 set -e：行执行出错须经返回码收敛为 exit 2，而非被 set -e 直接
+# 以 127 退出（fail-closed 统一退出码口径；pm_* 函数内 arg-count 违规经 pm_die 直达 exit 2）。
+set +e
+. "$pm_rules"
+pm_src_rc=$?
+set -e
+if [ "$pm_src_rc" -ne 0 ]; then
+  printf 'check-package: 错误：包清单数据 source 失败（语法损坏或行执行出错，exit %s）: %s\n' "$pm_src_rc" "$pm_rules" >&2
+  exit 2
+fi
+
+[ -s "$pm_entries" ] || pm_die '清单缺 entry-files 节（零行）'
+[ -s "$pm_scripts" ] || pm_die '清单缺 scripts 节（零行）'
+[ -s "$pm_templates" ] || pm_die '清单缺 templates 节（零行）'
+[ -s "$pm_codes" ] || pm_die '清单缺 shortcodes 节（零行）'
+[ -s "$pm_platforms" ] || pm_die '清单缺 platform-enum 节（零行）'
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "entry-files 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($1 in seen) { bad("路径跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_entries") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "scripts 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 3) { bad("字段数 " NF "（预期 3：路径、kind、说明）"); next }
+    if ($1 !~ /^scripts\/[A-Za-z0-9][A-Za-z0-9._-]*$/) { bad("路径须 scripts/ 前缀加单段文件名（禁 .. 与斜杠入名）: " $1); next }
+    if ($2 !~ /^(script|rules|test-harness)$/) { bad("kind 不合预期（script|rules|test-harness）: " $2); next }
+    if ($3 == "") { bad("缺说明"); next }
+    if ($1 in seen) { bad("路径跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_scripts") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "templates 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._-]*\.tmpl$/) { bad("须为单段 .tmpl 文件名: " $1); next }
+    if ($1 in seen) { bad("文件名跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_templates") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "shortcodes 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 2) { bad("字段数 " NF "（预期 2：短码、所属文件）"); next }
+    if ($1 !~ /^[A-Z][A-Z]$/) { bad("短码须两字母大写: " $1); next }
+    if ($2 !~ /^references\/[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("所属文件须 references/ 前缀包内相对路径: " $2); next }
+    if ($2 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $2); next }
+    if ($1 in seen) { bad("短码跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_codes") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "platform-enum 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[a-z][a-z0-9-]*$/) { bad("枚举值须小写 token（字母开头，小写字母/数字/连字符）: " $1); next }
+    if ($1 in seen) { bad("枚举值跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_platforms") || true
+pm_report "$pm_bad"
+
+# 问题行累加器（单行；多行由 fail() 走详情块缩进排版）
+problems=''
+add_problem() {
+  if [ -n "$problems" ]; then
+    problems="$problems
+"
+  fi
+  problems="$problems$1"
+}
+
+# 检查 1：必需入口存在（清单 entry-files 节逐行，票 57 数据驱动；对照 SPEC-06 §2 目标
+# 结构与票 09 Checkpoint 清单）。
+n_entries=$(wc -l < "$pm_entries" | tr -d ' ')
 missing_entries=''
 sep=''
-for rel in \
-  SKILL.md \
-  README.md \
-  LICENSE \
-  references/README.md \
-  references/old-project.md \
-  references/templates/README.md \
-  references/protocol/README.md \
-  references/adapters/README.md \
-  references/schemas/README.md \
-  references/protocol/governance-format.md \
-  references/protocol/read-policy.md \
-  references/protocol/complexity-profile.md \
-  references/adapters/capability-contract.md \
-  references/adapters/zcode.md \
-  references/schemas/run-record.schema.json \
-  references/schemas/run-record.example.json
-do
+for rel in $(cat "$pm_entries"); do
   if [ ! -f "$pkg_root/$rel" ]; then
     missing_entries="$missing_entries$sep  - $rel"
     sep='
@@ -111,9 +263,9 @@ do
   fi
 done
 if [ -n "$missing_entries" ]; then
-  fail 1 '必需入口存在（16 个文件）' "$missing_entries"
+  fail 1 "必需入口存在（${n_entries} 个文件）" "$missing_entries"
 else
-  pass 1 '必需入口存在（16 个文件）'
+  pass 1 "必需入口存在（${n_entries} 个文件）"
 fi
 
 # 检查 2：SKILL.md frontmatter 为 name: agent-up。
@@ -158,70 +310,100 @@ else
   pass 4 '无绝对路径与根治理引用'
 fi
 
-# 检查 5：templates 下 .tmpl 恰 13 个且逐个登记于 manifest（templates/README.md）。
+# 检查 5：模板清单一致（票 57 数据驱动：数据 templates 节 ↔ 磁盘 .tmpl ↔
+# templates/README.md manifest 表双向；manifest＝人读投影，数据＝机器真相）。
 templates_dir="$pkg_root/references/templates"
 manifest="$templates_dir/README.md"
-if [ ! -d "$templates_dir" ]; then
-  fail 5 'templates 下 .tmpl 为 13 个且全部登记' 'references/templates/ 目录不存在'
-else
+n_templates=$(wc -l < "$pm_templates" | tr -d ' ')
+tmpl_list=''
+if [ -d "$templates_dir" ]; then
   tmpl_list=$(find "$templates_dir" -type f -name '*.tmpl' | sort)
-  if [ -n "$tmpl_list" ]; then
-    tmpl_count=$(printf '%s\n' "$tmpl_list" | wc -l | tr -d ' ')
-  else
-    tmpl_count=0
-  fi
-  problems=''
-  sep='
+fi
+disk_count=0
+if [ -n "$tmpl_list" ]; then
+  disk_count=$(printf '%s\n' "$tmpl_list" | wc -l | tr -d ' ')
+fi
+problems=''
+if [ ! -d "$templates_dir" ]; then
+  add_problem '  - references/templates/ 目录不存在'
+elif [ "$disk_count" -ne "$n_templates" ]; then
+  # 花括号不可省略：$disk_count 后紧跟全角字符时，sh 会把多字节字符并入变量名。
+  add_problem "  - .tmpl 数量为 ${disk_count}（预期 ${n_templates}）"
+fi
+if [ -d "$templates_dir" ]; then
+  # 磁盘 .tmpl ⊆ 数据（票 09「无未登记」口径的机器真相侧）
+  unreg=''
+  sep2=''
+  OLDIFS=$IFS
+  IFS='
 '
-  if [ "$tmpl_count" -ne 13 ]; then
-    # 花括号不可省略：$tmpl_count 后紧跟全角字符时，sh 会把多字节字符并入变量名。
-    problems="  - .tmpl 数量为 ${tmpl_count}（预期 13）"
+  for t in $tmpl_list; do
+    IFS=$OLDIFS
+    if ! grep -qxF "$(basename "$t")" "$pm_templates"; then
+      unreg="$unreg$sep2$(basename "$t")"
+      sep2='、'
+    fi
+  done
+  IFS=$OLDIFS
+  if [ -n "$unreg" ]; then
+    add_problem "  - 数据未登记：$unreg"
   fi
+  # 数据 ⊆ 磁盘
+  data_no_file=''
+  sep2=''
+  OLDIFS=$IFS
+  IFS='
+'
+  for b in $(cat "$pm_templates"); do
+    IFS=$OLDIFS
+    if [ ! -f "$templates_dir/$b" ]; then
+      data_no_file="$data_no_file$sep2$b"
+      sep2='、'
+    fi
+  done
+  IFS=$OLDIFS
+  if [ -n "$data_no_file" ]; then
+    add_problem "  - 数据登记但无实际文件：$data_no_file"
+  fi
+  # 数据 ↔ manifest 表双向
   if [ ! -f "$manifest" ]; then
-    problems="${problems}${sep}  - templates/README.md（manifest）不存在"
+    add_problem '  - templates/README.md（manifest）不存在'
   else
-    unreg=''
+    # 仅在“## 目录清单”至“## 取舍”节内提取（票 09 口径：避开取舍登记散文提及）。
+    man_names=$(sed -n '/^## 目录清单/,/^## 取舍/p' "$manifest" | sed -n 's/[^`]*`\([^`]*\.tmpl\)`.*/\1/p' | sort -u)
+    data_no_man=''
     sep2=''
     OLDIFS=$IFS
     IFS='
 '
-    for t in $tmpl_list; do
-      if ! grep -qF "$(basename "$t")" "$manifest"; then
-        unreg="$unreg$sep2$(basename "$t")"
+    for b in $(cat "$pm_templates"); do
+      IFS=$OLDIFS
+      if ! printf '%s\n' "$man_names" | grep -qxF "$b"; then
+        data_no_man="$data_no_man$sep2$b"
         sep2='、'
       fi
     done
     IFS=$OLDIFS
-    # 反向核对（票 09 清单“无多余登记”口径）：manifest 目录清单节登记的每个 .tmpl
-    # 名都必须有实际文件；仅在“## 目录清单”至“## 取舍”节内提取，避开取舍登记散文提及。
-    extra=''
-    sep3=''
-    for name in $(sed -n '/^## 目录清单/,/^## 取舍/p' "$manifest" | sed -n 's/[^`]*`\([^`]*\.tmpl\)`.*/\1/p' | sort -u); do
-      if [ ! -f "$templates_dir/$name" ]; then
-        extra="$extra$sep3$name"
-        sep3='、'
+    if [ -n "$data_no_man" ]; then
+      add_problem "  - 未在 manifest 登记：$data_no_man"
+    fi
+    man_no_data=''
+    sep2=''
+    for m in $man_names; do
+      if ! grep -qxF "$m" "$pm_templates"; then
+        man_no_data="$man_no_data$sep2$m"
+        sep2='、'
       fi
     done
-    if [ -n "$unreg" ]; then
-      if [ -n "$problems" ]; then
-        problems="$problems
-"
-      fi
-      problems="${problems}  - 未在 manifest 登记：$unreg"
-    fi
-    if [ -n "$extra" ]; then
-      if [ -n "$problems" ]; then
-        problems="$problems
-"
-      fi
-      problems="${problems}  - manifest 登记但无实际文件：$extra"
+    if [ -n "$man_no_data" ]; then
+      add_problem "  - manifest 登记但不在数据：$man_no_data"
     fi
   fi
-  if [ -n "$problems" ]; then
-    fail 5 'templates 下 .tmpl 为 13 个且全部登记' "$problems"
-  else
-    pass 5 'templates 下 .tmpl 为 13 个且全部登记'
-  fi
+fi
+if [ -n "$problems" ]; then
+  fail 5 "templates 下 .tmpl 为 ${n_templates} 个且全部登记" "$problems"
+else
+  pass 5 "templates 下 .tmpl 为 ${n_templates} 个且全部登记"
 fi
 
 # 检查 6：文本契约头齐全。*.md 与 *.tmpl 在检测窗口内须含 Input:/Output:/Pos: 三行；
@@ -292,37 +474,239 @@ else
   pass 7 '根治理文件不在包内'
 fi
 
-# 检查 8：脚本必需件存在（10 个文件；七脚本＋两规则表＋目录 README，票 48 fail-closed 守卫：
-# 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽；票 56 追加 install.sh 与
-# install-policy.rules 两项，全面数据化归票 57）。
+# 检查 8：脚本必需件存在（清单 scripts 节逐行，票 57 数据驱动；kind 区分普通脚本/规则
+# 表/test-harness，口径差定谳＝test-record-layer.sh 定为必需件；票 48 fail-closed 守卫：
+# 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽）。
+n_scripts=$(wc -l < "$pm_scripts" | tr -d ' ')
 missing_scripts=''
 sep=''
-for rel in \
-  scripts/check-gates.sh \
-  scripts/lane-commit.sh \
-  scripts/check-stale-claims.sh \
-  scripts/generate-progress.sh \
-  scripts/generate-module-map.sh \
-  scripts/ticket-ops.sh \
-  scripts/install.sh \
-  scripts/module-map.rules \
-  scripts/install-policy.rules \
-  scripts/README.md
-do
+OLDIFS=$IFS
+IFS='
+'
+for row in $(cat "$pm_scripts"); do
+  IFS=$OLDIFS
+  rel=${row%%"$TAB"*}
   if [ ! -f "$pkg_root/$rel" ]; then
     missing_scripts="$missing_scripts$sep  - $rel"
     sep='
 '
   fi
 done
+IFS=$OLDIFS
 if [ -n "$missing_scripts" ]; then
-  fail 8 '脚本必需件存在（10 个文件）' "$missing_scripts"
+  fail 8 "脚本必需件存在（${n_scripts} 个文件）" "$missing_scripts"
 else
-  pass 8 '脚本必需件存在（10 个文件）'
+  pass 8 "脚本必需件存在（${n_scripts} 个文件）"
+fi
+
+# 检查 9：scripts/README.md 成员表 ↔ 数据 scripts 节一致（票 57 新增）。一致口径（双向）：
+# ①数据 scripts 节每件都在成员表登记（表＝人读投影不得漏登必需件）；②成员表登记的
+# 每件都是 scripts/ 下实际文件（表与实物不漂移）。
+problems=''
+scripts_readme="$pkg_root/scripts/README.md"
+if [ ! -f "$scripts_readme" ]; then
+  add_problem '  - scripts/README.md（成员表）不存在'
+else
+  # 提取成员表（锚点＝首列表头行；表格随首个非 | 行结束），每行取首列反引号名单。
+  table_names=$(awk '
+    /^\| 名字 \| 地位 \| 功能 \|/ { f = 1; next }
+    f { if ($0 !~ /^\|/) f = 0; else print }
+  ' "$scripts_readme" | sed -n 's/^| `\([^`]*\)`.*/\1/p')
+  if [ -z "$table_names" ]; then
+    add_problem '  - 成员表未提取到成员行（表结构漂移）'
+  else
+    miss_tbl=''
+    sep2=''
+    OLDIFS=$IFS
+    IFS='
+'
+    for row in $(cat "$pm_scripts"); do
+      IFS=$OLDIFS
+      rel=${row%%"$TAB"*}
+      b=${rel##*/}
+      if ! printf '%s\n' "$table_names" | grep -qxF "$b"; then
+        miss_tbl="$miss_tbl$sep2$b"
+        sep2='、'
+      fi
+    done
+    IFS=$OLDIFS
+    if [ -n "$miss_tbl" ]; then
+      add_problem "  - 数据登记未在成员表：$miss_tbl"
+    fi
+    no_file=''
+    sep2=''
+    for b in $table_names; do
+      if [ ! -f "$pkg_root/scripts/$b" ]; then
+        no_file="$no_file$sep2$b"
+        sep2='、'
+      fi
+    done
+    if [ -n "$no_file" ]; then
+      add_problem "  - 成员表登记但无实际文件：$no_file"
+    fi
+  fi
+fi
+if [ -n "$problems" ]; then
+  fail 9 'scripts/README.md 成员表与数据 scripts 节一致' "$problems"
+else
+  pass 9 'scripts/README.md 成员表与数据 scripts 节一致'
+fi
+
+# 检查 10：规则块短码使用 ⊆ 登记（票 57 新增）。扫描范围＝包内全部 *.md 与 *.tmpl
+# （同检查 6 文件面）；登记权威＝清单 shortcodes 节；SPEC 规格号（R-02-001 形态）与
+# R-<短码>-<三位序号> 占位散文不落入提取模式，零自命中。
+problems=''
+codes_col=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_codes")
+used_all=''
+OLDIFS=$IFS
+IFS='
+'
+for f in $file_list; do
+  IFS=$OLDIFS
+  hits=$(grep -hoE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' "$f" 2>/dev/null || true)
+  if [ -n "$hits" ]; then
+    used_all="$used_all$hits
+"
+  fi
+done
+IFS=$OLDIFS
+used_prefixes=$(printf '%s' "$used_all" | sed -n 's/^R-\([A-Z][A-Z]\)-[0-9][0-9][0-9]$/\1/p' | sort -u)
+unreg_codes=''
+sep2=''
+for c in $used_prefixes; do
+  if ! printf '%s\n' "$codes_col" | grep -qxF "$c"; then
+    unreg_codes="$unreg_codes$sep2$c"
+    sep2='、'
+  fi
+done
+if [ -n "$unreg_codes" ]; then
+  add_problem "  - 未登记短码：$unreg_codes"
+fi
+if [ -n "$problems" ]; then
+  fail 10 '规则块短码使用均在登记内' "$problems"
+else
+  pass 10 '规则块短码使用均在登记内'
+fi
+
+# 检查 11：platform 枚举登记处 ↔ 数据一致（票 57 新增；逐处全等，协调层改判随票修）。
+# 登记处（锚点＝登记标记文本，值集合以清单 platform-enum 节为权威）：artifacts-yaml.tmpl
+# platform 字段注释区；capability-contract.md 内每个「已知集合」句（frontmatter 与 §2.5
+# 各一处）逐处全等，任一处缺值/多值/改值即 FAIL 且按行号指名；adapters 各文件的宿主
+# 自述不在本项口径内。
+problems=''
+platform_data=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_platforms" | sort)
+pm_enum_diff() {
+  # $1=登记处取值（每行一个）；与数据 platform_data 比对，输出「缺少／多出」摘要或空串
+  _miss=''
+  _extra=''
+  _s2=''
+  for v in $platform_data; do
+    if ! printf '%s\n' "$1" | grep -qx "$v"; then
+      _miss="$_miss$_s2$v"
+      _s2='、'
+    fi
+  done
+  _s2=''
+  for v in $1; do
+    if ! printf '%s\n' "$platform_data" | grep -qx "$v"; then
+      _extra="$_extra$_s2$v"
+      _s2='、'
+    fi
+  done
+  _r=''
+  if [ -n "$_miss" ]; then
+    _r="缺少 ${_miss}"
+  fi
+  if [ -n "$_extra" ]; then
+    if [ -n "$_r" ]; then
+      # 花括号不可省略：$_r 后紧跟全角字符时，sh 会把多字节字符并入变量名。
+      _r="${_r}；多出 ${_extra}"
+    else
+      _r="多出 ${_extra}"
+    fi
+  fi
+  printf '%s' "$_r"
+}
+tmpl_site="$pkg_root/references/templates/artifacts-yaml.tmpl"
+cc_site="$pkg_root/references/adapters/capability-contract.md"
+if [ ! -f "$tmpl_site" ]; then
+  add_problem '  - references/templates/artifacts-yaml.tmpl 不存在'
+else
+  # 提取用 LC_ALL=C awk 字节级 index/substr（BSD sed 对多字节 RE 不可靠）；锚点＝
+  # “当前已知集合：”，取值段至全角分号止。
+  seg=$(LC_ALL=C awk -v mk='当前已知集合：' -v tail='；' '
+    {
+      i = index($0, mk)
+      if (i > 0) {
+        rest = substr($0, i + length(mk))
+        j = index(rest, tail)
+        if (j > 0) rest = substr(rest, 1, j - 1)
+        print rest
+        exit
+      }
+    }
+  ' "$tmpl_site")
+  if [ -z "$seg" ]; then
+    add_problem '  - artifacts-yaml.tmpl 未找到 platform 枚举登记处（当前已知集合标记）'
+  else
+    site_vals=$(printf '%s\n' "$seg" | tr '/' '\n' | tr -d ' ' | LC_ALL=C sort)
+    diff_detail=$(pm_enum_diff "$site_vals")
+    if [ -n "$diff_detail" ]; then
+      add_problem "  - artifacts-yaml.tmpl 登记与数据不一致：$diff_detail"
+    fi
+  fi
+fi
+if [ ! -f "$cc_site" ]; then
+  add_problem '  - references/adapters/capability-contract.md 不存在'
+else
+  # 锚点＝「已知集合」句（本文件 frontmatter 与 §2.5 各有一处登记）；协调层 2026-09-21
+  # 改判随票修：比对口径为逐处全等——每个登记处单独与数据比对，任一处缺值/多值/改值
+  # 即 FAIL（并集口径存在单处删值盲区，废止）；FAIL 行按行号指名漂移处。每句取值段截于
+  # 全角分号/左括注/句号最早者，strip 反引号后按斜杠分值。
+  cc_raw=$(LC_ALL=C awk -v mk='已知集合' '
+    function cutat(s, t,   j) { j = index(s, t); if (j == 0) j = length(s) + 1; return j }
+    {
+      i = index($0, mk)
+      if (i > 0) {
+        rest = substr($0, i + length(mk))
+        j = cutat(rest, "；")
+        k = cutat(rest, "（")
+        l = cutat(rest, "。")
+        e = j
+        if (k < e) e = k
+        if (l < e) e = l
+        if (e <= length(rest)) rest = substr(rest, 1, e - 1)
+        print FNR "\t" rest
+      }
+    }
+  ' "$cc_site")
+  if [ -z "$cc_raw" ]; then
+    add_problem '  - capability-contract.md 未找到 platform 枚举登记处（已知集合标记）'
+  else
+    OLDIFS=$IFS
+    IFS='
+'
+    for row in $cc_raw; do
+      IFS=$OLDIFS
+      cc_ln=${row%%"$TAB"*}
+      seg=${row#*"$TAB"}
+      site_vals=$(printf '%s\n' "$seg" | tr -d '`' | tr '/' '\n' | tr -d ' ' | LC_ALL=C sort -u)
+      diff_detail=$(pm_enum_diff "$site_vals")
+      if [ -n "$diff_detail" ]; then
+        add_problem "  - capability-contract.md :${cc_ln} 登记与数据不一致：$diff_detail"
+      fi
+    done
+    IFS=$OLDIFS
+  fi
+fi
+if [ -n "$problems" ]; then
+  fail 11 'platform 枚举登记与数据一致' "$problems"
+else
+  pass 11 'platform 枚举登记与数据一致'
 fi
 
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 8 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 11 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

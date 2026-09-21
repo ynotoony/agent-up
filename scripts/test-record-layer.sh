@@ -4,7 +4,10 @@
 #        场景来源＝票 41～45/47 六票 Implementation Checkpoint 的 fixture（只作场景清单）；
 #        预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训）；票 56 检查 8
 #        清单 8→10 件（追加 install.sh＋install-policy.rules），check-package 套件预期串
-#        同步（协调层改判：同步不做推迟）。
+#        同步（协调层改判：同步不做推迟）；票 57 包清单数据化（check-package 检查 1/5/8
+#        改读 package-manifest.rules 数据＋新增检查 9/10/11），预期串同步十一项口径——
+#        正例含新增三查 PASS 行，负例（删 generate-progress.sh）联动检查 9 双 FAIL；
+#        协调层改判随票修：检查 11 逐处全等，补 capability-contract §2.5 单处删值负例。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -605,7 +608,8 @@ EOF
 
 # ============================================================
 # suite: check-package（票 12/48 场景沉淀：八项正例＋必需件缺失负例；票 56 检查 8 清单
-# 8→10 件，预期串同步 10 件口径）
+# 8→10 件，预期串同步 10 件口径；票 57 数据化改造＋新增检查 9/10/11，预期串同步
+# 十一项口径；协调层改判随票修：检查 11 逐处全等，补 §2.5 单处删值负例）
 # ============================================================
 
 suite_check_package() {
@@ -624,12 +628,15 @@ PASS: 5 templates 下 .tmpl 为 13 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 PASS: 8 脚本必需件存在（10 个文件）
+PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
+PASS: 10 规则块短码使用均在登记内
+PASS: 11 platform 枚举登记与数据一致
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
   rc=$?
   [ "$rc" -eq 0 ] && ok "正例 exit 0（包根＝${PKG_ROOT}）" || bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
-  assert_eq '正例输出逐行逐一相等（八项 PASS＋汇总，含票 48 检查项 8）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（十一项 PASS＋汇总，含票 57 新增检查 9/10/11）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -642,12 +649,38 @@ PASS: 5 templates 下 .tmpl 为 13 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 FAIL: 8 脚本必需件存在（10 个文件） —   - scripts/generate-progress.sh
-check-package: FAIL（1 项未通过，共 8 项）
+FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
+PASS: 10 规则块短码使用均在登记内
+PASS: 11 platform 枚举登记与数据一致
+check-package: FAIL（2 项未通过，共 11 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
   [ "$rc" -eq 1 ] && ok '负例 exit 1（副本删必需件，mktemp 副本纪律）' || bad '负例 exit 1（副本删必需件，mktemp 副本纪律）' "exit=$rc"
-  assert_eq '负例输出逐一相等（fail-closed 指名缺失件，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
+  assert_eq '负例输出逐一相等（fail-closed 指名缺失件＋检查 9 表实漂移联动，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
+
+  # 票 57 协调层改判随票修：检查 11 逐处全等——§2.5 单处删 pi（frontmatter 完整）
+  # 必须单独 FAIL 指名 :119（旧并集口径此场景漏检，回归钉死）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy2"
+  sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
+  cat > "$D/exp.cc" <<'EOF'
+PASS: 1 必需入口存在（16 个文件）
+PASS: 2 SKILL.md frontmatter 为 name: agent-up
+PASS: 3 包内无旧标识残留
+PASS: 4 无绝对路径与根治理引用
+PASS: 5 templates 下 .tmpl 为 13 个且全部登记
+PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
+PASS: 7 根治理文件不在包内
+PASS: 8 脚本必需件存在（10 个文件）
+PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
+PASS: 10 规则块短码使用均在登记内
+FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :119 登记与数据不一致：缺少 pi
+check-package: FAIL（1 项未通过，共 11 项）
+EOF
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
+  rc=$?
+  [ "$rc" -eq 1 ] && ok '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' || bad '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' "exit=$rc"
+  assert_eq '负例输出逐一相等（检查 11 逐处全等，FAIL 行按行号指名 :119 缺少 pi）' "$D/act.cc" "$D/exp.cc"
 
   suite_summary 'check-package'
 }

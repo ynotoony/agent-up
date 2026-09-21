@@ -1,5 +1,5 @@
-<!-- Input: `check-package.sh` 的八项检查实现与 SPEC-06 §5、票 09/11 的例外登记事实（schemas/README.md 的 JSON 契约头例外、templates/README.md 的 artifacts-yaml YAML 契约头例外）；票 12（SPEC-06 §7）11 条场景验收执行记录与沉淀决定（`scenario-checklist.md`）；票 19（REQ-20260904-010）`check-stale-claims.sh` 的两模式、登记表条目与退出码实况；票 37（拆票计划 C 组②）道脚本改造事实——flips 索引条目口径（单写 docs/issues/index.json → 票正文 Status 投影打印件 → 生成器投影再生）、微账本 `docs/agent/micro.jsonl` JSON 行、S3 投影 vs 索引比对与 S1-1e 缺口消除、`generate-progress.sh` 入包（与本仓根 `scripts/` 基线 cmp 一致）；票 43 语言登记表 Rust 扩展事实（mod 文件边存在性核验＋use 路径表达式原串，四语言）；票 44 引擎表驱动化事实（语言知识外置 `module-map.rules`，引擎通用管线零语言专名，四语言边集逐边回归＋哑语言规则行产边实证）；票 45 七语言批量扩展事实（Go/Java/C#/Ruby/PHP/Swift/Kotlin 规则行＋fixture 回归，覆盖语言十一种，零引擎改动）；票 47（ticket-ops.sh 入包采纳：与本仓根 `scripts/` 基线 cmp 零差异复制、专节与落位口径——记录层标配不门控快道，包内不运行声明）；票 48（检查项 8 脚本必需件存在性守卫：六 `.sh`＋`module-map.rules`＋`scripts/README.md` 逐一存在性核对，fail-closed 指名缺失件，计数联动七项→八项）；票 49（`test-record-layer.sh` 记录层回归 harness 落位：票 41～45/47 六票 fixture 沉淀为四 suite 常驻自检工具，缺省自测同目录包内脚本、mktemp 夹具 trap 清理、预期值独立重建、注入自检）；票 56（安装政策单源化：`install-policy.rules` 政策数据表＋`install.sh` 安装脚本落位——安装政策映射唯一承载点改为外置数据、引擎零专名，检查 8 清单扩为 10 件）。 -->
-<!-- Output: 公开包 scripts/ 目录索引与共享 harness 约定：脚本用途、用法、八项检查说明、易腐断言扫描器两模式与登记表说明、投影生成器用法与退出码、模块地图生成器用法与语言登记表、道脚本收尾行为（索引单写机制）、票务运维脚本三子命令用法与落位口径、安装脚本用法/退出码与安装政策数据表格式、输出格式、退出码与维护联动规则。 -->
+<!-- Input: `check-package.sh` 的十一项检查实现（清单数据驱动，票 57）与 SPEC-06 §5、票 09/11 的例外登记事实（schemas/README.md 的 JSON 契约头例外、templates/README.md 的 artifacts-yaml YAML 契约头例外）；票 12（SPEC-06 §7）11 条场景验收执行记录与沉淀决定（`scenario-checklist.md`）；票 19（REQ-20260904-010）`check-stale-claims.sh` 的两模式、登记表条目与退出码实况；票 37（拆票计划 C 组②）道脚本改造事实——flips 索引条目口径（单写 docs/issues/index.json → 票正文 Status 投影打印件 → 生成器投影再生）、微账本 `docs/agent/micro.jsonl` JSON 行、S3 投影 vs 索引比对与 S1-1e 缺口消除、`generate-progress.sh` 入包（与本仓根 `scripts/` 基线 cmp 一致）；票 43 语言登记表 Rust 扩展事实（mod 文件边存在性核验＋use 路径表达式原串，四语言）；票 44 引擎表驱动化事实（语言知识外置 `module-map.rules`，引擎通用管线零语言专名，四语言边集逐边回归＋哑语言规则行产边实证）；票 45 七语言批量扩展事实（Go/Java/C#/Ruby/PHP/Swift/Kotlin 规则行＋fixture 回归，覆盖语言十一种，零引擎改动）；票 47（ticket-ops.sh 入包采纳：与本仓根 `scripts/` 基线 cmp 零差异复制、专节与落位口径——记录层标配不门控快道，包内不运行声明）；票 48（检查项 8 脚本必需件存在性守卫：六 `.sh`＋`module-map.rules`＋`scripts/README.md` 逐一存在性核对，fail-closed 指名缺失件，计数联动七项→八项）；票 49（`test-record-layer.sh` 记录层回归 harness 落位：票 41～45/47 六票 fixture 沉淀为四 suite 常驻自检工具，缺省自测同目录包内脚本、mktemp 夹具 trap 清理、预期值独立重建、注入自检）；票 56（安装政策单源化：`install-policy.rules` 政策数据表＋`install.sh` 安装脚本落位——安装政策映射唯一承载点改为外置数据、引擎零专名，检查 8 清单扩为 10 件）；票 57（包清单数据化：`package-manifest.rules` 五节数据单源落位——入口文件/脚本必需件/模板清单/短码登记/platform 枚举唯一承载点，check-package.sh 检查 1/5/8 改读数据、新增检查 9（scripts/README.md 成员表↔数据一致）/10（短码使用⊆登记）/11（platform 枚举登记处↔数据一致），检查项 8→11，口径差定谳＝test-record-layer.sh 定为必需件 kind 标 test-harness）。 -->
+<!-- Output: 公开包 scripts/ 目录索引与共享 harness 约定：脚本用途、用法、十一项检查说明（清单数据驱动）、包清单数据表格式、易腐断言扫描器两模式与登记表说明、投影生成器用法与退出码、模块地图生成器用法与语言登记表、道脚本收尾行为（索引单写机制）、票务运维脚本三子命令用法与落位口径、安装脚本用法/退出码与安装政策数据表格式、输出格式、退出码与维护联动规则。 -->
 <!-- Pos: 公开包脚本目录索引；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 脚本
@@ -8,8 +8,8 @@
 
 | 名字 | 地位 | 功能 |
 | --- | --- | --- |
-| `README.md` | 目录索引 | 说明脚本用途、用法、八项检查、输出格式、退出码与维护联动规则。 |
-| `check-package.sh` | 包完整性检查 | 按八项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004）；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
+| `README.md` | 目录索引 | 说明脚本用途、用法、十一项检查、包清单数据表格式、输出格式、退出码与维护联动规则。 |
+| `check-package.sh` | 包完整性检查 | 按十一项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004；票 57 起检查 1/5/8 清单自 `package-manifest.rules` 数据读取，检查 9/10/11 以数据为比对基准）；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
 | `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010 / 票 19；票 37 S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口）；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
 | `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的只读门禁核对（REQ-20260904-011 / 票 26）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；POSIX sh、严格只读、零外部依赖。详见下文专节。 |
 | `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011 / 票 26；票 37 单写机制改造）：门禁 → 白名单产品提交 → 索引单写（`docs/issues/index.json` 票状态真相源）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 追加或微账本（`docs/agent/micro.jsonl`）落行 → 生成器投影再生并 `--check` 核对 → 记录提交（两段式，R-RC-003）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
@@ -17,6 +17,7 @@
 | `generate-module-map.sh` | 模块地图生成器 | 静态导入行提取生成 `<root>/docs/architecture/module-map.json` 检索索引（票 30 拍板方案 A / 票 42 首版 / 票 43 Rust 扩展 / 票 44 表驱动化 / 票 45 七语言批量扩展）：Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌（R-DP-015 算法，输入排除本图自身）；repo-root 参数化（缺省 git toplevel）；引擎为通用规则解释器（加载规则表→发现源码→匹配捕获→策略产边→存在性过滤→组装 JSON），语言知识外置 `module-map.rules`（每语言一行，引擎零语言专名，加语言＝加规则行零引擎改动）；POSIX sh、无 jq/python（stat 与 SHA-256 工具依赖声明见专节）、fail-closed。详见下文专节。 |
 | `module-map.rules` | 模块地图语言规则表 | `generate-module-map.sh` 的语言提取规则唯一承载点（票 44 表驱动化）：每语言一行 `mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>`；strategy 枚举 extension-map（扩展名 glob 语言绑定）/unresolved-node（未解析节点引用直出）/module-path（模块路径文本直出）/direct-file（声明文件候选边＋存在性过滤）；编码语义见本表头部注释与下文专节；规则表缺失或不合预期时引擎 exit 2（fail-closed）。 |
 | `install-policy.rules` | 安装政策数据表 | 安装政策映射唯一承载点（票 56 单源化；先例 `module-map.rules`：外置数据＋引擎零专名）：门控定义行 `ip_gate <gate> <flag> <说明>` 与每文件×每门控行 `ip_file <pkg-rel-path> <lifecycle> <gate> <说明>`（包内复制基线路径、登记 lifecycle 值、所属门控与角色说明；同一文件属多门控逐门控各一行，引擎按文件路径去重选取）；`install.sh` 加载时结构校验（字段数、token/flag/lifecycle/路径形态、(文件,门控) 唯一、同文件 lifecycle 一致、未定义门控引用、零文件门控），任一不合预期 exit 2（fail-closed）。 |
+| `package-manifest.rules` | 包清单数据表 | 包结构清单唯一承载点（票 57 单源化；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）：五节行式数据——必需入口文件（`pm_entry`）、脚本必需件（`pm_script`，kind 区分普通脚本/规则表/test-harness）、.tmpl 模板清单（`pm_template`）、规则块短码登记（`pm_shortcode`）、platform 枚举（`pm_platform`）；`check-package.sh` 加载时结构校验（字段数、路径/kind/短码/platform 形态、各节内跨行不重复、五节缺一不可），任一不合预期 exit 2（fail-closed）；检查 1/5/8 清单与计数、检查 9/10/11 比对基准全部自本表读取，引擎零文件名零短码零枚举值清单。维护规则与行格式见下文专节。 |
 | `ticket-ops.sh` | 票务运维脚本 | 协调层票务面单入口（票 41 本仓交付 / 票 47 入包采纳）：`open`（开票：索引新增条目 status=ready＋issues-README 目录清单追加行＋账本追加行）／`take`（领取：status=in_progress）／`flip`（状态翻转：状态机任意合法值）三子命令，索引与 README 锚点整行/单 token 机械改写，收尾调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对；校验先于写入、fail-closed（索引一条目一行排版破坏、锚点不唯一、账本行不合键序即停止不写）；POSIX sh、零外部依赖（无 jq/python）。详见下文专节。 |
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎（票 56）：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值＋generation manifest 提示），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票（41～45/47）fixture 沉淀的常驻自检工具（票 49）：四 suite（module-map/ticket-ops/progress/check-package，`--suite` 参数化，缺省 all）一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、零外部依赖、夹具 trap 清理、仓库零写入。详见下文专节。 |
@@ -24,7 +25,7 @@
 
 ## 用途与用法
 
-对 `agent-up` 公开包做发布前核对与包内容变化后自查：八项检查全部通过才可宣称包完整；失败项逐条修复或报告，不为通过检查篡改包内容（R-06-004）。
+对 `agent-up` 公开包做发布前核对与包内容变化后自查：十一项检查全部通过才可宣称包完整；失败项逐条修复或报告，不为通过检查篡改包内容（R-06-004）。
 
 ```text
 sh scripts/check-package.sh [package-root]
@@ -35,18 +36,23 @@ sh scripts/check-package.sh [package-root]
 - `-h` / `--help`：打印用法。
 - 脚本只读：除向 stdout/stderr 打印外无任何写操作；无网络依赖（不出网、无下载行为）。
 
-## 八项检查
+## 检查项（十一项，清单数据驱动）
+
+包结构清单的机器真相是数据文件 `package-manifest.rules`（五节，行格式与维护规则见下文专节）：检查 1/5/8 的清单与计数自数据读取，检查 9/10/11 以数据为比对基准核对登记面与使用面；本表为检查口径的人读说明，与数据表冲突时以数据表为机器真相。
 
 | # | 检查 | 实现 |
 | --- | --- | --- |
-| 1 | 必需入口存在 | 16 个文件逐一 `test -f`：包根 `SKILL.md`、`README.md`、`LICENSE`；`references/` 下 `README.md`、`old-project.md`；`templates/`、`protocol/`、`adapters/`、`schemas/` 四个目录 README；`protocol/` 三手册（governance-format、read-policy、complexity-profile）；`adapters/` 两手册（capability-contract、zcode）；`schemas/` 两 JSON（run-record.schema.json、run-record.example.json）。 |
+| 1 | 必需入口存在 | 清单 `entry-files` 节逐行 `test -f`（现 16 件：包根 `SKILL.md`、`README.md`、`LICENSE`；`references/` 下目录 README 与手册、`schemas/` 两 JSON——逐件名单见数据表，票 57 起不再硬编码于引擎）；任一缺失即 FAIL 并逐件指名（fail-closed）。 |
 | 2 | `SKILL.md` frontmatter 为 `name: agent-up` | 首行 `---` 与闭合 `---` 之间存在 `name: agent-up` 行；frontmatter 缺失或未闭合判失败。 |
 | 3 | 包内无旧标识残留 | `grep -rn` 全包扫描旧 Skill 标识字面量（本包改名前的原 Skill 名），零命中为通过；扫描范围含本目录。 |
 | 4 | 无绝对路径与根治理引用 | `grep -rn` 扫描用户主目录绝对路径前缀（/Users 或 /home，带尾斜杠匹配）与根治理相对引用字面量（`../` 后接 docs 或 .zcode）。按票 09/11 结论，模板内 `../specs/` 等兄弟路径属目标项目生成语义，不在本项口径。 |
-| 5 | 模板清单与 manifest 一致 | `references/templates/` 下 `.tmpl` 恰 13 个；每个 `.tmpl` 在 `templates/README.md` manifest 有登记行；manifest 目录清单节登记的每个 `.tmpl` 均有实际文件（无多余登记）。增删模板须同步 manifest 与本脚本的预期数量。 |
+| 5 | 模板清单一致（数据↔磁盘↔manifest 双向；票 57 数据驱动） | `references/templates/` 下实际 `.tmpl` 与清单 `templates` 节集合一致（数量相等、互不缺多），且数据每件在 `templates/README.md` manifest 目录清单节有登记行、manifest 登记的每个 `.tmpl` 都在数据内——manifest 表＝人读投影，数据＝机器真相，双向漂移即 FAIL。 |
 | 6 | 文本契约头齐全 | `*.md` 与 `*.tmpl` 在检测窗口内含 `Input:`/`Output:`/`Pos:` 三行：无 frontmatter 的文件取前 5 行，首行为 `---` 的文件取 frontmatter 结束后的 5 行（frontmatter 未闭合判失败）。例外：`artifacts-yaml.tmpl` 以 YAML `#` 注释承载（前 5 行含 `# Input:`/`# Output:`/`# Pos:`，登记见 `templates/README.md`）；`LICENSE` 与 `schemas/*.json` 不属扫描范围（JSON 以 `$id`/`title`/`description` 承载导航元数据，例外登记见 `schemas/README.md`）。 |
 | 7 | 根治理文件不在包内 | 包根不存在 `AGENTS.md`（文件）、`docs/`（目录）、`.zcode/`（目录）。 |
-| 8 | 脚本必需件存在（票 48；票 56 扩清单） | 10 个文件逐一 `test -f`：`scripts/` 下七脚本（`check-gates.sh`、`lane-commit.sh`、`check-stale-claims.sh`、`generate-progress.sh`、`generate-module-map.sh`、`ticket-ops.sh`、`install.sh`）、规则表 `module-map.rules` 与 `install-policy.rules`、目录索引 `README.md`；任一缺失即 FAIL 并逐件指名缺失件（fail-closed，不因部分存在而放宽）。增删包内脚本成员须同步本项清单。 |
+| 8 | 脚本必需件存在（票 48；票 56 扩清单；票 57 数据驱动） | 清单 `scripts` 节逐行 `test -f`（现 10 件：`scripts/` 下七 `.sh`（check-gates、lane-commit、check-stale-claims、generate-progress、generate-module-map、ticket-ops、install）、两规则表（`module-map.rules`、`install-policy.rules`）、`test-record-layer.sh`——票 57 口径差定谳定为必需件，kind 标 `test-harness`）；任一缺失即 FAIL 并逐件指名缺失件（fail-closed，不因部分存在而放宽）。增删包内脚本成员须同步数据表 `scripts` 节。 |
+| 9 | scripts/README.md 成员表与数据 scripts 节一致（票 57 新增） | 双向口径：①清单 `scripts` 节每件都在成员表登记（表＝人读投影不得漏登必需件）；②成员表登记的每件都是 `scripts/` 下实际文件（表与实物不漂移）。成员表提取锚点＝首列 `名字/地位/功能` 表头行。 |
+| 10 | 规则块短码使用均在登记内（票 57 新增） | 扫描包内全部 `*.md` 与 `*.tmpl`（同检查 6 文件面）提取规则块 ID `R-<短码>-<三位序号>` 的两字母前缀，与清单 `shortcodes` 节比对：使用⊆登记；SPEC 规格号（`R-02-001` 形态，数字段）不落入提取模式。短码全集以 grep 实测为准（现 16 个），新增短码先登记数据表再使用。 |
+| 11 | platform 枚举登记与数据一致（票 57 新增；逐处全等） | 各登记处值集合与清单 `platform-enum` 节逐处全等（任一处缺值/多值/改值即不一致，FAIL 行按行号指名漂移处）：`references/templates/artifacts-yaml.tmpl` platform 字段注释区（锚点＝`当前已知集合：` 标记）、`references/adapters/capability-contract.md` 内每个「已知集合」句（frontmatter 与 §2.5 各一处，各自单独比对，不并集）；提取锚点为登记标记文本，值集合以数据为权威。 |
 
 ## 输出格式
 
@@ -58,16 +64,38 @@ FAIL: <编号> <描述> 详情：
 check-package: PASS
 ```
 
-- 八项检查逐项输出一行 PASS 或 FAIL；任一失败时结尾输出 `check-package: FAIL（N 项未通过，共 8 项）`，全部通过时结尾输出 `check-package: PASS`。
+- 十一项检查逐项输出一行 PASS 或 FAIL；任一失败时结尾输出 `check-package: FAIL（N 项未通过，共 11 项）`，全部通过时结尾输出 `check-package: PASS`。
 - FAIL 详情为可定位信息：文件清单、命中行（`路径:行号:内容`）或计数差异。
 
 ## 退出码
 
 | 退出码 | 语义 |
 | --- | --- |
-| 0 | 八项检查全部通过。 |
+| 0 | 十一项检查全部通过。 |
 | 1 | 存在未通过项（逐项 FAIL 行见输出）。 |
-| 2 | 用法或环境错误（参数过多、包根不存在等）。 |
+| 2 | 用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等；数据校验 fail-closed，不产生部分结论）。 |
+
+## package-manifest.rules（包清单数据表）
+
+包结构清单唯一承载点（票 57 单源化；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）。`check-package.sh` 启动时 source 本表（与脚本同目录），检查 1/5/8 的清单与计数、检查 9/10/11 的比对基准全部自数据读取，引擎零文件名零短码零枚举值清单——加成员、加短码、加 platform 值＝加一行数据＋改对应实物，零引擎改动。
+
+### 行格式（五节）
+
+| 指令 | 字段数 | 语义 |
+| --- | --- | --- |
+| `pm_entry <pkg-rel-path>` | 1 | 必需入口文件，包根相对路径（检查 1）。 |
+| `pm_script <pkg-rel-path> <kind> <说明>` | 3 | 脚本必需件，须 `scripts/` 前缀加单段文件名（检查 8）；`kind` ∈ `script`（普通脚本）/`rules`（规则表）/`test-harness`（回归 harness）——票 57 口径差定谳：`test-record-layer.sh` 定为必需件，kind 标 `test-harness`。 |
+| `pm_template <basename>` | 1 | `.tmpl` 模板文件名（检查 5，与 `references/templates/README.md` manifest 表双向）。 |
+| `pm_shortcode <CODE> <owner>` | 2 | 规则块两字母短码与其所属文件包内相对路径（检查 10：使用⊆登记；与 `references/` 各目录 README 短码登记面同源）。 |
+| `pm_platform <value>` | 1 | platform 枚举值（检查 11，与 `artifacts-yaml.tmpl` 注释区、`capability-contract.md` 登记处一致）。 |
+
+### 结构校验（fail-closed）
+
+引擎加载时逐行核验，任一不合预期 exit 2，不产生部分结论：字段数恰如上表（字段内禁制表符）；路径禁前导斜杠、空白与 `..` 段，`pm_script` 须 `scripts/` 前缀单段名，`pm_template` 须单段 `.tmpl` 名，`pm_shortcode` 短码两字母大写且 owner 须 `references/` 前缀，`pm_platform` 值须小写 token；`kind` 枚举三值；各节内路径/文件名/短码/值跨行不重复；五节每节至少一行。
+
+### 维护规则
+
+清单变更先改数据再改实物（数据先行）；本表与 `scripts/README.md` 成员表、`references/` 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，一致性由检查 5/9 机械核对，漂移即 FAIL（表文修正归人工裁决，不静默互改）。短码或 platform 新值：先在数据表登记，再按 `references/protocol/governance-format.md` 与 `references/adapters/capability-contract.md`（R-CC-005）流程落登记面与实物。
 
 ## check-stale-claims.sh（易腐断言扫描器）
 
@@ -455,7 +483,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `module-map` | 42/43/44/45 | 11 语言夹具正例（nodes 19／edges 50 逐一相等＋stdout 摘要计数）＋fp-v1 形状／稳定性／变更检出＋负例 3（规则表损坏 exit 2、无源码 exit 1、非 Git exit 2，均零地图写入） | 10 |
 | `ticket-ops` | 41/47 | 生成项目语境 open→take→flip 全链（索引／issues-README／投影全文件逐一相等＋账本行数；updated_at／开票日期捕获后校验形状重建预期）＋收尾投影 `--check`＋负例 6（重复 id／未知 id／账本键序违规／take 非 in_progress／非法状态值／索引排版破坏）exit 1 零写入 | 22 |
 | `progress` | 35 | 投影生成（乱序 id＋checkpoint_ref 列）全文件逐一相等、`--check` 一致 exit 0、篡改检出 exit 1、投影缺失 exit 1、索引缺失／条目行缺必备字段 exit 2 | 7 |
-| `check-package` | 12/48 | 八项正例输出逐行逐一相等（含票 48 检查项 8）＋必需件缺失负例（mktemp 包副本删件）exit 1 指名缺失件（单缺失件为单行 ` — 详情` 形态） | 4 |
+| `check-package` | 12/48/57 | 十一项正例输出逐行逐一相等（含票 48 检查项 8、票 57 新增检查 9/10/11）＋必需件缺失负例（mktemp 包副本删件）exit 1 指名缺失件＋检查 9 表实漂移联动（单缺失件为单行 ` — 详情` 形态）＋检查 11 逐处全等负例（§2.5 单处删值，FAIL 行按行号指名；协调层改判随票修） | 6 |
 | （仅 all）注入自检 | 49 | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 
 断言计数为 2026-09-20 交付时点值，随维护增减（suite 汇总行按实际计数输出）。

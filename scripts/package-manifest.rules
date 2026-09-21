@@ -1,0 +1,101 @@
+# Input: 包清单事实（票 57 单源化拍板）：必需入口文件、脚本必需件、.tmpl 模板清单、
+#        规则块短码登记、platform 枚举——五节唯一承载点；check-package.sh 检查 1/5/8 的
+#        清单与计数自本表读取（引擎内硬编码清单废止），检查 9/10/11 以本表为比对基准。
+# Output: check-package.sh 引擎启动时 source 本表——每行一个 pm_* 调用：
+#         pm_entry <pkg-rel-path>（必需入口文件，包根相对路径）；
+#         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
+#           kind ∈ script 普通脚本 / rules 规则表 / test-harness 回归 harness）；
+#         pm_template <basename>（references/templates/ 下 .tmpl 文件名）；
+#         pm_shortcode <CODE> <owner>（规则块两字母短码与其所属文件包内相对路径）；
+#         pm_platform <value>（platform 枚举值）。
+# Pos: 包清单数据文件（票 57；先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
+#      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
+#      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
+#      一致性由 check-package.sh 检查 5/9 机械核对。短码登记以各目录 README 登记面为
+#      同源（templates：AG/DP/RQ/RI/RR/RC；protocol：GF/RP/CP；adapters：AT/CC/ZC/CL/
+#      CX/PI/DS，票 57 grep 实测全集）；platform 枚举自 capability-contract.md §2.5 与
+#      artifacts-yaml.tmpl platform 字段注释区迁入（票 57）。结构校验口径
+#      （check-package.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不产生
+#      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
+#      pm_shortcode 恰 2、pm_platform 恰 1，字段内禁制表符）；路径禁前导斜杠、空白与
+#      .. 段；pm_script 须 scripts/ 前缀加单段文件名；kind 枚举三值（见 Output）；
+#      pm_template 须单段 .tmpl 文件名；短码两字母大写且跨行唯一，owner 须 references/
+#      前缀；platform 值须小写 token；各节内路径/文件名/短码/值跨行不重复；五节每节
+#      至少一行。本表、scripts/README.md 成员表与 references/ 登记面须同步（清单变化时）。
+
+# ==== entry-files：必需入口文件（检查 1）====
+
+pm_entry SKILL.md
+pm_entry README.md
+pm_entry LICENSE
+pm_entry references/README.md
+pm_entry references/old-project.md
+pm_entry references/templates/README.md
+pm_entry references/protocol/README.md
+pm_entry references/adapters/README.md
+pm_entry references/schemas/README.md
+pm_entry references/protocol/governance-format.md
+pm_entry references/protocol/read-policy.md
+pm_entry references/protocol/complexity-profile.md
+pm_entry references/adapters/capability-contract.md
+pm_entry references/adapters/zcode.md
+pm_entry references/schemas/run-record.schema.json
+pm_entry references/schemas/run-record.example.json
+
+# ==== scripts：脚本必需件（检查 8；成员表一致性检查 9）====
+# kind 口径差定谳（票 57）：test-record-layer.sh 定为必需件，kind 标 test-harness。
+
+pm_script scripts/check-gates.sh script '道脚本：快道只读门禁核对器'
+pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾'
+pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（票收口拦截＋会话启动警告）'
+pm_script scripts/generate-progress.sh script '现役状态投影生成器'
+pm_script scripts/generate-module-map.sh script '模块地图生成器'
+pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip）'
+pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
+pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
+pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
+pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（四 suite 常驻自检；票 57 定为必需件）'
+
+# ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
+
+pm_template AGENTS.md.tmpl
+pm_template CONTEXT.md.tmpl
+pm_template agents-commit.md.tmpl
+pm_template agents-implementation.md.tmpl
+pm_template agents-review.md.tmpl
+pm_template artifacts-yaml.tmpl
+pm_template development-process.md.tmpl
+pm_template dir-README.md.tmpl
+pm_template issues-README.md.tmpl
+pm_template requests-README.md.tmpl
+pm_template research-README.md.tmpl
+pm_template scripts-README.md.tmpl
+pm_template specs-README.md.tmpl
+
+# ==== shortcodes：规则块短码登记（检查 10：使用⊆登记）====
+
+pm_shortcode AG references/templates/AGENTS.md.tmpl
+pm_shortcode DP references/templates/development-process.md.tmpl
+pm_shortcode RQ references/templates/requests-README.md.tmpl
+pm_shortcode RI references/templates/agents-implementation.md.tmpl
+pm_shortcode RR references/templates/agents-review.md.tmpl
+pm_shortcode RC references/templates/agents-commit.md.tmpl
+pm_shortcode GF references/protocol/governance-format.md
+pm_shortcode RP references/protocol/read-policy.md
+pm_shortcode CP references/protocol/complexity-profile.md
+pm_shortcode AT references/adapters/adapter-template.md
+pm_shortcode CC references/adapters/capability-contract.md
+pm_shortcode ZC references/adapters/zcode.md
+pm_shortcode CL references/adapters/claude-code.md
+pm_shortcode CX references/adapters/codex.md
+pm_shortcode PI references/adapters/pi.md
+pm_shortcode DS references/adapters/dsh.md
+
+# ==== platform-enum：platform 枚举（检查 11）====
+
+pm_platform neutral
+pm_platform zcode
+pm_platform claude-code
+pm_platform codex
+pm_platform pi
+pm_platform dsh
