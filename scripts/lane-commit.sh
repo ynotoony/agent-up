@@ -29,7 +29,9 @@ usage() {
 参数:
   repo-root      仓库根目录；缺省取当前目录所在 Git 仓库顶层。
   contract-file  行式提交合同文件（临时输入，不落仓库），行格式（均以行首列为准）:
-                   lane: user-review|micro
+                   lane: user-review|micro            （micro 道预检，票 58：白名单 ≤3 条目
+                                                       且改动集零新建（??）零删除（D），
+                                                       违者 exit 1；user-review 不受限）
                    ticket: <仓库根相对路径>          （user-review 必填；micro 不得出现）
                    whitelist: <逗号分隔相对路径>      （必填，单项或逗号多项）
                    message: <产品提交说明>            （必填）
@@ -256,6 +258,29 @@ if [ "${n_index_flip}" -gt 0 ]; then
   [ "${n_index_flip}" -eq 1 ] || die1 '索引条目翻转至多一条（单写口径，票 37）'
   t_stem=${ticket%.md}
   t_stem=${t_stem##*/}
+fi
+
+# ---- 微道预检（票 58：微道只修不建不删；user-review 道不受此限，行为零变化）----
+# 两断言：①白名单条目 ≤3（超出属非微任务，改走 user-review 道开票收尾）；
+# ②git status 改动集零新建（??）零删除（D）——微任务道准入即机械可验小改，新增/删除
+# 文件超出口径；stop 时零写入零提交（本段先于翻转预检与门禁，任何 die1 均安全）。
+
+if [ "${lane}" = 'micro' ]; then
+  n_wl=0
+  for wentry in ${whitelist}; do
+    n_wl=$((n_wl + 1))
+  done
+  [ "${n_wl}" -le 3 ] || die1 "微道白名单条目 ${n_wl} 个（须 ≤3，票 58）——超出属非微任务，改走 user-review 道开票收尾"
+  st_out=$(git -C "${repo_root}" status --porcelain)
+  while IFS= read -r stline; do
+    [ -n "${stline}" ] || continue
+    case ${stline} in
+      '??'*) die1 "微道改动集含未跟踪新增（??）: ${stline#?? }——微道零新建（票 58），先入库或移出改动集" ;;
+      'D'*|?'D'*) die1 "微道改动集含删除（D）: ${stline}——微道零删除（票 58）" ;;
+    esac
+  done <<EOF_ST
+${st_out}
+EOF_ST
 fi
 
 n_flip=0

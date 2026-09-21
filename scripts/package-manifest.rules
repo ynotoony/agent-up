@@ -1,27 +1,42 @@
-# Input: 包清单事实（票 57 单源化拍板）：必需入口文件、脚本必需件、.tmpl 模板清单、
-#        规则块短码登记、platform 枚举——五节唯一承载点；check-package.sh 检查 1/5/8 的
-#        清单与计数自本表读取（引擎内硬编码清单废止），检查 9/10/11 以本表为比对基准。
+# Input: 包清单事实（票 57 单源化拍板；票 58 扩节）：必需入口文件、脚本必需件、.tmpl 模板清单、
+#        规则块短码登记、platform 枚举、模糊措辞词表与行级豁免、镜像脚本——八节唯一承载点；
+#        check-package.sh 检查 1/5/8 的清单与计数自本表读取（引擎内硬编码清单废止），检查
+#        9/10/11/12/13 以本表为比对基准。
 # Output: check-package.sh 引擎启动时 source 本表——每行一个 pm_* 调用：
 #         pm_entry <pkg-rel-path>（必需入口文件，包根相对路径）；
 #         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
 #           kind ∈ script 普通脚本 / rules 规则表 / test-harness 回归 harness）；
 #         pm_template <basename>（references/templates/ 下 .tmpl 文件名）；
 #         pm_shortcode <CODE> <owner>（规则块两字母短码与其所属文件包内相对路径）；
-#         pm_platform <value>（platform 枚举值）。
+#         pm_platform <value>（platform 枚举值）；
+#         pm_vague_word <词>（模糊措辞词表项，字面匹配非正则；词表依据＝
+#           references/protocol/governance-format.md R-GF-010 原文列举六词，引擎零词表硬编码）；
+#         pm_vague_exempt <pkg-rel-path> <行号> <理由>（检查 12 行级豁免：命中行无法安全换词
+#           时登记，理由必填；登记行无命中即失效豁免 FAIL，行号漂移须复核更新）；
+#         pm_mirror <filename>（镜像脚本单段文件名：包侧 scripts/<filename> 与包根父目录
+#           仓根 scripts/<filename> 同名件逐对 cmp——对应关系＝同名件，现状两对同源演化
+#           互为镜像，检查 13；仓根无 scripts/ 或无同名件静默跳过）。
 # Pos: 包清单数据文件（票 57；先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
 #      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
 #      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
 #      一致性由 check-package.sh 检查 5/9 机械核对。短码登记以各目录 README 登记面为
 #      同源（templates：AG/DP/RQ/RI/RR/RC；protocol：GF/RP/CP；adapters：AT/CC/ZC/CL/
 #      CX/PI/DS，票 57 grep 实测全集）；platform 枚举自 capability-contract.md §2.5 与
-#      artifacts-yaml.tmpl platform 字段注释区迁入（票 57）。结构校验口径
+#      artifacts-yaml.tmpl platform 字段注释区迁入（票 57）；模糊措辞词表与豁免、镜像
+#      登记为票 58 新增节。结构校验口径
 #      （check-package.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不产生
 #      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
-#      pm_shortcode 恰 2、pm_platform 恰 1，字段内禁制表符）；路径禁前导斜杠、空白与
+#      pm_shortcode 恰 2、pm_platform 恰 1、pm_vague_word 恰 1、pm_vague_exempt 恰 3、
+#      pm_mirror 恰 1，字段内禁制表符）；路径禁前导斜杠、空白与
 #      .. 段；pm_script 须 scripts/ 前缀加单段文件名；kind 枚举三值（见 Output）；
 #      pm_template 须单段 .tmpl 文件名；短码两字母大写且跨行唯一，owner 须 references/
-#      前缀；platform 值须小写 token；各节内路径/文件名/短码/值跨行不重复；五节每节
-#      至少一行。本表、scripts/README.md 成员表与 references/ 登记面须同步（清单变化时）。
+#      前缀；platform 值须小写 token；pm_vague_word 词须非空且跨行唯一；pm_vague_exempt
+#      行号须正整数、理由非空、路径+行号跨行唯一；pm_mirror 须单段文件名且跨行唯一；
+#      各节内路径/文件名/短码/值跨行不重复；除 vague-exemptions 节可空外，其余七节每节
+#      至少一行。检查 12 扫描窗口口径（本表注记）：包内全部 *.md 与 *.tmpl 的
+#      R-<短码>-NNN 规则块体（块头行起至下一标题行止，块头本身不扫），排除「解释与例外」
+#      节与各 README 文件（叙事面）；本表自身词表行为 .rules 数据文件，不在 md/tmpl
+#      扫描文件面。本表、scripts/README.md 成员表与 references/ 登记面须同步（清单变化时）。
 
 # ==== entry-files：必需入口文件（检查 1）====
 
@@ -54,7 +69,7 @@ pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip�
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
-pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（四 suite 常驻自检；票 57 定为必需件）'
+pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（五 suite 常驻自检；票 57 定为必需件）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
 
@@ -99,3 +114,24 @@ pm_platform claude-code
 pm_platform codex
 pm_platform pi
 pm_platform dsh
+
+# ==== vague-words：模糊措辞词表（检查 12；依据 R-GF-010 原文列举六词，字面匹配非正则）====
+
+pm_vague_word '尽量'
+pm_vague_word '适当'
+pm_vague_word '必要时'
+pm_vague_word '通常'
+pm_vague_word '原则上'
+pm_vague_word '酌情'
+
+# ==== vague-exemptions：模糊措辞行级豁免（检查 12；行级豁免须注记理由，理由必填；
+#      登记行无命中即失效豁免 FAIL，行号漂移须复核更新或删除登记）====
+
+pm_vague_exempt references/protocol/governance-format.md 82 'R-GF-003 Forbidden 字段枚举禁用措辞——禁令条款内引述词表本身，换词即丢失枚举语义（R-GF-010 Evidence 明示禁令条款内引述除外）'
+pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden 字段＝词表权威列举处（vague-words 节依据），禁令条款内引述除外'
+
+# ==== mirrors：镜像脚本登记（检查 13；对应关系＝包侧 scripts/ 与包根父目录仓根
+#      scripts/ 的同名件，逐对 cmp；现状两对同源演化互为镜像）====
+
+pm_mirror generate-progress.sh
+pm_mirror ticket-ops.sh

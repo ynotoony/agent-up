@@ -1,8 +1,9 @@
 #!/bin/sh
 # Input: 待检包根目录（默认为本脚本所在目录的父目录）与包清单数据文件
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
-#        platform 枚举五节唯一承载点，票 57 单源化）。
-# Output: 十一项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1）。
+#        platform 枚举/模糊措辞词表与豁免/镜像脚本八节唯一承载点，票 57/58）。
+# Output: 十三项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
+#         检查 13 仓根无镜像时静默跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
 # 用法与检查项实现细节（含各例外登记）见同目录 README.md。
@@ -46,10 +47,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  十一项检查全部通过
+  0  十三项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-十一项检查说明、例外登记与输出格式见同目录 README.md。
+十三项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -96,8 +97,12 @@ pm_scripts=''
 pm_templates=''
 pm_codes=''
 pm_platforms=''
+pm_words=''
+pm_exempts=''
+pm_mirrors=''
 pm_cleanup() {
-  rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms"
+  rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
+    "$pm_words" "$pm_exempts" "$pm_mirrors"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -105,6 +110,9 @@ pm_scripts=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_templates=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_codes=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_platforms=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_words=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_exempts=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_mirrors=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 
 pm_die() {
   printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
@@ -141,6 +149,18 @@ pm_platform() {
   [ $# -eq 1 ] || pm_die 'pm_platform 行参数数量不合预期（须恰 1：枚举值）'
   printf '%s\n' "$1" >> "$pm_platforms"
 }
+pm_vague_word() {
+  [ $# -eq 1 ] || pm_die 'pm_vague_word 行参数数量不合预期（须恰 1：模糊措辞词，字面匹配非正则）'
+  printf '%s\n' "$1" >> "$pm_words"
+}
+pm_vague_exempt() {
+  [ $# -eq 3 ] || pm_die 'pm_vague_exempt 行参数数量不合预期（须恰 3：包内相对路径、行号、理由）'
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_exempts"
+}
+pm_mirror() {
+  [ $# -eq 1 ] || pm_die 'pm_mirror 行参数数量不合预期（须恰 1：镜像脚本单段文件名）'
+  printf '%s\n' "$1" >> "$pm_mirrors"
+}
 
 pm_rules="$script_dir/package-manifest.rules"
 if [ ! -f "$pm_rules" ]; then
@@ -151,13 +171,13 @@ fi
 # 不具中止性（未知指令行报错后继续执行、尾态可能为 0），故未知指令必须在 source 前
 # 即 exit 2，不能只靠 source 返回码收敛。
 pm_bad=$(LC_ALL=C awk '
-  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform", d, " ") }
+  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror", d, " ") }
   function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
   /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
   /^[[:space:]]/ { bad("行首空白（指令行须顶格）"); next }
   {
     ok = 0
-    for (k = 1; k <= 5; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
+    for (k = 1; k <= 8; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
     if (!ok) bad("未知指令或非指令行: " substr($0, 1, 40))
   }
   END { if (n > 0) exit 1 }
@@ -179,6 +199,8 @@ fi
 [ -s "$pm_templates" ] || pm_die '清单缺 templates 节（零行）'
 [ -s "$pm_codes" ] || pm_die '清单缺 shortcodes 节（零行）'
 [ -s "$pm_platforms" ] || pm_die '清单缺 platform-enum 节（零行）'
+[ -s "$pm_words" ] || pm_die '清单缺 vague-words 节（零行）'
+[ -s "$pm_mirrors" ] || pm_die '清单缺 mirrors 节（零行）'
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
   function bad(msg) { printf "entry-files 节第 %d 行: %s\n", FNR, msg; n++ }
@@ -238,6 +260,44 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
   }
   END { if (n > 0) exit 1 }
 ' "$pm_platforms") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "vague-words 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 == "") { bad("词为空"); next }
+    if ($1 ~ /[[:space:]]/) { bad("词含空白（字面匹配非正则，空白词无法定位）: " $1); next }
+    if ($1 in seen) { bad("词跨行重复") } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_words") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "vague-exemptions 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 3) { bad("字段数 " NF "（预期 3：路径、行号、理由）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($2 !~ /^[0-9]+$/ || $2 + 0 <= 0) { bad("行号须正整数: " $2); next }
+    if ($3 == "") { bad("缺理由（行级豁免须注记理由）"); next }
+    key = $1 "\t" $2
+    if (key in seen) { bad("路径+行号跨行重复: " $1 ":" $2) } else { seen[key] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_exempts") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "mirrors 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) { bad("须为单段文件名: " $1); next }
+    if ($1 in seen) { bad("文件名跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_mirrors") || true
 pm_report "$pm_bad"
 
 # 问题行累加器（单行；多行由 fail() 走详情块缩进排版）
@@ -705,8 +765,130 @@ else
   pass 11 'platform 枚举登记与数据一致'
 fi
 
+# 检查 12：规则块体无模糊措辞（票 58 新增）。词表外置清单 vague-words 节（引擎零词表
+# 硬编码，字面匹配非正则）；行级豁免外置 vague-exemptions 节（路径＋行号＋理由；登记行
+# 无命中即失效豁免 FAIL，防行号漂移静默失效）。扫描窗口＝包内全部 *.md 与 *.tmpl 的
+# R-<短码>-NNN 规则块体（块头行起至下一标题行止，块头本身不扫，规则块结构同
+# governance-format.md R-GF-001）；排除「解释与例外」节（标题含该标记起至下一标题止）
+# 与各 README 文件（叙事面）；manifest 自身词表行为 .rules 数据文件，不在 md/tmpl
+# 扫描文件面（零自命中）。
+problems=''
+n_words=$(wc -l < "$pm_words" | tr -d ' ')
+n_exempt=0
+[ -s "$pm_exempts" ] && n_exempt=$(wc -l < "$pm_exempts" | tr -d ' ')
+words_col=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_words")
+hits_all=''
+OLDIFS=$IFS
+IFS='
+'
+for f in $file_list; do
+  IFS=$OLDIFS
+  case $f in
+    */README.md) continue ;;
+  esac
+  rel=${f#"${pkg_root}/"}
+  # 词表经环境变量传入（BSD awk 对含字面换行的 -v 赋值报 "newline in string"，
+  # ENVIRON 承载多行值可靠）；awk 异常即 exit 2 fail-closed——扫描器失效不得静默
+  # 当作零命中放过（否则词表扫描形同虚设）。
+  awk_rc=0
+  fhits=$(LC_ALL=C WORDS="$words_col" awk -v rel="$rel" '
+    BEGIN { nw = split(ENVIRON["WORDS"], W, "\n") }
+    /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9][ \t]/ { inblk = 1; next }
+    /^#/ {
+      if (index($0, "解释与例外") > 0) expl = 1; else expl = 0
+      inblk = 0
+      next
+    }
+    inblk == 1 && expl != 1 {
+      for (k = 1; k <= nw; k++) {
+        if (W[k] != "" && index($0, W[k]) > 0) printf "%s:%d:%s\n", rel, FNR, W[k]
+      }
+    }
+  ' "$f") || awk_rc=$?
+  if [ "$awk_rc" -ne 0 ]; then
+    printf 'check-package: 错误：检查 12 扫描器异常（awk exit %s）: %s\n' "$awk_rc" "$f" >&2
+    exit 2
+  fi
+  if [ -n "$fhits" ]; then
+    hits_all="$hits_all$fhits
+"
+  fi
+done
+IFS=$OLDIFS
+if [ -n "$hits_all" ]; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for h in $hits_all; do
+    IFS=$OLDIFS
+    h_word=${h##*:}
+    h_rest=${h%:*}
+    h_ln=${h_rest##*:}
+    h_rel=${h_rest%:*}
+    # 尾锚精确匹配（协调层 Review 改判随票修）：检索键带尾制表符——豁免行结构为
+    # 路径\t行号\t理由（理由经结构校验非空且无制表符），故 "path\t82\t" 只匹配行 82
+    # 的豁免行，不匹配 "path\t820\t..."——行号的字符串前缀关系不得误罩其他行命中。
+    if ! grep -qF "$(printf '%s\t%s\t' "$h_rel" "$h_ln")" "$pm_exempts"; then
+      add_problem "  - $h_rel:$h_ln 命中模糊措辞「${h_word}」"
+    fi
+  done
+  IFS=$OLDIFS
+fi
+if [ -s "$pm_exempts" ]; then
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    e_rel=${row%%"$TAB"*}
+    e_rest=${row#*"$TAB"}
+    e_ln=${e_rest%%"$TAB"*}
+    case $hits_all in
+      *"$e_rel:$e_ln:"*) : ;;
+      *)
+        # 花括号不可省略：全角字符相邻时防止变量名吞并
+        add_problem "  - 失效豁免（登记行无词表命中，须复核更新或删除登记）: $e_rel:$e_ln"
+        ;;
+    esac
+  done < "$pm_exempts"
+fi
+if [ -n "$problems" ]; then
+  fail 12 "规则块体无模糊措辞（词表 ${n_words} 词，豁免 ${n_exempt} 行）" "$problems"
+else
+  pass 12 "规则块体无模糊措辞（词表 ${n_words} 词，豁免 ${n_exempt} 行）"
+fi
+
+# 检查 13：镜像脚本与仓根同名件一致（票 58 新增）。比对对＝清单 mirrors 节登记（对应
+# 关系＝包侧 scripts/<名> 与包根父目录仓根 scripts/<名> 同名件，注记见 manifest）；
+# 仓根无 scripts/ 或无同名件静默跳过（消费项目语义，--pkg-root 参数化语境同样跳过，
+# 无输出行）；逐对 cmp，一致 PASS、差异 FAIL 指名文件。
+problems=''
+n_mirror=$(wc -l < "$pm_mirrors" | tr -d ' ')
+mirror_compared=0
+mirror_root=$(CDPATH= cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
+if [ -n "$mirror_root" ] && [ -d "$mirror_root/scripts" ]; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for m in $(cat "$pm_mirrors"); do
+    IFS=$OLDIFS
+    [ -f "$pkg_root/scripts/$m" ] || continue
+    [ -f "$mirror_root/scripts/$m" ] || continue
+    mirror_compared=$((mirror_compared + 1))
+    if ! cmp -s "$pkg_root/scripts/$m" "$mirror_root/scripts/$m"; then
+      add_problem "  - scripts/$m 与仓根 scripts/$m 不一致（byte-diff，两处同源演化须互为镜像）"
+    fi
+  done
+  IFS=$OLDIFS
+fi
+if [ "$mirror_compared" -gt 0 ]; then
+  if [ -n "$problems" ]; then
+    fail 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）" "$problems"
+  else
+    pass 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）"
+  fi
+fi
+# mirror_compared=0（仓根无 scripts/ 或无同名件）→ 静默跳过，无输出行
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 11 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 13 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

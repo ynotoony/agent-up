@@ -1,20 +1,24 @@
 #!/bin/sh
-# Input: 同目录被测脚本五件（generate-module-map.sh＋module-map.rules、ticket-ops.sh＋
-#        generate-progress.sh、check-package.sh）与参数：--suite/--script-dir/--pkg-root。
+# Input: 同目录被测脚本六件（generate-module-map.sh＋module-map.rules、ticket-ops.sh＋
+#        generate-progress.sh、check-package.sh、check-append-only.sh）与参数：--suite/
+#        --script-dir/--pkg-root。
 #        场景来源＝票 41～45/47 六票 Implementation Checkpoint 的 fixture（只作场景清单）；
 #        预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训）；票 56 检查 8
 #        清单 8→10 件（追加 install.sh＋install-policy.rules），check-package 套件预期串
 #        同步（协调层改判：同步不做推迟）；票 57 包清单数据化（check-package 检查 1/5/8
 #        改读 package-manifest.rules 数据＋新增检查 9/10/11），预期串同步十一项口径——
 #        正例含新增三查 PASS 行，负例（删 generate-progress.sh）联动检查 9 双 FAIL；
-#        协调层改判随票修：检查 11 逐处全等，补 capability-contract §2.5 单处删值负例。
+#        协调层改判随票修：检查 11 逐处全等，补 capability-contract §2.5 单处删值负例；
+#        票 58 检查 11→13（12＝模糊措辞扫描，13＝镜像 cmp），预期串同步十三项口径并补
+#        注入/豁免/镜像负例；新增 append-only 套件（check-append-only.sh 正负例，
+#        选定独立 suite 承载并在 README 声明）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
 #      脚本（check-package.sh 同款路径惯例），--script-dir/--pkg-root 参数化支持复制落位
-#      语境；四 suite（module-map/ticket-ops/progress/check-package）＋完整运行（--suite
-#      all）末尾注入自检；POSIX sh 零外部依赖（夹具 git init 依赖被测脚本自身声明的
-#      Git）。用法、suite 覆盖表、退出码与维护规则见同目录 README.md 专节。
+#      语境；五 suite（module-map/ticket-ops/progress/check-package/append-only）＋完整
+#      运行（--suite all）末尾注入自检；POSIX sh 零外部依赖（夹具 git init/commit 依赖
+#      被测脚本自身声明的 Git）。用法、suite 覆盖表、退出码与维护规则见同目录 README.md 专节。
 
 set -u
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -27,8 +31,8 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-  --suite <name>      module-map | ticket-ops | progress | check-package | all（缺省 all）
-  --script-dir <dir>  被测脚本所在目录（须含五件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
+  --suite <name>      module-map | ticket-ops | progress | check-package | append-only | all（缺省 all）
+  --script-dir <dir>  被测脚本所在目录（须含六件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
 退出码: 0 全部断言通过；1 存在失败断言（逐项 FAIL 行见输出）；2 用法或环境错误
@@ -46,11 +50,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
-for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh; do
+for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh; do
   [ -f "$SCRIPT_DIR/$f" ] || { printf 'test-record-layer: 被测成员缺失: %s/%s\n' "$SCRIPT_DIR" "$f" >&2; exit 2; }
 done
 if [ -z "$PKG_ROOT" ]; then
@@ -609,7 +613,9 @@ EOF
 # ============================================================
 # suite: check-package（票 12/48 场景沉淀：八项正例＋必需件缺失负例；票 56 检查 8 清单
 # 8→10 件，预期串同步 10 件口径；票 57 数据化改造＋新增检查 9/10/11，预期串同步
-# 十一项口径；协调层改判随票修：检查 11 逐处全等，补 §2.5 单处删值负例）
+# 十一项口径；协调层改判随票修：检查 11 逐处全等，补 §2.5 单处删值负例；票 58 检查
+# 11→13，预期串同步十三项口径——正例含检查 12/13 PASS 行（比对 2 对＝仓根镜像在位
+# 语境），补检查 12 注入/豁免/失效豁免与检查 13 镜像篡改/静默跳过负例）
 # ============================================================
 
 suite_check_package() {
@@ -631,12 +637,14 @@ PASS: 8 脚本必需件存在（10 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
+PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
+PASS: 13 镜像脚本与仓根同名件一致（比对 2 对）
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
   rc=$?
   [ "$rc" -eq 0 ] && ok "正例 exit 0（包根＝${PKG_ROOT}）" || bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
-  assert_eq '正例输出逐行逐一相等（十一项 PASS＋汇总，含票 57 新增检查 9/10/11）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（十三项 PASS＋汇总，含票 57 检查 9/10/11 与票 58 检查 12/13）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -652,7 +660,8 @@ FAIL: 8 脚本必需件存在（10 个文件） —   - scripts/generate-progres
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
-check-package: FAIL（2 项未通过，共 11 项）
+PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
+check-package: FAIL（2 项未通过，共 13 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -675,14 +684,270 @@ PASS: 8 脚本必需件存在（10 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :119 登记与数据不一致：缺少 pi
-check-package: FAIL（1 项未通过，共 11 项）
+PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
+check-package: FAIL（1 项未通过，共 13 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
   [ "$rc" -eq 1 ] && ok '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' || bad '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' "exit=$rc"
   assert_eq '负例输出逐一相等（检查 11 逐处全等，FAIL 行按行号指名 :119 缺少 pi）' "$D/act.cc" "$D/exp.cc"
 
+  # 票 58 检查 12 负例 N4：词表首词（自夹具包 manifest 词表节提取，harness 零词面字面量）
+  # 注入 governance-format.md 首个规则块 Authority 字段之后 → FAIL: 12 指名文件:行号；
+  # 注入行同时使既有豁免行号漂移（未豁免命中与失效豁免同报），行级豁免漂移即 FAIL 的
+  # fail-closed 行为随之钉死。
+  cp -R "$PKG_ROOT" "$D/pkgcopy3"
+  w=$(LC_ALL=C awk -F"'" '/^pm_vague_word/{print $2; exit}' "$D/pkgcopy3/scripts/package-manifest.rules")
+  gf="$D/pkgcopy3/references/protocol/governance-format.md"
+  ln=$(grep -n '^\- \*\*Authority\*\*' "$gf" | head -1 | cut -d: -f1)
+  { head -n "$ln" "$gf"; printf -- '- harness fixture 注入行（词表首词：%s）\n' "$w"; tail -n +"$((ln + 1))" "$gf"; } > "$D/gf.tmp"
+  mv "$D/gf.tmp" "$gf"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy3" >"$D/act.n4" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 12 规则块体无模糊措辞' "$D/act.n4" && grep -q "governance-format.md:$((ln + 1)) 命中模糊措辞" "$D/act.n4"; then
+    ok '负例 N4 注入词表首词入规则块体 → exit 1 且 FAIL: 12 指名文件:行号'
+  else
+    bad '负例 N4 注入词表首词入规则块体 → exit 1 且 FAIL: 12 指名文件:行号' "exit=$rc"
+  fi
+
+  # 票 58 检查 12 正例 N5：同一注入落在 read-policy.md（无既有豁免引用文件，豁免行号
+  # 零漂移）并在夹具包 manifest 登记行级豁免 → 该行不报，exit 0（豁免生效）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy4"
+  rp="$D/pkgcopy4/references/protocol/read-policy.md"
+  rln=$(grep -n '^\- \*\*Authority\*\*' "$rp" | head -1 | cut -d: -f1)
+  { head -n "$rln" "$rp"; printf -- '- harness fixture 注入行（词表首词：%s）\n' "$w"; tail -n +"$((rln + 1))" "$rp"; } > "$D/rp.tmp"
+  mv "$D/rp.tmp" "$rp"
+  printf "pm_vague_exempt references/protocol/read-policy.md %d 'harness fixture 豁免正例（登记后该行不报）'\n" "$((rln + 1))" >> "$D/pkgcopy4/scripts/package-manifest.rules"
+  # 豁免登记改动须被引擎读到：check-package 加载与自身同目录的 manifest（票 57 口径），
+  # 故本组负例以夹具包自带的引擎副本运行（引擎与原物同码，cp 纪律）。
+  sh "$D/pkgcopy4/scripts/check-package.sh" "$D/pkgcopy4" >"$D/act.n5" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 12 规则块体无模糊措辞' "$D/act.n5"; then
+    ok '正例 N5 注入行登记行级豁免后不报 → exit 0（豁免生效）'
+  else
+    bad '正例 N5 注入行登记行级豁免后不报 → exit 0（豁免生效）' "exit=$rc"
+  fi
+
+  # 票 58 检查 12 负例 N6：豁免登记行无命中（999 行）→ 失效豁免 FAIL（防漂移静默失效）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy5"
+  printf "pm_vague_exempt references/protocol/governance-format.md 999 'harness fixture 失效豁免负例'\n" >> "$D/pkgcopy5/scripts/package-manifest.rules"
+  sh "$D/pkgcopy5/scripts/check-package.sh" "$D/pkgcopy5" >"$D/act.n6" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '失效豁免（登记行无词表命中，须复核更新或删除登记）: references/protocol/governance-format.md:999' "$D/act.n6"; then
+    ok '负例 N6 豁免登记行无命中 → exit 1 且 FAIL: 12 报失效豁免'
+  else
+    bad '负例 N6 豁免登记行无命中 → exit 1 且 FAIL: 12 报失效豁免' "exit=$rc"
+  fi
+
+  # 票 58 检查 13 负例 N7：仓根 scripts/ 同名件单处篡改 → FAIL: 13 指名文件。
+  mkdir -p "$D/mrepo/scripts"
+  cp -R "$PKG_ROOT" "$D/mrepo/agent-up"
+  cp "$PKG_ROOT/scripts/generate-progress.sh" "$PKG_ROOT/scripts/ticket-ops.sh" "$D/mrepo/scripts/"
+  printf '# harness fixture 镜像篡改\n' >> "$D/mrepo/scripts/ticket-ops.sh"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/mrepo/agent-up" >"$D/act.n7" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 13 镜像脚本与仓根同名件一致' "$D/act.n7" && grep -q 'scripts/ticket-ops.sh 与仓根 scripts/ticket-ops.sh 不一致' "$D/act.n7"; then
+    ok '负例 N7 仓根镜像同名件篡改 → exit 1 且 FAIL: 13 指名文件'
+  else
+    bad '负例 N7 仓根镜像同名件篡改 → exit 1 且 FAIL: 13 指名文件' "exit=$rc"
+  fi
+
+  # 票 58 检查 13 负例 N8：仓根无 scripts/（pkgcopy 语境）→ 检查 13 静默跳过无输出行
+  # （消费项目语义，--pkg-root 参数化语境同样跳过）。
+  if grep -q ': 13 ' "$D/act.negative"; then
+    bad '负例 N8 仓根无 scripts/ 时检查 13 静默跳过（无输出行）' '意外出现检查 13 输出行'
+  else
+    ok '负例 N8 仓根无 scripts/ 时检查 13 静默跳过（无输出行）'
+  fi
+
+  # 协调层 Review 改判随票修（尾锚）：负例 N9——governance-format.md 在 R-GF-010
+  # Authority 行后填充占位行，使注入命中恰落 :820，并在夹具 manifest 登记行号 8200
+  # 的豁免（820 的字符串超集）：尾锚缺失时 "path\t820" 误配 "path\t8200\t..." 豁免行、
+  # 命中被罩（旧缺陷方向）；尾锚生效 = :820 命中必须报出（exit 1 且 FAIL: 12 指名
+  # :820）。既有 :82 豁免同文件在位，一并验证不误罩 :820 命中。
+  cp -R "$PKG_ROOT" "$D/pkgcopy6"
+  gf6="$D/pkgcopy6/references/protocol/governance-format.md"
+  aln=$(grep -n '^\- \*\*Authority\*\*' "$gf6" | tail -1 | cut -d: -f1)
+  pad=$((820 - aln - 1))
+  { head -n "$aln" "$gf6"; \
+    LC_ALL=C awk 'BEGIN { for (i = 0; i < '"$pad"'; i++) print "- harness fixture 占位行（尾锚负例填充，无词面无短码）" }'; \
+    printf -- '- harness fixture 注入行（词表首词：%s）\n' "$w"; \
+    tail -n +"$((aln + 1))" "$gf6"; } > "$D/gf6.tmp"
+  mv "$D/gf6.tmp" "$gf6"
+  printf "pm_vague_exempt references/protocol/governance-format.md 8200 'harness fixture 尾锚负例（行号字符串超集不误罩 :820 命中）'\n" >> "$D/pkgcopy6/scripts/package-manifest.rules"
+  sh "$D/pkgcopy6/scripts/check-package.sh" "$D/pkgcopy6" >"$D/act.n9" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'references/protocol/governance-format.md:820 命中模糊措辞' "$D/act.n9" && grep -q '失效豁免（登记行无词表命中，须复核更新或删除登记）: references/protocol/governance-format.md:8200' "$D/act.n9"; then
+    ok '负例 N9 尾锚证明：:820 注入命中不被 :82/:8200 豁免行号字符串前缀误罩 → exit 1 指名 :820'
+  else
+    bad '负例 N9 尾锚证明：:820 注入命中不被 :82/:8200 豁免行号字符串前缀误罩 → exit 1 指名 :820' "exit=$rc"
+  fi
+
   suite_summary 'check-package'
+}
+
+# ============================================================
+# suite: append-only（票 58 场景沉淀：check-append-only.sh 正负例——只追加账本前缀
+# 语义＋progress.md 冻结＋懒创建跳过＋无 HEAD WARN＋用法退出码）
+# ============================================================
+
+ao_git_commit() {
+  # $1=夹具仓根：全量暂存并提交（本地身份经 -c 内联，零全局污染）
+  git -C "$1" add -A
+  git -C "$1" -c user.email=fixture@example.com -c user.name=fixture commit -qm fixture
+}
+
+ao_build_fixture() {
+  # $1=夹具仓根：三守卫对象齐备（changes.jsonl 3 行／micro.jsonl 1 行／progress.md 冻结）
+  R=$1
+  rm -rf "$R"
+  mkdir -p "$R/docs/agent"
+  printf 'l1\nl2\nl3\n' > "$R/docs/changes.jsonl"
+  printf '{"date": "2026-09-21", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "x"}\n' > "$R/docs/agent/micro.jsonl"
+  printf '# 冻结历史档案（fixture）\n' > "$R/docs/progress.md"
+  git -C "$R" init -q
+  ao_git_commit "$R"
+}
+
+suite_append_only() {
+  CUR_SUITE='append-only'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/ao
+  mkdir -p "$D"
+  AO="$SCRIPT_DIR/check-append-only.sh"
+
+  # 正例 P1：changes.jsonl 尾部追加 → exit 0（历史前缀核对通过）
+  ao_build_fixture "$D/p1"
+  printf 'l4\n' >> "$D/p1/docs/changes.jsonl"
+  sh "$AO" "$D/p1" > "$D/p1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'OK: docs/changes.jsonl（尾部追加 1 行，历史前缀核对通过）' "$D/p1.out"; then
+    ok '正例 P1 changes.jsonl 尾部追加 → exit 0（OK 行含追加计数）'
+  else
+    bad '正例 P1 changes.jsonl 尾部追加 → exit 0（OK 行含追加计数）' "exit=$rc"
+  fi
+
+  # 正例 P2：micro.jsonl 同口径追加 → OK；progress.md 零 diff → OK
+  ao_build_fixture "$D/p2"
+  printf '{"date": "2026-09-21", "lane": "micro", "whitelist": "b.txt", "gates": "PASS", "verify": 1, "commit": "y"}\n' >> "$D/p2/docs/agent/micro.jsonl"
+  sh "$AO" "$D/p2" > "$D/p2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'OK: docs/agent/micro.jsonl（尾部追加 1 行' "$D/p2.out" && grep -q 'OK: docs/progress.md（与 HEAD 一致，零 diff）' "$D/p2.out"; then
+    ok '正例 P2 micro.jsonl 追加＋progress.md 零 diff → exit 0（micro.jsonl 同口径）'
+  else
+    bad '正例 P2 micro.jsonl 追加＋progress.md 零 diff → exit 0（micro.jsonl 同口径）' "exit=$rc"
+  fi
+
+  # 负例 N1：中间插入 → exit 1 指名文件与首个违规行号（新文件行号 2）
+  ao_build_fixture "$D/n1"
+  sed '2i\
+INSERTED' "$D/n1/docs/changes.jsonl" > "$D/x" && mv "$D/x" "$D/n1/docs/changes.jsonl"
+  sh "$AO" "$D/n1" > "$D/n1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: docs/changes.jsonl 历史行被改写或中间插入' "$D/n1.out" && grep -q '首个违规行号 2（新文件行号）' "$D/n1.out"; then
+    ok '负例 N1 changes.jsonl 中间插入 → exit 1 指名文件与首个违规行号 2'
+  else
+    bad '负例 N1 changes.jsonl 中间插入 → exit 1 指名文件与首个违规行号 2' "exit=$rc"
+  fi
+
+  # 负例 N2：改写历史行 → exit 1 指名首个违规行号
+  ao_build_fixture "$D/n2"
+  sed '2s/.*/REWRITTEN/' "$D/n2/docs/changes.jsonl" > "$D/x" && mv "$D/x" "$D/n2/docs/changes.jsonl"
+  sh "$AO" "$D/n2" > "$D/n2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: docs/changes.jsonl' "$D/n2.out"; then
+    ok '负例 N2 changes.jsonl 改写历史行 → exit 1 指名文件'
+  else
+    bad '负例 N2 changes.jsonl 改写历史行 → exit 1 指名文件' "exit=$rc"
+  fi
+
+  # 负例 N3：截断（删尾行）→ exit 1
+  ao_build_fixture "$D/n3"
+  sed '$d' "$D/n3/docs/changes.jsonl" > "$D/x" && mv "$D/x" "$D/n3/docs/changes.jsonl"
+  sh "$AO" "$D/n3" > "$D/n3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: docs/changes.jsonl' "$D/n3.out"; then
+    ok '负例 N3 changes.jsonl 截断 → exit 1'
+  else
+    bad '负例 N3 changes.jsonl 截断 → exit 1' "exit=$rc"
+  fi
+
+  # 负例 N4：账本删除（HEAD 有、工作树无）→ exit 1
+  ao_build_fixture "$D/n4"
+  rm -f "$D/n4/docs/changes.jsonl"
+  sh "$AO" "$D/n4" > "$D/n4.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: docs/changes.jsonl 在 HEAD 存在但工作树缺失（只追加账本不得删除历史）' "$D/n4.out"; then
+    ok '负例 N4 changes.jsonl 工作树删除 → exit 1（不得删除历史）'
+  else
+    bad '负例 N4 changes.jsonl 工作树删除 → exit 1（不得删除历史）' "exit=$rc"
+  fi
+
+  # 负例 N5：progress.md 篡改 → exit 1（冻结档案任何 diff 即违规）
+  ao_build_fixture "$D/n5"
+  printf '# 冻结历史档案（fixture）篡改行\n' >> "$D/n5/docs/progress.md"
+  sh "$AO" "$D/n5" > "$D/n5.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: docs/progress.md 冻结历史档案出现 diff' "$D/n5.out"; then
+    ok '负例 N5 progress.md 篡改 → exit 1（冻结档案零 diff）'
+  else
+    bad '负例 N5 progress.md 篡改 → exit 1（冻结档案零 diff）' "exit=$rc"
+  fi
+
+  # 负例 N6：micro.jsonl 中间插入 → exit 1（同口径覆盖第二账本）
+  ao_build_fixture "$D/n6"
+  sed '1i\
+EARLY' "$D/n6/docs/agent/micro.jsonl" > "$D/x" && mv "$D/x" "$D/n6/docs/agent/micro.jsonl"
+  sh "$AO" "$D/n6" > "$D/n6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: docs/agent/micro.jsonl' "$D/n6.out"; then
+    ok '负例 N6 micro.jsonl 中间插入 → exit 1（与 changes.jsonl 同口径）'
+  else
+    bad '负例 N6 micro.jsonl 中间插入 → exit 1（与 changes.jsonl 同口径）' "exit=$rc"
+  fi
+
+  # 正例 P3：无 Git 基线（无 HEAD）→ WARN 退出 0（票 49 先例，不硬猜）
+  rm -rf "$D/p3"; mkdir -p "$D/p3/docs"
+  printf 'x\n' > "$D/p3/docs/changes.jsonl"
+  git -C "$D/p3" init -q
+  sh "$AO" "$D/p3" > "$D/p3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'WARN: 无 Git 基线（无 HEAD）' "$D/p3.out"; then
+    ok '正例 P3 无 Git 基线（无 HEAD）→ WARN 退出 0（不硬猜基线）'
+  else
+    bad '正例 P3 无 Git 基线（无 HEAD）→ WARN 退出 0（不硬猜基线）' "exit=$rc"
+  fi
+
+  # 正例 P4：懒创建语义——两账本与 progress.md 均不存在 → SKIP 且 exit 0；
+  # changes.jsonl 工作树新建（HEAD 无）→ 全部行为追加 OK。
+  rm -rf "$D/p4"; mkdir -p "$D/p4"
+  printf 'seed\n' > "$D/p4/seed"
+  git -C "$D/p4" init -q
+  ao_git_commit "$D/p4"
+  mkdir -p "$D/p4/docs"
+  printf 'new\n' > "$D/p4/docs/changes.jsonl"
+  sh "$AO" "$D/p4" > "$D/p4.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'OK: docs/changes.jsonl（工作树新建，全部行为追加，懒创建语义）' "$D/p4.out" && grep -q 'SKIP: docs/agent/micro.jsonl（不存在，懒创建语义）' "$D/p4.out" && grep -q 'SKIP: docs/progress.md（不存在）' "$D/p4.out"; then
+    ok '正例 P4 懒创建（新建账本 OK＋缺失 SKIP）→ exit 0'
+  else
+    bad '正例 P4 懒创建（新建账本 OK＋缺失 SKIP）→ exit 0' "exit=$rc"
+  fi
+
+  # 用法负例 N7：无参数 → exit 2；多参数 → exit 2；非 Git 目录 → exit 2
+  sh "$AO" >/dev/null 2>&1
+  rc=$?
+  [ "$rc" -eq 2 ] && ok '负例 N7 无参数 → exit 2' || bad '负例 N7 无参数 → exit 2' "exit=$rc"
+  sh "$AO" a b >/dev/null 2>&1
+  rc=$?
+  [ "$rc" -eq 2 ] && ok '负例 N8 两参数 → exit 2' || bad '负例 N8 两参数 → exit 2' "exit=$rc"
+  mkdir -p "$D/nogit"
+  sh "$AO" "$D/nogit" >/dev/null 2>&1
+  rc=$?
+  [ "$rc" -eq 2 ] && ok '负例 N9 非 Git 目录 → exit 2' || bad '负例 N9 非 Git 目录 → exit 2' "exit=$rc"
+
+  suite_summary 'append-only'
 }
 
 # ============================================================
@@ -695,7 +960,7 @@ self_check_injection() {
   SUITE_START=$TOTAL
   D=$T/inject
   mkdir -p "$D/injectpkg/scripts"
-  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh; do
+  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh; do
     cp "$SCRIPT_DIR/$f" "$D/injectpkg/scripts/$f"
   done
   sed 's/~python-import~/~python-importX~/' "$SCRIPT_DIR/module-map.rules" > "$D/rules.tmp" && mv "$D/rules.tmp" "$D/injectpkg/scripts/module-map.rules"
@@ -732,11 +997,13 @@ case $SUITE in
   ticket-ops) suite_ticket_ops ;;
   progress) suite_progress ;;
   check-package) suite_check_package ;;
+  append-only) suite_append_only ;;
   all)
     suite_module_map
     suite_ticket_ops
     suite_progress
     suite_check_package
+    suite_append_only
     self_check_injection
     ;;
 esac
