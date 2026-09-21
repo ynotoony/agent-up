@@ -292,8 +292,9 @@ else
   pass 7 '根治理文件不在包内'
 fi
 
-# 检查 8：脚本必需件存在（8 个文件；六脚本＋语言规则表＋目录 README，票 48 fail-closed 守卫：
-# 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽）。
+# 检查 8：脚本必需件存在（10 个文件；七脚本＋两规则表＋目录 README，票 48 fail-closed 守卫：
+# 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽；票 56 追加 install.sh 与
+# install-policy.rules 两项，全面数据化归票 57）。
 missing_scripts=''
 sep=''
 for rel in \
@@ -303,7 +304,9 @@ for rel in \
   scripts/generate-progress.sh \
   scripts/generate-module-map.sh \
   scripts/ticket-ops.sh \
+  scripts/install.sh \
   scripts/module-map.rules \
+  scripts/install-policy.rules \
   scripts/README.md
 do
   if [ ! -f "$pkg_root/$rel" ]; then
@@ -313,9 +316,9 @@ do
   fi
 done
 if [ -n "$missing_scripts" ]; then
-  fail 8 '脚本必需件存在（8 个文件）' "$missing_scripts"
+  fail 8 '脚本必需件存在（10 个文件）' "$missing_scripts"
 else
-  pass 8 '脚本必需件存在（8 个文件）'
+  pass 8 '脚本必需件存在（10 个文件）'
 fi
 
 if [ "$failures" -gt 0 ]; then

@@ -2,7 +2,9 @@
 # Input: 同目录被测脚本五件（generate-module-map.sh＋module-map.rules、ticket-ops.sh＋
 #        generate-progress.sh、check-package.sh）与参数：--suite/--script-dir/--pkg-root。
 #        场景来源＝票 41～45/47 六票 Implementation Checkpoint 的 fixture（只作场景清单）；
-#        预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训）。
+#        预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训）；票 56 检查 8
+#        清单 8→10 件（追加 install.sh＋install-policy.rules），check-package 套件预期串
+#        同步（协调层改判：同步不做推迟）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -602,7 +604,8 @@ EOF
 }
 
 # ============================================================
-# suite: check-package（票 12/48 场景沉淀：八项正例＋必需件缺失负例）
+# suite: check-package（票 12/48 场景沉淀：八项正例＋必需件缺失负例；票 56 检查 8 清单
+# 8→10 件，预期串同步 10 件口径）
 # ============================================================
 
 suite_check_package() {
@@ -620,7 +623,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 13 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（8 个文件）
+PASS: 8 脚本必需件存在（10 个文件）
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
@@ -638,7 +641,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 13 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（8 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（10 个文件） —   - scripts/generate-progress.sh
 check-package: FAIL（1 项未通过，共 8 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1

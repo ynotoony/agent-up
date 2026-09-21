@@ -9,7 +9,7 @@ owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commi
 update_policy: 硬边界与"只补缺"语义为定稿基线；语义变化须用户确认并同步 SKILL.md 主流程与模板 manifest
 depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模板见 references/templates/README.md manifest
 ---
-<!-- Input: 旧项目盘点事实与既有规则；票 38（新票/新 REQ JSON 本体补缺行，存量零改写）；票 42（模块地图生成器补缺行，项目地图触发行懒创建）；票 47（ticket-ops.sh 补缺行：记录层标配落位口径，不门控于快道启用）。 -->
+<!-- Input: 旧项目盘点事实与既有规则；票 38（新票/新 REQ JSON 本体补缺行，存量零改写）；票 42（模块地图生成器补缺行，项目地图触发行懒创建）；票 47（ticket-ops.sh 补缺行：记录层标配落位口径，不门控于快道启用）；票 56（道脚本与票务运维脚本安装政策单源化：落位集合改指公开包 scripts/install-policy.rules 数据，复制动作经 scripts/install.sh 执行，本表不再复写映射明细）。 -->
 <!-- Output: 旧项目治理补缺路径。 -->
 <!-- Pos: 旧项目路径参考手册；说明治理体系如何在不改既有事实的前提下补缺。 -->
 
@@ -51,9 +51,8 @@ depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模
 | `.gitignore` | 缺失才生成；已存在的只追加明显缺失的条目（依赖、构建产物、`.env`），追加前列出。 |
 | 三阶段角色合同（`docs/agent/roles/`） | 平台无关角色合同缺失才生成（协作固定，不作为决策点），宿主运行时入口由适配层生成；已存在的对照 development-process 代理协作章节校验角色边界是否一致。 |
 | `scripts/` 共享 harness | 已有脚本目录登记为共享验证权威并补 README 约定；已有一次性验证脚本列"待沉淀"清单交用户决定是否迁移；缺失则懒创建。 |
-| 道脚本（`scripts/check-gates.sh`、`scripts/lane-commit.sh`） | 用户确认启用分级交付道快道时才补缺：从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；未启用不补，道脚本不可用停止条件按 development-process R-DP-031 兜底。 |
-| `scripts/generate-progress.sh` | 复制落位（道脚本行同款口径）：从 agent-up 公开包 `scripts/` 复制到目标项目 `scripts/` 并逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；现役状态投影 `docs/progress-current.md` 由其从 `docs/issues/index.json` 生成，生成器独占写。 |
-| `scripts/ticket-ops.sh` | 票务运维单入口（目标项目采用任务票体系——`docs/issues/` 目录创建——时补缺；记录层标配，不门控于快道启用，与道脚本行为两套独立门控）：从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（kind: script、lifecycle: Conditional、generated_from: agent-up/scripts/ticket-ops.sh；`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；开票、领取与状态翻转等票务面写入经其执行，收尾投影再生依赖同目录 `generate-progress.sh`（PATH 回退），未落位时一并复制落位；未采用任务票体系不补。 |
+| 道脚本（落位集合与每件基线见公开包 `scripts/install-policy.rules`） | 用户确认启用分级交付道快道时才补缺：经 agent-up 公开包 `scripts/install.sh`（`--target <目标项目根> --fast-lane`）复制落位目标项目 `scripts/`（集合构成、每件复制基线路径与登记 lifecycle 值以 `install-policy.rules` 数据为准，本表不复写；`scripts/` 目录缺失由脚本创建并输出提示行，`scripts/README.md` 生成归执行体），逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`；未启用不补，道脚本不可用停止条件按 development-process R-DP-031 兜底；现役状态投影 `docs/progress-current.md` 由落位的投影生成器自 `docs/issues/index.json` 生成，生成器独占写。 |
+| 票务运维脚本（落位集合同上数据源） | 目标项目采用任务票体系（`docs/issues/` 目录创建）时补缺（记录层标配，不门控于快道启用，与道脚本两套独立门控）：经 agent-up 公开包 `scripts/install.sh`（`--target <目标项目根> --ticket-ops`）复制落位目标项目 `scripts/`（含生成器回退依赖注记，集合以 `install-policy.rules` 为准），逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`；未采用任务票体系不补。 |
 | `scripts/generate-module-map.sh` | 模块地图生成（项目地图触发行命中时才补缺；地图实例不预建，由生成器运行时懒创建——R-DP-006）：从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记（`scripts/` 目录缺失则连同 `scripts/README.md` 一并生成）；运行生成 `docs/architecture/module-map.json`（Derived 检索索引，不当 Scope 权威），并按 development-process §5.3 登记 `docs/agent/artifacts.yaml`（lifecycle: Derived，generated_from 必填，`sync_on` 对齐拓扑变化行）。 |
 
 ## 4. 差异清单先行
