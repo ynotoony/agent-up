@@ -1,8 +1,9 @@
 #!/bin/sh
 # Input: 待检包根目录（默认为本脚本所在目录的父目录）与包清单数据文件
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
-#        platform 枚举/模糊措辞词表与豁免/镜像脚本八节唯一承载点，票 57/58）。
-# Output: 十三项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
+#        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标九节唯一承载点，
+#        票 57/58/59）。
+# Output: 十四项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
 #         检查 13 仓根无镜像时静默跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
@@ -47,10 +48,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  十三项检查全部通过
+  0  十四项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-十三项检查说明、例外登记与输出格式见同目录 README.md。
+十四项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -100,9 +101,12 @@ pm_platforms=''
 pm_words=''
 pm_exempts=''
 pm_mirrors=''
+pm_caps=''
+pm_capauth=''
+pm_captargets=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
-    "$pm_words" "$pm_exempts" "$pm_mirrors"
+    "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -113,6 +117,9 @@ pm_platforms=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_words=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_exempts=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_mirrors=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_caps=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_capauth=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_captargets=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 
 pm_die() {
   printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
@@ -161,23 +168,35 @@ pm_mirror() {
   [ $# -eq 1 ] || pm_die 'pm_mirror 行参数数量不合预期（须恰 1：镜像脚本单段文件名）'
   printf '%s\n' "$1" >> "$pm_mirrors"
 }
+pm_capability() {
+  [ $# -eq 1 ] || pm_die 'pm_capability 行参数数量不合预期（须恰 1：能力基元名，权威表现场提取不自造）'
+  printf '%s\n' "$1" >> "$pm_caps"
+}
+pm_capability_authority() {
+  [ $# -eq 1 ] || pm_die 'pm_capability_authority 行参数数量不合预期（须恰 1：能力权威表文件包内相对路径）'
+  printf '%s\n' "$1" >> "$pm_capauth"
+}
+pm_capability_target() {
+  [ $# -eq 3 ] || pm_die 'pm_capability_target 行参数数量不合预期（须恰 3：目标路径、kind、预期名单）'
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_captargets"
+}
 
 pm_rules="$script_dir/package-manifest.rules"
 if [ ! -f "$pm_rules" ]; then
   printf 'check-package: 错误：包清单数据文件缺失: %s\n' "$pm_rules" >&2
   exit 2
 fi
-# 预校验（source 前）：非空非注释行须为顶格指令行（五指令之一）——source 对行级失败
+# 预校验（source 前）：非空非注释行须为顶格指令行（十一指令之一）——source 对行级失败
 # 不具中止性（未知指令行报错后继续执行、尾态可能为 0），故未知指令必须在 source 前
 # 即 exit 2，不能只靠 source 返回码收敛。
 pm_bad=$(LC_ALL=C awk '
-  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror", d, " ") }
+  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror pm_capability pm_capability_authority pm_capability_target", d, " ") }
   function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
   /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
   /^[[:space:]]/ { bad("行首空白（指令行须顶格）"); next }
   {
     ok = 0
-    for (k = 1; k <= 8; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
+    for (k = 1; k <= 11; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
     if (!ok) bad("未知指令或非指令行: " substr($0, 1, 40))
   }
   END { if (n > 0) exit 1 }
@@ -201,6 +220,9 @@ fi
 [ -s "$pm_platforms" ] || pm_die '清单缺 platform-enum 节（零行）'
 [ -s "$pm_words" ] || pm_die '清单缺 vague-words 节（零行）'
 [ -s "$pm_mirrors" ] || pm_die '清单缺 mirrors 节（零行）'
+[ -s "$pm_caps" ] || pm_die '清单缺 capability-primitives 节（零行）'
+[ -s "$pm_capauth" ] || pm_die '清单缺 capability authority 登记（零行）'
+[ -s "$pm_captargets" ] || pm_die '清单缺 capability targets 登记（零行）'
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
   function bad(msg) { printf "entry-files 节第 %d 行: %s\n", FNR, msg; n++ }
@@ -298,6 +320,59 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
   }
   END { if (n > 0) exit 1 }
 ' "$pm_mirrors") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "capability-primitives 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[a-z][a-z0-9-]*$/) { bad("基元名须小写 token（字母开头，小写字母/数字/连字符）: " $1); next }
+    if ($1 in seen) { bad("基元名跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_caps") || true
+pm_report "$pm_bad"
+
+[ "$(wc -l < "$pm_capauth" | tr -d ' ')" -eq 1 ] || pm_die 'capability authority 须恰一行'
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "capability authority 行: %s\n", msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_capauth") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "capability targets 行（%s）: %s\n", $1, msg; n++ }
+  FNR == NR { caps[$1] = 1; next }
+  {
+    rowbad = 0
+    if (NF != 3) { bad("字段数 " NF "（预期 3：目标路径、kind、预期名单）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); rowbad = 1 }
+    else if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); rowbad = 1 }
+    else if ($1 in tseen) { bad("目标路径跨行重复: " $1); rowbad = 1 }
+    else tseen[$1] = 1
+    if ($2 != "decl" && $2 != "table") { bad("kind 须 decl（required_capabilities 声明行）或 table（能力基元对照表）: " $2); rowbad = 1 }
+    if ($3 == "") { bad("预期名单为空"); rowbad = 1 }
+    else {
+      nname = split($3, arr, ",")
+      for (k = 1; k <= nname; k++) {
+        nm = arr[k]
+        if (nm !~ /^[a-z][a-z0-9-]*$/) { bad("预期名单基元名形态不合预期: " nm); rowbad = 1 }
+        else if (!(nm in caps)) { bad("预期名单含名单未登记基元: " nm); rowbad = 1 }
+        else useen[nm] = 1
+      }
+    }
+    if (!rowbad) ok++
+  }
+  END {
+    for (c in caps) if (!(c in useen)) { printf "capability targets 并集缺名单基元 %s（名单与检查目标须互恰）\n", c; n++ }
+    if (n > 0) exit 1
+  }
+' "$pm_caps" "$pm_captargets") || true
 pm_report "$pm_bad"
 
 # 问题行累加器（单行；多行由 fail() 走详情块缩进排版）
@@ -887,8 +962,164 @@ if [ "$mirror_compared" -gt 0 ]; then
 fi
 # mirror_compared=0（仓根无 scripts/ 或无同名件）→ 静默跳过，无输出行
 
+# 检查 14：能力映射一致（票 59 新增）。名单＝清单 capability-primitives 节（九基元名，
+# 引擎零基元名硬编码）；权威表＝capability_authority 登记文件（窄锚点「### …能力基元
+# 清单」标题下九行表首列），与名单逐处全等比对；检查目标＝capability_target 节逐一
+# 核验——kind=decl 取目标文件 required_capabilities（运行时）行的反引号名集合（与预期
+# 名单双向全等，注入未登记名/删名/改名即 FAIL 指名文件），kind=table 取「| 能力基元 |」
+# 对照表首列名集合（与预期名单双向全等，预期名单经载入校验 ⊆ 名单且并集 ⊇ 名单）。
+# 表解析锚点失效即 exit 2 不静默过（检查 11 同款 fail-closed）；targets 均为包内文件，
+# 相对 $pkg_root 解析（--pkg-root 复制落位语境与镜像检查同口径）。
+problems=''
+n_caps=$(wc -l < "$pm_caps" | tr -d ' ')
+n_captargets=$(wc -l < "$pm_captargets" | tr -d ' ')
+caps_sorted=$(LC_ALL=C sort "$pm_caps")
+cap_extract_decl() {
+  # $1=文件：required_capabilities（运行时）行首的行，取该行至全角分号止的反引号段
+  LC_ALL=C awk -v mk='required_capabilities（运行时）：' '
+    index($0, mk) == 1 {
+      rest = substr($0, length(mk) + 1)
+      j = index(rest, "；")
+      if (j > 0) rest = substr(rest, 1, j - 1)
+      n = split(rest, parts, "`")
+      for (k = 2; k <= n; k += 2) if (parts[k] != "") print parts[k]
+      found = 1
+      exit
+    }
+    END { if (!found) exit 3 }
+  ' "$1"
+}
+cap_extract_table() {
+  # $1=文件：「| 能力基元」首列表头行的表，取分隔行后各数据行首列
+  LC_ALL=C awk -v mk='| 能力基元' '
+    function firstcell(line,   s) {
+      s = line
+      sub(/^\|[[:space:]]*/, "", s)
+      sub(/[[:space:]]*\|.*/, "", s)
+      return s
+    }
+    index($0, mk) == 1 { inh = 1; next }
+    inh && !sep && $0 ~ /^\|/ { c = firstcell($0); if (c ~ /^[-: ]+$/) sep = 1; next }
+    inh && sep && $0 ~ /^\|/ { print firstcell($0) }
+    inh && sep && $0 !~ /^\|/ { exit }
+    END { if (!sep) exit 3 }
+  ' "$1"
+}
+cap_extract_auth() {
+  # $1=文件：「### …能力基元清单」标题下的表（权威表首列为「能力」），取分隔行后各
+  # 数据行首列；锚点＝以 # 开头且含「能力基元清单」的标题行
+  LC_ALL=C awk -v mk='能力基元清单' '
+    function firstcell(line,   s) {
+      s = line
+      sub(/^\|[[:space:]]*/, "", s)
+      sub(/[[:space:]]*\|.*/, "", s)
+      return s
+    }
+    index($0, mk) > 0 && $0 ~ /^#/ { inh = 1; next }
+    inh && !sep && $0 ~ /^\|/ { c = firstcell($0); if (c ~ /^[-: ]+$/) sep = 1; next }
+    inh && sep && $0 ~ /^\|/ { print firstcell($0) }
+    inh && sep && $0 !~ /^\|/ { exit }
+    END { if (!sep) exit 3 }
+  ' "$1"
+}
+cap_auth_path=$(cat "$pm_capauth")
+cap_auth_file="$pkg_root/$cap_auth_path"
+if [ ! -f "$cap_auth_file" ]; then
+  add_problem "  - 能力权威文件不存在: $cap_auth_path"
+else
+  rc=0
+  auth_names=$(cap_extract_auth "$cap_auth_file") || rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$auth_names" ]; then
+    printf 'check-package: 错误：检查 14 权威表解析失效（窄锚点未命中或零数据行，fail-closed）: %s\n' "$cap_auth_path" >&2
+    exit 2
+  fi
+  auth_sorted=$(printf '%s\n' "$auth_names" | LC_ALL=C sort -u)
+  cap_m=''; cap_x=''; sep2=''
+  for v in $caps_sorted; do
+    printf '%s\n' "$auth_sorted" | grep -qx "$v" || { cap_m="$cap_m$sep2$v"; sep2='、'; }
+  done
+  sep2=''
+  for v in $auth_sorted; do
+    printf '%s\n' "$caps_sorted" | grep -qx "$v" || { cap_x="$cap_x$sep2$v"; sep2='、'; }
+  done
+  if [ -n "$cap_m" ] || [ -n "$cap_x" ]; then
+    cap_msg=''
+    if [ -n "$cap_m" ]; then
+      cap_msg="缺少 ${cap_m}"
+    fi
+    if [ -n "$cap_x" ]; then
+      if [ -n "$cap_msg" ]; then
+        cap_msg="${cap_msg}；多出 ${cap_x}"
+      else
+        cap_msg="多出 ${cap_x}"
+      fi
+    fi
+    add_problem "  - $cap_auth_path §能力基元清单表与名单不一致：$cap_msg"
+  fi
+fi
+OLDIFS=$IFS
+IFS='
+'
+while IFS= read -r cap_row; do
+  IFS=$OLDIFS
+  [ -n "$cap_row" ] || continue
+  cap_rel=${cap_row%%"$TAB"*}
+  cap_rest=${cap_row#*"$TAB"}
+  cap_kind=${cap_rest%%"$TAB"*}
+  cap_exp=${cap_rest#*"$TAB"}
+  cap_file="$pkg_root/$cap_rel"
+  if [ ! -f "$cap_file" ]; then
+    add_problem "  - 检查目标不存在: $cap_rel"
+    continue
+  fi
+  rc=0
+  if [ "$cap_kind" = decl ]; then
+    cap_got=$(cap_extract_decl "$cap_file") || rc=$?
+  else
+    cap_got=$(cap_extract_table "$cap_file") || rc=$?
+  fi
+  if [ "$rc" -ne 0 ] || [ -z "$cap_got" ]; then
+    printf 'check-package: 错误：检查 14 目标解析失效（窄锚点未命中或零数据行，fail-closed）: %s\n' "$cap_rel" >&2
+    exit 2
+  fi
+  cap_got_sorted=$(printf '%s\n' "$cap_got" | LC_ALL=C sort -u)
+  cap_exp_sorted=$(printf '%s\n' "$cap_exp" | tr ',' '\n' | LC_ALL=C sort -u)
+  cap_m=''; cap_x=''; cap_u=''; sep2=''
+  for v in $cap_exp_sorted; do
+    printf '%s\n' "$cap_got_sorted" | grep -qx "$v" || { cap_m="$cap_m$sep2$v"; sep2='、'; }
+  done
+  sep2=''
+  for v in $cap_got_sorted; do
+    if printf '%s\n' "$cap_exp_sorted" | grep -qx "$v"; then
+      continue
+    fi
+    if printf '%s\n' "$caps_sorted" | grep -qx "$v"; then
+      cap_x="$cap_x$sep2$v"
+    else
+      cap_u="$cap_u$sep2$v"
+    fi
+    sep2='、'
+  done
+  if [ -n "$cap_m" ]; then
+    # 花括号不可省略：变量名后紧跟全角字符时，sh 会把多字节字符并入变量名（同款先例见检查 5/12）。
+    add_problem "  - $cap_rel 缺少基元 ${cap_m}（相对登记预期名单）"
+  fi
+  if [ -n "$cap_u" ]; then
+    add_problem "  - $cap_rel 未登记基元名 ${cap_u}（不在名单，注入或改名）"
+  fi
+  if [ -n "$cap_x" ]; then
+    add_problem "  - $cap_rel 多出基元 ${cap_x}（超出登记预期名单）"
+  fi
+done < "$pm_captargets"
+IFS=$OLDIFS
+if [ -n "$problems" ]; then
+  fail 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个）" "$problems"
+else
+  pass 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 13 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 14 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'
