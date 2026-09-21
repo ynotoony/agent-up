@@ -1,5 +1,5 @@
 <!-- Input: 目标项目盘点与访谈确认的流程事实、seed 快速规则、产物生命周期协议与三阶段协作约定。 -->
-<!-- Output: 读取阶梯与权威层级、产物生命周期协议、工作分类与接手、两层代理协作（路由层/编码层职责）与分级交付道（三车道）、委派合同、检查点、会话恢复协议（三套状态机、恢复顺序、run record、写入所有权、故障处理、不变量）、实现纪律与编程思想五问、验证与提交、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）的权威运行时协议。 -->
+<!-- Output: 读取阶梯与权威层级、产物生命周期协议、工作分类与接手、两层代理协作（路由层/编码层职责）与分级交付道（三车道）、委派合同、检查点、会话恢复协议（三套状态机、恢复顺序、run record、写入所有权、故障处理、不变量）、实现纪律与编程思想五问、验证与提交、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、generation manifest + reconcile、checkpoint 管线、证据链登记）、规则索引（§16：全部规则块导航投影与执行机制受控三值）的权威运行时协议。 -->
 <!-- Pos: 交付流程权威（seed 五件之一，唯一流程事实源）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 开发流程
@@ -16,7 +16,7 @@
 - 同步门槛：仅契约、拓扑、行为、派生关系四类变化触发级联同步；错别字、排版、纯追加记录不触发。
 - 产物状态机：absent → proposed → approved → generated → stale → refreshed/superseded；用户拒绝记 deferred + 原因。
 - 初始化与产物增删自动评估 Artifact Plan（Required/Recommended/Deferred + 理由）；治理产物逐件登记 `docs/agent/artifacts.yaml`（十三字段）。
-- 三道门禁：语义变化未经用户确认不写文件；无验证证据不算完成；无独立 Review 通过不提交。
+- 三道门禁：语义变化未经用户确认不写文件；无验证证据不算完成；无独立 Review 通过不提交。规则块全景与执行机制三值索引见 §16 规则索引。
 - 分级交付道（三车道）：全三阶段（C1+，现行不变）/ 用户即 Review（C0 且含语义判断）/ 微任务道（C0 且每条验收全机械可验或纯记录维护，免票，白名单 ≤3 文件、零新建零删除）；车道由 Triage 按准入判据声明，执行体无权自选；快道收尾由零依赖 POSIX sh 道脚本承载（§6、§12.5）。
 - 两层协作：路由层（主 agent）零写入，判断任务大小与分配——理解、拆分、派发、验收；编码层（阶段执行体）判断怎么实现，按 §10 最懒可行与编程思想五问执行；委派必须给全 16 个固定字段；任何执行体不得创建下级执行体。
 - 任务状态经 `docs/issues/index.json` 单写、生成器投影至 `docs/progress-current.md`（每票一行）；`docs/progress.md` 为冻结历史档案，零写入；明细写任务票 Checkpoint 区；检查点必须可验证，不写"xx 开发中"。
@@ -805,3 +805,59 @@ run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`in
 - **Evidence**：登记文本含激活前提标注；仓库内无 `@derive` 派生实现产物。
 - **Owner**：当前会话执行体。
 - **Authority**：本文 §15.3。
+
+## 16. 规则索引
+
+本节为全部规则块的导航投影，随模板分发：表行语义以各规则块正文为准，本表不构成独立权威，冲突以规则块正文裁决。执行机制受控三值——机械＝点名脚本/检查项现役断言在管（脚本须在包 `scripts/` 且经 `package-manifest.rules` 登记）；门禁＝阶段 checkpoint 卡（独立 Review Checkpoint、Commit 收尾核对、用户语义终审）；约定＝无机械无门禁，靠执行体自觉。诚实性上限：一句话内容列为忠实原义的概括，无机械保真（逐行核对归独立 Review）；机械行点名出处由包完整性检查 15～17 核存在性（索引与规则块全集全等、机制列受控词表、点名脚本存在且登记、检查项号不超界）。索引变更先改本表再动规则块，反向漂移由检查 15 拦截；定义于模板外手册的规则块在机制列标注外定义。
+
+| ID | 一句话内容 | 执行机制 |
+| --- | --- | --- |
+| R-AG-001 | 自动化写入不重写、不截断既有事实记录，只追加或按状态机更新，补缺只补结构性缺失 | 机械（check-append-only.sh） |
+| R-AG-002 | 条件产物默认不创建，命中触发矩阵并经确认才创建 | 门禁 |
+| R-AG-003 | 三道门禁：语义未确认不写文件、无验证证据不算完成、无独立 Review pass 不提交 | 门禁 |
+| R-CC-002 | 降级时如实记录（引用行，定义在模板外手册） | 门禁；外定义（定义于 references/adapters/capability-contract.md） |
+| R-DP-001 | 按任务型最小读取范围取用治理资源，L4 按需 | 约定 |
+| R-DP-002 | 权威来源对同一事实不一致即停，报告双方等裁决 | 约定 |
+| R-DP-003 | Record 类只追加或按状态机更新，JSONL 既有行不截断、不改写、不重排、不删除 | 机械（check-append-only.sh） |
+| R-DP-004 | Derived 重建须标注来源、时间、覆盖范围与失效条件 | 机械（generate-module-map.sh、generate-progress.sh） |
+| R-DP-005 | Adapter 仅宿主支持且任务需要时生成，否则 deferred | 门禁 |
+| R-DP-006 | 条件产物命中触发矩阵至少一条才创建 | 门禁 |
+| R-DP-007 | 治理产物逐件登记 artifacts.yaml，登记与实际文件漂移即停 | 机械（check-artifacts.sh） |
+| R-DP-008 | 仅契约、拓扑、行为、派生四类语义变化触发级联同步 | 约定 |
+| R-DP-009 | 条件产物按状态机流转，stale 恢复前不当可信导航 | 约定 |
+| R-DP-010 | 初始化与产物增删自动评估 Artifact Plan 并落盘呈现 | 门禁 |
+| R-DP-011 | 三道门禁（含分级交付道车道替代形态，C1+ 无替代） | 门禁 |
+| R-DP-012 | Session、Task、Request 三套状态机取值固定，不自造状态名 | 机械（ticket-ops.sh、lane-commit.sh） |
+| R-DP-013 | 冲突按四层事实优先级取信并修正低层记录 | 约定 |
+| R-DP-014 | 恢复按八步固定顺序执行并落盘结论 | 约定 |
+| R-DP-015 | 命中条件生成并维护 run record 十三字段，禁编造 baseline | 约定 |
+| R-DP-016 | 各角色只写允许目标，禁两 session 并发写索引与投影 | 门禁 |
+| R-DP-017 | Implementation 中断保留改动并记 next_step 续跑 | 约定 |
+| R-DP-018 | Review 中断不得沿用作 pass，须依最新状态重审 | 约定 |
+| R-DP-019 | Commit 中断先核查 HEAD、暂存与证据再决定重试 | 约定 |
+| R-DP-020 | 禁 reset --hard、rm -rf、删未跟踪等破坏性恢复 | 约定 |
+| R-DP-021 | 六条不变量为阶段出口硬门禁，逐条核对 | 门禁 |
+| R-DP-022 | 生成动作写入前先落 Discovery Record（来源、冲突、未知） | 门禁 |
+| R-DP-023 | 取信按既有事实、用户确认、模板、自动推断次序降级 | 约定 |
+| R-DP-024 | profile 档位确认与 capability manifest 逐项落盘 | 门禁 |
+| R-DP-025 | 生成件登记 generation manifest，重跑先 reconcile 漂移即停 | 门禁 |
+| R-DP-026 | 治理任务按 discovery、confirm、generate、verify、handoff 五段落盘 | 门禁 |
+| R-DP-027 | 外部引用、许可证、侧通道按证据链登记并附关闭开关 | 约定 |
+| R-DP-028 | 状态以权威位置加日期引用表达，禁双源时间戳 | 机械（check-stale-claims.sh） |
+| R-DP-029 | 命令输出进入上下文前先检索、截断、去重 | 约定 |
+| R-DP-030 | @derive 仅登记标记语义，激活前零实现零视图 | 约定 |
+| R-DP-031 | 分级交付道三车道准入与快道脚本强制收尾 | 机械（check-gates.sh、lane-commit.sh） |
+| R-DP-032 | 编码层按编程思想五问把结论落进代码结构 | 门禁 |
+| R-GF-007 | 治理文件三层组织（引用行，定义在模板外手册） | 约定；外定义（定义于 references/protocol/governance-format.md） |
+| R-RC-001 | 核对 Review pass 后只暂存白名单文件创建提交 | 机械（check-gates.sh、lane-commit.sh） |
+| R-RC-002 | 停止条件即停，禁 push、reset、回滚他人改动 | 门禁 |
+| R-RC-003 | 记录翻转例外：先产品提交后纯记录提交，不混提 | 机械（lane-commit.sh） |
+| R-RI-001 | 只改委派 Scope 白名单，他人未提交改动只记录归属 | 门禁 |
+| R-RI-002 | 只实现不自审、零 git 写、如实报告验证 | 门禁 |
+| R-RI-003 | 事实冲突、前置未满足或合同含糊即停不猜 | 约定 |
+| R-RQ-001 | Intake 只写新 REQ 文件，不碰进行中任务范围 | 约定 |
+| R-RQ-002 | 仅 Triage 推进请求状态并留流转证据 | 约定 |
+| R-RQ-003 | Intake 与 Delivery 并行写入目标不相交 | 约定 |
+| R-RR-001 | Review 只读，产出仅落审查记录 | 约定 |
+| R-RR-002 | 独立审查加交付证据逐项抽查核验 | 门禁 |
+| R-RR-003 | 无独立执行体时按序降级并如实记录 | 门禁 |

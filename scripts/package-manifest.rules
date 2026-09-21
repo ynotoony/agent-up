@@ -1,8 +1,8 @@
-# Input: 包清单事实（票 57 单源化拍板；票 58/59 扩节）：必需入口文件、脚本必需件、.tmpl 模板清单、
-#        规则块短码登记、platform 枚举、模糊措辞词表与行级豁免、镜像脚本、能力基元名单与检查
-#        目标——九节唯一承载点；
+# Input: 包清单事实（票 57 单源化拍板；票 58/59/60 扩节）：必需入口文件、脚本必需件、.tmpl 模板清单、
+#        规则块短码登记、platform 枚举、模糊措辞词表与豁免、镜像脚本、能力基元名单与检查
+#        目标、规则索引执行机制受控词表——十节唯一承载点；
 #        check-package.sh 检查 1/5/8 的清单与计数自本表读取（引擎内硬编码清单废止），检查
-#        9/10/11/12/13/14 以本表为比对基准。
+#        9/10/11/12/13/14/15/16/17 以本表为比对基准。
 # Output: check-package.sh 引擎启动时 source 本表——每行一个 pm_* 调用：
 #         pm_entry <pkg-rel-path>（必需入口文件，包根相对路径）；
 #         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
@@ -24,7 +24,12 @@
 #         pm_capability_target <pkg-rel-path> <kind> <预期名单>（检查 14 逐一核验目标：
 #           kind=decl 取角色合同 required_capabilities（运行时）行反引号名集合——预期
 #           名单为该行现场转录；kind=table 取「| 能力基元 |」对照表首列名集合——预期
-#           名单须与名单全等。载入校验：预期名单逐名 ⊆ 名单且八目标并集 ⊇ 名单）。
+#           名单须与名单全等。载入校验：预期名单逐名 ⊆ 名单且八目标并集 ⊇ 名单）；
+#         pm_mechanism <值>（规则索引执行机制受控值：模板 development-process.md.tmpl
+#           §16 机制列取值 ⊆ 本节值集，检查 16；受控三值＝机械/门禁/约定，语义见模板
+#           §16 节头）；
+#         pm_mechanism_marker <标记词>（外定义标记词，恰一行：模板 §16 中定义于模板外
+#           手册的规则块行须在机制列显式标注本标记词，未标注算漏行，检查 15/16）。
 # Pos: 包清单数据文件（票 57；先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
 #      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
 #      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
@@ -32,20 +37,23 @@
 #      同源（templates：AG/DP/RQ/RI/RR/RC；protocol：GF/RP/CP；adapters：AT/CC/ZC/CL/
 #      CX/PI/DS，票 57 grep 实测全集）；platform 枚举自 capability-contract.md §2.5 与
 #      artifacts-yaml.tmpl platform 字段注释区迁入（票 57）；模糊措辞词表与豁免、镜像
-#      登记、能力基元名单与检查目标为票 58/59 新增节。结构校验口径
+#      登记的能力基元名单与检查目标为票 58/59 新增节；规则索引执行机制受控词表为票 60
+#      新增节。结构校验口径
 #      （check-package.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不产生
 #      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
 #      pm_shortcode 恰 2、pm_platform 恰 1、pm_vague_word 恰 1、pm_vague_exempt 恰 3、
 #      pm_mirror 恰 1、pm_capability 恰 1、pm_capability_authority 恰 1、
-#      pm_capability_target 恰 3，字段内禁制表符）；路径禁前导斜杠、空白与
+#      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1，字段内
+#      禁制表符）；路径禁前导斜杠、空白与
 #      .. 段；pm_script 须 scripts/ 前缀加单段文件名；kind 枚举三值（见 Output）；
 #      pm_template 须单段 .tmpl 文件名；短码两字母大写且跨行唯一，owner 须 references/
 #      前缀；platform 值须小写 token；pm_vague_word 词须非空且跨行唯一；pm_vague_exempt
 #      行号须正整数、理由非空、路径+行号跨行唯一；pm_mirror 须单段文件名且跨行唯一；
 #      pm_capability 名须小写 token 且跨行唯一；pm_capability_authority 跨行恰一行；
 #      pm_capability_target 目标路径跨行唯一、kind ∈ decl/table、预期名单逐名 ⊆
-#      pm_capability 名单且并集 ⊇ 名单；各节内路径/文件名/短码/值跨行不重复；除
-#      vague-exemptions 节可空外，其余八节每节至少一行。检查 12 扫描窗口口径（本表注记）：
+#      pm_capability 名单且并集 ⊇ 名单；pm_mechanism 值须非空且不含空白并跨行唯一；
+#      pm_mechanism_marker 跨行恰一行；各节内路径/文件名/短码/值跨行不重复；除
+#      vague-exemptions 节可空外，其余九节每节至少一行。检查 12 扫描窗口口径（本表注记）：
 #      包内全部 *.md 与 *.tmpl 的 R-<短码>-NNN 规则块体（块头行起至下一标题行止，块头
 #      本身不扫），排除「解释与例外」节与各 README 文件（叙事面）；本表自身词表行为
 #      .rules 数据文件，不在 md/tmpl 扫描文件面。本表、scripts/README.md 成员表与
@@ -80,6 +88,8 @@ pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip）'
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
+pm_script scripts/check-append-only.sh script 'Record 只追加守卫（票 58；票 60 补登记——检查 17 机械行点名脚本须在册）'
+pm_script scripts/check-artifacts.sh script '治理产物对账器（票 59；票 60 补登记——检查 17 机械行点名脚本须在册）'
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（五 suite 常驻自检；票 57 定为必需件）'
@@ -174,3 +184,16 @@ pm_capability_target references/adapters/claude-code.md table 'inspect,search,re
 pm_capability_target references/adapters/codex.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
 pm_capability_target references/adapters/pi.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
 pm_capability_target references/adapters/dsh.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
+
+# ==== mechanism-vocab：规则索引执行机制受控词表（检查 15/16/17，票 60）====
+# 模板 development-process.md.tmpl §16 规则索引机制列取值 ⊆ 本节词表（受控三值＋外定义
+# 标记词）；引擎零词表零标记词硬编码。三值语义（模板 §16 节头同款）：机械＝点名脚本/
+# 检查项现役断言在管；门禁＝阶段 checkpoint 卡（独立 Review Checkpoint、Commit 收尾
+# 核对、用户语义终审）；约定＝无机械无门禁，靠执行体自觉。外定义标记词＝定义于模板外
+# 手册（protocol/adapters）的规则块行在机制列的显式标注，未标注算漏行（检查 15）。
+# 词表增删＝先改本节再改模板索引（数据先行），并同步 harness 夹具（红灯不隔票）。
+
+pm_mechanism 机械
+pm_mechanism 门禁
+pm_mechanism 约定
+pm_mechanism_marker 外定义

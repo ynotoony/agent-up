@@ -1,9 +1,9 @@
 #!/bin/sh
 # Input: 待检包根目录（默认为本脚本所在目录的父目录）与包清单数据文件
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
-#        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标九节唯一承载点，
-#        票 57/58/59）。
-# Output: 十四项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
+#        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标/规则索引执行
+#        机制受控词表十节唯一承载点，票 57/58/59/60）。
+# Output: 十七项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
 #         检查 13 仓根无镜像时静默跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
@@ -48,10 +48,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  十四项检查全部通过
+  0  十七项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-十四项检查说明、例外登记与输出格式见同目录 README.md。
+十七项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -104,9 +104,14 @@ pm_mirrors=''
 pm_caps=''
 pm_capauth=''
 pm_captargets=''
+pm_mechs=''
+pm_mechmark=''
+pm_idxmech=''
+pm_idxids=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
-    "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets"
+    "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
+    "$pm_mechs" "$pm_mechmark" "$pm_idxmech" "$pm_idxids"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -120,6 +125,10 @@ pm_mirrors=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_caps=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_capauth=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_captargets=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_mechs=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_mechmark=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_idxmech=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_idxids=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 
 pm_die() {
   printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
@@ -180,23 +189,31 @@ pm_capability_target() {
   [ $# -eq 3 ] || pm_die 'pm_capability_target 行参数数量不合预期（须恰 3：目标路径、kind、预期名单）'
   printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_captargets"
 }
+pm_mechanism() {
+  [ $# -eq 1 ] || pm_die 'pm_mechanism 行参数数量不合预期（须恰 1：机制受控值）'
+  printf '%s\n' "$1" >> "$pm_mechs"
+}
+pm_mechanism_marker() {
+  [ $# -eq 1 ] || pm_die 'pm_mechanism_marker 行参数数量不合预期（须恰 1：外定义标记词）'
+  printf '%s\n' "$1" >> "$pm_mechmark"
+}
 
 pm_rules="$script_dir/package-manifest.rules"
 if [ ! -f "$pm_rules" ]; then
   printf 'check-package: 错误：包清单数据文件缺失: %s\n' "$pm_rules" >&2
   exit 2
 fi
-# 预校验（source 前）：非空非注释行须为顶格指令行（十一指令之一）——source 对行级失败
+# 预校验（source 前）：非空非注释行须为顶格指令行（十三指令之一）——source 对行级失败
 # 不具中止性（未知指令行报错后继续执行、尾态可能为 0），故未知指令必须在 source 前
 # 即 exit 2，不能只靠 source 返回码收敛。
 pm_bad=$(LC_ALL=C awk '
-  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror pm_capability pm_capability_authority pm_capability_target", d, " ") }
+  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror pm_capability pm_capability_authority pm_capability_target pm_mechanism pm_mechanism_marker", d, " ") }
   function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
   /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
   /^[[:space:]]/ { bad("行首空白（指令行须顶格）"); next }
   {
     ok = 0
-    for (k = 1; k <= 11; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
+    for (k = 1; k <= 13; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
     if (!ok) bad("未知指令或非指令行: " substr($0, 1, 40))
   }
   END { if (n > 0) exit 1 }
@@ -223,6 +240,8 @@ fi
 [ -s "$pm_caps" ] || pm_die '清单缺 capability-primitives 节（零行）'
 [ -s "$pm_capauth" ] || pm_die '清单缺 capability authority 登记（零行）'
 [ -s "$pm_captargets" ] || pm_die '清单缺 capability targets 登记（零行）'
+[ -s "$pm_mechs" ] || pm_die '清单缺 mechanism-vocab 节（零行）'
+[ -s "$pm_mechmark" ] || pm_die '清单缺 mechanism 外定义标记词登记（零行）'
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
   function bad(msg) { printf "entry-files 节第 %d 行: %s\n", FNR, msg; n++ }
@@ -373,6 +392,30 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
     if (n > 0) exit 1
   }
 ' "$pm_caps" "$pm_captargets") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "mechanism-vocab 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 == "") { bad("值为空"); next }
+    if ($1 ~ /[[:space:]]/) { bad("值含空白（受控值须为单 token）: " $1); next }
+    if ($1 in seen) { bad("值跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_mechs") || true
+pm_report "$pm_bad"
+
+[ "$(wc -l < "$pm_mechmark" | tr -d ' ')" -eq 1 ] || pm_die 'mechanism 外定义标记词须恰一行'
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "mechanism 外定义标记词行: %s\n", msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 == "") { bad("标记词为空"); next }
+    if ($1 ~ /[[:space:]]/) { bad("标记词含空白（须为单 token）: " $1); next }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_mechmark") || true
 pm_report "$pm_bad"
 
 # 问题行累加器（单行；多行由 fail() 走详情块缩进排版）
@@ -1118,8 +1161,331 @@ else
   pass 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个）"
 fi
 
+# 检查 15：模板规则索引表与规则块全集全等（票 60 新增）。全集＝清单 templates 节全部
+# .tmpl 文件的规则块 ID（R-<短码>-NNN）grep 并集去重；索引表＝development-process.md.tmpl
+# 「## 16. 规则索引」节内三列表行（窄锚点，先例检查 11/14；锚点缺失或零表行 FAIL）。
+# 外定义行＝短码登记 owner 不在 references/templates/ 下的 ID（经清单 shortcodes 节数据
+# 判定，引擎零 ID 硬编码）：豁免内容比对但机制列必须显式标注外定义标记词（清单
+# mechanism 标记词，检查 16 同源），未标注算漏行。索引行格式：| ID | 一句话内容 | 机制 |
+# （内容列禁竖线，机制列语法见检查 16）。
+problems=''
+idx_site="$templates_dir/development-process.md.tmpl"
+: > "$pm_idxmech"
+if [ -f "$idx_site" ]; then
+  LC_ALL=C awk '
+    /^## 16\. 规则索引/ { insec = 1; next }
+    insec && /^## / { exit }
+    insec && /^\| R-[A-Z][A-Z]-[0-9][0-9][0-9]/ {
+      n = split($0, c, "|")
+      if (c[n] == "") n--
+      if (n != 4) { printf "MALFORMED\t%s\n", $0; next }
+      id = c[2]; gsub(/[ \t]/, "", id)
+      if (id !~ /^R-[A-Z][A-Z]-[0-9][0-9][0-9]$/) { printf "MALFORMED\t%s\n", $0; next }
+      mech = c[4]
+      sub(/^[ \t]+/, "", mech); sub(/[ \t]+$/, "", mech)
+      print id "\t" mech
+    }
+  ' "$idx_site" >> "$pm_idxmech" || true
+else
+  add_problem '  - references/templates/development-process.md.tmpl 不存在'
+fi
+grep -v '^MALFORMED' "$pm_idxmech" 2>/dev/null | LC_ALL=C cut -f1 > "$pm_idxids"
+malformed=$(LC_ALL=C awk -F'\t' '$1 == "MALFORMED" { print $2 }' "$pm_idxmech")
+n_idx=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_idxids")
+union_ids=''
+idx_base=${idx_site##*/}
+if [ -d "$templates_dir" ]; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for t in $(cat "$pm_templates"); do
+    IFS=$OLDIFS
+    # 索引宿主文件先排除表行自身（行首「| R-」）再提取 ID：索引表在 grep 扫描面内，
+    # 表行加什么 ID 全集就含什么 ID，不排除则检查 15 的「多出全集外 ID」方向退化失效。
+    if [ "$t" = "$idx_base" ]; then
+      hits=$(grep -v '^| R-' "$templates_dir/$t" 2>/dev/null | LC_ALL=C grep -ohE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' || true)
+    else
+      hits=$(LC_ALL=C grep -ohE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' "$templates_dir/$t" 2>/dev/null || true)
+    fi
+    if [ -n "$hits" ]; then
+      union_ids="$union_ids$hits
+"
+    fi
+  done
+  IFS=$OLDIFS
+fi
+union_ids=$(printf '%s' "$union_ids" | LC_ALL=C sort -u)
+n_union=$(printf '%s\n' "$union_ids" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+if [ -f "$idx_site" ] && ! grep -q '^## 16\. 规则索引' "$idx_site"; then
+  add_problem '  - 索引节未找到（锚点「## 16. 规则索引」缺失）'
+elif [ "$n_idx" -eq 0 ] && [ -f "$idx_site" ]; then
+  add_problem '  - 索引节无表行（锚点在位但未提取到索引行）'
+fi
+if [ -n "$malformed" ]; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for m in $malformed; do
+    IFS=$OLDIFS
+    add_problem "  - 索引行格式不合预期（须三列表行，内容列禁竖线）: $m"
+  done
+  IFS=$OLDIFS
+fi
+dup_ids=$(LC_ALL=C awk -F'\t' '$1 != "" && $1 != "MALFORMED" { c[$1]++ } END { for (i in c) if (c[i] > 1) print i }' "$pm_idxmech" | LC_ALL=C sort)
+if [ -n "$dup_ids" ]; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for d in $dup_ids; do
+    IFS=$OLDIFS
+    add_problem "  - 索引 ID 跨行重复: $d"
+  done
+  IFS=$OLDIFS
+fi
+extra=''; sep2=''
+OLDIFS=$IFS
+IFS='
+'
+for id in $(cat "$pm_idxids"); do
+  IFS=$OLDIFS
+  if ! printf '%s\n' "$union_ids" | grep -qxF "$id"; then
+    extra="$extra$sep2$id"
+    sep2='、'
+  fi
+done
+IFS=$OLDIFS
+missing=''; sep2=''
+OLDIFS=$IFS
+IFS='
+'
+for id in $union_ids; do
+  IFS=$OLDIFS
+  if ! grep -qxF "$id" "$pm_idxids"; then
+    missing="$missing$sep2$id"
+    sep2='、'
+  fi
+done
+IFS=$OLDIFS
+mechmark=$(cat "$pm_mechmark")
+unmarked=''; sep2=''
+OLDIFS=$IFS
+IFS='
+'
+for id in $(cat "$pm_idxids"); do
+  IFS=$OLDIFS
+  sc=$(printf '%s' "$id" | cut -c3-4)
+  owner=$(LC_ALL=C awk -F'\t' -v c="$sc" '$1 == c { print $2; exit }' "$pm_codes")
+  mech=$(LC_ALL=C awk -F'\t' -v i="$id" '$1 == i { print $2; exit }' "$pm_idxmech")
+  if [ -z "$owner" ]; then
+    unmarked="$unmarked$sep2${id}（短码未登记）"
+  elif [ -z "$mech" ]; then
+    unmarked="$unmarked$sep2${id}（无机制列）"
+  else
+    case $owner in
+      references/templates/*) : ;;
+      *)
+        case $mech in
+          *"$mechmark"*) : ;;
+          *) unmarked="$unmarked$sep2${id}（定义于 ${owner}）" ;;
+        esac
+        ;;
+    esac
+  fi
+done
+IFS=$OLDIFS
+if [ -n "$extra" ]; then
+  add_problem "  - 索引多出全集外 ID: $extra"
+fi
+if [ -n "$missing" ]; then
+  add_problem "  - 全集 ID 缺索引行: $missing"
+fi
+if [ -n "$unmarked" ]; then
+  add_problem "  - 外定义 ID 行未标注标记词「${mechmark}」（豁免须显式，未标注算漏行）: $unmarked"
+fi
+if [ -n "$problems" ]; then
+  fail 15 "模板规则索引与规则块全集全等（索引 ${n_idx} 行，全集 ${n_union} ID）" "$problems"
+else
+  pass 15 "模板规则索引与规则块全集全等（索引 ${n_idx} 行，全集 ${n_union} ID）"
+fi
+
+# 检查 16：索引机制列值 ⊆ 受控词表（票 60 新增）。词表＝清单 mechanism-vocab 节（受控
+# 三值）＋外定义标记词（恰一行），引擎零词表零标记词硬编码。机制列语法：受控值开头，
+# 可跟全角括注「（…）」（出处/说明，括注内容不做词表核验、禁嵌套与全角分号），可跟
+# 「；外定义（…）」附加段（首段须为机制受控值，附加段须为词表值）。BSD awk 的 index/
+# substr 对多字节字符的字节/字符位语义混合不可靠，故先经 sed 把全角括号/分号规范化为
+# ASCII 再解析（字面替换为字节级，可靠）；剥离后残留括号判括号不配对（fail-closed）。
+problems=''
+mechs=$(cat "$pm_mechs")
+n_mechs=$(printf '%s\n' "$mechs" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+n_mark=0
+if [ -n "$mechmark" ]; then
+  n_mark=1
+fi
+if [ "$n_idx" -eq 0 ]; then
+  add_problem '  - 索引表零行，机制列无从核对'
+else
+  awk_rc=0
+  hits16=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' "$pm_idxmech" | LC_ALL=C VOCAB="$mechs
+$mechmark" MECHS="$mechs" awk -F'\t' '
+    BEGIN {
+      nv = split(ENVIRON["VOCAB"], V, "\n")
+      for (k = 1; k <= nv; k++) if (V[k] != "") voc[V[k]] = 1
+      nm = split(ENVIRON["MECHS"], M, "\n")
+      for (k = 1; k <= nm; k++) if (M[k] != "") mechv[M[k]] = 1
+    }
+    NF {
+      id = $1
+      t = $2
+      gsub(/\([^)]*\)/, "", t)
+      gsub(/[ \t]/, "", t)
+      if (t ~ /[()]/) { printf "%s\t机制列括号不配对\n", id; next }
+      if (t == "") { printf "%s\t机制列为空\n", id; next }
+      n = split(t, T, ";")
+      for (k = 1; k <= n; k++) {
+        if (T[k] == "") { printf "%s\t机制列含空段\n", id; continue }
+        if (k == 1) {
+          if (!(T[k] in mechv)) printf "%s\t机制值不在受控词表: %s\n", id, T[k]
+        } else {
+          if (!(T[k] in voc)) printf "%s\t机制列附加段不在受控词表: %s\n", id, T[k]
+        }
+      }
+    }
+  ') || awk_rc=$?
+  if [ "$awk_rc" -ne 0 ]; then
+    printf 'check-package: 错误：检查 16 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
+    exit 2
+  fi
+  if [ -n "$hits16" ]; then
+    OLDIFS=$IFS
+    IFS='
+'
+    for h in $hits16; do
+      IFS=$OLDIFS
+      h_id=${h%%"$TAB"*}
+      h_msg=${h#*"$TAB"}
+      add_problem "  - $h_id $h_msg"
+    done
+    IFS=$OLDIFS
+  fi
+fi
+if [ -n "$problems" ]; then
+  fail 16 "索引机制列受控词表（机制 ${n_mechs} 值＋标记 ${n_mark} 词）" "$problems"
+else
+  pass 16 "索引机制列受控词表（机制 ${n_mechs} 值＋标记 ${n_mark} 词）"
+fi
+
+# 检查 17：机械行点名出处存在（票 60 新增）。机械行（机制列首段＝受控值「机械」——该值
+# 为引擎语义锚点，词表成员资格仍以清单为权威）须在括注内点名出处：脚本名（*.sh）必须
+# 真实存在于包 scripts/ 且在清单 scripts 节登记；检查项号（「检查 N」）必须 ≤ 当前检查
+# 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
+# 存在性核对）；零脚本零检查项的机械行判缺点名。
+problems=''
+n_total_checks=17
+n_mrow=0
+mech_m='机械'
+if [ "$n_idx" -eq 0 ]; then
+  add_problem '  - 索引表零行，机械行无从核对'
+else
+  awk_rc=0
+  cand17=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' -e 's/检查/CHK/g' "$pm_idxmech" | LC_ALL=C MECH_M="$mech_m" awk -F'\t' '
+    function paren_span(s,   i, j) {
+      i = index(s, "(")
+      if (i == 0) return ""
+      s = substr(s, i + 1)
+      j = index(s, ")")
+      if (j == 0) return ""
+      return substr(s, 1, j - 1)
+    }
+    BEGIN { mk = ENVIRON["MECH_M"] }
+    NF {
+      id = $1; cell = $2
+      i = index(cell, "(")
+      head = cell
+      if (i > 0) head = substr(cell, 1, i - 1)
+      n = split(head, H, ";")
+      seg = H[1]
+      gsub(/[ \t]/, "", seg)
+      if (seg != mk) next
+      n_mrow++
+      ev = paren_span(cell)
+      print id "\tEV\t" ev
+      rest = ev
+      while (match(rest, /[A-Za-z0-9._-]+\.sh/) > 0) {
+        print id "\tS\t" substr(rest, RSTART, RLENGTH)
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+      rest = ev
+      while (match(rest, /CHK [0-9][0-9]*/) > 0) {
+        num = substr(rest, RSTART, RLENGTH)
+        sub(/^CHK /, "", num)
+        print id "\tC\t" num
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+    }
+    END { printf "COUNT\t%d\n", n_mrow + 0 }
+  ') || awk_rc=$?
+  if [ "$awk_rc" -ne 0 ]; then
+    printf 'check-package: 错误：检查 17 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
+    exit 2
+  fi
+  n_mrow=$(printf '%s\n' "$cand17" | LC_ALL=C awk -F'\t' '$1 == "COUNT" { print $2; exit }')
+  prev_id=''; prev_ev=''; prev_n=0
+  OLDIFS=$IFS
+  IFS='
+'
+  for row in $cand17; do
+    IFS=$OLDIFS
+    row_id=${row%%"$TAB"*}
+    row_rest=${row#*"$TAB"}
+    row_kind=${row_rest%%"$TAB"*}
+    row_val=${row_rest#*"$TAB"}
+    case $row_kind in
+      COUNT) continue ;;
+      EV)
+        if [ -n "$prev_id" ] && [ "$prev_n" -eq 0 ]; then
+          add_problem "  - ${prev_id} 机械行未点名脚本或检查项（原文：${prev_ev}）"
+        fi
+        prev_id=$row_id; prev_ev=$row_val; prev_n=0
+        if [ -z "$row_val" ]; then
+          add_problem "  - $row_id 机械行缺点名出处（须在括注内点名脚本或检查项）"
+        fi
+        ;;
+      S)
+        prev_n=$((prev_n + 1))
+        if [ ! -f "$pkg_root/scripts/$row_val" ]; then
+          add_problem "  - $row_id 机械行点名脚本不存在: $row_val"
+        elif ! LC_ALL=C awk -F'\t' -v p="scripts/$row_val" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_scripts"; then
+          add_problem "  - $row_id 机械行点名脚本未在清单 scripts 节登记: $row_val"
+        fi
+        ;;
+      C)
+        prev_n=$((prev_n + 1))
+        case $row_val in
+          ''|*[!0-9]*)
+            add_problem "  - $row_id 机械行点名检查项号形态不合预期: $row_val"
+            ;;
+          *)
+            if [ "$row_val" -lt 1 ] || [ "$row_val" -gt "$n_total_checks" ]; then
+              add_problem "  - $row_id 机械行点名检查项号超界（当前共 ${n_total_checks} 项）: 检查 $row_val"
+            fi
+            ;;
+        esac
+        ;;
+    esac
+  done
+  IFS=$OLDIFS
+  if [ -n "$prev_id" ] && [ "$prev_n" -eq 0 ]; then
+    add_problem "  - ${prev_id} 机械行未点名脚本或检查项（原文：${prev_ev}）"
+  fi
+fi
+if [ -n "$problems" ]; then
+  fail 17 "机械行点名出处存在（机械 ${n_mrow} 行）" "$problems"
+else
+  pass 17 "机械行点名出处存在（机械 ${n_mrow} 行）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 14 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 17 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'
