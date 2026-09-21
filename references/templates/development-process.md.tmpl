@@ -559,6 +559,7 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 | blocker | 阻塞与原因；无则空 |
 | network | 网络可用性状态（available / unavailable / unknown） |
 | updated_at | 最后更新时间 |
+| usage | 可选用量遥测（可选；双轨来源：执行体自报 duration_seconds，tokens_total/requests 由协调层收口代记回填——执行体不可见自身账单；source 标注填报方 executor/coordinator/mixed；数值真实性由派发遥测背书） |
 
 - `workspace_fingerprint` 算法（定稿，版本前缀 `fp-v1`）：①收集工作区全部文件，排除 `.git/`、依赖与构建产物目录（`node_modules/`、`dist/`、`build/`、`coverage/`、`__pycache__/`、`.venv/`）与 `docs/agent/runs/`（运行记录自身不参与指纹，避免自引用漂移）；②按相对路径字典序排序，每文件一行 `<相对路径>\t<字节数>\t<mtime 纪元秒>`；③拼接后取 SHA-256 十六进制前 16 位，记 `fp-v1:<hex16>`。同算法两次计算不一致即工作区自基线后有变化，按 R-DP-013 归属。
 - `independent_review` 字段（可选）定稿：独立 Review 记录本体落盘任务票 `## Independent Review Checkpoint`（Review 唯一写入目标；格式：日期、结论 pass/fail、逐项证据 `文件:行号区间`、验证命令与环境）；run record 的该字段由当前运行执行体在 Review 结论落盘后回填指针 `{verdict, ticket_ref, checkpoint, at}`，不承载审查本体。

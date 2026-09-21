@@ -155,6 +155,38 @@
         }
       }
     },
+    "usage": {
+      "type": "object",
+      "description": "可选。用量遥测（数值真实性由派发遥测背书，本 schema 只验形状）。数据源双轨：duration_seconds 由执行体自报（执行体可知项）；tokens_total 与 requests 由协调层收口代记时从派发遥测回填（执行体不可见自身账单）；source 标注填报方（executor＝执行体自报、coordinator＝协调层代记回填、mixed＝两者各填部分）。子字段可按填报阶段分次落齐（执行体先落 duration_seconds/source/at，协调层收口回填其余），故不设内部 required；不入顶层 required，缺省合法，无 usage 的历史卡与生成路径零破坏。",
+      "additionalProperties": false,
+      "properties": {
+        "tokens_total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "本运行 token 总量（协调层代记回填，执行体不可知）。"
+        },
+        "requests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "本运行请求数（协调层代记回填，执行体不可知）。"
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "本运行时长秒数（执行体自报可知项）。"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["executor", "coordinator", "mixed"],
+          "description": "usage 填报方标注。"
+        },
+        "at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}",
+          "description": "usage 填报时间，ISO 8601 日期时间（pattern 同 updated_at 风格）。"
+        }
+      }
+    },
     "x-sample": {
       "type": "boolean",
       "description": "样例标记：true 表示本文件为公开包格式样例，全部字段值为占位，不含真实仓库或运行数据。"

@@ -33,5 +33,12 @@
     "ticket_ref": "EXAMPLE-TICKET-007（样例占位）",
     "checkpoint": "Independent Review Checkpoint（2026-09-03，pass）（样例占位）",
     "at": "2026-09-03"
+  },
+  "usage": {
+    "tokens_total": 42000,
+    "requests": 37,
+    "duration_seconds": 1500,
+    "source": "mixed",
+    "at": "2026-09-03T00:00"
   }
 }
