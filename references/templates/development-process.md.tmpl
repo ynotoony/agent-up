@@ -24,6 +24,7 @@
 - 三套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）、Request（proposed/triaged/accepted/specified/ready + rejected/deferred/needs-user-decision）；写入所有权按五角色矩阵执行。
 - C2/C3、跨会话、中断、无 Git 基线或归属不明时生成 run record（`docs/agent/runs/<run-id>.json`，十三字段，机器 schema 见公开包 `references/schemas/run-record.schema.json`）；C0/C1 写任务票 Checkpoint；六条不变量是阶段出口硬门禁。
 - 生成类动作按六项收敛模式治理（§13）：盘点先于生成（Discovery Record，来源/冲突/未知登记）；取信按 既有事实 > 用户确认 > 模板 > 自动推断；capability manifest 按 minimum/full 档位标 enabled/excluded/pending；生成件登记 generation manifest 并 reconcile（幂等、漂移即停、备份可逆）；检查点按 discovery → confirm → generate → verify → handoff 管线落盘；外部引用登记规范标识、许可证核验与侧通道文档化关闭开关。
+- 方案调研前置：Triage/Planning 产出方案类文档前须调研外部最佳实践并带真实可核参考（来源＋借鉴点与不采纳项），规则见 R-DP-033；重量级对比落 `docs/research/` 报告，微维护豁免。
 - 验证必须记录命令、环境、结果和日期；未运行的验证明确写 `N/A + reason`，禁止用"应该可以"代替证据。
 
 ## 2. 读取阶梯与权威层级
@@ -412,6 +413,20 @@ Scope:
 出现以下任一条件时停止实现，先拆票：预计无法在一个上下文窗口内完成并验证；包含两个可独立演示或独立回滚的用户结果；同时引入新领域对象和真实外部 Adapter；要改两个以上现有模块的公共接口；验收条件超过 7 条；跨越数据迁移、权限、外部集成三个高风险面中的两个以上；新需求不在当前规格内。
 
 拆票方法：先更新规格或 `docs/changes.jsonl` 说明为什么；票是**垂直切片**——一刀穿透所有层（数据、业务接口、页面、测试），完成的票可独立演示或验证，体量以一个新鲜上下文窗口能完成为限；每票写明 `Blocked by`（只列真正门禁它的票）、验收标准和不做什么；按依赖顺序编号入 `docs/issues/`，只有 blocker 全部 `done` 的票可以领取（frontier）。宽重构例外：机械的大范围变更按 expand–contract 走——先扩展（新旧并存）、分批迁移（每批一票）、最后收缩（删除旧形态）；批次无法独立保绿时共享集成分支，绿只在最终集成票承诺。票模板见 `docs/issues/README.md`。
+
+### 方案调研前置
+
+Triage 或 Planning 产出方案类文档（规格、方案对比、治理变更设计、拆票方案）前，先调研外部最佳实践；方案须附参考（来源＋借鉴点与不采纳项），真实可核、禁编造。重量级对比落 `docs/research/` 报告，条文见 R-DP-033。
+
+#### R-DP-033 方案调研前置与参考强制 `MUST`
+
+- **When**：Triage/Planning 产出方案类文档（规格、方案对比、治理变更设计、拆票方案）时。
+- **Action**：先调研外部最佳实践并撰写带参考的方案；参考须真实可核、注借鉴点与不采纳项；重量级对比落 `docs/research/` 报告。
+- **Forbidden**：方案无参考或参考不可核；编造或堆砌外部引用；设数字下限（禁「≥N 条参考」式写法）；规则条文点名具体外部平台或会话过程细节。
+- **Stop if**：方案涉及平台相关决策但无对应调研 → 停止产出方案，先补充调研。
+- **Evidence**：方案文档的参考节与调研报告路径可追溯；Review 复核参考在位与贴题。
+- **Owner**：方案产出方（Triage/Planning）。
+- **Authority**：本文 §8（拆票方案调研基线）。
 
 ## 9. Git 提交
 
@@ -850,6 +865,7 @@ run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`in
 | R-DP-030 | @derive 仅登记标记语义，激活前零实现零视图 | 约定 |
 | R-DP-031 | 分级交付道三车道准入与快道脚本强制收尾 | 机械（check-gates.sh、lane-commit.sh） |
 | R-DP-032 | 编码层按编程思想五问把结论落进代码结构 | 门禁 |
+| R-DP-033 | 方案类文档须先调研外部最佳实践并带真实可核参考（来源＋借鉴点与不采纳项）；微维护豁免 | 门禁 |
 | R-GF-007 | 治理文件三层组织（引用行，定义在模板外手册） | 约定；外定义（定义于 references/protocol/governance-format.md） |
 | R-RC-001 | 核对 Review pass 后只暂存白名单文件创建提交 | 机械（check-gates.sh、lane-commit.sh） |
 | R-RC-002 | 停止条件即停，禁 push、reset、回滚他人改动 | 门禁 |
