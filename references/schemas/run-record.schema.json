@@ -18,7 +18,8 @@
     "next_step",
     "blocker",
     "network",
-    "updated_at"
+    "updated_at",
+    "usage"
   ],
   "properties": {
     "run_id": {
@@ -157,8 +158,9 @@
     },
     "usage": {
       "type": "object",
-      "description": "可选。用量遥测（数值真实性由派发遥测背书，本 schema 只验形状）。数据源双轨：duration_seconds 由执行体自报（执行体可知项）；tokens_total 与 requests 由协调层收口代记时从派发遥测回填（执行体不可见自身账单）；source 标注填报方（executor＝执行体自报、coordinator＝协调层代记回填、mixed＝两者各填部分）。子字段可按填报阶段分次落齐（执行体先落 duration_seconds/source/at，协调层收口回填其余），故不设内部 required；不入顶层 required，缺省合法，无 usage 的历史卡与生成路径零破坏。",
+      "description": "必备（票 70 收口硬门禁：seal 对缺 usage 或缺任一子字段的收口卡 fail-closed）。用量遥测数值真实性由派发遥测背书，本 schema 只验形状。数据源双轨：duration_seconds 由执行体自报（执行体可知项）；tokens_total 与 requests 由协调层收口代记时从派发遥测回填（执行体不可见自身账单）；source 标注填报方（executor＝执行体自报、coordinator＝协调层代记回填、mixed＝两者各填部分）。两段式落齐：子字段可按填报阶段分次落齐（执行体先落 duration_seconds/source/at，协调层收口回填其余），但全部子字段须在 seal 前落齐；存量无 usage 历史卡按冻结纪律零改写，不回填不重建。",
       "additionalProperties": false,
+      "required": ["tokens_total", "requests", "duration_seconds", "source", "at"],
       "properties": {
         "tokens_total": {
           "type": "integer",

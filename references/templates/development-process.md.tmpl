@@ -23,6 +23,7 @@
 - 中断恢复只从事实出发：Session 置 `recovering` 后按八步固定顺序（AGENTS.md → progress → 任务票/Checkpoint → run record → 实际文件/Git → 重跑验证 → 判定 resume/blocked/conflict → Review 补审规则）得出结论；事实优先级四层（实际文件/测试/Git > Checkpoint/run record > progress > 聊天记录）；禁止用破坏性操作"恢复干净"。
 - 三套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）、Request（proposed/triaged/accepted/specified/ready + rejected/deferred/needs-user-decision）；写入所有权按五角色矩阵执行。
 - C2/C3、跨会话、中断、无 Git 基线或归属不明时生成 run record（`docs/agent/runs/<run-id>.json`，十三字段，机器 schema 见公开包 `references/schemas/run-record.schema.json`）；C0/C1 写任务票 Checkpoint；六条不变量是阶段出口硬门禁。
+- run record 收口必带用量遥测：seal 对缺 usage 或缺任一子字段的收口卡 fail-closed；两段式落齐（执行体自报 duration_seconds/source/at，协调层回填 tokens_total/requests）须在 seal 前完成（R-DP-034），存量无 usage 卡冻结零改写。
 - 生成类动作按六项收敛模式治理（§13）：盘点先于生成（Discovery Record，来源/冲突/未知登记）；取信按 既有事实 > 用户确认 > 模板 > 自动推断；capability manifest 按 minimum/full 档位标 enabled/excluded/pending；生成件登记 generation manifest 并 reconcile（幂等、漂移即停、备份可逆）；检查点按 discovery → confirm → generate → verify → handoff 管线落盘；外部引用登记规范标识、许可证核验与侧通道文档化关闭开关。
 - 方案调研前置：Triage/Planning 产出方案类文档前须调研外部最佳实践并带真实可核参考（来源＋借鉴点与不采纳项），规则见 R-DP-033；重量级对比落 `docs/research/` 报告，微维护豁免。
 - 验证必须记录命令、环境、结果和日期；未运行的验证明确写 `N/A + reason`，禁止用"应该可以"代替证据。
@@ -558,7 +559,7 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 
 ### 12.4 Run record
 
-生成条件（满足其一）：C2/C3 任务；跨会话交接；发生中断；无 Git 基线；改动归属不明。C0/C1 任务写任务票 Checkpoint，不强制 run record。文件：`docs/agent/runs/<run-id>.json`；`run_id` 含日期与随机后缀。字段十三项 + 可选 `independent_review`，机器 schema 见公开包 `references/schemas/run-record.schema.json`：
+生成条件（满足其一）：C2/C3 任务；跨会话交接；发生中断；无 Git 基线；改动归属不明。C0/C1 任务写任务票 Checkpoint，不强制 run record。文件：`docs/agent/runs/<run-id>.json`；`run_id` 含日期与随机后缀。字段十三项 + 收口必备 `usage`（R-DP-034） + 可选 `independent_review`，机器 schema 见公开包 `references/schemas/run-record.schema.json`：
 
 | 字段 | 含义 |
 | --- | --- |
@@ -575,7 +576,7 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 | blocker | 阻塞与原因；无则空 |
 | network | 网络可用性状态（available / unavailable / unknown） |
 | updated_at | 最后更新时间 |
-| usage | 可选用量遥测（可选；双轨来源：执行体自报 duration_seconds，tokens_total/requests 由协调层收口代记回填——执行体不可见自身账单；source 标注填报方 executor/coordinator/mixed；数值真实性由派发遥测背书） |
+| usage | 用量遥测（收口必备：seal 对缺 usage 或缺任一子字段的收口卡 fail-closed 并报明缺项；双轨来源：执行体自报 duration_seconds，tokens_total/requests 由协调层收口代记回填——执行体不可见自身账单；source 标注填报方 executor/coordinator/mixed；两段式落齐须在 seal 前完成；数值真实性由派发遥测背书） |
 
 - `workspace_fingerprint` 算法（定稿，版本前缀 `fp-v1`）：①收集工作区全部文件，排除 `.git/`、依赖与构建产物目录（`node_modules/`、`dist/`、`build/`、`coverage/`、`__pycache__/`、`.venv/`）与 `docs/agent/runs/`（运行记录自身不参与指纹，避免自引用漂移）；②按相对路径字典序排序，每文件一行 `<相对路径>\t<字节数>\t<mtime 纪元秒>`；③拼接后取 SHA-256 十六进制前 16 位，记 `fp-v1:<hex16>`。同算法两次计算不一致即工作区自基线后有变化，按 R-DP-013 归属。
 - `independent_review` 字段（可选）定稿：独立 Review 记录本体落盘任务票 `## Independent Review Checkpoint`（Review 唯一写入目标；格式：日期、结论 pass/fail、逐项证据 `文件:行号区间`、验证命令与环境）；run record 的该字段由当前运行执行体在 Review 结论落盘后回填指针 `{verdict, ticket_ref, checkpoint, at}`，不承载审查本体。
@@ -588,6 +589,16 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 - **Stop if**：无法确定 baseline → 如实记录 `N/A + reason`，不编造。
 - **Evidence**：run record 存在、字段可对照机器 schema、`updated_at` 与实际活动一致。
 - **Owner**：当前运行的 Implementation 执行体。
+- **Authority**：本文 §12.4。
+
+#### R-DP-034 Run record 收口必带用量遥测 `MUST`
+
+- **When**：run record 执行 seal 收口校验，或收口回填 usage 子字段时。
+- **Action**：收口卡 `usage` 必备且五子字段齐（`tokens_total`、`requests`、`duration_seconds`、`source`、`at`）；两段式落齐分工——执行体先落 `duration_seconds`/`source`/`at`，协调层收口回填 `tokens_total`/`requests`，全部完成于 seal 之前；seal 对缺 `usage` 或缺任一子字段的收口卡 fail-closed 并报明缺项。
+- **Forbidden**：seal 放行缺 `usage` 或缺任一子字段的收口卡；回填改写存量已收口卡（存量无 usage 卡按 R-DP-003 冻结，不回填不重建）；编造遥测数值。
+- **Stop if**：协调层无法取得 `tokens_total`/`requests` 遥测 → 收口阻塞如实记录，不放行无遥测的 seal。
+- **Evidence**：seal 输出含 usage 校验项；收口卡 usage 五子字段齐且 `source` 与实际填报方一致。
+- **Owner**：Implementation 执行体（`duration_seconds`/`source`/`at` 自报）；协调层（`tokens_total`/`requests` 代记回填与 seal 收口）。
 - **Authority**：本文 §12.4。
 
 ### 12.5 写入所有权矩阵
@@ -866,6 +877,7 @@ run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`in
 | R-DP-031 | 分级交付道三车道准入与快道脚本强制收尾 | 机械（check-gates.sh、lane-commit.sh） |
 | R-DP-032 | 编码层按编程思想五问把结论落进代码结构 | 门禁 |
 | R-DP-033 | 方案类文档须先调研外部最佳实践并带真实可核参考（来源＋借鉴点与不采纳项）；微维护豁免 | 门禁 |
+| R-DP-034 | run record 收口必带 usage 全五子字段，seal 对缺项 fail-closed；存量卡冻结 | 约定 |
 | R-GF-007 | 治理文件三层组织（引用行，定义在模板外手册） | 约定；外定义（定义于 references/protocol/governance-format.md） |
 | R-RC-001 | 核对 Review pass 后只暂存白名单文件创建提交 | 机械（check-gates.sh、lane-commit.sh） |
 | R-RC-002 | 停止条件即停，禁 push、reset、回滚他人改动 | 门禁 |
