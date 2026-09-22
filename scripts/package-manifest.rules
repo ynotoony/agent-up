@@ -90,6 +90,7 @@ pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip�
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
 pm_script scripts/check-append-only.sh script 'Record 只追加守卫（票 58；票 60 补登记——检查 17 机械行点名脚本须在册）'
 pm_script scripts/check-artifacts.sh script '治理产物对账器（票 59；票 60 补登记——检查 17 机械行点名脚本须在册）'
+pm_script scripts/export-payload.sh script '公开载荷导出单命令（票 72；delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force）'
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（五 suite 常驻自检；票 57 定为必需件）'

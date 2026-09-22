@@ -1,6 +1,9 @@
 #!/bin/sh
 # Input: 仓库根目录（默认自本脚本位置向上两级推导，第一参数可指定）、本文件登记表内
-#        的易腐状态句条目，与模式开关（第二参数或 STALE_CLAIMS_MODE 环境变量）。
+#        的易腐状态句条目，与模式开关（第二参数或 STALE_CLAIMS_MODE 环境变量）；
+#        仓根 delivery.rules（票 72 配置点亮：dp_stale_lit 点亮位、payload 节 remote 名
+#        /包前缀/本地导出分支——S1/S2 配置面唯一承载点，解析破坏 exit 2 fail-closed；
+#        宣称锚点句「公开包已发布」属协议面留引擎，照设计 §2 分界判据）。
 # Output: 登记条目逐项核对结果——STALE 行（过期断言，含 路径:行号:内容 定位）、
 #         WARN 行（提醒，含登记日期与【待定】阈值标注）、NOTE 行（比对机制退化说明，
 #         不计入失败）、STALE-prone 行（S4 计数模式易腐命中，指名 file:line，
@@ -29,7 +32,8 @@ usage() {
 退出码:
   0  gate 模式下无过期断言（提醒照常输出），或 session 模式。
   1  gate 模式下存在过期断言（STALE 行见输出）。
-  2  用法或环境错误（参数过多、模式非法、仓库根不存在等）。
+  2  用法或环境错误（参数过多、模式非法、仓库根不存在等）；delivery.rules 解析破坏亦
+     exit 2（票 72 配置点亮，fail-closed 不产生部分结论）。
 NOTE 行为比对机制退化说明（生成器不可用时退化为内建最小比对），不计入失败。
 登记表条目、校验方式与提醒阈值口径见同目录 README.md。
 USAGE
@@ -116,6 +120,114 @@ if [ ! -d "$repo_root" ]; then
   exit 2
 fi
 
+# ---- delivery.rules 加载（票 72 配置点亮；fail-closed 六规则照设计 §2，解析破坏
+#      exit 2 不产生部分结论；文件缺失＝全默认：S1/S2 未点亮、remote 名/包前缀不可知）----
+
+# ---- delivery.rules 解析引擎段（fail-closed 六规则，设计 §2；与 export-payload.sh
+#      同款，错误前缀参数化）----
+dp_load_rules() {
+  DP_PRESENT=0
+  DP_HAS_PAYLOAD=0
+  DP_ROOT=''; DP_REMOTE=''; DP_TARGET=''; DP_LOCAL_REF=''
+  DP_FORBID=''; DP_EXEMPT=''; DP_STALE_LIT=''
+  _dp_prefix=$2
+  _dp_file="$1/delivery.rules"
+  [ -f "$_dp_file" ] || return 0
+  DP_PRESENT=1
+  _dp_stream=$(mktemp "${TMPDIR:-/tmp}/dprules.XXXXXX") || return 2
+  _dp_rc=0
+  _dp_err=$(LC_ALL=C awk -v out="$_dp_stream" '
+    function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
+    function bad2(msg) { print msg; n++ }
+    BEGIN {
+      an[1] = "# ==== payload：导出形态（export-payload.sh 读）===="
+      an[2] = "# ==== boundary：禁入名单（pre-push 安检读）===="
+      an[3] = "# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）===="
+      sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"
+    }
+    function is_known(d) {
+      return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
+        || d == "dp_payload_local_ref" || d == "dp_forbid" || d == "dp_artifact_exempt" \
+        || d == "dp_stale_lit")
+    }
+    {
+      line = $0
+      sub(/[[:space:]]+$/, "", line)
+      if (line == "") next
+      hit = 0
+      for (k = 1; k <= 3; k++) {
+        if (line == an[k]) {
+          hit = 1
+          if (seen[k]++) bad("锚点重复: " an[k])
+          else cur = sc[k]
+          break
+        }
+      }
+      if (hit) next
+      if (line ~ /^#/) next
+      if (line ~ /^[[:space:]]/) { bad("行首空白（指令行须顶格）"); next }
+      if (index(line, "\t") > 0) { bad("字段内禁制表符"); next }
+      sp = index(line, " ")
+      if (sp == 0) { bad("未知指令行: " substr(line, 1, 40)); next }
+      d = substr(line, 1, sp - 1)
+      v = substr(line, sp + 1)
+      if (!is_known(d)) { bad("未知指令行: " d); next }
+      if (v == "" || v ~ /[[:space:]]/) { bad("值须为恰一非空字段（禁空白与多余空格）: " d); next }
+      if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
+      if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }
+      if ((d == "dp_artifact_exempt" || d == "dp_stale_lit") && cur != "calibration") { bad("条目违属：" d " 仅得出现于 calibration 锚点后"); next }
+      if ((d == "dp_payload_root" || d == "dp_forbid" || d == "dp_artifact_exempt")) {
+        if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
+        if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }
+      }
+      if (d == "dp_stale_lit" && v != "S1" && v != "S2") { bad("枚举违（dp_stale_lit ∈ {S1,S2}）: " v); next }
+      if (v in seenval) bad("值跨行重复: " v)
+      else seenval[v] = 1
+      if (d ~ /^dp_payload_/) cnt[d]++
+      printf "%s\t%s\n", d, v >> out
+    }
+    END {
+      for (k = 1; k <= 3; k++) if (seen[k] && sc[k] == "payload") haspay = 1
+      if (haspay) {
+        np = split("dp_payload_root dp_payload_remote dp_payload_target dp_payload_local_ref", pd, " ")
+        for (k = 1; k <= np; k++) if (cnt[pd[k]] != 1) bad2("恰数违：payload 节存在时 " pd[k] " 须恰一行（实测 " cnt[pd[k]] + 0 "）")
+      }
+      if (n > 0) exit 1
+    }
+  ' "$_dp_file") || _dp_rc=$?
+  if [ "$_dp_rc" -ne 0 ] || [ -n "$_dp_err" ]; then
+    rm -f "$_dp_stream"
+    printf '%s: 错误：delivery.rules 解析破坏（fail-closed，不产生部分结论）: %s\n' "$_dp_prefix" "$_dp_file" >&2
+    if [ -n "$_dp_err" ]; then
+      printf '%s\n' "$_dp_err" >&2
+    fi
+    return 2
+  fi
+  while IFS="$(printf '\t')" read -r _dp_d _dp_v; do
+    [ -n "${_dp_d:-}" ] || continue
+    case $_dp_d in
+      dp_payload_root) DP_ROOT=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_payload_remote) DP_REMOTE=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_payload_target) DP_TARGET=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_payload_local_ref) DP_LOCAL_REF=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_forbid) DP_FORBID="$DP_FORBID$_dp_v
+" ;;
+      dp_artifact_exempt) DP_EXEMPT="$DP_EXEMPT$_dp_v
+" ;;
+      dp_stale_lit) DP_STALE_LIT="$DP_STALE_LIT$_dp_v
+" ;;
+    esac
+  done < "$_dp_stream"
+  rm -f "$_dp_stream"
+  return 0
+}
+
+dp_load_rules "$repo_root" 'check-stale-claims' || exit 2
+s1_lit=0
+s2_lit=0
+case $DP_STALE_LIT in *"S1"*) s1_lit=1 ;; esac
+case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
+
 # ---------------------------------------------------------------------------
 # 登记表（首批三条，结构：断言模式 | 权威位置 | 校验方式）
 #
@@ -147,7 +259,10 @@ fi
 
 progress_rel='docs/progress.md'
 readme_rel='README.md'
-pkg_readme_rel='agent-up/README.md'
+# S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，
+# 引擎零包前缀硬编码；未声明 payload 节时为空，S2 安装行子项按退化语义 WARN 跳过）
+pkg_readme_rel=''
+[ -n "$DP_ROOT" ] && pkg_readme_rel="$DP_ROOT/README.md"
 issues_readme_rel='docs/issues/README.md'
 
 # ---- S1 Git 状态句 ---------------------------------------------------------
@@ -176,20 +291,28 @@ check_s1() {
     emit_warn "$_loc" '基线块内未提取到首个提交短 SHA，提交存在性未核验'
   fi
 
-  # 1b 基线块宣称的本地导出分支存在
-  if ! git -C "$repo_root" show-ref --verify --quiet refs/heads/public-export; then
-    emit_stale "$_loc" '基线块宣称本地导出分支 public-export 存在，但该分支引用不存在'
+  # 1b 基线块宣称的本地导出分支存在（分支名自 delivery.rules dp_payload_local_ref 读取，
+  # 票 72 配置点亮；未声明 payload 节＝分支名不可知，退化 WARN 跳过不硬猜）
+  if [ -n "$DP_LOCAL_REF" ]; then
+    if ! git -C "$repo_root" show-ref --verify --quiet "refs/heads/$DP_LOCAL_REF"; then
+      emit_stale "$_loc" "基线块宣称本地导出分支 $DP_LOCAL_REF 存在，但该分支引用不存在"
+    fi
+  else
+    emit_warn "$_loc" 'S1-1b 本地导出分支核对跳过：delivery.rules 未声明 payload 节（分支名不可知）'
   fi
 
-  # 1c 基线块宣称的唯一 remote 与地址
+  # 1c 基线块宣称的唯一 remote 与地址（remote 名自 delivery.rules dp_payload_remote 读取，
+  # 票 72 配置点亮；未声明 payload 节＝remote 名不可知，退化 WARN 跳过不硬猜）
   _remotes=$(git -C "$repo_root" remote || true)
   _claim_url=$(printf '%s' "$_anchor" | sed -n 's/.*\(https:\/\/github\.com\/[A-Za-z0-9._/-]*\).*/\1/p' | sed 's/\.git$//')
-  if [ "$_remotes" != "origin" ]; then
-    emit_stale "$_loc" "基线块宣称唯一 remote 为 origin，实际 remote 列表为：${_remotes:-（空）}"
+  if [ -z "$DP_REMOTE" ]; then
+    emit_warn "$_loc" 'S1-1c 唯一 remote 核对跳过：delivery.rules 未声明 payload 节（remote 名不可知）'
+  elif [ "$_remotes" != "$DP_REMOTE" ]; then
+    emit_stale "$_loc" "基线块宣称唯一 remote 为 ${DP_REMOTE}，实际 remote 列表为：${_remotes:-（空）}"
   else
-    _actual=$(git -C "$repo_root" config --get remote.origin.url || true)
+    _actual=$(git -C "$repo_root" config --get "remote.$DP_REMOTE.url" || true)
     if [ -z "$_actual" ]; then
-      emit_stale "$_loc" '基线块宣称 remote origin 已配置，但未取到其地址'
+      emit_stale "$_loc" "基线块宣称 remote $DP_REMOTE 已配置，但未取到其地址"
     elif [ -n "$_claim_url" ] && [ "$(trim_git_url "$_actual")" != "$_claim_url" ]; then
       emit_stale "$_loc" "基线块宣称 remote 地址 ${_claim_url}，实际为 $(trim_git_url "$_actual")"
     fi
@@ -227,15 +350,24 @@ check_s2() {
     return 0
   fi
 
-  _actual=$(git -C "$repo_root" config --get remote.origin.url 2>/dev/null || true)
-  if [ -z "$_actual" ]; then
-    emit_stale "$_rloc" "发布句宣称已发布至 ${_claim}，但本仓库未配置 remote origin"
-  elif [ "$(trim_git_url "$_actual")" != "$_claim" ]; then
-    emit_stale "$_rloc" "发布句宣称地址 $_claim 与实际 remote origin $(trim_git_url "$_actual") 不一致"
+  # 发布远端名自 delivery.rules dp_payload_remote 读取（票 72 配置点亮；
+  # 未声明 payload 节＝remote 名不可知，退化 WARN 跳过不硬猜）
+  if [ -z "$DP_REMOTE" ]; then
+    emit_warn "$_rloc" 'S2 remote 比对跳过：delivery.rules 未声明 payload 节（发布远端名不可知）'
+  else
+    _actual=$(git -C "$repo_root" config --get "remote.$DP_REMOTE.url" 2>/dev/null || true)
+    if [ -z "$_actual" ]; then
+      emit_stale "$_rloc" "发布句宣称已发布至 ${_claim}，但本仓库未配置 remote ${DP_REMOTE}"
+    elif [ "$(trim_git_url "$_actual")" != "$_claim" ]; then
+      emit_stale "$_rloc" "发布句宣称地址 $_claim 与实际 remote ${DP_REMOTE} $(trim_git_url "$_actual") 不一致"
+    fi
   fi
 
-  # 安装命令行与发布宣称同源核对（包内 README 的克隆地址与宣称一致）
-  if [ -f "$_kf" ]; then
+  # 安装命令行与发布宣称同源核对（包内 README 的克隆地址与宣称一致；包前缀自
+  # delivery.rules dp_payload_root 派生，未声明＝位置不可知，退化 WARN 跳过）
+  if [ -z "$pkg_readme_rel" ]; then
+    emit_warn "$_rloc" 'S2 安装行同源核对跳过：delivery.rules 未声明 payload 节（包内 README 位置不可知）'
+  elif [ -f "$_kf" ]; then
     _kline=$(first_grep_line "$_claim" "$_kf")
     if [ -z "$_kline" ]; then
       emit_stale "$pkg_readme_rel" "包内安装说明未找到与发布句一致的地址 $_claim"
@@ -487,21 +619,35 @@ check_s4() {
 }
 
 # ---- 执行 ------------------------------------------------------------------
+# S1/S2 配置点亮（票 72）：未点亮（delivery.rules 缺失或 calibration 节无 dp_stale_lit
+# 登记）→ 打印 SKIP 行，不计过期断言不拦票；点亮＝现行断言逻辑原样执行。
+# S3/S4 为通用面（协议），无点亮位恒执行。
 
-check_s1
-check_s2
+if [ "$s1_lit" -eq 1 ]; then
+  check_s1
+else
+  printf 'SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）\n'
+fi
+if [ "$s2_lit" -eq 1 ]; then
+  check_s2
+else
+  printf 'SKIP: S2 — delivery.rules 未点亮（dp_stale_lit 缺登记）\n'
+fi
 check_s3
 s4_parse_exempts
 check_s4
 
 _pn=$(prog_name)
+# 登记总数动态化（票 72 设计 §4③）：点亮数（S1/S2）＋通用条数（S3/S4 恒 2）；
+# 全点亮语境渲染与既有「登记表共 4 条」逐字一致。
+_total_entries=$((2 + s1_lit + s2_lit))
 if [ "$mode" = "session" ]; then
   printf '%s: 会话启动模式（不拦截）：过期断言 %s 处，提醒 %s 条，请人工核对上方输出\n' "$_pn" "$stale_count" "$warn_count"
   exit 0
 fi
 if [ "$stale_count" -gt 0 ]; then
-  printf '%s: FAIL（%s 处过期断言，登记表共 4 条）\n' "$_pn" "$stale_count"
+  printf '%s: FAIL（%s 处过期断言，登记表共 %s 条）\n' "$_pn" "$stale_count" "$_total_entries"
   exit 1
 fi
-printf '%s: PASS（登记表 4 条全部核对，提醒 %s 条）\n' "$_pn" "$warn_count"
+printf '%s: PASS（登记表 %s 条全部核对，提醒 %s 条）\n' "$_pn" "$_total_entries" "$warn_count"
 exit 0

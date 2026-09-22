@@ -1,7 +1,7 @@
 #!/bin/sh
-# Input: 同目录被测脚本七件（generate-module-map.sh＋module-map.rules、ticket-ops.sh＋
-#        generate-progress.sh、check-package.sh、check-append-only.sh、check-artifacts.sh）
-#        与参数：--suite/--script-dir/--pkg-root。
+# Input: 同目录被测脚本八件（generate-module-map.sh＋module-map.rules、ticket-ops.sh＋
+#        generate-progress.sh、check-package.sh、check-append-only.sh、check-artifacts.sh、
+#        check-stale-claims.sh）与参数：--suite/--script-dir/--pkg-root。
 #        场景来源＝票 41～45/47 六票 Implementation Checkpoint 的 fixture（只作场景清单）；
 #        预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训）；票 56 检查 8
 #        清单 8→10 件（追加 install.sh＋install-policy.rules），check-package 套件预期串
@@ -18,15 +18,18 @@
 #        点名出处存在），check-append-only.sh/check-artifacts.sh 补登记清单 scripts 节
 #        （10→12 件），预期串同步十七项口径并补索引删行/加全集外 ID/未登记机制值/
 #        机械行点名不存在脚本/检查项号超界/外定义行删标记词负例＋mechanism-vocab
-#        词表损坏 exit 2 负例。
+#        词表损坏 exit 2 负例；票 72 清单 scripts 节 12→13 件（export-payload.sh 入册），
+#        检查 8 预期串计数随动；新增 stale-claims 套件（S1/S2 配置点亮：未点亮 SKIP
+#        不计数、点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化，
+#        独立 suite 承载并在 README 声明）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
 #      脚本（check-package.sh 同款路径惯例），--script-dir/--pkg-root 参数化支持复制落位
-#      语境；六 suite（module-map/ticket-ops/progress/check-package/append-only/
-#      check-artifacts）＋完整运行（--suite all）末尾注入自检；POSIX sh 零外部依赖（夹具
-#      git init/commit 依赖被测脚本自身声明的 Git）。用法、suite 覆盖表、退出码与维护
-#      规则见同目录 README.md 专节。
+#      语境；七 suite（module-map/ticket-ops/progress/check-package/append-only/
+#      check-artifacts/stale-claims）＋完整运行（--suite all）末尾注入自检；POSIX sh 零外部
+#      依赖（夹具 git init/commit 依赖被测脚本自身声明的 Git）。用法、suite 覆盖表、退出码
+#      与维护规则见同目录 README.md 专节。
 
 set -u
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -39,8 +42,8 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-  --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | all（缺省 all）
-  --script-dir <dir>  被测脚本所在目录（须含七件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
+  --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | all（缺省 all）
+  --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
 退出码: 0 全部断言通过；1 存在失败断言（逐项 FAIL 行见输出）；2 用法或环境错误
@@ -58,11 +61,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
-for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh; do
+for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh; do
   [ -f "$SCRIPT_DIR/$f" ] || { printf 'test-record-layer: 被测成员缺失: %s/%s\n' "$SCRIPT_DIR" "$f" >&2; exit 2; }
 done
 if [ -z "$PKG_ROOT" ]; then
@@ -645,7 +648,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 13 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（12 个文件）
+PASS: 8 脚本必需件存在（13 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -672,7 +675,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 13 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（12 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（13 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -700,7 +703,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 13 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（12 个文件）
+PASS: 8 脚本必需件存在（13 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :119 登记与数据不一致：缺少 pi
@@ -1181,6 +1184,43 @@ suite_check_artifacts() {
     bad '负例 N3 豁免目录内未登记文件命中豁免 → exit 0 不报' "exit=$rc"
   fi
 
+  # 票 72 豁免迁移：校准豁免自 delivery.rules calibration 节读取（引擎零路径硬编码）。
+  # 正例 M1：声明 dp_artifact_exempt → generated 内未登记文件命中豁免 exit 0
+  rt_build_fixture "$D/m1"
+  mkdir -p "$D/m1/docs/architecture/generated"
+  printf '{}\n' > "$D/m1/docs/architecture/generated/m.json"
+  printf '# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n\ndp_artifact_exempt docs/architecture/generated/\n' > "$D/m1/delivery.rules"
+  sh "$CA" "$D/m1" > "$D/m1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '^check-artifacts: FAIL' "$D/m1.out"; then
+    ok '正例 M1 delivery.rules 声明校准豁免 → generated 内未登记文件不报 exit 0（票 72 迁移）'
+  else
+    bad '正例 M1 delivery.rules 声明校准豁免 → generated 内未登记文件不报 exit 0（票 72 迁移）' "exit=$rc"
+  fi
+
+  # 负例 M2：无 delivery.rules → 豁免消失，生成面文件按未登记 FAIL 暴露（fail-closed）
+  rt_build_fixture "$D/m2"
+  mkdir -p "$D/m2/docs/architecture/generated"
+  printf '{}\n' > "$D/m2/docs/architecture/generated/m.json"
+  sh "$CA" "$D/m2" > "$D/m2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: 受管文件未登记: docs/architecture/generated/m.json' "$D/m2.out"; then
+    ok '负例 M2 无 delivery.rules → 生成面文件按未登记 FAIL（豁免消失 fail-closed，票 72 迁移）'
+  else
+    bad '负例 M2 无 delivery.rules → 生成面文件按未登记 FAIL（豁免消失 fail-closed，票 72 迁移）' "exit=$rc"
+  fi
+
+  # 负例 M3：delivery.rules 解析破坏 → exit 2 fail-closed
+  rt_build_fixture "$D/m3"
+  printf '# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n\ndp_bogus x\n' > "$D/m3/delivery.rules"
+  sh "$CA" "$D/m3" > "$D/m3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'delivery.rules 解析破坏（fail-closed，不产生部分结论）' "$D/m3.out"; then
+    ok '负例 M3 delivery.rules 解析破坏 → exit 2 fail-closed（票 72 迁移）'
+  else
+    bad '负例 M3 delivery.rules 解析破坏 → exit 2 fail-closed（票 72 迁移）' "exit=$rc"
+  fi
+
   # 负例 N4：登记解析破坏（条目缺 path 字段）→ exit 2 fail-closed
   rt_build_fixture "$D/n4"
   grep -v '    path: docs/notes.md' "$D/n4/docs/agent/artifacts.yaml" > "$D/y4.tmp" \
@@ -1205,6 +1245,94 @@ suite_check_artifacts() {
 }
 
 # ============================================================
+# suite: stale-claims（票 72 场景沉淀：S1/S2 配置点亮正负例——未点亮 SKIP 不计数、
+# 点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化）
+# ============================================================
+
+sc_build_fixture() {
+  # $1=夹具目录：仓库建于 <dir>/repo（eng 引擎目录由 suite 另行创建）；S1/S2 退化语义
+  # 最小仓（非 Git 工作区→S1 WARN 退化；S3 退化＝夹具引擎目录只放被测脚本单件，
+  # generator 不可用走内建最小比对，索引↔投影一致面可控；S4 锚点行 1↔index 条目 1
+  # 相等）。S2 权威位置（根 README 宣称行）故意缺席——点亮断言经「登记的权威位置
+  # 失效」STALE 行证明执行，免建完整发布面。
+  R="$1/repo"
+  rm -rf "$1"
+  mkdir -p "$R/docs/issues" "$R/scripts"
+  printf '# progress\n\nGit 恢复基线：占位锚点（S1 权威位置在位）\n' > "$R/docs/progress.md"
+  printf '{"id": "90-fixture", "status": "ready", "updated_at": "2026-09-22T00:00:00Z"}\n' > "$R/docs/issues/index.json"
+  printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | ready | - | 2026-09-22T00:00:00Z |\n' > "$R/docs/progress-current.md"
+  printf '# issues\n\n任务票 1；\n' > "$R/docs/issues/README.md"
+}
+
+sc_run() {
+  # $1=夹具仓根；经夹具引擎目录单件副本运行（触发 S3 退化路径，engine 同目录无生成器）
+  sh "$1/eng/check-stale-claims.sh" "$1/repo" gate
+}
+
+suite_stale_claims() {
+  CUR_SUITE='stale-claims'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/scl
+  mkdir -p "$D"
+  SC="$SCRIPT_DIR/check-stale-claims.sh"
+
+  # 正例 P1：未点亮（无 delivery.rules）→ S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2
+  sc_build_fixture "$D/p1"
+  mkdir -p "$D/p1/eng"
+  cp "$SC" "$D/p1/eng/check-stale-claims.sh"
+  sc_run "$D/p1" > "$D/p1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q 'SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
+    && grep -q 'SKIP: S2 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
+    && grep -q '登记表 2 条全部核对' "$D/p1.out" \
+    && ! grep -q '^STALE' "$D/p1.out"; then
+    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2'
+  else
+    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P2：点亮（dp_stale_lit S1＋S2，无 payload 节）→ 无 SKIP 行、S1/S2 断言逻辑执行
+  # （S2 权威位置缺席 STALE、S1 退化 WARN）、汇总登记数 4（点亮数＋通用条数）
+  sc_build_fixture "$D/p2"
+  mkdir -p "$D/p2/eng"
+  cp "$SC" "$D/p2/eng/check-stale-claims.sh"
+  cat > "$D/p2/repo/delivery.rules" <<'EOF'
+# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====
+
+dp_stale_lit S1
+dp_stale_lit S2
+EOF
+  sc_run "$D/p2" > "$D/p2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && ! grep -q '^SKIP: S1' "$D/p2.out" \
+    && ! grep -q '^SKIP: S2' "$D/p2.out" \
+    && grep -q '^STALE: README.md' "$D/p2.out" \
+    && grep -q '登记表共 4 条' "$D/p2.out"; then
+    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 4（点亮数＋通用条数）'
+  else
+    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 4（点亮数＋通用条数）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N1：delivery.rules 解析破坏（未知指令）→ exit 2 fail-closed 指名
+  sc_build_fixture "$D/n1"
+  mkdir -p "$D/n1/eng"
+  cp "$SC" "$D/n1/eng/check-stale-claims.sh"
+  printf '# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n\ndp_bogus x\n' > "$D/n1/repo/delivery.rules"
+  sc_run "$D/n1" > "$D/n1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'delivery.rules 解析破坏（fail-closed，不产生部分结论）' "$D/n1.out" && grep -q '未知指令行' "$D/n1.out"; then
+    ok '负例 N1 delivery.rules 解析破坏 → exit 2 且指名违规行'
+  else
+    bad '负例 N1 delivery.rules 解析破坏 → exit 2 且指名违规行' "exit=$rc"
+  fi
+
+  suite_summary 'stale-claims'
+}
+
+# ============================================================
 # 注入自检（仅 --suite all）：临时副本上故意破坏一处，harness 必须抓住
 # ============================================================
 
@@ -1214,7 +1342,7 @@ self_check_injection() {
   SUITE_START=$TOTAL
   D=$T/inject
   mkdir -p "$D/injectpkg/scripts"
-  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh; do
+  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh; do
     cp "$SCRIPT_DIR/$f" "$D/injectpkg/scripts/$f"
   done
   sed 's/~python-import~/~python-importX~/' "$SCRIPT_DIR/module-map.rules" > "$D/rules.tmp" && mv "$D/rules.tmp" "$D/injectpkg/scripts/module-map.rules"
@@ -1253,6 +1381,7 @@ case $SUITE in
   check-package) suite_check_package ;;
   append-only) suite_append_only ;;
   check-artifacts) suite_check_artifacts ;;
+  stale-claims) suite_stale_claims ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -1260,6 +1389,7 @@ case $SUITE in
     suite_check_package
     suite_append_only
     suite_check_artifacts
+    suite_stale_claims
     self_check_injection
     ;;
 esac

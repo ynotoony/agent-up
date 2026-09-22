@@ -1,6 +1,8 @@
 #!/bin/sh
-# Input: 仓库根目录（唯一参数）与其治理产物登记 docs/agent/artifacts.yaml；受管口径与豁免
-#        规则自本脚本对账数据块（ca_* 指令，票 59 D2 定谳）读取——引擎零目录硬编码。
+# Input: 仓库根目录（唯一参数）与其治理产物登记 docs/agent/artifacts.yaml；受管口径与协议
+#        豁免自本脚本对账数据块（ca_* 指令，票 59 D2 定谳）读取——引擎零目录硬编码；
+#        校准豁免自仓根 delivery.rules calibration 节 dp_artifact_exempt 读取（票 72 迁移，
+#        解析破坏 exit 2 fail-closed；缺该行＝豁免消失，对应文件按未登记 FAIL 暴露）。
 # Output: 登记与实物双向对账的逐项 FAIL/SKIP 行与两方向汇总：正向＝每条登记 path 目标
 #         必须存在（缺失 FAIL 指名条目，数据块懒创建面暂缺 SKIP）；反向＝受管范围内文件
 #         必须被登记或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）。
@@ -49,23 +51,26 @@ ca_scan=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 cleanup() { rm -f "$ca_entries" "$ca_managed" "$ca_scan"; }
 trap cleanup EXIT HUP INT TERM
 
-# ---- 对账数据块（票 59 D2 定谳；受管口径与豁免唯一承载点，引擎零目录硬编码）----
+# ---- 对账数据块（票 59 D2 定谳；受管口径与协议豁免唯一承载点，引擎零目录硬编码）----
 # ca_managed_file <repo-root 相对路径>       受管根单文件（存在才进反向清单）
 # ca_managed_tree <目录> <扩展名逗号清单>     受管目录（递归，按扩展名过滤）
 # ca_managed_flat <目录> <扩展名逗号清单>     受管目录（单层，按扩展名过滤）
 # ca_exempt <路径>                           反向豁免：精确路径；尾斜杠＝目录整支豁免
 # ca_lazy <路径>                             正向暂缺许可：登记目标允许尚不存在（懒创建面）
+# 注记（票 72 豁免迁移）：校准类豁免（docs/architecture/generated/，机器生成投影面）
+# 已迁入仓根 delivery.rules calibration 节 dp_artifact_exempt——逐仓不同的校准＝项目
+# 约定（设计票 §2 分界判据）；本数据块仅保留记录层通用语义的协议豁免（基线五项）。
 load_reconcile_data() {
   ca_managed_file AGENTS.md
   ca_managed_tree docs md,json,jsonl,yaml
   ca_managed_flat scripts sh,rules
-  # 豁免（票 59 基线五项＋校准一项，理由注记＝维护时不得静默增删）：
+  # 协议豁免（票 59 基线五项：记录层通用语义＝协议面留引擎，理由注记＝维护时不得
+  # 静默增删；校准豁免见 delivery.rules calibration 节）：
   ca_exempt docs/agent/runs/              # 运行记录投影（整目录）
   ca_exempt docs/progress-current.md      # 生成投影（生成器独占写）
   ca_exempt docs/issues/index.json        # 状态真相源单写面
   ca_exempt docs/changes.jsonl            # 追加面账本
   ca_exempt docs/agent/micro.jsonl        # 道账本（懒创建追加面）
-  ca_exempt docs/architecture/generated/  # 生成投影面（票 59 校准：机器生成运行输出，与 runs/ 同性质）
   # 懒创建面（登记允许暂缺，票 59 校准：微账本由道脚本首次收尾懒创建）：
   ca_lazy docs/agent/micro.jsonl
 }
@@ -147,7 +152,120 @@ scan_ext_files() {
   done < "$ca_scan"
   return 0
 }
+# ---- delivery.rules 解析引擎段（fail-closed 六规则，设计 §2；与 export-payload.sh
+#      同款，错误前缀参数化）----
+dp_load_rules() {
+  DP_PRESENT=0
+  DP_HAS_PAYLOAD=0
+  DP_ROOT=''; DP_REMOTE=''; DP_TARGET=''; DP_LOCAL_REF=''
+  DP_FORBID=''; DP_EXEMPT=''; DP_STALE_LIT=''
+  _dp_prefix=$2
+  _dp_file="$1/delivery.rules"
+  [ -f "$_dp_file" ] || return 0
+  DP_PRESENT=1
+  _dp_stream=$(mktemp "${TMPDIR:-/tmp}/dprules.XXXXXX") || return 2
+  _dp_rc=0
+  _dp_err=$(LC_ALL=C awk -v out="$_dp_stream" '
+    function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
+    function bad2(msg) { print msg; n++ }
+    BEGIN {
+      an[1] = "# ==== payload：导出形态（export-payload.sh 读）===="
+      an[2] = "# ==== boundary：禁入名单（pre-push 安检读）===="
+      an[3] = "# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）===="
+      sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"
+    }
+    function is_known(d) {
+      return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
+        || d == "dp_payload_local_ref" || d == "dp_forbid" || d == "dp_artifact_exempt" \
+        || d == "dp_stale_lit")
+    }
+    {
+      line = $0
+      sub(/[[:space:]]+$/, "", line)
+      if (line == "") next
+      hit = 0
+      for (k = 1; k <= 3; k++) {
+        if (line == an[k]) {
+          hit = 1
+          if (seen[k]++) bad("锚点重复: " an[k])
+          else cur = sc[k]
+          break
+        }
+      }
+      if (hit) next
+      if (line ~ /^#/) next
+      if (line ~ /^[[:space:]]/) { bad("行首空白（指令行须顶格）"); next }
+      if (index(line, "\t") > 0) { bad("字段内禁制表符"); next }
+      sp = index(line, " ")
+      if (sp == 0) { bad("未知指令行: " substr(line, 1, 40)); next }
+      d = substr(line, 1, sp - 1)
+      v = substr(line, sp + 1)
+      if (!is_known(d)) { bad("未知指令行: " d); next }
+      if (v == "" || v ~ /[[:space:]]/) { bad("值须为恰一非空字段（禁空白与多余空格）: " d); next }
+      if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
+      if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }
+      if ((d == "dp_artifact_exempt" || d == "dp_stale_lit") && cur != "calibration") { bad("条目违属：" d " 仅得出现于 calibration 锚点后"); next }
+      if ((d == "dp_payload_root" || d == "dp_forbid" || d == "dp_artifact_exempt")) {
+        if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
+        if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }
+      }
+      if (d == "dp_stale_lit" && v != "S1" && v != "S2") { bad("枚举违（dp_stale_lit ∈ {S1,S2}）: " v); next }
+      if (v in seenval) bad("值跨行重复: " v)
+      else seenval[v] = 1
+      if (d ~ /^dp_payload_/) cnt[d]++
+      printf "%s\t%s\n", d, v >> out
+    }
+    END {
+      for (k = 1; k <= 3; k++) if (seen[k] && sc[k] == "payload") haspay = 1
+      if (haspay) {
+        np = split("dp_payload_root dp_payload_remote dp_payload_target dp_payload_local_ref", pd, " ")
+        for (k = 1; k <= np; k++) if (cnt[pd[k]] != 1) bad2("恰数违：payload 节存在时 " pd[k] " 须恰一行（实测 " cnt[pd[k]] + 0 "）")
+      }
+      if (n > 0) exit 1
+    }
+  ' "$_dp_file") || _dp_rc=$?
+  if [ "$_dp_rc" -ne 0 ] || [ -n "$_dp_err" ]; then
+    rm -f "$_dp_stream"
+    printf '%s: 错误：delivery.rules 解析破坏（fail-closed，不产生部分结论）: %s\n' "$_dp_prefix" "$_dp_file" >&2
+    if [ -n "$_dp_err" ]; then
+      printf '%s\n' "$_dp_err" >&2
+    fi
+    return 2
+  fi
+  while IFS="$(printf '\t')" read -r _dp_d _dp_v; do
+    [ -n "${_dp_d:-}" ] || continue
+    case $_dp_d in
+      dp_payload_root) DP_ROOT=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_payload_remote) DP_REMOTE=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_payload_target) DP_TARGET=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_payload_local_ref) DP_LOCAL_REF=$_dp_v; DP_HAS_PAYLOAD=1 ;;
+      dp_forbid) DP_FORBID="$DP_FORBID$_dp_v
+" ;;
+      dp_artifact_exempt) DP_EXEMPT="$DP_EXEMPT$_dp_v
+" ;;
+      dp_stale_lit) DP_STALE_LIT="$DP_STALE_LIT$_dp_v
+" ;;
+    esac
+  done < "$_dp_stream"
+  rm -f "$_dp_stream"
+  return 0
+}
+
 load_reconcile_data
+
+# 校准豁免自 delivery.rules calibration 节读取（票 72 迁移；解析破坏 exit 2；文件缺失
+# 或无 dp_artifact_exempt 行＝豁免消失，生成面文件按未登记 FAIL 暴露，fail-closed 不静默）
+if ! dp_load_rules "$repo_root" 'check-artifacts'; then
+  exit 2
+fi
+if [ -n "$DP_EXEMPT" ]; then
+  while IFS= read -r _dpx; do
+    [ -n "$_dpx" ] || continue
+    ca_exempt "$_dpx"
+  done <<DP_EXEMPT_INNER
+$DP_EXEMPT
+DP_EXEMPT_INNER
+fi
 
 # ---- 登记解析（fail-closed：结构破坏 exit 2 不产生部分结论）----
 # 口径：artifacts: 顶层键恰一；条目行＝两空格缩进「- id: 」；path 行＝四空格缩进

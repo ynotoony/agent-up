@@ -1,4 +1,4 @@
-<!-- Input: `check-package.sh` 的十四项检查实现（清单数据驱动，票 57/58/59）与 SPEC-06 §5、票 09/11 的例外登记事实（schemas/README.md 的 JSON 契约头例外、templates/README.md 的 artifacts-yaml YAML 契约头例外）；票 12（SPEC-06 §7）11 条场景验收执行记录与沉淀决定（`scenario-checklist.md`）；票 19（REQ-20260904-010）`check-stale-claims.sh` 的两模式、登记表条目与退出码实况；票 37（拆票计划 C 组②）道脚本改造事实——flips 索引条目口径（单写 docs/issues/index.json → 票正文 Status 投影打印件 → 生成器投影再生）、微账本 `docs/agent/micro.jsonl` JSON 行、S3 投影 vs 索引比对与 S1-1e 缺口消除、`generate-progress.sh` 入包（与本仓根 `scripts/` 基线 cmp 一致）；票 43 语言登记表 Rust 扩展事实（mod 文件边存在性核验＋use 路径表达式原串，四语言）；票 44 引擎表驱动化事实（语言知识外置 `module-map.rules`，引擎通用管线零语言专名，四语言边集逐边回归＋哑语言规则行产边实证）；票 45 七语言批量扩展事实（Go/Java/C#/Ruby/PHP/Swift/Kotlin 规则行＋fixture 回归，覆盖语言十一种，零引擎改动）；票 47（ticket-ops.sh 入包采纳：与本仓根 `scripts/` 基线 cmp 零差异复制、专节与落位口径——记录层标配不门控快道，包内不运行声明）；票 48（检查项 8 脚本必需件存在性守卫：六 `.sh`＋`module-map.rules`＋`scripts/README.md` 逐一存在性核对，fail-closed 指名缺失件，计数联动七项→八项）；票 49（`test-record-layer.sh` 记录层回归 harness 落位：票 41～45/47 六票 fixture 沉淀为常驻自检工具，缺省自测同目录包内脚本、mktemp 夹具 trap 清理、预期值独立重建、注入自检）；票 56（安装政策单源化：`install-policy.rules` 政策数据表＋`install.sh` 安装脚本落位——安装政策映射唯一承载点改为外置数据、引擎零专名，检查 8 清单扩为 10 件）；票 57（包清单数据化：`package-manifest.rules` 数据单源落位——入口文件/脚本必需件/模板清单/短码登记/platform 枚举唯一承载点，check-package.sh 检查 1/5/8 改读数据、新增检查 9（scripts/README.md 成员表↔数据一致）/10（短码使用⊆登记）/11（platform 枚举登记处↔数据一致），口径差定谳＝test-record-layer.sh 定为必需件 kind 标 test-harness）；票 58（小断言打包：检查 11→13——检查 12 规则块体模糊措辞扫描（词表与行级豁免外置 `package-manifest.rules` vague-words/vague-exemptions 节，依据 R-GF-010，引擎零词表硬编码）、检查 13 镜像脚本与仓根同名件 cmp（mirrors 节登记，仓根无 scripts/ 或无同名件静默跳过）；`check-append-only.sh` Record 只追加守卫新建（changes.jsonl/micro.jsonl 尾部追加前缀语义＋progress.md 冻结零 diff，承接票 54 候选 C3 口径）；lane-commit.sh 微道预检两断言（白名单 ≤3、改动集零新建零删除）；harness 扩为五 suite（新增 append-only suite，check-package 套件断言随 12/13 增））；票 59（对账＋能力一致性：检查 13→14——检查 14 能力映射一致性（九基元名单与检查目标外置 `package-manifest.rules` capability-primitives 节，基元名自 capability-contract.md §2.1 权威表现场提取，引擎零基元名硬编码；三角色 .tmpl 声明行＋五适配文件对照表逐一双向全等核验，锚点失效 exit 2）；`check-artifacts.sh` 治理产物对账器新建（artifacts.yaml 登记目标存在性＋受管口径登记覆盖双向对账，受管口径与豁免落数据块）；harness 扩为六 suite（新增 check-artifacts suite，check-package 套件断言随 14 增））；票 60（规则索引：模板 `development-process.md.tmpl` 新增 §16 规则索引节（49 行三列表＝47 定义＋2 外定义标注，节头三件＝投影声明＋受控三值定义＋诚实性上限声明），检查 14→17——检查 15 索引 ID 集合与包内规则块 grep 并集全等（外定义行豁免比对但须显式标注外定义标记词，未标注算漏行）、检查 16 机制列受控词表（词表外置 `package-manifest.rules` mechanism-vocab 节，引擎零词表硬编码）、检查 17 机械行点名脚本存在且在册＋检查项号不超界；`check-append-only.sh`/`check-artifacts.sh` 补登记清单 scripts 节（10→12 件，检查 17 在册口径的联动缺口）；check-package 套件断言随三查增）；票 65（S4 计数漂移哨兵：登记表 S1-S3→S1-S4——S4-① README「任务票 NN；」锚点行数↔index 任务条目数相等断言（ticket-ops 双写锁定面漂移检测）、S4-②「N～M 共」「共 N 量词」计数模式扫描（STALE-prone 指名 file:line 计入过期断言计数，gate exit 1 / session 只警告）；扫描面排除三类历史/生成面（docs/progress.md 冻结档案、docs/changes.md 只追加账本、docs/architecture/generated 生成投影——协调层 2026-09-21 裁决 O3，既排 docs/issues/*.md 票面、docs/agent/runs/、docs/progress-current.md 保留）；豁免表显式实装、空表交付＝现行面全数字免费；输出格式增 STALE-prone 行与登记计数 3→4）。 -->
+<!-- Input: `check-package.sh` 的十四项检查实现（清单数据驱动，票 57/58/59）与 SPEC-06 §5、票 09/11 的例外登记事实（schemas/README.md 的 JSON 契约头例外、templates/README.md 的 artifacts-yaml YAML 契约头例外）；票 12（SPEC-06 §7）11 条场景验收执行记录与沉淀决定（`scenario-checklist.md`）；票 19（REQ-20260904-010）`check-stale-claims.sh` 的两模式、登记表条目与退出码实况；票 37（拆票计划 C 组②）道脚本改造事实——flips 索引条目口径（单写 docs/issues/index.json → 票正文 Status 投影打印件 → 生成器投影再生）、微账本 `docs/agent/micro.jsonl` JSON 行、S3 投影 vs 索引比对与 S1-1e 缺口消除、`generate-progress.sh` 入包（与本仓根 `scripts/` 基线 cmp 一致）；票 43 语言登记表 Rust 扩展事实（mod 文件边存在性核验＋use 路径表达式原串，四语言）；票 44 引擎表驱动化事实（语言知识外置 `module-map.rules`，引擎通用管线零语言专名，四语言边集逐边回归＋哑语言规则行产边实证）；票 45 七语言批量扩展事实（Go/Java/C#/Ruby/PHP/Swift/Kotlin 规则行＋fixture 回归，覆盖语言十一种，零引擎改动）；票 47（ticket-ops.sh 入包采纳：与本仓根 `scripts/` 基线 cmp 零差异复制、专节与落位口径——记录层标配不门控快道，包内不运行声明）；票 48（检查项 8 脚本必需件存在性守卫：六 `.sh`＋`module-map.rules`＋`scripts/README.md` 逐一存在性核对，fail-closed 指名缺失件，计数联动七项→八项）；票 49（`test-record-layer.sh` 记录层回归 harness 落位：票 41～45/47 六票 fixture 沉淀为常驻自检工具，缺省自测同目录包内脚本、mktemp 夹具 trap 清理、预期值独立重建、注入自检）；票 56（安装政策单源化：`install-policy.rules` 政策数据表＋`install.sh` 安装脚本落位——安装政策映射唯一承载点改为外置数据、引擎零专名，检查 8 清单扩为 10 件）；票 57（包清单数据化：`package-manifest.rules` 数据单源落位——入口文件/脚本必需件/模板清单/短码登记/platform 枚举唯一承载点，check-package.sh 检查 1/5/8 改读数据、新增检查 9（scripts/README.md 成员表↔数据一致）/10（短码使用⊆登记）/11（platform 枚举登记处↔数据一致），口径差定谳＝test-record-layer.sh 定为必需件 kind 标 test-harness）；票 58（小断言打包：检查 11→13——检查 12 规则块体模糊措辞扫描（词表与行级豁免外置 `package-manifest.rules` vague-words/vague-exemptions 节，依据 R-GF-010，引擎零词表硬编码）、检查 13 镜像脚本与仓根同名件 cmp（mirrors 节登记，仓根无 scripts/ 或无同名件静默跳过）；`check-append-only.sh` Record 只追加守卫新建（changes.jsonl/micro.jsonl 尾部追加前缀语义＋progress.md 冻结零 diff，承接票 54 候选 C3 口径）；lane-commit.sh 微道预检两断言（白名单 ≤3、改动集零新建零删除）；harness 扩为五 suite（新增 append-only suite，check-package 套件断言随 12/13 增））；票 59（对账＋能力一致性：检查 13→14——检查 14 能力映射一致性（九基元名单与检查目标外置 `package-manifest.rules` capability-primitives 节，基元名自 capability-contract.md §2.1 权威表现场提取，引擎零基元名硬编码；三角色 .tmpl 声明行＋五适配文件对照表逐一双向全等核验，锚点失效 exit 2）；`check-artifacts.sh` 治理产物对账器新建（artifacts.yaml 登记目标存在性＋受管口径登记覆盖双向对账，受管口径与豁免落数据块）；harness 扩为六 suite（新增 check-artifacts suite，check-package 套件断言随 14 增））；票 60（规则索引：模板 `development-process.md.tmpl` 新增 §16 规则索引节（49 行三列表＝47 定义＋2 外定义标注，节头三件＝投影声明＋受控三值定义＋诚实性上限声明），检查 14→17——检查 15 索引 ID 集合与包内规则块 grep 并集全等（外定义行豁免比对但须显式标注外定义标记词，未标注算漏行）、检查 16 机制列受控词表（词表外置 `package-manifest.rules` mechanism-vocab 节，引擎零词表硬编码）、检查 17 机械行点名脚本存在且在册＋检查项号不超界；`check-append-only.sh`/`check-artifacts.sh` 补登记清单 scripts 节（10→12 件，检查 17 在册口径的联动缺口）；check-package 套件断言随三查增）；票 65（S4 计数漂移哨兵：登记表 S1-S3→S1-S4——S4-① README「任务票 NN；」锚点行数↔index 任务条目数相等断言（ticket-ops 双写锁定面漂移检测）、S4-②「N～M 共」「共 N 量词」计数模式扫描（STALE-prone 指名 file:line 计入过期断言计数，gate exit 1 / session 只警告）；扫描面排除三类历史/生成面（docs/progress.md 冻结档案、docs/changes.md 只追加账本、docs/architecture/generated 生成投影——协调层 2026-09-21 裁决 O3，既排 docs/issues/*.md 票面、docs/agent/runs/、docs/progress-current.md 保留）；豁免表显式实装、空表交付＝现行面全数字免费；输出格式增 STALE-prone 行与登记计数 3→4）；票 72（delivery 配置：`export-payload.sh` 公开载荷导出单命令新建（delivery.rules 驱动六步、--dry-run、永不 force，检查 8 清单 12→13 件）；check-stale-claims S1/S2 配置点亮（dp_stale_lit、remote 名/包前缀/本地分支读仓根 delivery.rules、SKIP 行与汇总登记数动态化）；check-artifacts 校准豁免迁移（docs/architecture/generated/ 自数据块迁入 delivery.rules calibration 节）；harness 扩为七 suite（新增 stale-claims 套件，check-package/check-artifacts 套件断言随动））。 -->
 <!-- Output: 公开包 scripts/ 目录索引与共享 harness 约定：脚本用途、用法、十七项检查说明（清单数据驱动）、包清单数据表格式、易腐断言扫描器两模式与登记表说明、投影生成器用法与退出码、模块地图生成器用法与语言登记表、道脚本收尾行为（索引单写机制＋微道预检）、票务运维脚本三子命令用法与落位口径、安装脚本用法/退出码与安装政策数据表格式、Record 只追加守卫用法与守卫口径、治理产物对账器用法与受管口径/豁免维护规则、输出格式、退出码与维护联动规则。 -->
 <!-- Pos: 公开包脚本目录索引；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
@@ -22,6 +22,7 @@
 | `package-manifest.rules` | 包清单数据表 | 包结构清单唯一承载点（票 57 单源化；票 58/59/60 扩节；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）：十节行式数据——必需入口文件（`pm_entry`）、脚本必需件（`pm_script`，kind 区分普通脚本/规则表/test-harness）、.tmpl 模板清单（`pm_template`）、规则块短码登记（`pm_shortcode`）、platform 枚举（`pm_platform`）、模糊措辞词表（`pm_vague_word`）与行级豁免（`pm_vague_exempt`，理由必填）、镜像脚本（`pm_mirror`）、能力基元名单与检查目标（`pm_capability`/`pm_capability_authority`/`pm_capability_target`，票 59）、规则索引执行机制受控词表与外定义标记词（`pm_mechanism`/`pm_mechanism_marker`，票 60）；`check-package.sh` 加载时结构校验（字段数、路径/kind/短码/platform/词/行号/文件名形态、各节内跨行不重复），任一不合预期 exit 2（fail-closed）；检查 1/5/8 清单与计数、检查 9/10/11/12/13/14/15/16/17 比对基准全部自本表读取，引擎零文件名零短码零枚举值零词表零基元名清单零机制词表。维护规则与行格式见下文专节。 |
 | `ticket-ops.sh` | 票务运维脚本 | 协调层票务面单入口（票 41 本仓交付 / 票 47 入包采纳）：`open`（开票：索引新增条目 status=ready＋issues-README 目录清单追加行＋账本追加行）／`take`（领取：status=in_progress）／`flip`（状态翻转：状态机任意合法值）三子命令，索引与 README 锚点整行/单 token 机械改写，收尾调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对；校验先于写入、fail-closed（索引一条目一行排版破坏、锚点不唯一、账本行不合键序即停止不写）；POSIX sh、零外部依赖（无 jq/python）。详见下文专节。 |
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎（票 56）：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值＋generation manifest 提示），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
+| `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（票 72；命令面权威＝票 69 设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票（41～45/47）fixture 沉淀的常驻自检工具（票 49；票 58/59 扩 suite）：六 suite（module-map/ticket-ops/progress/check-package/append-only/check-artifacts，`--suite` 参数化，缺省 all）一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、零外部依赖、夹具 trap 清理、仓库零写入。详见下文专节。 |
 | `scenario-checklist.md` | 场景验收清单 | SPEC-06 §7 发布前 11 条场景的验收边界、逐条执行结果与证据指针（票 12 / R-06-008）；S1-S9 为模板语义静态核对、S10 记 check-package.sh 实跑与临时副本负例及 `deferred-to-13` 条件项、S11 记 `N/A + reason`（未测量）；包内容变化后按本清单复验。 |
 
@@ -142,12 +143,12 @@ sh scripts/check-stale-claims.sh [repo-root] [gate|session]
 
 ### 登记表结构
 
-登记表内置于脚本，条目结构为 `{断言模式, 权威位置, 校验方式}`，只登记高流转状态句。现役四条（S1～S3 为票 19 首批，S4 为票 65 增补；权威位置为现行文档真实路径）：
+登记表内置于脚本，条目结构为 `{断言模式, 权威位置, 校验方式}`，只登记高流转状态句。现役四条（S1～S3 为票 19 首批，S4 为票 65 增补；权威位置为现行文档真实路径）；票 72 起 S1/S2 为配置点亮条目——是否点亮＝仓根 `delivery.rules` calibration 节 `dp_stale_lit` 登记（`S1`/`S2` 枚举，解析破坏 exit 2 fail-closed），未点亮打印 `SKIP: Sx — delivery.rules 未点亮（dp_stale_lit 缺登记）` 不计过期断言不拦票；点亮则现行断言逻辑原样执行，其中 remote 名（S1-1c/S2）、包前缀（S2 次级权威位置）与本地导出分支名（S1-1b）自 payload 节读取（未声明 payload 节＝不可知，退化 WARN 跳过不硬猜）；宣称锚点句属协议面留引擎（设计票 §2 分界判据）；S3/S4 为通用面无点亮位恒执行。
 
 | 编号 | 断言模式 | 权威位置 | 校验方式 |
 | --- | --- | --- | --- |
 | S1 | Git 状态句 | `docs/progress.md` 的「Git 恢复基线」块 | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、唯一 remote 与宣称地址一致、本地 main 未被远端跟踪分支包含）；非 Git 工作区按流程退化语义输出提醒跳过。（票 37 修订：移除"工作区存在未提交改动"子项核对——该陈述为票 13 时点历史快照，`docs/progress.md` 现为冻结历史档案（零写入），清洁工作区属稳态，逐字核对构成恒触发误报（S1-1e 已知缺口）；基线块原文按"不改历史"保留。） |
-| S2 | 发布状态句 | 根 `README.md`「公开包已发布」宣称行 + `agent-up/README.md` 安装行 | machine：文档宣称的仓库地址与实际 remote origin 配置归一化比对、包内安装行同源核对；远端可达性/可见性本地不核验（不出网）→ reminder。 |
+| S2 | 发布状态句 | 根 `README.md`「公开包已发布」宣称行 + 包内 README 安装行（包前缀自 `delivery.rules` dp_payload_root 派生，票 72） | machine：文档宣称的仓库地址与实际 remote 配置归一化比对（remote 名自 dp_payload_remote 读取）、包内安装行同源核对；远端可达性/可见性本地不核验（不出网）→ reminder。 |
 | S3 | frontier 句 | `docs/issues/index.json`（票状态真相源）+ `docs/progress-current.md`（现役状态投影） | machine：投影 vs 索引比对——优先调用 `generate-progress.sh --check`（exit 0 一致；exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明（不计入失败）。（票 37 修订：原"`docs/issues/README.md` 表行逐票对照票面状态"实现退役——README 状态列已定位为人工登记投影（票 35 起），与索引冲突时以索引为准。） |
 | S4 | 计数漂移句 | `docs/issues/README.md` 目录清单锚点行（「任务票 NN；」）+ `docs/issues/index.json` 任务条目；`docs/` 树 md + `docs/agent/artifacts.yaml` 现行面计数措辞 | machine：两断言（票 65，详见下文 S4 小节）——①数量相等：README「任务票 NN；」锚点行数与 index「`"id": "NN-…"`」条目数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：「N～M 共」「共 N 量词」命中输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；扫描面排除与豁免表见下文 S4 小节。 |
 
@@ -160,8 +161,9 @@ STALE: <路径:行号> — <断言与现实的差异说明>
 WARN: <路径:行号> — <提醒内容（含登记日期与【待定】阈值标注）>
 NOTE: <路径> — <比对机制退化说明（生成器不可用时退化为内建最小比对；不计入失败）>
 STALE-prone: <路径:行号> — 计数模式命中（S4-②，计入过期断言计数）：改写为计数无关措辞或按登记表注记理由豁免
-check-stale-claims: PASS（登记表 4 条全部核对，提醒 N 条）    # gate 模式清洁
-check-stale-claims: FAIL（N 处过期断言，登记表共 4 条）       # gate 模式存在过期断言
+SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）    # 票 72 点亮语义：未点亮条目不计数
+check-stale-claims: PASS（登记表 N 条全部核对，提醒 N 条）    # gate 模式清洁；N＝点亮数＋通用条数（票 72 动态化，全点亮语境渲染 4）
+check-stale-claims: FAIL（N 处过期断言，登记表共 N 条）       # gate 模式存在过期断言；N 同上
 check-stale-claims: 会话启动模式（不拦截）：过期断言 N 处，提醒 N 条，请人工核对上方输出
 ```
 
@@ -174,7 +176,7 @@ check-stale-claims: 会话启动模式（不拦截）：过期断言 N 处，提
 | --- | --- |
 | 0 | gate 模式下无过期断言（提醒照常输出），或 session 模式。 |
 | 1 | gate 模式下存在过期断言（STALE 行见输出）。 |
-| 2 | 用法或环境错误（参数过多、模式非法、仓库根不存在等）；S4 豁免表结构破坏亦 exit 2（不产生部分结论）。 |
+| 2 | 用法或环境错误（参数过多、模式非法、仓库根不存在等）；S4 豁免表结构破坏与 delivery.rules 解析破坏亦 exit 2（票 72，不产生部分结论）。 |
 
 ### S4 计数漂移哨兵（票 65）
 
@@ -561,7 +563,7 @@ sh scripts/check-artifacts.sh <repo-root>
 | `ca_exempt <路径>` | 反向豁免：精确路径；尾斜杠＝目录整支豁免；理由随行注记。 |
 | `ca_lazy <路径>` | 正向暂缺许可：登记目标允许尚不存在（懒创建面），命中输出 SKIP 不计缺口。 |
 
-本仓基线定谳（票 59）：受管＝根 `AGENTS.md`＋`docs/` 树内 md/json/jsonl/yaml＋`scripts/` 单层 sh/rules；豁免＝`docs/agent/runs/`（运行记录投影）、`docs/progress-current.md`（生成投影）、`docs/issues/index.json`（状态真相源单写面）、`docs/changes.jsonl`（追加面）、`docs/agent/micro.jsonl`（道账本）、`docs/architecture/generated/`（生成投影面，票 59 校准追加——机器生成运行输出，与 runs/ 同性质）；懒创建许可＝`docs/agent/micro.jsonl`（道脚本首次收尾懒创建）。目标项目落位后按自身 artifacts.yaml 现状校准数据块（增删 `ca_*` 行），不改动引擎。
+本仓基线定谳（票 59；票 72 豁免迁移）：受管＝根 `AGENTS.md`＋`docs/` 树内 md/json/jsonl/yaml＋`scripts/` 单层 sh/rules；豁免分两面——协议豁免（数据块，记录层通用语义＝协议面）：`docs/agent/runs/`（运行记录投影）、`docs/progress-current.md`（生成投影）、`docs/issues/index.json`（状态真相源单写面）、`docs/changes.jsonl`（追加面）、`docs/agent/micro.jsonl`（道账本）；校准豁免（仓根 `delivery.rules` calibration 节 `dp_artifact_exempt`，逐仓不同的校准＝项目约定，票 72 自数据块迁入）：`docs/architecture/generated/`（生成投影面，理由注记随行）——文件缺失或无该行＝豁免消失，生成面文件按未登记 FAIL 暴露（fail-closed 方向），解析破坏 exit 2。懒创建许可＝`docs/agent/micro.jsonl`（道脚本首次收尾懒创建）。目标项目落位后按自身 artifacts.yaml 现状校准数据块（增删 `ca_*` 行）与 delivery.rules calibration 节，不改动引擎。
 
 ### 输出格式
 
@@ -590,6 +592,41 @@ check-artifacts: PASS
 - 受管口径或豁免变更＝改数据块 `ca_*` 行（理由随行注记）＋实跑盘点＋同步本专节基线定谳表；豁免扩大的裁决归用户（投影/追加面/生成面类），不得为消缺口静默扩豁免。
 - 行为语义变化经 Review 门禁并同步 harness check-artifacts 套件（正负例随动，红灯不隔票）。
 
+## export-payload.sh（公开载荷导出单命令）
+
+delivery.rules 驱动的公开载荷导出单命令（票 72；命令面权威＝票 69 设计 §3）：把票 68 手工三重核验固化为命令面。POSIX sh（`#!/bin/sh`、`set -eu`）；导出形态（前缀/远端/目标分支/本地导出分支）读仓根 `delivery.rules` payload 节（引擎零项目约定硬编码）；本命令永不 force——不内建任何改写远端历史的路径（force 属用户授权动作，票 68 修复即用户明确授权下的一次性救援）。
+
+### 用法
+
+```text
+sh scripts/export-payload.sh [--dry-run] [repo-root]
+```
+
+- `repo-root` 缺省取本脚本所在目录向上两级；`--dry-run` 语义见下表。
+- `-h` / `--help`：打印用法。
+
+### 六步流程
+
+| 步骤 | 动作 | 实跑 | `--dry-run` |
+| --- | --- | --- | --- |
+| 前置 | 工作区 payload 根内未提交改动即停（导出半成品）；未声明 payload 节拒跑 exit 2 | 是 | 是 |
+| 1 split | `git subtree split -P <root>` 产出新导出头 H | 落本地分支 `-b <local_ref>` | 仅经变量传递，不落本地分支引用 |
+| 2 树比对 | H 经 `git archive` 展开到全新 mktemp（即用即删），`diff -r` 对照工作区 payload 根须零差异 | 是 | 是 |
+| 3 导出树 check-package | 临时展开目录内 17 项全过（检查 13 独立语境静默跳过＝预期，票 68 口径） | 是 | 是 |
+| 4 ff 断言 | `git ls-remote` 取远端头 R；R 空＝首推放行；否则 `merge-base --is-ancestor R H`，失败＝污染停手（报错文案照设计逐字） | 是 | 是 |
+| 5 push | `git push <remote> <local_ref>:<target>` 裸 push | 是 | 只打印将执行的命令 |
+| 6 ls-remote 复核 | 再取远端头须等于 H（推送后漂移即停） | 是 | 跳过 |
+
+### 退出码
+
+| 退出码 | 语义 |
+| --- | --- |
+| 0 | 流程完成（或 `--dry-run` 步骤 1～4 完成）。 |
+| 1 | 流程失败停手（工作区不洁、树比对差异、check-package 未全过、ff 断言不过、push 被拒、推送后漂移）。 |
+| 2 | 用法或配置错误（参数不合、非 Git 工作区、delivery.rules 缺 payload 节或解析破坏、payload 根不存在、git subtree 不可用）。 |
+
+真实推送公开仓须用户现场授权；日常自证以 `--dry-run` 为准（零远端写、零本地分支写）。
+
 ## test-record-layer.sh（记录层回归 harness）
 
 记录层共享回归 harness（票 49 沉淀）：把票 41～45/47 六票 Implementation Checkpoint 声明待沉淀的一次性 fixture 组装为常驻自检工具——一条命令回归记录层全链。POSIX sh（`#!/bin/sh`、`set -u`、`set -f`）、零外部依赖（夹具 `git init` 依赖被测脚本自身声明的 Git）。缺省自测同目录包内脚本（check-package.sh 同款路径惯例），`--script-dir`/`--pkg-root` 参数化支持复制落位语境；被测脚本只读零改动（发现缺陷停报告，不顺手修、不为通过测试改预期）；夹具全部构建于 mktemp 临时目录并 trap 清理（异常退出亦清），仓库零写入；预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训；来源票只作场景清单）。
@@ -601,8 +638,8 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 ```
 
 - 无参数：`--suite all`；被测脚本目录缺省＝本脚本所在目录，包根缺省＝被测脚本目录的上一级（check-package.sh 同款）。
-- `--suite module-map|ticket-ops|progress|check-package|append-only|check-artifacts|all`：场景参数化，缺省 all。
-- `--script-dir <dir>`：被测脚本所在目录（须含七件被测成员：`generate-module-map.sh`＋`module-map.rules`、`ticket-ops.sh`＋`generate-progress.sh`、`check-package.sh`、`check-append-only.sh`、`check-artifacts.sh`）；对复制落位副本或被测脚本修改副本复跑时使用。
+- `--suite module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|all`：场景参数化，缺省 all。
+- `--script-dir <dir>`：被测脚本所在目录（须含八件被测成员：`generate-module-map.sh`＋`module-map.rules`、`ticket-ops.sh`＋`generate-progress.sh`、`check-package.sh`、`check-append-only.sh`、`check-artifacts.sh`、`check-stale-claims.sh`）；对复制落位副本或被测脚本修改副本复跑时使用。
 - `--pkg-root <dir>`：check-package 套件的包根，缺省＝script-dir 的上一级。
 - `-h` / `--help`：打印用法。
 
@@ -614,7 +651,8 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `ticket-ops` | 41/47 | 生成项目语境 open→take→flip 全链（索引／issues-README／投影全文件逐一相等＋账本行数；updated_at／开票日期捕获后校验形状重建预期）＋收尾投影 `--check`＋负例 6（重复 id／未知 id／账本键序违规／take 非 in_progress／非法状态值／索引排版破坏）exit 1 零写入 | 22 |
 | `progress` | 35 | 投影生成（乱序 id＋checkpoint_ref 列）全文件逐一相等、`--check` 一致 exit 0、篡改检出 exit 1、投影缺失 exit 1、索引缺失／条目行缺必备字段 exit 2 | 7 |
 | `check-package` | 12/48/57/58/59/60 | 十七项正例输出逐行逐一相等（含票 48 检查项 8、票 57 检查 9/10/11、票 58 检查 12/13、票 59 检查 14、票 60 检查 15/16/17——检查 13 PASS 行＝仓根镜像在位语境比对 2 对）＋必需件缺失负例（mktemp 包副本删件）exit 1 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动（R-DP-004 点名 generate-progress.sh）＋检查 11 逐处全等负例（§2.5 单处删值，FAIL 行按行号指名）＋票 58 负例：检查 12 注入词表首词入规则块体 exit 1 指名文件:行号（词自夹具包 manifest 提取，harness 零词面字面量）、注入行登记行级豁免后不报 exit 0（豁免生效）、豁免登记行无命中报失效豁免 exit 1、检查 13 仓根镜像同名件篡改 exit 1 指名文件、仓根无 scripts/ 时静默跳过（无输出行）＋票 59 负例：检查 14 注入未登记基元名入角色声明行 exit 1 指名文件、删除一基元名出角色声明行 exit 1 指名文件＋票 60 负例：索引删一行 exit 1 指名缺行、索引加全集外 ID exit 1 指名多行、机制列写未登记值 exit 1 指名、机械行点名不存在脚本 exit 1 指名、机械行点名检查项号超界 exit 1 指名、外定义行删标记词 exit 1 算漏行、mechanism-vocab 词表损坏 exit 2 | 21 |
-| `check-artifacts` | 59 | check-artifacts.sh 正负例：全对账正例 exit 0（含懒创建面登记暂缺 SKIP 行与豁免命中不报）、登记目标缺失 exit 1 指名条目、受管文件未登记 exit 1 指名路径、豁免目录内未登记文件 exit 0 不报、登记解析破坏 exit 2 指名行与条目、无参数／repo-root 不存在 exit 2 | 8 |
+| `check-artifacts` | 59/72 | check-artifacts.sh 正负例：全对账正例 exit 0（含懒创建面登记暂缺 SKIP 行与豁免命中不报）、登记目标缺失 exit 1 指名条目、受管文件未登记 exit 1 指名路径、豁免目录内未登记文件 exit 0 不报、票 72 校准豁免迁移三例（delivery.rules 声明 dp_artifact_exempt → generated 不报 exit 0；无 delivery.rules → 豁免消失按未登记 FAIL；delivery.rules 解析破坏 → exit 2）、登记解析破坏 exit 2 指名行与条目、无参数／repo-root 不存在 exit 2 | 11 |
+| `stale-claims` | 72 | check-stale-claims.sh 配置点亮正负例：未点亮（无 delivery.rules）→ S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2；点亮（dp_stale_lit S1＋S2 无 payload 节）→ 无 SKIP 行、断言逻辑执行（STALE 行证明）、汇总登记数 4（点亮数＋通用条数）；delivery.rules 解析破坏（未知指令）→ exit 2 指名违规行 | 3 |
 | `append-only` | 58 | check-append-only.sh 正负例：changes.jsonl 尾部追加 exit 0（OK 行含追加计数）、micro.jsonl 同口径追加＋progress.md 零 diff exit 0、中间插入 exit 1 指名文件与首个违规行号、改写历史行／截断／工作树删除 exit 1、progress.md 篡改 exit 1、micro.jsonl 中间插入 exit 1（同口径）、无 Git 基线 WARN 退出 0、懒创建（新建账本 OK＋缺失 SKIP）exit 0、用法负例（无参数／多参数／非 Git 目录 exit 2） | 13 |
 | （仅 all）注入自检 | 49 | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 

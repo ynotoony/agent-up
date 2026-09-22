@@ -424,6 +424,7 @@ Scope:
   小型单人工作经用户同意可直接在 `main`。
 - 提交格式 `<type>(<scope>): <结果>`，type 允许 `feat` `fix` `docs` `test` `refactor` `build` `chore`。
 - 一个提交是一个可解释的恢复点；不把多个任务塞进一个提交，不为"干净历史"重写或丢弃未确认归属的改动。
+- 公开载荷的发布走仓根 `delivery.rules` payload 节声明的导出形态，经 `export-payload.sh` 单命令完成（split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核）；命令永不 force——ff 断言不过即停手，远端恢复或覆盖须用户明确授权另票执行；载荷内容再变更须新票并重新导出推送。
 - 未经用户明确要求不 push、不部署、不发布。
 
 ## 10. 实现纪律（编码层规则：最懒可行与编程思想五问）
