@@ -3,10 +3,12 @@
 #        的易腐状态句条目，与模式开关（第二参数或 STALE_CLAIMS_MODE 环境变量）。
 # Output: 登记条目逐项核对结果——STALE 行（过期断言，含 路径:行号:内容 定位）、
 #         WARN 行（提醒，含登记日期与【待定】阈值标注）、NOTE 行（比对机制退化说明，
-#         不计入失败）、结尾汇总行；票收口模式（gate）发现过期断言 exit 1，
+#         不计入失败）、STALE-prone 行（S4 计数模式易腐命中，指名 file:line，
+#         计入过期断言计数）、结尾汇总行；票收口模式（gate）发现过期断言 exit 1，
 #         会话启动模式（session）仅输出警告 exit 0。
-# Pos: 登记表驱动的易腐断言扫描器（REQ-20260904-010 / 票 19）；POSIX sh、
-#      零外部依赖、全程只读（除打印外无写操作，Git 仅使用只读子命令）。
+# Pos: 登记表驱动的易腐断言扫描器（REQ-20260904-010 / 票 19）；S4 计数漂移哨兵
+#      （票 65）；POSIX sh、零外部依赖、全程只读（除打印外无写操作，Git 仅使用
+#      只读子命令）。
 
 # 用法、登记表条目说明与输出格式见同目录 README.md。
 # 状态陈述纪律见 development-process 模板 §15：状态以权威引用表达，本脚本
@@ -133,6 +135,15 @@ fi
 #      生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明。
 #      （2026-09-18 票 37 修订：原"docs/issues/README.md 表行逐票对照票面状态"实现退役
 #      ——README 状态列已定位为人工登记投影（票 35 起），与索引冲突时以索引为准。）
+# S4 计数漂移句 | docs/issues/README.md 目录清单锚点行 + docs/issues/index.json 任务条目
+#               | docs/ 树 md + docs/agent/artifacts.yaml 现行面计数措辞
+#    | machine：两断言（票 65）——①数量相等：README「任务票 NN；」锚点行数与 index
+#      「"id": "NN-…"」条目行数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写
+#      锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：
+#      「N～M 共」「共 N 量词」命中 STALE-prone 指名 file:line、计入过期断言计数
+#      （gate exit 1 / session 只警告）；排除面与豁免表见 S4 数据节（票 65 阻塞→
+#      协调层 2026-09-21 裁决 O3：历史真陈述/机器生成面收窄出扫描面，现行面全数字
+#      免费、豁免表空表交付）。
 
 progress_rel='docs/progress.md'
 readme_rel='README.md'
@@ -320,11 +331,168 @@ check_s3() {
   fi
 }
 
+# ---- S4 计数漂移哨兵（票 65）------------------------------------------------
+#
+# S4-① 数量相等：docs/issues/README.md 目录清单锚点行「任务票 <NN>；」（ticket-ops
+#      写入锚）行数与 docs/issues/index.json 任务条目行（"id": "<NN>-…" 形态）行数
+#      机械相等；不等即 STALE 指名两侧计数（ticket-ops 双写锁定面漂移，手工删行/
+#      加行即报）。README 或索引缺失、锚点零命中 → WARN 跳过不硬猜（对齐 S1 非 Git
+#      退化语义）。比对对象是「README 里的票行」与「index 里的条目」，两文件自身
+#      不入计数。
+#
+# S4-② 计数模式扫描（推数字免费化，票 61 先例）：扫描面＝docs/ 树 *.md ＋
+#      docs/agent/artifacts.yaml，命中下述任一模式即 STALE-prone 指名 file:line，
+#      计入过期断言计数（gate exit 1 / session 只警告）。模式为 ERE、全程 LC_ALL=C
+#      字节语义；量词用交替字面量而非括号表达式（C locale 下多字节括号表达式按单
+#      字节匹配，不可靠）：
+#        模式甲：[0-9]+～[0-9]+ 共
+#        模式乙：共 [0-9]+ (张|条|项|件|个)
+#      排除面（数据注记，每条一句理由——历史真陈述/机器生成面非现行声明，不属
+#      「会腐烂的现行计数」；2026-09-21 协调层裁决 O3 收窄）：
+#        docs/issues/*.md              票面历史文件——历史票文不改写原则
+#        docs/agent/runs/              run record 投影——运行记录面
+#        docs/progress-current.md      现役状态投影——Derived 生成器独占写
+#        docs/progress.md              冻结历史档案——指针注记后零写入
+#        docs/changes.md               只追加账本——历史条目不可改写
+#        docs/architecture/generated/  机器生成投影面——与 runs/ 同性质（票 59 口径）
+#      已知限制：文件清单经 find 逐名循环，路径含空白或冒号的病态形态不受理。
+#      裁量留痕（票 65）：现行文本预扫 15 命中＞3 停止线 → 阻塞报告 → 协调层裁决
+#      O3：排除面如上收窄 ＋ artifacts.yaml 两聚合注记免费化改写（除计数片段外
+#      整行逐字保留，改写后 check-artifacts 复跑 exit 0）。
+s4_pat='[0-9]+～[0-9]+ 共|共 [0-9]+ (张|条|项|件|个)'
+
+s4_load_exempts() {
+  # 豁免表唯一承载点：每条一行「s4_exempt <仓库根相对路径> <行号> <理由（非空）>」，
+  # 理由必填、显式登记，无静默豁免；命中行增删致行号漂移时须复核更新或删除登记
+  # （对齐 package-manifest.rules vague-exemptions 维护口径）。空表交付（票 65
+  # 裁决）＝现行面全数字免费，本表为未来正当例外预留。
+  cat <<'S4_EXEMPT_DATA'
+S4_EXEMPT_DATA
+}
+
+s4_parse_exempts() {
+  # 解析豁免表为「路径:行号」键集（恰整行匹配）；结构破坏（无法识别行、行号非正
+  # 整数、理由空）即 exit 2，不产生部分结论。解析结果落全局 S4_EXEMPT_KEYS。
+  S4_EXEMPT_KEYS=''
+  _keys=''
+  while IFS= read -r _line; do
+    case $_line in
+      '' | '#'*) continue ;;
+      s4_exempt\ *)
+        set -- $_line
+        if [ $# -lt 3 ]; then
+          printf 'check-stale-claims: 错误：S4 豁免表行字段不足（须 路径 行号 理由）：%s\n' "$_line" >&2
+          return 2
+        fi
+        _p=$2
+        _n=$3
+        shift 3
+        _r="$*"
+        case $_p in
+          '' | /*)
+            printf 'check-stale-claims: 错误：S4 豁免表路径须为非空仓库根相对路径：%s\n' "$_line" >&2
+            return 2
+            ;;
+        esac
+        case $_n in
+          '' | *[!0-9]*)
+            printf 'check-stale-claims: 错误：S4 豁免表行号须为正整数：%s\n' "$_line" >&2
+            return 2
+            ;;
+        esac
+        if [ "$_n" -eq 0 ]; then
+          printf 'check-stale-claims: 错误：S4 豁免表行号须为正整数：%s\n' "$_line" >&2
+          return 2
+        fi
+        if [ -z "$_r" ]; then
+          printf 'check-stale-claims: 错误：S4 豁免表理由必填（无静默豁免）：%s\n' "$_line" >&2
+          return 2
+        fi
+        _keys="$_keys$_p:$_n
+"
+        ;;
+      *)
+        printf 'check-stale-claims: 错误：S4 豁免表含无法识别的行：%s\n' "$_line" >&2
+        return 2
+        ;;
+    esac
+  done <<S4_EXEMPT_INNER
+$(s4_load_exempts)
+S4_EXEMPT_INNER
+  S4_EXEMPT_KEYS=$_keys
+}
+
+check_s4_count() {
+  # S4-① 数量相等：README 锚点行数 ↔ index 任务条目行数；缺失/锚点零命中 WARN 跳过。
+  _rf="$repo_root/$issues_readme_rel"
+  _idx="$repo_root/docs/issues/index.json"
+  if [ ! -f "$_rf" ] || [ ! -f "$_idx" ]; then
+    emit_warn "$issues_readme_rel" 'S4 数量相等断言跳过：docs/issues/README.md 或 docs/issues/index.json 缺失，按退化语义不硬猜'
+    return 0
+  fi
+  _rn=$(LC_ALL=C grep -c '任务票 [0-9][0-9]*；' "$_rf") || _rn=0
+  _in=$(LC_ALL=C grep -c '"id": "[0-9][0-9]*-' "$_idx") || _in=0
+  if [ "$_rn" -eq 0 ]; then
+    emit_warn "$issues_readme_rel" 'S4 锚点零命中：README 中无「任务票 NN；」锚点行（ticket-ops 写入锚失效），数量相等断言跳过不硬猜'
+    return 0
+  fi
+  if [ "$_rn" -ne "$_in" ]; then
+    emit_stale "$issues_readme_rel" "S4 数量相等断言失效：README「任务票 NN；」锚点行 $_rn 行 vs docs/issues/index.json 任务条目 $_in 条——ticket-ops 双写锁定面漂移，核对缺失侧"
+  fi
+  return 0
+}
+
+check_s4_scan() {
+  # S4-② 计数模式扫描：artifacts.yaml 单件＋docs/ 树 md（排除面见数据节注记），
+  # 命中经豁免表恰整行比对后报 STALE-prone（计入过期断言计数）。
+  [ -d "$repo_root/docs" ] || return 0
+  _s4_total=0
+  _scan_file() {
+    _sf=$1
+    _sl=$(LC_ALL=C grep -nE "$s4_pat" "$_sf" 2>/dev/null | sed 's/:.*//') || _sl=''
+    [ -n "$_sl" ] || return 0
+    case $_sf in
+      "$repo_root"/*) _srel=${_sf#"$repo_root"/} ;;
+      *) _srel=$_sf ;;
+    esac
+    for _sn in $_sl; do
+      if [ -n "$S4_EXEMPT_KEYS" ] && printf '%s\n' "$S4_EXEMPT_KEYS" | grep -qxF "$_srel:$_sn"; then
+        continue
+      fi
+      _s4_total=$((_s4_total + 1))
+      printf 'STALE-prone: %s:%s — 计数模式命中（S4-②）：数字会腐烂、计数无关措辞不会（票 61 先例），改写为计数无关措辞或按登记表注记理由豁免\n' "$_srel" "$_sn"
+    done
+    return 0
+  }
+  if [ -f "$repo_root/docs/agent/artifacts.yaml" ]; then
+    _scan_file "$repo_root/docs/agent/artifacts.yaml"
+  fi
+  _s4_files=$(find "$repo_root/docs" \
+    \( -path "$repo_root/docs/issues" -o -path "$repo_root/docs/agent/runs" -o -path "$repo_root/docs/architecture/generated" \) -prune -o \
+    -type f -name '*.md' -print 2>/dev/null)
+  for _s4f in $_s4_files; do
+    case $_s4f in
+      "$repo_root/docs/progress.md" | "$repo_root/docs/changes.md" | "$repo_root/docs/progress-current.md") continue ;;
+    esac
+    [ -f "$_s4f" ] || continue
+    _scan_file "$_s4f"
+  done
+  stale_count=$((stale_count + _s4_total))
+  return 0
+}
+
+check_s4() {
+  check_s4_count
+  check_s4_scan
+}
+
 # ---- 执行 ------------------------------------------------------------------
 
 check_s1
 check_s2
 check_s3
+s4_parse_exempts
+check_s4
 
 _pn=$(prog_name)
 if [ "$mode" = "session" ]; then
@@ -332,8 +500,8 @@ if [ "$mode" = "session" ]; then
   exit 0
 fi
 if [ "$stale_count" -gt 0 ]; then
-  printf '%s: FAIL（%s 处过期断言，登记表共 3 条）\n' "$_pn" "$stale_count"
+  printf '%s: FAIL（%s 处过期断言，登记表共 4 条）\n' "$_pn" "$stale_count"
   exit 1
 fi
-printf '%s: PASS（登记表 3 条全部核对，提醒 %s 条）\n' "$_pn" "$warn_count"
+printf '%s: PASS（登记表 4 条全部核对，提醒 %s 条）\n' "$_pn" "$warn_count"
 exit 0
