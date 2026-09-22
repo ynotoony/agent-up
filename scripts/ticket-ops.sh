@@ -11,7 +11,8 @@
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
 #      零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）；fail-closed：校验先于写入，
-#      索引排版破坏、README 行缺失或锚点不唯一、账本行不合键序即停止不写；收尾生成器
+#      索引排版破坏、README 行缺失或锚点不唯一、账本行不合键序、同 NN 异 slug 撞号
+#      （票 77）即停止不写；收尾生成器
 #      缺失或 --check 不过即整体失败退出非零，已写部分如实报告。职责边界：只做票务面
 #      写入，不执行门禁核对与 Git 提交，不调用 check-gates.sh 与 lane-commit.sh（投影
 #      再生调用 generate-progress.sh 不在此限）。
@@ -33,7 +34,8 @@ usage() {
 命令:
   open           开票：校验后写索引条目（status=ready）＋issues-README 目录清单追加行
                  ＋账本追加行，收尾投影再生＋--check。选项（前四必选）:
-                   --id <NN-slug>            票 id（^[0-9]{2,}-[a-z0-9-]+$；须不在索引中）
+                   --id <NN-slug>            票 id（^[0-9]{2,}-[a-z0-9-]+$；须不在索引中且 NN 段未被
+                             占用——同 NN 异 slug 撞号拒开，票 77）
                    --complexity <C0-C3>      复杂度档位
                    --title <text>            票标题（用作 README 行功能列文本；不得含
                                              竖线/反引号/换行/制表符）
@@ -229,6 +231,43 @@ index_check() {
   ' "${index_file}"
 }
 
+index_nn_check() {
+  # open 预检：NN 段唯一性查重（票 77）——账本 renumber-70-72 实录缺口：open 只查全 id
+  # （slug 查重），同 NN 异 slug 撞号漏拦，到 take 的 README 锚点预检才兜底。此处开票即拒：
+  # 号段被占报明已占完整 id，零写入。NN 提取与 id 口径一致（^[0-9]{2,}-）：仅对合口径的
+  # 既有 id 取段比对；畸形既有 id 不产 NN 段、不参与撞号（其本身非法，由 id 口径门与
+  # 索引排版门兜底）；来件 id 已过 ^[0-9]{2,}-[a-z0-9-]+$ 门，nn 取值即前导数字段。
+  IDX_NN=${nn} IDX_ID=${id} awk '
+    BEGIN {
+      target = ENVIRON["IDX_NN"]
+      tid = ENVIRON["IDX_ID"]
+      head = "\"id\": \""
+      hlen = length(head)
+      m = 0
+    }
+    index($0, head) > 0 {
+      p = index($0, head) + hlen
+      rest = substr($0, p)
+      q = index(rest, "\"")
+      if (q <= 1) next
+      eid = substr(rest, 1, q - 1)
+      if (eid == tid) next
+      if (eid !~ /^[0-9][0-9]+-/) next
+      enn = substr(eid, 1, index(eid, "-") - 1)
+      if (enn == target) { m++; occ[m] = eid }
+    }
+    END {
+      if (m > 0) {
+        list = occ[1]
+        for (i = 2; i <= m; i++) list = list ", " occ[i]
+        printf "ticket-ops: FAIL: 票号段已被占用（同 NN 异 slug 撞号，open 拒开；先改号或按让号流程处理）: NN %s 已占 id → %s\n", target, list > "/dev/stderr"
+        exit 1
+      }
+      exit 0
+    }
+  ' "${index_file}"
+}
+
 readme_row_check() {
   # open 预检：目录清单表行锚点（^\| `）须至少 1 行
   awk '
@@ -298,6 +337,7 @@ fi
 
 if [ "${cmd}" = 'open' ]; then
   index_check open || die1 "索引预检未通过: docs/issues/index.json（${id}）——未产生任何写入"
+  index_nn_check || die1 "NN 段预检未通过: docs/issues/index.json——未产生任何写入"
   readme_row_check || die1 "issues-README 预检未通过: docs/issues/README.md——未产生任何写入"
 else
   index_check flip || die1 "索引预检未通过: docs/issues/index.json（${id}）——未产生任何写入"

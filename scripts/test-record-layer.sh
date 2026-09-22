@@ -21,7 +21,8 @@
 #        词表损坏 exit 2 负例；票 72 清单 scripts 节 12→13 件（export-payload.sh 入册），
 #        检查 8 预期串计数随动；新增 stale-claims 套件（S1/S2 配置点亮：未点亮 SKIP
 #        不计数、点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化，
-#        独立 suite 承载并在 README 声明）。
+#        独立 suite 承载并在 README 声明）；票 77（NN 唯一性：ticket-ops open 补同 NN 异
+#        slug 撞号拒开 fail-closed，套件补 N7 同 NN 拒＋N8 畸形 id 拒＋新 NN 正开三断言）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -541,6 +542,32 @@ suite_ticket_ops() {
     ok '负例 N5 索引排版破坏 → exit 1 零写入且无投影（fail-closed 预检先于写入）'
   else
     bad '负例 N5 索引排版破坏 → exit 1 零写入且无投影（fail-closed 预检先于写入）' "exit=$rc"
+  fi
+
+  # N7/N8/正例：独立夹具（tix_build_fixture 会重赋 F，勿依赖前段 F 指向）——
+  # 同 NN 异 slug 撞号拒开（票 77，账本 renumber-70-72 缺口）＋畸形 id 一并拒＋新 NN 正开零回归
+  tix_build_fixture "$D/fix7"
+  F7=$D/fix7
+  S7=$(tix_state "$F7")
+  sh "$F7/scripts/ticket-ops.sh" open --id 20-gamma-clone --complexity C1 --title d --ledger-line "$LED_OPEN" >"$D/nn7.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S7" = "$(tix_state "$F7")" ] && grep -q '20-beta-second' "$D/nn7.log"; then
+    ok '负例 N7 同 NN 异 slug open → exit 1 零写入且报明已占完整 id（票 77 NN 唯一性）'
+  else
+    bad '负例 N7 同 NN 异 slug open → exit 1 零写入且报明已占完整 id（票 77 NN 唯一性）' "exit=$rc $(head -n 2 "$D/nn7.log" | tr '\n' '|')"
+  fi
+
+  # N8：畸形 id（NN 段不合 ^[0-9]{2,}-）→ 一并拒，零写入（NN 段提取与 id 正则一致，防绕过段查重）
+  sh "$F7/scripts/ticket-ops.sh" open --id 7-short-nn --complexity C1 --title d --ledger-line "$LED_OPEN" >/dev/null 2>&1
+  [ "$?" -eq 1 ] && [ "$S7" = "$(tix_state "$F7")" ] && ok '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）' || bad '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）' "exit/状态不符"
+
+  # 正例：同夹具换新 NN 新 slug 正常开票照旧（open 成功路径零回归）
+  sh "$F7/scripts/ticket-ops.sh" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line "$LED_OPEN" >"$D/nn-pos.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "40-delta-fourth"' "$F7/docs/issues/index.json"; then
+    ok '正例 新 NN 新 slug open → exit 0 且索引落条目（正常开票零回归，票 77 后）'
+  else
+    bad '正例 新 NN 新 slug open → exit 0 且索引落条目（正常开票零回归，票 77 后）' "exit=$rc $(head -n 2 "$D/nn-pos.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'
