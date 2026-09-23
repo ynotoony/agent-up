@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | `README.md` | 目录索引 | 说明脚本用途、用法、十七项检查、包清单数据表格式、输出格式、退出码与维护联动规则。 |
 | `check-package.sh` | 包完整性检查 | 按十七项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004；票 57 起检查 1/5/8 清单自 `package-manifest.rules` 数据读取，检查 9/10/11 以数据为比对基准；票 58 新增检查 12 规则块体模糊措辞扫描、检查 13 镜像脚本与仓根同名件 cmp；票 59 新增检查 14 能力映射一致性；票 60 新增检查 15 模板规则索引与规则块全集全等、检查 16 索引机制列受控词表、检查 17 机械行点名出处存在）；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
-| `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（票 58；承接票 54 候选 C3「Record 行级保护」口径）：`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`docs/progress.md` 冻结历史档案（任何 diff 即 FAIL）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（票 49 先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
+| `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（票 58；承接票 54 候选 C3「Record 行级保护」口径）：`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`docs/progress.md`（未迁移仓）及其迁移后继 `docs/archive/progress.md`（票 87）冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（票 49 先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
 | `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（票 59；兑现 R-DP-007 逐件登记核对）：正向＝`docs/agent/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，票 59 D2 定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed。详见下文专节。 |
 | `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010 / 票 19；票 37 S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口；票 65 S4 计数漂移哨兵：README 锚点行数↔index 条目数相等断言＋「N～M 共」「共 N 量词」计数模式扫描）；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
 | `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的只读门禁核对（REQ-20260904-011 / 票 26）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；POSIX sh、严格只读、零外部依赖。详见下文专节。 |
@@ -147,7 +147,7 @@ sh scripts/check-stale-claims.sh [repo-root] [gate|session]
 
 | 编号 | 断言模式 | 权威位置 | 校验方式 |
 | --- | --- | --- | --- |
-| S1 | Git 状态句 | `docs/progress.md` 的「Git 恢复基线」块 | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、唯一 remote 与宣称地址一致、本地 main 未被远端跟踪分支包含）；非 Git 工作区按流程退化语义输出提醒跳过。（票 37 修订：移除"工作区存在未提交改动"子项核对——该陈述为票 13 时点历史快照，`docs/progress.md` 现为冻结历史档案（零写入），清洁工作区属稳态，逐字核对构成恒触发误报（S1-1e 已知缺口）；基线块原文按"不改历史"保留。） |
+| S1 | Git 状态句 | `docs/archive/progress.md` 的「Git 恢复基线」块（2026-09-23 票 87 迁址自 docs/progress.md） | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、唯一 remote 与宣称地址一致、本地 main 未被远端跟踪分支包含）；非 Git 工作区按流程退化语义输出提醒跳过。（票 37 修订：移除"工作区存在未提交改动"子项核对——该陈述为票 13 时点历史快照，`docs/progress.md` 现为冻结历史档案（零写入），清洁工作区属稳态，逐字核对构成恒触发误报（S1-1e 已知缺口）；基线块原文按"不改历史"保留。） |
 | S2 | 发布状态句 | 根 `README.md`「公开包已发布」宣称行 + 包内 README 安装行（包前缀自 `delivery.rules` dp_payload_root 派生，票 72） | machine：文档宣称的仓库地址与实际 remote 配置归一化比对（remote 名自 dp_payload_remote 读取）、包内安装行同源核对；远端可达性/可见性本地不核验（不出网）→ reminder。 |
 | S3 | frontier 句 | `docs/issues/index.json`（票状态真相源）+ `docs/progress-current.md`（现役状态投影） | machine：投影 vs 索引比对——优先调用 `generate-progress.sh --check`（exit 0 一致；exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明（不计入失败）。（票 37 修订：原"`docs/issues/README.md` 表行逐票对照票面状态"实现退役——README 状态列已定位为人工登记投影（票 35 起），与索引冲突时以索引为准。） |
 | S4 | 计数漂移句 | `docs/issues/README.md` 目录清单锚点行（「任务票 NN；」）+ `docs/issues/index.json` 任务条目；`docs/` 树 md + `docs/agent/artifacts.yaml` 现行面计数措辞 | machine：两断言（票 65，详见下文 S4 小节）——①数量相等：README「任务票 NN；」锚点行数与 index「`"id": "NN-…"`」条目数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：「N～M 共」「共 N 量词」命中输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；扫描面排除与豁免表见下文 S4 小节。 |
@@ -185,7 +185,7 @@ check-stale-claims: 会话启动模式（不拦截）：过期断言 N 处，提
 - S4-① 数量相等：`docs/issues/README.md` 目录清单「任务票 <NN>；」锚点行数（ticket-ops 写入锚）与 `docs/issues/index.json` 任务条目数（`"id": "<NN>-…"` 形态）机械相等，不等即 STALE 指名两侧计数（ticket-ops 双写锁定面的漂移检测，手工删行/加行即报）；README/索引缺失或锚点零命中 WARN 跳过不硬猜（随既有退化语义）。
 - S4-② 计数模式扫描：扫描面＝`docs/` 树 `*.md` ＋ `docs/agent/artifacts.yaml`，出现「<数字>～<数字> 共」或「共 <数字> <量词>（张/条/项/件/个）」即输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；模式为 ERE、全程 LC_ALL=C 字节语义。
 
-扫描面排除（历史真陈述/机器生成面非现行声明，命中不报；2026-09-21 协调层裁决 O3 收窄）：`docs/issues/*.md`（票面历史文件——历史票文不改写原则）、`docs/agent/runs/`（run record 投影）、`docs/architecture/generated/`（机器生成投影面）、`docs/progress.md`（冻结历史档案——指针注记后零写入）、`docs/changes.md`（只追加账本——历史条目不可改写）、`docs/progress-current.md`（现役状态投影——Derived 生成器独占写）。
+扫描面排除（历史真陈述/机器生成面非现行声明，命中不报；2026-09-21 协调层裁决 O3 收窄）：`docs/issues/*.md`（票面历史文件——历史票文不改写原则）、`docs/agent/runs/`（run record 投影）、`docs/architecture/generated/`（机器生成投影面）、`docs/archive/progress.md`（冻结历史档案——指针注记后零写入；2026-09-23 票 87 迁址）、`docs/archive/changes.md`（只追加账本冻结件——历史条目不可改写；2026-09-23 票 87 迁址）、`docs/progress-current.md`（现役状态投影——Derived 生成器独占写）。
 
 豁免表（脚本内 `s4_load_exempts` 数据节，唯一承载点）：每条一行 `s4_exempt <仓库根相对路径> <行号> <理由>`，理由必填、显式登记、无静默豁免；命中行增删致行号漂移时须复核更新或删除登记（对齐 `package-manifest.rules` vague-exemptions 维护口径）。当前空表交付（票 65 裁决）＝现行面全数字免费，本表为未来正当例外预留。
 
@@ -499,7 +499,7 @@ install: <用法或环境错误说明>   # stderr，exit 2
 
 ## check-append-only.sh（Record 只追加守卫）
 
-Record 只追加守卫（票 58；承接票 54 候选 C3「Record 行级保护」口径）：对仓库记录层两类写入语义做只读核对——`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 为只追加账本（Record 类，一行一事实，懒创建）：工作树内容相对 HEAD 旧 blob 必须为尾部追加（旧 blob 内容为新内容前缀），中间插入/改写历史行/截断/删除即违规，FAIL 指名文件与首个违规行号（新文件行号）；`docs/progress.md` 为冻结历史档案（指针注记后零写入，development-process §11）：任何 diff 即违规。核对基线＝工作树 vs HEAD（`git diff` 同口径；未跟踪且 HEAD 无同名的新文件按懒创建全追加语义放行）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令 rev-parse/cat-file/show，不含任何 Git 写操作）、fail-closed。可作 verify 命令加入门禁清单（如快道合同 `verify:` 行）。
+Record 只追加守卫（票 58；承接票 54 候选 C3「Record 行级保护」口径）：对仓库记录层两类写入语义做只读核对——`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 为只追加账本（Record 类，一行一事实，懒创建）：工作树内容相对 HEAD 旧 blob 必须为尾部追加（旧 blob 内容为新内容前缀），中间插入/改写历史行/截断/删除即违规，FAIL 指名文件与首个违规行号（新文件行号）；`docs/progress.md`（未迁移仓）及其迁移后继 `docs/archive/progress.md`（票 87，2026-09-23）为冻结历史档案（指针注记后零写入，development-process §11）：任何 diff 即违规，迁移窗口（HEAD 尚无后继路径）以后继工作树内容与 HEAD 旧路径逐字节一致为承继通过。核对基线＝工作树 vs HEAD（`git diff` 同口径；未跟踪且 HEAD 无同名的新文件按懒创建全追加语义放行）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令 rev-parse/cat-file/show，不含任何 Git 写操作）、fail-closed。可作 verify 命令加入门禁清单（如快道合同 `verify:` 行）。
 
 ### 用法
 
@@ -516,6 +516,8 @@ sh scripts/check-append-only.sh <repo-root>
 check-append-only: OK: <文件>（尾部追加 N 行，历史前缀核对通过）
 check-append-only: OK: <文件>（工作树新建，全部行为追加，懒创建语义）
 check-append-only: OK: <文件>（与 HEAD 一致，零 diff）
+check-append-only: OK: <后继>（迁移承继：与 HEAD <旧路径> 逐字节一致，票 87）
+check-append-only: OK: <旧路径>（已迁移至 <后继>，内容承继核对通过，票 87）
 check-append-only: SKIP: <文件>（不存在，懒创建语义）
 check-append-only: WARN: 无 Git 基线（无 HEAD），只追加与冻结核对跳过（票 49 先例：不硬猜基线）
 check-append-only: FAIL: <文件> <违规描述（含首个违规行号）>
@@ -653,7 +655,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `check-package` | 12/48/57/58/59/60 | 十七项正例输出逐行逐一相等（含票 48 检查项 8、票 57 检查 9/10/11、票 58 检查 12/13、票 59 检查 14、票 60 检查 15/16/17——检查 13 PASS 行＝仓根镜像在位语境比对 2 对）＋必需件缺失负例（mktemp 包副本删件）exit 1 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动（R-DP-004 点名 generate-progress.sh）＋检查 11 逐处全等负例（§2.5 单处删值，FAIL 行按行号指名）＋票 58 负例：检查 12 注入词表首词入规则块体 exit 1 指名文件:行号（词自夹具包 manifest 提取，harness 零词面字面量）、注入行登记行级豁免后不报 exit 0（豁免生效）、豁免登记行无命中报失效豁免 exit 1、检查 13 仓根镜像同名件篡改 exit 1 指名文件、仓根无 scripts/ 时静默跳过（无输出行）＋票 59 负例：检查 14 注入未登记基元名入角色声明行 exit 1 指名文件、删除一基元名出角色声明行 exit 1 指名文件＋票 60 负例：索引删一行 exit 1 指名缺行、索引加全集外 ID exit 1 指名多行、机制列写未登记值 exit 1 指名、机械行点名不存在脚本 exit 1 指名、机械行点名检查项号超界 exit 1 指名、外定义行删标记词 exit 1 算漏行、mechanism-vocab 词表损坏 exit 2 | 21 |
 | `check-artifacts` | 59/72 | check-artifacts.sh 正负例：全对账正例 exit 0（含懒创建面登记暂缺 SKIP 行与豁免命中不报）、登记目标缺失 exit 1 指名条目、受管文件未登记 exit 1 指名路径、豁免目录内未登记文件 exit 0 不报、票 72 校准豁免迁移三例（delivery.rules 声明 dp_artifact_exempt → generated 不报 exit 0；无 delivery.rules → 豁免消失按未登记 FAIL；delivery.rules 解析破坏 → exit 2）、登记解析破坏 exit 2 指名行与条目、无参数／repo-root 不存在 exit 2 | 11 |
 | `stale-claims` | 72 | check-stale-claims.sh 配置点亮正负例：未点亮（无 delivery.rules）→ S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2；点亮（dp_stale_lit S1＋S2 无 payload 节）→ 无 SKIP 行、断言逻辑执行（STALE 行证明）、汇总登记数 4（点亮数＋通用条数）；delivery.rules 解析破坏（未知指令）→ exit 2 指名违规行 | 3 |
-| `append-only` | 58 | check-append-only.sh 正负例：changes.jsonl 尾部追加 exit 0（OK 行含追加计数）、micro.jsonl 同口径追加＋progress.md 零 diff exit 0、中间插入 exit 1 指名文件与首个违规行号、改写历史行／截断／工作树删除 exit 1、progress.md 篡改 exit 1、micro.jsonl 中间插入 exit 1（同口径）、无 Git 基线 WARN 退出 0、懒创建（新建账本 OK＋缺失 SKIP）exit 0、用法负例（无参数／多参数／非 Git 目录 exit 2） | 13 |
+| `append-only` | 58/87 | check-append-only.sh 正负例：changes.jsonl 尾部追加 exit 0（OK 行含追加计数）、micro.jsonl 同口径追加＋progress.md 零 diff exit 0、中间插入 exit 1 指名文件与首个违规行号、改写历史行／截断／工作树删除 exit 1、progress.md 篡改 exit 1、micro.jsonl 中间插入 exit 1（同口径）、无 Git 基线 WARN 退出 0、懒创建（新建账本 OK＋缺失 SKIP）exit 0、用法负例（无参数／多参数／非 Git 目录 exit 2）、票 87 迁移承继三例：迁移窗口 exit 0 双 OK（已迁移＋迁移承继）、迁移落位稳态 exit 0（后继 OK＋旧路径 SKIP）、承继不一致 exit 1 双 FAIL（后继新内容＋旧路径缺失） | 16 |
 | （仅 all）注入自检 | 49 | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 
 断言计数为 2026-09-21 票 60 交付时点值，随维护增减（suite 汇总行按实际计数输出）。

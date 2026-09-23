@@ -231,7 +231,8 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 # ---------------------------------------------------------------------------
 # 登记表（首批三条，结构：断言模式 | 权威位置 | 校验方式）
 #
-# S1 Git 状态句 | docs/progress.md 的「Git 恢复基线」块
+# S1 Git 状态句 | docs/archive/progress.md 的「Git 恢复基线」块（2026-09-23 票 87
+#    | 迁址自 docs/progress.md）
 #    | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、
 #      唯一 remote 与宣称地址一致、本地 main 未被他者远端分支包含）；非 Git 工作区按
 #      流程退化语义输出提醒跳过。（2026-09-18 票 37 修订：移除"工作区存在未提交改动"
@@ -257,7 +258,7 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      协调层 2026-09-21 裁决 O3：历史真陈述/机器生成面收窄出扫描面，现行面全数字
 #      免费、豁免表空表交付）。
 
-progress_rel='docs/progress.md'
+progress_rel='docs/archive/progress.md'
 readme_rel='README.md'
 # S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，
 # 引擎零包前缀硬编码；未声明 payload 节时为空，S2 安装行子项按退化语义 WARN 跳过）
@@ -484,8 +485,8 @@ check_s3() {
 #        docs/issues/*.md              票面历史文件——历史票文不改写原则
 #        docs/agent/runs/              run record 投影——运行记录面
 #        docs/progress-current.md      现役状态投影——Derived 生成器独占写
-#        docs/progress.md              冻结历史档案——指针注记后零写入
-#        docs/changes.md               只追加账本——历史条目不可改写
+#        docs/archive/progress.md      冻结历史档案——指针注记后零写入（票 87 迁址）
+#        docs/archive/changes.md       只追加账本冻结件——历史条目不可改写（票 87 迁址）
 #        docs/architecture/generated/  机器生成投影面——与 runs/ 同性质（票 59 口径）
 #      已知限制：文件清单经 find 逐名循环，路径含空白或冒号的病态形态不受理。
 #      裁量留痕（票 65）：现行文本预扫 15 命中＞3 停止线 → 阻塞报告 → 协调层裁决
@@ -604,7 +605,7 @@ check_s4_scan() {
     -type f -name '*.md' -print 2>/dev/null)
   for _s4f in $_s4_files; do
     case $_s4f in
-      "$repo_root/docs/progress.md" | "$repo_root/docs/changes.md" | "$repo_root/docs/progress-current.md") continue ;;
+      "$repo_root/docs/archive/progress.md" | "$repo_root/docs/archive/changes.md" | "$repo_root/docs/progress-current.md") continue ;;
     esac
     [ -f "$_s4f" ] || continue
     _scan_file "$_s4f"
