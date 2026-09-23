@@ -22,7 +22,11 @@
 #        检查 8 预期串计数随动；新增 stale-claims 套件（S1/S2 配置点亮：未点亮 SKIP
 #        不计数、点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化，
 #        独立 suite 承载并在 README 声明）；票 77（NN 唯一性：ticket-ops open 补同 NN 异
-#        slug 撞号拒开 fail-closed，套件补 N7 同 NN 拒＋N8 畸形 id 拒＋新 NN 正开三断言）。
+#        slug 撞号拒开 fail-closed，套件补 N7 同 NN 拒＋N8 畸形 id 拒＋新 NN 正开三断言，
+#        正例本体随票 79 前置校验落位）；票 79 ticket-ops 套件加 open 本体 schema 校验
+#        ＋理由非空断言（正例夹具落位含理由两字段的本体照旧放过；负例＝缺
+#        complexity_reason／priority_reason 空值／缺本体文件，均 exit 1 零写入；夹具增
+#        schema 权威落位，python3 列为套件环境依赖）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -74,6 +78,7 @@ if [ -z "$PKG_ROOT" ]; then
 fi
 [ -d "$PKG_ROOT" ] || { printf 'test-record-layer: 包根不存在: %s\n' "$PKG_ROOT" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'test-record-layer: git 不可用——module-map/ticket-ops 夹具依赖被测脚本声明的 Git\n' >&2; exit 2; }
+command -v python3 >/dev/null 2>&1 || { printf 'test-record-layer: python3 不可用——ticket-ops 套件 open 本体 schema 校验依赖（票 79）\n' >&2; exit 2; }
 
 # ---- 计数与输出 ----
 
@@ -383,12 +388,35 @@ suite_module_map() {
 # suite: ticket-ops（票 41/47 场景沉淀：生成项目语境全链＋fail-closed 负例）
 # ============================================================
 
+tix_body() {
+  # $1=本体落盘路径 $2=票 id：最小过 schema 的 task 票本体（含理由两字段，票 79 正例形态；
+  # 字段各占一行便于负例 sed 逐字段破坏）
+  cat > "$1" <<EOF
+{
+  "id": "$2",
+  "kind": "task",
+  "title": "fixture ticket $2",
+  "created_at": "2026-09-19",
+  "complexity": "C1",
+  "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:N/A,O:N/A",
+  "blocked_by": [],
+  "complexity_reason": "fixture 定级理由（正例，非空）",
+  "priority_reason": "fixture 优先级理由（正例，非空）"
+}
+EOF
+}
+
 tix_build_fixture() {
-  # $1=夹具项目根（生成项目语境：scripts/ 落位两件，docs/issues 三载体就绪）
+  # $1=夹具项目根（生成项目语境：scripts/ 落位两件，docs/issues 三载体就绪；
+  # 票 79 起另落位 schema 权威与被 open 票的本体文件）
   F=$1
   rm -rf "$F"
   mkdir -p "$F/scripts" "$F/docs/issues"
   cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$F/scripts/"
+  SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
+  [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
+  mkdir -p "$F/agent-up/references/schemas"
+  cp "$SCHEMA_SRC" "$F/agent-up/references/schemas/ticket-record.schema.json"
   cat > "$F/docs/issues/index.json" <<'EOF'
 {
   "issues": [
@@ -477,6 +505,11 @@ suite_ticket_ops() {
   mkdir -p "$D"
   tix_build_fixture "$D/fix"
   F=$D/fix
+  # 票 79：被 open 票的本体文件落位（正例 30 全链＋负例 N1 的 10／N3 的 40，
+  # 保证各负例仍命中原语义路径而非被本体缺失提前拦截）
+  tix_body "$F/docs/issues/30-gamma-third.json" 30-gamma-third
+  tix_body "$F/docs/issues/10-alpha-first.json" 10-alpha-first
+  tix_body "$F/docs/issues/40-delta-fourth.json" 40-delta-fourth
 
   LED_OPEN='{"date": "2026-09-20", "kind": "scope", "scope": "docs/issues", "decision": "fixture open 30", "evidence_ref": "docs/issues/30-gamma-third.json"}'
   LED_TAKE='{"date": "2026-09-20", "kind": "scope", "scope": "docs/issues", "decision": "fixture take 30", "evidence_ref": "docs/issues/30-gamma-third.json"}'
@@ -534,6 +567,7 @@ suite_ticket_ops() {
   # N5：索引一条目一行排版破坏（条目缺 updated_at）→ 预检停止，零写入且无投影
   tix_build_fixture "$D/fix5"
   F5=$D/fix5
+  tix_body "$F5/docs/issues/40-delta-fourth.json" 40-delta-fourth
   sed 's/"updated_at": "2026-09-19T10:00"/"note": "排版破坏"/' "$F5/docs/issues/index.json" > "$F5/idx.tmp" && mv "$F5/idx.tmp" "$F5/docs/issues/index.json"
   S5=$(tix_state "$F5")
   sh "$F5/scripts/ticket-ops.sh" open --id 40-delta-fourth --complexity C0 --title d --ledger-line "$LED_OPEN" >/dev/null 2>&1
@@ -549,6 +583,8 @@ suite_ticket_ops() {
   tix_build_fixture "$D/fix7"
   F7=$D/fix7
   S7=$(tix_state "$F7")
+  # 票 79 起本体校验前置：gamma-clone 本体先落位（tix_body 正例形态含理由两字段），流程方能到达 NN 段查重
+  tix_body "$F7/docs/issues/20-gamma-clone.json" 20-gamma-clone
   sh "$F7/scripts/ticket-ops.sh" open --id 20-gamma-clone --complexity C1 --title d --ledger-line "$LED_OPEN" >"$D/nn7.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S7" = "$(tix_state "$F7")" ] && grep -q '20-beta-second' "$D/nn7.log"; then
@@ -561,13 +597,48 @@ suite_ticket_ops() {
   sh "$F7/scripts/ticket-ops.sh" open --id 7-short-nn --complexity C1 --title d --ledger-line "$LED_OPEN" >/dev/null 2>&1
   [ "$?" -eq 1 ] && [ "$S7" = "$(tix_state "$F7")" ] && ok '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）' || bad '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）' "exit/状态不符"
 
-  # 正例：同夹具换新 NN 新 slug 正常开票照旧（open 成功路径零回归）
+  # 正例：同夹具换新 NN 新 slug 正常开票照旧（open 成功路径零回归；票 79 起本体先落位——
+  # tix_body 正例形态含理由两字段，过本体校验后走完全链）
+  tix_body "$F7/docs/issues/40-delta-fourth.json" 40-delta-fourth
   sh "$F7/scripts/ticket-ops.sh" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line "$LED_OPEN" >"$D/nn-pos.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '"id": "40-delta-fourth"' "$F7/docs/issues/index.json"; then
     ok '正例 新 NN 新 slug open → exit 0 且索引落条目（正常开票零回归，票 77 后）'
   else
     bad '正例 新 NN 新 slug open → exit 0 且索引落条目（正常开票零回归，票 77 后）' "exit=$rc $(head -n 2 "$D/nn-pos.log" | tr '\n' '|')"
+  fi
+
+  # ---- 票 79 断言：open 本体 schema 校验＋理由非空（拒缺理由＋放过正常）----
+  # 放过正常＝本套件正例全链 open（本体含理由两字段）照旧 exit 0 并全链落地；
+  # 拒缺理由三负例（N-r1 缺 complexity_reason／N-r2 priority_reason 空值／N-r3 缺本体）
+  # 均 exit 1、零写入，且报文指名缺失项。
+  tix_body "$F/docs/issues/50-epsilon-fifth.json" 50-epsilon-fifth
+  sed '/"complexity_reason"/d' "$F/docs/issues/50-epsilon-fifth.json" > "$D/b1.tmp" && mv "$D/b1.tmp" "$F/docs/issues/50-epsilon-fifth.json"
+  S79=$(tix_state "$F")
+  sh "$F/scripts/ticket-ops.sh" open --id 50-epsilon-fifth --complexity C1 --title eps --ledger-line "$LED_OPEN" >"$D/nr1.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S79" = "$(tix_state "$F")" ] && grep -q 'complexity_reason' "$D/nr1.log"; then
+    ok '负例 N-r1 本体缺 complexity_reason → exit 1 零写入且报文指名字段（票 79）'
+  else
+    bad '负例 N-r1 本体缺 complexity_reason → exit 1 零写入且报文指名字段（票 79）' "exit=$rc $(head -n 2 "$D/nr1.log" | tr '\n' '|')"
+  fi
+
+  tix_body "$F/docs/issues/51-zeta-sixth.json" 51-zeta-sixth
+  sed 's/"priority_reason": "fixture 优先级理由（正例，非空）"/"priority_reason": ""/' "$F/docs/issues/51-zeta-sixth.json" > "$D/b2.tmp" && mv "$D/b2.tmp" "$F/docs/issues/51-zeta-sixth.json"
+  sh "$F/scripts/ticket-ops.sh" open --id 51-zeta-sixth --complexity C1 --title zeta --ledger-line "$LED_OPEN" >"$D/nr2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S79" = "$(tix_state "$F")" ] && grep -q 'priority_reason' "$D/nr2.log"; then
+    ok '负例 N-r2 本体 priority_reason 空值 → exit 1 零写入且报文指名字段（票 79）'
+  else
+    bad '负例 N-r2 本体 priority_reason 空值 → exit 1 零写入且报文指名字段（票 79）' "exit=$rc $(head -n 2 "$D/nr2.log" | tr '\n' '|')"
+  fi
+
+  sh "$F/scripts/ticket-ops.sh" open --id 60-eta-seventh --complexity C1 --title eta --ledger-line "$LED_OPEN" >"$D/nr3.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S79" = "$(tix_state "$F")" ] && grep -q '新票本体不存在' "$D/nr3.log"; then
+    ok '负例 N-r3 本体文件缺失 → exit 1 零写入（先落位本体再开票，票 79）'
+  else
+    bad '负例 N-r3 本体文件缺失 → exit 1 零写入（先落位本体再开票，票 79）' "exit=$rc $(head -n 2 "$D/nr3.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'

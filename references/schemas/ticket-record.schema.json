@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/ticket-record.schema.json",
   "title": "Agent Up ticket record schema",
-  "description": "任务票/请求（REQ）本体机器 schema（票 38 定稿，2026-09-18）。落盘位置：docs/issues/<NN>-<slug>.json（task）与 docs/issues/<REQ-id>.json（request，同目录承载）。自票 38 起新开票/新 REQ 以本 schema 的 JSON 文件为唯一本体形态；此前形态＝Markdown＋YAML frontmatter（SPEC-02 §5.1 历史形态），存量 Markdown 票 01～38 与既有 REQ 冻结零改写。本 schema 不设 status 字段（task 与 request 一律）：票状态唯一真相源＝docs/issues/index.json（单写，一条目一行，schema 见同目录 issue-index.schema.json），票正文 Status 行由脚本自索引生成（投影打印件）、目录清单状态列为人工登记投影，状态冲突以索引为准（票 33 终裁 T4/T10）；存量 REQ 的 frontmatter status 为历史形态保留。合同散文要素（goal/context/verification/output_contract 及 scope/acceptance 等数组元素）以 JSON 字符串承载，换行以 \\n 转义。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。",
+  "description": "任务票/请求（REQ）本体机器 schema（票 38 定稿，2026-09-18）。落盘位置：docs/issues/<NN>-<slug>.json（task）与 docs/issues/<REQ-id>.json（request，同目录承载）。自票 38 起新开票/新 REQ 以本 schema 的 JSON 文件为唯一本体形态；此前形态＝Markdown＋YAML frontmatter（SPEC-02 §5.1 历史形态），存量 Markdown 票 01～38 与既有 REQ 冻结零改写。本 schema 不设 status 字段（task 与 request 一律）：票状态唯一真相源＝docs/issues/index.json（单写，一条目一行，schema 见同目录 issue-index.schema.json），票正文 Status 行由脚本自索引生成（投影打印件）、目录清单状态列为人工登记投影，状态冲突以索引为准（票 33 终裁 T4/T10）；存量 REQ 的 frontmatter status 为历史形态保留。合同散文要素（goal/context/verification/output_contract 及 scope/acceptance 等数组元素）以 JSON 字符串承载，换行以 \\n 转义。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。票 79（2026-09-22）起 task 票另必备 complexity_reason/priority_reason（定级/优先级理由，非空断言由 ticket-ops open 机械强制——校验只 open 时点生效，存量票零回扫零改写；本 schema 的 required/allOf 集即 open 校验器的提取权威）。",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "kind", "title", "created_at"],
@@ -35,6 +35,16 @@
       "type": "array",
       "items": { "type": "string", "pattern": "^[0-9]{2,}-[a-z0-9-]+$" },
       "description": "被依赖票 id 列表，无依赖为空数组；task 必备，request 省略（其依赖由 depends_on 承载，历史口径）。"
+    },
+    "complexity_reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "定级理由（票 79 起 task 必备）：为何判此 complexity 档的陈述（继承历史 Markdown 形态 Complexity reason 行与账本开票行反对理由落盘惯例）；只断言非空，内容质量判断留人；ticket-ops open 时点机械强制，存量票零回扫零改写。"
+    },
+    "priority_reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "优先级理由（票 79 起 task 必备）：为何此时开此票/此顺位的陈述（判断面最小化波次新立，落盘自证）；只断言非空，内容质量判断留人；ticket-ops open 时点机械强制，存量票零回扫零改写。"
     },
     "estimated_time": {
       "type": "string",
@@ -120,7 +130,7 @@
   "allOf": [
     {
       "if": { "properties": { "kind": { "const": "task" } }, "required": ["kind"] },
-      "then": { "required": ["complexity", "profile", "blocked_by"] }
+      "then": { "required": ["complexity", "profile", "blocked_by", "complexity_reason", "priority_reason"] }
     }
   ]
 }

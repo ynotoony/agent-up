@@ -4,13 +4,15 @@
 #        docs/issues/README.md 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，
 #        人工登记投影，票 37 口径）、docs/changes.jsonl 记录账本（键序
 #        date,kind,scope,decision,evidence_ref，一行一事实，禁裸换行）。
-# Output: 协调层票务面写入——open＝校验＋索引新增条目（status=ready）＋README 追加目录
+# Output: 协调层票务面写入——open＝新票本体 schema 校验＋理由非空断言（票 79，只 open
+#         时点生效，存量零回扫）＋校验＋索引新增条目（status=ready）＋README 追加目录
 #         清单行＋账本追加行；take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
 #         状态 token 替换＋账本追加行；三子命令收尾调 scripts/generate-progress.sh 再生
 #         docs/progress-current.md 现役状态投影并 --check 核对。
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
-#      零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）；fail-closed：校验先于写入，
+#      零外部依赖（仅 POSIX 标准工具与内建，无 jq；票 79 起 open 本体 schema 校验另用
+#      python3 标准库）；fail-closed：校验先于写入，
 #      索引排版破坏、README 行缺失或锚点不唯一、账本行不合键序、同 NN 异 slug 撞号
 #      （票 77）即停止不写；收尾生成器
 #      缺失或 --check 不过即整体失败退出非零，已写部分如实报告。职责边界：只做票务面
@@ -32,8 +34,11 @@ usage() {
 参数:
   repo-root      仓库根目录；缺省取脚本所在目录的上一级。
 命令:
-  open           开票：校验后写索引条目（status=ready）＋issues-README 目录清单追加行
-                 ＋账本追加行，收尾投影再生＋--check。选项（前四必选）:
+  open           开票：先过新票本体校验（docs/issues/<id>.json 须已落位并过
+                 ticket-record.schema.json 校验＋定级/优先级理由非空断言，票 79；缺本体
+                 或校验不过即 fail-closed 零写入），再写索引条目（status=ready）＋
+                 issues-README 目录清单追加行＋账本追加行，收尾投影再生＋--check。
+                 选项（前四必选）:
                    --id <NN-slug>            票 id（^[0-9]{2,}-[a-z0-9-]+$；须不在索引中且 NN 段未被
                              占用——同 NN 异 slug 撞号拒开，票 77）
                    --complexity <C0-C3>      复杂度档位
@@ -191,6 +196,9 @@ esac
 index_file="${repo_root}/docs/issues/index.json"
 readme_file="${repo_root}/docs/issues/README.md"
 ledger_file="${repo_root}/docs/changes.jsonl"
+# 票 79：open 本体落盘位与 schema 权威（development-process §5.2 开票形态注记）
+ticket_file="${repo_root}/docs/issues/${id}.json"
+schema_file="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
 
 [ -f "${index_file}" ] || die1 "索引文件不存在: ${index_file}（票状态真相源缺失，fail-closed）"
 [ -r "${index_file}" ] || die1 "索引文件不可读: ${index_file}"
@@ -309,6 +317,99 @@ readme_token_check() {
   ' "${readme_file}"
 }
 
+ticket_body_check() {
+  # open 专属预检（票 79）：新票 JSON 本体过 ticket-record.schema.json 校验＋理由非空
+  # 断言——required 集（顶层＋allOf if kind=task then）自 schema 文件现场提取，schema 为
+  # 唯一权威；非空＝字符串 strip 后非空（blocked_by 须数组，空数组合法＝无依赖）；另断言
+  # 本体 id 与 --id 一致（防校验错文件）。只读零写入；任何不过即 exit 1（报文指名缺失项）。
+  command -v python3 >/dev/null 2>&1 || \
+    die1 'python3 不可用——open 本体 schema 校验无法执行（fail-closed；票 79 起为本体校验依赖）'
+  [ -f "${ticket_file}" ] || \
+    die1 "新票本体不存在: docs/issues/${id}.json——票 79 起 open 须先落位过 schema 的票 JSON 本体再开票"
+  [ -r "${ticket_file}" ] || die1 "新票本体不可读: ${ticket_file}"
+  [ -f "${schema_file}" ] || \
+    die1 "schema 文件不存在: ${schema_file}（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，development-process §5.2）"
+  [ -r "${schema_file}" ] || die1 "schema 文件不可读: ${schema_file}"
+  python3 - "${ticket_file}" "${schema_file}" "${id}" <<'PYEOF'
+import json
+import sys
+
+ticket_path, schema_path, want_id = sys.argv[1], sys.argv[2], sys.argv[3]
+
+
+def fail(msg):
+    sys.stderr.write(f"ticket-ops: FAIL: {msg}\n")
+    sys.exit(1)
+
+
+try:
+    with open(ticket_path, "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except json.JSONDecodeError as exc:
+    fail(f"新票本体非合法 JSON: docs/issues/{want_id}.json（第 {exc.lineno} 行 {exc.msg}）")
+except OSError as exc:
+    fail(f"新票本体不可读: {ticket_path}（{exc.strerror}）")
+
+if not isinstance(body, dict):
+    fail(f"新票本体顶层须为 JSON object: {ticket_path}")
+
+try:
+    with open(schema_path, "r", encoding="utf-8") as fh:
+        schema = json.load(fh)
+except (OSError, json.JSONDecodeError) as exc:
+    fail(f"schema 文件不可读或非合法 JSON: {schema_path}（{exc}）")
+
+if not isinstance(schema, dict) or not isinstance(schema.get("required"), list):
+    fail(f"schema 形状不合预期（缺顶层 required 数组）: {schema_path}——fail-closed")
+
+problems = []
+
+body_id = body.get("id")
+if body_id != want_id:
+    problems.append(f"本体 id 与 open --id 不一致（本体 {body_id!r} != --id {want_id!r}）")
+
+kind_props = (schema.get("properties") or {}).get("kind") or {}
+kind_enum = kind_props.get("enum") if isinstance(kind_props, dict) else None
+body_kind = body.get("kind")
+if isinstance(kind_enum, list) and body_kind is not None and body_kind not in kind_enum:
+    problems.append(f"kind 不在 schema 枚举内: {body_kind!r}")
+
+
+def check_required(names, scope):
+    # 非空口径：字符串 strip 后非空（空白串按空拒，票 79 只断言非空不做内容判断）
+    for name in names:
+        if name not in body:
+            problems.append(f"{scope}缺少 {name}")
+            continue
+        value = body[name]
+        if name == "blocked_by":
+            if not isinstance(value, list):
+                problems.append(f"{scope}{name} 须为数组（无依赖为空数组）")
+            continue
+        if not isinstance(value, str) or not value.strip():
+            problems.append(f"{scope}{name} 为空或非字符串（非空断言，票 79）")
+
+
+check_required(schema["required"], "顶层 ")
+
+task_required = []
+for sub in schema.get("allOf") or []:
+    if not isinstance(sub, dict):
+        continue
+    cond_props = (sub.get("if") or {}).get("properties") or {}
+    if isinstance(cond_props.get("kind"), dict) and cond_props["kind"].get("const") == "task":
+        then = sub.get("then") or {}
+        if isinstance(then.get("required"), list):
+            task_required.extend(then["required"])
+if body_kind == "task":
+    check_required(task_required, "task ")
+
+if problems:
+    fail("新票本体 schema 校验未过（" + schema_path + "）：" + "；".join(problems))
+sys.exit(0)
+PYEOF
+}
+
 # 生成器定位（收尾投影再生必需；同目录优先，PATH 回退；缺失即预检停止）
 gen_cmd=''
 if [ -f "${script_dir}/generate-progress.sh" ] && [ -r "${script_dir}/generate-progress.sh" ]; then
@@ -336,6 +437,7 @@ else
 fi
 
 if [ "${cmd}" = 'open' ]; then
+  ticket_body_check || die1 "新票本体校验未通过: docs/issues/${id}.json——未产生任何写入"
   index_check open || die1 "索引预检未通过: docs/issues/index.json（${id}）——未产生任何写入"
   index_nn_check || die1 "NN 段预检未通过: docs/issues/index.json——未产生任何写入"
   readme_row_check || die1 "issues-README 预检未通过: docs/issues/README.md——未产生任何写入"
