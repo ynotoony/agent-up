@@ -19,7 +19,7 @@
 - 三道门禁：语义变化未经用户确认不写文件；无验证证据不算完成；无独立 Review 通过不提交。规则块全景与执行机制三值索引见 §16 规则索引。
 - 分级交付道（三车道）：全三阶段（C1+，现行不变）/ 用户即 Review（C0 且含语义判断）/ 微任务道（C0 且每条验收全机械可验或纯记录维护，免票，白名单 ≤3 文件、零新建零删除）；车道由 Triage 按准入判据声明，执行体无权自选；快道收尾由零依赖 POSIX sh 道脚本承载（§6、§12.5）。
 - 两层协作：路由层（主 agent）零写入，判断任务大小与分配——理解、拆分、派发、验收；编码层（阶段执行体）判断怎么实现，按 §10 最懒可行与编程思想五问执行；委派必须给全 16 个固定字段；任何执行体不得创建下级执行体。
-- 任务状态经 `docs/issues/index.json` 单写、生成器投影至 `docs/progress-current.md`（每票一行）；`docs/progress.md` 为冻结历史档案，零写入；明细写任务票 Checkpoint 区；检查点必须可验证，不写"xx 开发中"。
+- 任务状态经 `docs/issues/index.json` 单写、生成器投影至 `docs/progress-current.md`（每票一行）；`docs/archive/progress.md` 为冻结历史档案，零写入；明细写任务票 Checkpoint 区；检查点必须可验证，不写"xx 开发中"。
 - 中断恢复只从事实出发：Session 置 `recovering` 后按八步固定顺序（AGENTS.md → progress → 任务票/Checkpoint → run record → 实际文件/Git → 重跑验证 → 判定 resume/blocked/conflict → Review 补审规则）得出结论；事实优先级四层（实际文件/测试/Git > Checkpoint/run record > progress > 聊天记录）；禁止用破坏性操作"恢复干净"。
 - 三套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）、Request（proposed/triaged/accepted/specified/ready + rejected/deferred/needs-user-decision）；写入所有权按五角色矩阵执行。
 - C2/C3、跨会话、中断、无 Git 基线或归属不明时生成 run record（`docs/agent/runs/<run-id>.json`，十三字段，机器 schema 见公开包 `references/schemas/run-record.schema.json`）；C0/C1 写任务票 Checkpoint；六条不变量是阶段出口硬门禁。
@@ -38,7 +38,7 @@
 | L1 | `docs/progress-current.md`（现役状态投影，Derived）+ 各目录 `README.md` | 当前状态与导航地图 |
 | L2 | 当前任务票、相关规格、`docs/agent/artifacts.yaml` | 任务合同与规范本体 |
 | L3 | 与改动相关的源码、测试 | 实施对象事实 |
-| L4 | 协议手册、`docs/changes.md` 历史、`docs/progress.md`（冻结历史档案）、架构资料、ADR、research | 协议细节与背景，按需加载 |
+| L4 | 协议手册、`docs/archive/changes.md` 历史、`docs/archive/progress.md`（冻结历史档案）、架构资料、ADR、research | 协议细节与背景，按需加载 |
 
 ### 2.2 任务型最小读取范围
 
@@ -87,7 +87,7 @@
 
 ## 4. 工作状态与接手
 
-任务状态的唯一当前记录＝`docs/issues/index.json`（状态真相源）＋ `docs/progress-current.md`（现役状态投影，生成器独占写）；`docs/progress.md` 为冻结历史档案（指针注记后零写入），不是对话日志。先按工作类型决定是否进入任务流程：
+任务状态的唯一当前记录＝`docs/issues/index.json`（状态真相源）＋ `docs/progress-current.md`（现役状态投影，生成器独占写）；`docs/archive/progress.md` 为冻结历史档案（指针注记后零写入），不是对话日志。先按工作类型决定是否进入任务流程：
 
 - 回答、解释、只读审查和诊断：允许只读检查，不领取任务，不修改进度，不实施修复。
 - 用户明确要求的治理或文档维护：可以不领业务任务；改变项目事实时写入对应规格或 `docs/changes.jsonl`。
@@ -218,7 +218,7 @@
 | 行为变化 | 流程、门禁、权限、验证要求、公共接口变化 | 更新协议引用与进度状态 |
 | 派生关系变化 | 生成来源、依赖关系、平台绑定变化 | 更新 `generated_from`/`depends_on`/`platform` 并校验 Derived 标注；索引条目变更即触发 `docs/progress-current.md` 投影重建（生成器重跑） |
 
-不触发：错别字与排版修正；纯追加记录（`docs/changes.jsonl`/`docs/agent/micro.jsonl` 追加行、既有项目 `docs/changes.md` 历史条目、请求追加；`docs/progress.md` 已冻结归档，零写入）。
+不触发：错别字与排版修正；纯追加记录（`docs/changes.jsonl`/`docs/agent/micro.jsonl` 追加行、既有项目 `changes.md` 历史条目（冻结归档迁居 `docs/archive/`，零写入）、请求追加；`docs/archive/progress.md` 已冻结归档，零写入）。
 
 #### R-DP-008 语义触发同步 `MUST`
 
@@ -517,7 +517,7 @@ Session（agent_session）是单次会话的易失上下文，随时可能中断
 
 1. 实际文件、测试结果、Git 状态；
 2. Checkpoint / run record；
-3. 现役状态投影 `docs/progress-current.md`（Derived）与状态真相源 `docs/issues/index.json`（`docs/progress.md` 为冻结历史档案，归 L4 背景）；
+3. 现役状态投影 `docs/progress-current.md`（Derived）与状态真相源 `docs/issues/index.json`（`docs/archive/progress.md` 为冻结历史档案，归 L4 背景）；
 4. 聊天记录。
 
 低层级信息与高层级矛盾时以高层级为准并修正低层级记录，裁决结果落盘到被修正的记录。

@@ -1029,7 +1029,8 @@ EOF
 
 # ============================================================
 # suite: append-only（票 58 场景沉淀：check-append-only.sh 正负例——只追加账本前缀
-# 语义＋progress.md 冻结＋懒创建跳过＋无 HEAD WARN＋用法退出码）
+# 语义＋progress.md 冻结＋懒创建跳过＋无 HEAD WARN＋用法退出码；票 87 增迁移承继
+# 语义三例：迁移窗口双 OK、迁移落位稳态、承继不一致负例）
 # ============================================================
 
 ao_git_commit() {
@@ -1174,6 +1175,53 @@ EARLY' "$D/n6/docs/agent/micro.jsonl" > "$D/x" && mv "$D/x" "$D/n6/docs/agent/mi
     ok '正例 P4 懒创建（新建账本 OK＋缺失 SKIP）→ exit 0'
   else
     bad '正例 P4 懒创建（新建账本 OK＋缺失 SKIP）→ exit 0' "exit=$rc"
+  fi
+
+  # 正例 P5：迁移窗口（票 87）——HEAD 有 docs/progress.md，工作树迁至
+  # docs/archive/progress.md（旧路径删除、内容逐字节承继）→ exit 0 双 OK。
+  ao_build_fixture "$D/p5"
+  mkdir -p "$D/p5/docs/archive"
+  mv "$D/p5/docs/progress.md" "$D/p5/docs/archive/progress.md"
+  sh "$AO" "$D/p5" > "$D/p5.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q 'OK: docs/archive/progress.md（迁移承继：与 HEAD docs/progress.md 逐字节一致，票 87）' "$D/p5.out" \
+    && grep -q 'OK: docs/progress.md（已迁移至 docs/archive/progress.md，内容承继核对通过，票 87）' "$D/p5.out"; then
+    ok '正例 P5 迁移窗口（HEAD 旧路径＋工作树后继逐字节承继）→ exit 0 双 OK'
+  else
+    bad '正例 P5 迁移窗口（HEAD 旧路径＋工作树后继逐字节承继）→ exit 0 双 OK' "exit=$rc"
+  fi
+
+  # 正例 P6：迁移落位稳态（票 87）——迁移入 HEAD 后再跑 → 后继 OK＋旧路径 SKIP。
+  ao_build_fixture "$D/p6"
+  mkdir -p "$D/p6/docs/archive"
+  mv "$D/p6/docs/progress.md" "$D/p6/docs/archive/progress.md"
+  ao_git_commit "$D/p6"
+  sh "$AO" "$D/p6" > "$D/p6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q 'OK: docs/archive/progress.md（与 HEAD 一致，零 diff）' "$D/p6.out" \
+    && grep -q 'SKIP: docs/progress.md（不存在）' "$D/p6.out"; then
+    ok '正例 P6 迁移落位稳态（HEAD 与工作树均为后继路径）→ exit 0（后继 OK＋旧路径 SKIP）'
+  else
+    bad '正例 P6 迁移落位稳态（HEAD 与工作树均为后继路径）→ exit 0（后继 OK＋旧路径 SKIP）' "exit=$rc"
+  fi
+
+  # 负例 N10：迁移承继不一致（票 87）——后继 ≠ HEAD 旧路径内容且旧路径工作树缺失
+  # → exit 1 双 FAIL（后继相对 HEAD 出现新内容＋旧路径工作树缺失）。
+  ao_build_fixture "$D/n10"
+  mkdir -p "$D/n10/docs/archive"
+  cp "$D/n10/docs/progress.md" "$D/n10/docs/archive/progress.md"
+  printf '篡改行\n' >> "$D/n10/docs/archive/progress.md"
+  rm -f "$D/n10/docs/progress.md"
+  sh "$AO" "$D/n10" > "$D/n10.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q 'FAIL: docs/archive/progress.md 冻结历史档案相对 HEAD 出现新内容' "$D/n10.out" \
+    && grep -q 'FAIL: docs/progress.md 冻结历史档案在 HEAD 存在但工作树缺失' "$D/n10.out"; then
+    ok '负例 N10 迁移承继不一致（后继新增内容＋旧路径缺失）→ exit 1 双 FAIL'
+  else
+    bad '负例 N10 迁移承继不一致（后继新增内容＋旧路径缺失）→ exit 1 双 FAIL' "exit=$rc"
   fi
 
   # 用法负例 N7：无参数 → exit 2；多参数 → exit 2；非 Git 目录 → exit 2
@@ -1355,8 +1403,8 @@ sc_build_fixture() {
   # 失效」STALE 行证明执行，免建完整发布面。
   R="$1/repo"
   rm -rf "$1"
-  mkdir -p "$R/docs/issues" "$R/scripts"
-  printf '# progress\n\nGit 恢复基线：占位锚点（S1 权威位置在位）\n' > "$R/docs/progress.md"
+  mkdir -p "$R/docs/issues" "$R/scripts" "$R/docs/archive"
+  printf '# progress\n\nGit 恢复基线：占位锚点（S1 权威位置在位）\n' > "$R/docs/archive/progress.md"
   printf '{"id": "90-fixture", "status": "ready", "updated_at": "2026-09-22T00:00:00Z"}\n' > "$R/docs/issues/index.json"
   printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | ready | - | 2026-09-22T00:00:00Z |\n' > "$R/docs/progress-current.md"
   printf '# issues\n\n任务票 1；\n' > "$R/docs/issues/README.md"
