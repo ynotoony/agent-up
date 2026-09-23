@@ -30,4 +30,6 @@ ip_file agent-up/scripts/check-gates.sh Conditional fast-lane '道脚本：快�
 ip_file agent-up/scripts/lane-commit.sh Conditional fast-lane '道脚本：快道合同驱动收尾（单写索引＋投影再生＋两段式提交）'
 ip_file agent-up/scripts/generate-progress.sh Conditional fast-lane '现役状态投影生成器（快道收尾由道脚本收尾件调用）'
 ip_file agent-up/scripts/ticket-ops.sh Conditional ticket-ops '票务运维单入口（open/take/flip，记录层标配）'
+ip_file agent-up/scripts/run-record.sh Conditional ticket-ops 'run record 生成器（new/seal/stats，记录层标配；票 55 本仓交付 / 票 88 存量清算入包采纳）'
+ip_file agent-up/scripts/ticket-grade.sh Conditional ticket-ops '票定级建议器（建议不裁决，记录层标配；票 78 本仓交付 / 票 88 存量清算入包采纳）'
 ip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops '回退依赖：票务收尾投影再生依赖同目录生成器（PATH 回退），目标项目未落位时一并复制'

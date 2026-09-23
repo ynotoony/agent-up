@@ -15,8 +15,9 @@
 #         pm_vague_exempt <pkg-rel-path> <行号> <理由>（检查 12 行级豁免：命中行无法安全换词
 #           时登记，理由必填；登记行无命中即失效豁免 FAIL，行号漂移须复核更新）；
 #         pm_mirror <filename>（镜像脚本单段文件名：包侧 scripts/<filename> 与包根父目录
-#           仓根 scripts/<filename> 同名件逐对 cmp——对应关系＝同名件，现状两对同源演化
-#           互为镜像，检查 13；仓根无 scripts/ 或无同名件静默跳过）；
+#           仓根 scripts/<filename> 同名件逐对 cmp——对应关系＝同名件，现状四对同源演化
+#           互为镜像（后两对票 88 存量清算采纳），检查 13；仓根无 scripts/ 或无同名件
+#           静默跳过）；
 #         pm_capability <name>（能力基元名单项：九基元名自 references/adapters/
 #           capability-contract.md §2.1 权威表现场提取登记，不自造基元，检查 14）；
 #         pm_capability_authority <pkg-rel-path>（能力权威表文件，恰一行；引擎以窄锚点
@@ -87,6 +88,8 @@ pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（票收�
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip）'
+pm_script scripts/run-record.sh script 'run record 生成器（new/seal/stats；票 55 本仓交付 / 票 88 存量清算入包采纳）'
+pm_script scripts/ticket-grade.sh script '票定级建议器（建议不裁决；票 78 本仓交付 / 票 88 存量清算入包采纳）'
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
 pm_script scripts/check-append-only.sh script 'Record 只追加守卫（票 58；票 60 补登记——检查 17 机械行点名脚本须在册）'
 pm_script scripts/check-artifacts.sh script '治理产物对账器（票 59；票 60 补登记——检查 17 机械行点名脚本须在册）'
@@ -155,10 +158,13 @@ pm_vague_exempt references/protocol/governance-format.md 82 'R-GF-003 Forbidden 
 pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden 字段＝词表权威列举处（vague-words 节依据），禁令条款内引述除外'
 
 # ==== mirrors：镜像脚本登记（检查 13；对应关系＝包侧 scripts/ 与包根父目录仓根
-#      scripts/ 的同名件，逐对 cmp；现状两对同源演化互为镜像）====
+#      scripts/ 的同名件，逐对 cmp；现状四对同源演化互为镜像，后两对票 88 存量清算
+#      采纳）====
 
 pm_mirror generate-progress.sh
 pm_mirror ticket-ops.sh
+pm_mirror run-record.sh
+pm_mirror ticket-grade.sh
 
 # ==== capability-primitives：能力基元名单与检查目标（检查 14，票 59）====
 # 九基元名自 references/adapters/capability-contract.md §2.1 权威表逐行现场提取登记
