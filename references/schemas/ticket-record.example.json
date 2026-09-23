@@ -6,7 +6,6 @@
   "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:Required,O:N/A",
   "blocked_by": [],
   "estimated_time": "0.5d（样例占位，非真实工时记录）",
-  "actual_time": "",
   "title": "42 — 样例任务票（占位，非真实任务票）",
   "created_at": "2026-09-18",
   "goal": "样例占位：本文件仅为 ticket-record.schema.json 的格式样例，字段值全部为占位，不承载真实票面数据。真实新票为过该 schema 的 JSON 文件；票状态不落本文件，单写 docs/issues/index.json。",

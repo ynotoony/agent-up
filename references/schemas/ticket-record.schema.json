@@ -51,10 +51,6 @@
       "minLength": 1,
       "description": "预计工时（票 20 档位制；C0 豁免可省略）。"
     },
-    "actual_time": {
-      "type": "string",
-      "description": "实际完成时间（票 20 去断线净工时口径）；开票至收口前写空字符串，收口面填写。"
-    },
     "title": {
       "type": "string",
       "minLength": 1,
