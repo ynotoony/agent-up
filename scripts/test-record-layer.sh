@@ -31,7 +31,12 @@
 #        replan_original/replan_replacement/replan_undone 布尔，既有五键行向后兼容）：
 #        正例四（lesson promoted_to=sop／replan 三键齐／lesson promoted_to=none 枚举边界／
 #        对照组五键 kind=change 行照旧）＋负例四（lesson 缺 promoted_to／promoted_to 越枚举／
-#        replan 缺 replan_undone／条件键序破坏，均 exit 1 零写入）进 ticket-ops 套件。
+#        replan 缺 replan_undone／条件键序破坏，均 exit 1 零写入）进 ticket-ops 套件；
+#        票 85（R-DP-033 加固：check-stale-claims 登记表增 S5 方案结论标注句——结论行
+#        file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面）：stale-claims
+#        套件登记数期望随动（未点亮 2→3、全点亮 4→5）＋S5 正负例四（新增面标注齐→
+#        exit 0；新增面缺标注→STALE 指名 file:line；存量已提交不回溯→exit 0；修改面
+#        缺标注→STALE，夹具经 git init 基线提交承载向前生效语义）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -1476,7 +1481,8 @@ suite_check_artifacts() {
 
 # ============================================================
 # suite: stale-claims（票 72 场景沉淀：S1/S2 配置点亮正负例——未点亮 SKIP 不计数、
-# 点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化）
+# 点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化；票 85 增补：
+# S5 方案结论标注句正负例四——向前生效经 git init 基线提交承载）
 # ============================================================
 
 sc_build_fixture() {
@@ -1499,6 +1505,14 @@ sc_run() {
   sh "$1/eng/check-stale-claims.sh" "$1/repo" gate
 }
 
+sc_git_baseline() {
+  # $1=夹具仓根：git init＋全量提交基线（承载 S5 向前生效语义——基线外才有新增/修改面；
+  # 配置随 progress 套件先例内联 -c，不污染全局）
+  git -C "$1" init -q
+  git -C "$1" add -A
+  git -C "$1" -c user.email=fixture@example.com -c user.name=fixture commit -qm baseline
+}
+
 suite_stale_claims() {
   CUR_SUITE='stale-claims'
   SUITE_FAILS=0
@@ -1516,15 +1530,15 @@ suite_stale_claims() {
   if [ "$rc" -eq 0 ] \
     && grep -q 'SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
     && grep -q 'SKIP: S2 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
-    && grep -q '登记表 2 条全部核对' "$D/p1.out" \
+    && grep -q '登记表 3 条全部核对' "$D/p1.out" \
     && ! grep -q '^STALE' "$D/p1.out"; then
-    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2'
+    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 3（通用条数 S3/S4/S5，票 85）'
   else
-    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
+    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 3（通用条数 S3/S4/S5，票 85）' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
   fi
 
   # 正例 P2：点亮（dp_stale_lit S1＋S2，无 payload 节）→ 无 SKIP 行、S1/S2 断言逻辑执行
-  # （S2 权威位置缺席 STALE、S1 退化 WARN）、汇总登记数 4（点亮数＋通用条数）
+  # （S2 权威位置缺席 STALE、S1 退化 WARN）、汇总登记数 5（点亮数＋通用条数 S3/S4/S5，票 85）
   sc_build_fixture "$D/p2"
   mkdir -p "$D/p2/eng"
   cp "$SC" "$D/p2/eng/check-stale-claims.sh"
@@ -1540,10 +1554,10 @@ EOF
     && ! grep -q '^SKIP: S1' "$D/p2.out" \
     && ! grep -q '^SKIP: S2' "$D/p2.out" \
     && grep -q '^STALE: README.md' "$D/p2.out" \
-    && grep -q '登记表共 4 条' "$D/p2.out"; then
-    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 4（点亮数＋通用条数）'
+    && grep -q '登记表共 5 条' "$D/p2.out"; then
+    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 5（点亮数＋通用条数 S3/S4/S5，票 85）'
   else
-    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 4（点亮数＋通用条数）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
+    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 5（点亮数＋通用条数 S3/S4/S5，票 85）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
   fi
 
   # 负例 N1：delivery.rules 解析破坏（未知指令）→ exit 2 fail-closed 指名
@@ -1557,6 +1571,69 @@ EOF
     ok '负例 N1 delivery.rules 解析破坏 → exit 2 且指名违规行'
   else
     bad '负例 N1 delivery.rules 解析破坏 → exit 2 且指名违规行' "exit=$rc"
+  fi
+
+  # 正例 P3（票 85）：S5 新增面正例——基线提交后新增扫描面文档（未跟踪），结论行带
+  # file: 出处＋轨:标注 → exit 0、零 STALE（登记表 3 条证明 S5 入表计数）
+  sc_build_fixture "$D/p3"
+  mkdir -p "$D/p3/eng" "$D/p3/repo/docs/research"
+  cp "$SC" "$D/p3/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/p3/repo"
+  printf '# 调研夹具\n\n结论：采用方案 X（出处 file:docs/research/ref.md；轨:本仓自用）\n' > "$D/p3/repo/docs/research/2026-09-24-p3.md"
+  sc_run "$D/p3" > "$D/p3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && ! grep -q '^STALE' "$D/p3.out" \
+    && grep -q '登记表 3 条全部核对' "$D/p3.out"; then
+    ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 3 条'
+  else
+    bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 3 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N2（票 85）：S5 新增面负例——新增扫描面文档结论行缺标注（列表标记变体）
+  # → exit 1 且 STALE 指名 文件:行号（AC2 口径）
+  sc_build_fixture "$D/n2"
+  mkdir -p "$D/n2/eng" "$D/n2/repo/docs/research"
+  cp "$SC" "$D/n2/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/n2/repo"
+  printf '# 调研夹具\n\n- 结论：采用方案 Y\n' > "$D/n2/repo/docs/research/2026-09-24-n2.md"
+  sc_run "$D/n2" > "$D/n2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^STALE: docs/research/2026-09-24-n2.md:3' "$D/n2.out" && grep -q '结论行缺标注（S5，票 85）' "$D/n2.out"; then
+    ok '负例 N2 S5 新增面结论行缺标注 → exit 1 且 STALE 指名 docs/research/…:3'
+  else
+    bad '负例 N2 S5 新增面结论行缺标注 → exit 1 且 STALE 指名 docs/research/…:3' "exit=$rc $(tail -n 2 "$D/n2.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P4（票 85）：S5 存量不回溯正例——无标注结论行已随基线提交、工作区清洁
+  # → 新增/修改面为空，exit 0 零 STALE（向前生效口径：存量已提交文件不回溯）
+  sc_build_fixture "$D/p4"
+  mkdir -p "$D/p4/eng" "$D/p4/repo/docs/research"
+  cp "$SC" "$D/p4/eng/check-stale-claims.sh"
+  printf '# 调研夹具\n\n结论：存量行不标注（历史零改写）\n' > "$D/p4/repo/docs/research/2026-09-24-p4.md"
+  sc_git_baseline "$D/p4/repo"
+  sc_run "$D/p4" > "$D/p4.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p4.out"; then
+    ok '正例 P4 S5 存量已提交不回溯 → exit 0 零 STALE（向前生效）'
+  else
+    bad '正例 P4 S5 存量已提交不回溯 → exit 0 零 STALE（向前生效）' "exit=$rc $(tail -n 2 "$D/p4.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N3（票 85）：S5 修改面负例——基线提交标注齐的文档，工作区追加缺标注结论行
+  # → exit 1 且 STALE 指名追加行 文件:行号（修改面在查）
+  sc_build_fixture "$D/n3"
+  mkdir -p "$D/n3/eng" "$D/n3/repo/docs/research"
+  cp "$SC" "$D/n3/eng/check-stale-claims.sh"
+  printf '# 调研夹具\n\n结论：基线行标注齐（出处 file:ref.md；轨:agent-up）\n' > "$D/n3/repo/docs/research/2026-09-24-n3.md"
+  sc_git_baseline "$D/n3/repo"
+  printf '\n结论：追加行未标注\n' >> "$D/n3/repo/docs/research/2026-09-24-n3.md"
+  sc_run "$D/n3" > "$D/n3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^STALE: docs/research/2026-09-24-n3.md:5' "$D/n3.out" && ! grep -q '^STALE: docs/research/2026-09-24-n3.md:3' "$D/n3.out"; then
+    ok '负例 N3 S5 修改面追加行缺标注 → exit 1 且 STALE 指名追加行 :5（基线行 ：3 不报）'
+  else
+    bad '负例 N3 S5 修改面追加行缺标注 → exit 1 且 STALE 指名追加行 :5（基线行 ：3 不报）' "exit=$rc $(tail -n 2 "$D/n3.out" | tr '\n' '|')"
   fi
 
   suite_summary 'stale-claims'
