@@ -9,7 +9,7 @@ owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commi
 update_policy: 能力基元与阶段表对齐 SPEC-05 §2/§3；档位加载范围权威在 read-policy.md §2.4；语义变化须用户确认并同步 SPEC-05 与 read-policy.md；本文件是 adapters/ 内宿主映射文件的共同上游
 depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加载范围权威）；被 adapters/ 内宿主映射文件依赖
 ---
-<!-- Input: SPEC-05 §2-§7 能力协议、票 06 platform 枚举定稿（neutral/zcode）、票 07 independent_review 与 run record 指针字段定稿、read-policy.md 档位表。 -->
+<!-- Input: SPEC-05 §2-§7 能力协议、platform 枚举定稿（neutral/zcode）、independent_review 与 run record 指针字段定稿、read-policy.md 档位表。 -->
 <!-- Output: 宿主能力契约手册：九能力基元、五阶段→能力表、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
 <!-- Pos: 公开包 adapters/ 能力契约手册，adapters/ 内宿主映射文件的共同上游；能力语义上游为 SPEC-05，冲突以 SPEC-05 为准；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 

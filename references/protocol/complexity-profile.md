@@ -112,7 +112,7 @@ depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPE
 - **Stop if**：既有任务合同中两项互相推断（缺独立 reason）→ 记录为缺陷并退回重新独立评估，不就地默认有效。
 - **Evidence**：任务合同中复杂度命中理由与七维 reason 各自独立成文，互不引用对方作为唯一依据。
 - **Owner**：主 agent（评估）；Review 执行体（复核）。
-- **Authority**：本手册 §1/§2；本仓库 `docs/development-process.md` §4/§5 定稿语义（票 10 Fix，2026-09-03）。
+- **Authority**：本手册 §1/§2；本仓库 `docs/development-process.md` §4/§5 定稿语义（2026-09-03）。
 
 #### R-CP-005 目标项目等价权威优先 `MUST`
 
@@ -149,5 +149,5 @@ depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPE
 - 本手册只承载两张表与正交原则；垂直切片拆票方法、委派合同与三道门禁的权威在 development-process（模板 §6/§8 与生成物对应节）；run record 生成条件语义权威在 development-process §12.4，其"C2/C3"引用以本手册 §2.1 判级为输入；C0/C1 不强制 run record，验证记录写任务票 Checkpoint。
 - 分级交付道两快道准入判据（§2.3）是 REQ-20260904-011 用户拍板语义的包内判据承载；三车道定义、道脚本与派生载体独占写的协议权威在 development-process（模板 §6 分级交付道、§12.5 道脚本承载注记），本手册不重复其语义。
 - 目标项目生成物的权威表位置由 development-process §5.2 的【按项目填写】指引声明；本手册是包内默认基线，不是对生成项目的直接约束（R-CP-005）。
-- 本手册短码 `CP` 登记于 `protocol/README.md`；`governance-format.md` §2.1 正式表的补记与 `CC`/`ZC` 一并递延（该手册正文当前冻结，沿票 09/10 先例以目录 README 登记面承载）。
+- 本手册短码 `CP` 登记于 `protocol/README.md`；`governance-format.md` §2.1 正式表的补记与 `CC`/`ZC` 一并递延（该手册正文当前冻结，以目录 README 登记面承载）。
 - 本手册自身按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。

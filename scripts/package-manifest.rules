@@ -1,4 +1,4 @@
-# Input: 包清单事实（票 57 单源化拍板；票 58/59/60 扩节）：必需入口文件、脚本必需件、.tmpl 模板清单、
+# Input: 包清单事实（单源化拍板；历次扩节）：必需入口文件、脚本必需件、.tmpl 模板清单、
 #        规则块短码登记、platform 枚举、模糊措辞词表与豁免、镜像脚本、能力基元名单与检查
 #        目标、规则索引执行机制受控词表——十节唯一承载点；
 #        check-package.sh 检查 1/5/8 的清单与计数自本表读取（引擎内硬编码清单废止），检查
@@ -16,7 +16,7 @@
 #           时登记，理由必填；登记行无命中即失效豁免 FAIL，行号漂移须复核更新）；
 #         pm_mirror <filename>（镜像脚本单段文件名：包侧 scripts/<filename> 与包根父目录
 #           仓根 scripts/<filename> 同名件逐对 cmp——对应关系＝同名件，现状四对同源演化
-#           互为镜像（后两对票 88 存量清算采纳），检查 13；仓根无 scripts/ 或无同名件
+#           互为镜像（后两对存量清算采纳），检查 13；仓根无 scripts/ 或无同名件
 #           静默跳过）；
 #         pm_capability <name>（能力基元名单项：九基元名自 references/adapters/
 #           capability-contract.md §2.1 权威表现场提取登记，不自造基元，检查 14）；
@@ -31,14 +31,14 @@
 #           §16 节头）；
 #         pm_mechanism_marker <标记词>（外定义标记词，恰一行：模板 §16 中定义于模板外
 #           手册的规则块行须在机制列显式标注本标记词，未标注算漏行，检查 15/16）。
-# Pos: 包清单数据文件（票 57；先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
+# Pos: 包清单数据文件（先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
 #      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
 #      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
 #      一致性由 check-package.sh 检查 5/9 机械核对。短码登记以各目录 README 登记面为
 #      同源（templates：AG/DP/RQ/RI/RR/RC；protocol：GF/RP/CP；adapters：AT/CC/ZC/CL/
-#      CX/PI/DS，票 57 grep 实测全集）；platform 枚举自 capability-contract.md §2.5 与
-#      artifacts-yaml.tmpl platform 字段注释区迁入（票 57）；模糊措辞词表与豁免、镜像
-#      登记的能力基元名单与检查目标为票 58/59 新增节；规则索引执行机制受控词表为票 60
+#      CX/PI/DS，grep 实测全集）；platform 枚举自 capability-contract.md §2.5 与
+#      artifacts-yaml.tmpl platform 字段注释区迁入；模糊措辞词表与豁免、镜像
+#      登记的能力基元名单与检查目标、规则索引执行机制受控词表为后续扩节
 #      新增节。结构校验口径
 #      （check-package.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不产生
 #      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
@@ -80,7 +80,7 @@ pm_entry references/schemas/run-record.schema.json
 pm_entry references/schemas/run-record.example.json
 
 # ==== scripts：脚本必需件（检查 8；成员表一致性检查 9）====
-# kind 口径差定谳（票 57）：test-record-layer.sh 定为必需件，kind 标 test-harness。
+# kind 口径差定谳：test-record-layer.sh 定为必需件，kind 标 test-harness。
 
 pm_script scripts/check-gates.sh script '道脚本：快道只读门禁核对器'
 pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾'
@@ -88,15 +88,15 @@ pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（票收�
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip）'
-pm_script scripts/run-record.sh script 'run record 生成器（new/seal/stats；票 55 本仓交付 / 票 88 存量清算入包采纳）'
-pm_script scripts/ticket-grade.sh script '票定级建议器（建议不裁决；票 78 本仓交付 / 票 88 存量清算入包采纳）'
+pm_script scripts/run-record.sh script 'run record 生成器（new/seal/stats；本仓交付后存量清算入包采纳）'
+pm_script scripts/ticket-grade.sh script '票定级建议器（建议不裁决；本仓交付后存量清算入包采纳）'
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
-pm_script scripts/check-append-only.sh script 'Record 只追加守卫（票 58；票 60 补登记——检查 17 机械行点名脚本须在册）'
-pm_script scripts/check-artifacts.sh script '治理产物对账器（票 59；票 60 补登记——检查 17 机械行点名脚本须在册）'
-pm_script scripts/export-payload.sh script '公开载荷导出单命令（票 72；delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force）'
+pm_script scripts/check-append-only.sh script 'Record 只追加守卫（补登记——检查 17 机械行点名脚本须在册）'
+pm_script scripts/check-artifacts.sh script '治理产物对账器（补登记——检查 17 机械行点名脚本须在册）'
+pm_script scripts/export-payload.sh script '公开载荷导出单命令（delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force）'
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
-pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（五 suite 常驻自检；票 57 定为必需件）'
+pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
 
@@ -158,7 +158,7 @@ pm_vague_exempt references/protocol/governance-format.md 82 'R-GF-003 Forbidden 
 pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden 字段＝词表权威列举处（vague-words 节依据），禁令条款内引述除外'
 
 # ==== mirrors：镜像脚本登记（检查 13；对应关系＝包侧 scripts/ 与包根父目录仓根
-#      scripts/ 的同名件，逐对 cmp；现状四对同源演化互为镜像，后两对票 88 存量清算
+#      scripts/ 的同名件，逐对 cmp；现状四对同源演化互为镜像，后两对存量清算
 #      采纳）====
 
 pm_mirror generate-progress.sh
@@ -166,7 +166,7 @@ pm_mirror ticket-ops.sh
 pm_mirror run-record.sh
 pm_mirror ticket-grade.sh
 
-# ==== capability-primitives：能力基元名单与检查目标（检查 14，票 59）====
+# ==== capability-primitives：能力基元名单与检查目标（检查 14）====
 # 九基元名自 references/adapters/capability-contract.md §2.1 权威表逐行现场提取登记
 # （不自造基元；引擎零基元名硬编码）。targets 预期名单为各目标现行声明面/对照表现场
 # 转录（decl＝三角色合同 required_capabilities 行；table＝五适配文件能力基元对照表，
@@ -192,7 +192,15 @@ pm_capability_target references/adapters/codex.md table 'inspect,search,read,edi
 pm_capability_target references/adapters/pi.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
 pm_capability_target references/adapters/dsh.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
 
-# ==== mechanism-vocab：规则索引执行机制受控词表（检查 15/16/17，票 60）====
+# ==== ticket-citation-ban：包内票号索引禁令豁免（检查 18）====
+# 扫描面＝包内全部 *.md / *.tmpl / *.json / *.rules（*.sh 代码面不扫——断言名/注释语境
+# 为不腐烂载体，扫禁归后续裁决）；模式＝「票 ?[0-9]{2,}」字面正则（本仓票号索引引用，
+# 溯源改由 git commit message 与票本承载，citation-rot 定稿）。本节登记行级豁免：
+# pm_cite_exempt <pkg-rel-path> <行号> <理由>（理由必填；登记行无命中即失效豁免
+# FAIL，行号漂移须复核更新或删除登记）。当前空表交付＝清扫后现行面全免费。
+# 词表节可空（区别于其余九节非空下限）。
+
+# ==== mechanism-vocab：规则索引执行机制受控词表（检查 15/16/17）====
 # 模板 development-process.md.tmpl §16 规则索引机制列取值 ⊆ 本节词表（受控三值＋外定义
 # 标记词）；引擎零词表零标记词硬编码。三值语义（模板 §16 节头同款）：机械＝点名脚本/
 # 检查项现役断言在管；门禁＝阶段 checkpoint 卡（独立 Review Checkpoint、Commit 收尾

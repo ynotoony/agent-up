@@ -2,14 +2,14 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/issue-index.schema.json",
   "title": "Agent Up issue status index schema",
-  "description": "任务票状态索引（票状态机唯一真相源）机器 schema。落盘位置：docs/issues/index.json（票 33 终裁 T1 定稿，2026-09-18）。文件形态：单文件 JSON，一条目一行（票 33 终裁 T2 定稿：行可寻址，POSIX sh 零依赖脚本按 id 锚点整行替换）。写入 owner：快道启用时由道脚本独占写（对齐 development-process §12.5 派生载体独占写先例），非快道任务由对应阶段执行体单写。本索引是真相源（Record 类），不是 Derived；消费它的投影才是 Derived。",
+  "description": "任务票状态索引（票状态机唯一真相源）机器 schema。落盘位置：docs/issues/index.json（终裁定稿，2026-09-18）。文件形态：单文件 JSON，一条目一行（终裁定稿：行可寻址，POSIX sh 零依赖脚本按 id 锚点整行替换）。写入 owner：快道启用时由道脚本独占写（对齐 development-process §12.5 派生载体独占写先例），非快道任务由对应阶段执行体单写。本索引是真相源（Record 类），不是 Derived；消费它的投影才是 Derived。",
   "type": "object",
   "additionalProperties": false,
   "required": ["issues"],
   "properties": {
     "issues": {
       "type": "array",
-      "description": "任务票状态条目数组，每票恰一条目，id 唯一。落盘排版约束：单文件 JSON 一条目一行（行可寻址，POSIX sh 零依赖脚本可整行替换；票 33 终裁 T2 定稿）。",
+      "description": "任务票状态条目数组，每票恰一条目，id 唯一。落盘排版约束：单文件 JSON 一条目一行（行可寻址，POSIX sh 零依赖脚本可整行替换；终裁定稿）。",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -28,7 +28,7 @@
           "lane": {
             "type": "string",
             "enum": ["full", "user-review", "micro"],
-            "description": "分级交付道车道（R-DP-031）；枚举定稿 full/user-review/micro（票 33 终裁 T6，2026-09-18）；未声明车道可省略。"
+            "description": "分级交付道车道（R-DP-031）；枚举定稿 full/user-review/micro（2026-09-18）；未声明车道可省略。"
           },
           "complexity": {
             "type": "string",

@@ -155,7 +155,7 @@
 | `docs/specs/` | 修改公共行为或接口；存在多条验收路径；跨会话交付；C2/C3 任务合同不足；用户要求 |
 | `docs/issues/` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 |
 | `docs/issues/index.json`（票状态索引） | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接（与 `docs/issues/` 同行集；Record 类真相源：JSON＋Schema，单文件一条目一行） |
-| `docs/changes.jsonl`（追加账本） | 记录层拍板后首条事实（懒创建；Record 类，一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加；行型扩展票 81（2026-09-23 复盘 B 类候选，仅向前生效）：`kind=lesson` 必带第六键 `promoted_to`（枚举 `新票`/`rules`/`sop`/`validator`/`test`/`none`，填 `none` 亦算显式拍板）、`kind=replan` 必带 `replan_original`/`replan_replacement`/`replan_undone`（布尔），既有行零改写） |
+| `docs/changes.jsonl`（追加账本） | 记录层拍板后首条事实（懒创建；Record 类，一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加；行型扩展（2026-09-23 复盘 B 类候选，仅向前生效）：`kind=lesson` 必带第六键 `promoted_to`（枚举 `新票`/`rules`/`sop`/`validator`/`test`/`none`，填 `none` 亦算显式拍板）、`kind=replan` 必带 `replan_original`/`replan_replacement`/`replan_undone`（布尔），既有行零改写） |
 | `docs/research/` | 需要外部调研、方案对比或 spike |
 | `docs/adr/` | 决策难回退且缺少背景会困惑 |
 | `docs/architecture/` | 用户要求；C2/C3 跨模块；涉及多 Adapter |
@@ -165,7 +165,7 @@
 | `docs/agent/micro.jsonl`（微账本） | 微任务道首次收尾：道脚本懒创建并按行落账（Record 类，一行一操作；道脚本独占写，agent 不手写，见 §12.5 道脚本承载注记） |
 | `scripts/check-gates.sh`、`scripts/lane-commit.sh`（道脚本） | 用户确认启用分级交付道快道（差异清单确认时）；复制落位与登记见 §12.5 道脚本承载注记 |
 
-开票形态注记（票 38，2026-09-18）：新开任务票与请求（REQ）以过 schema 的 JSON 文件承载本体——文件命名 task 为 `<NN>-<slug>.json`、request 为 `<REQ-id>.json`；schema 权威＝Agent Up 包内 `references/schemas/ticket-record.schema.json`（目标项目已登记等价 schema 时以其为准）；本体无 `status` 字段，票状态唯一真相源＝`docs/issues/index.json`（单写，一条目一行），票正文 Status 行为投影打印件、目录清单状态列为人工登记投影（票 37 口径），状态冲突以索引为准；存量 Markdown 票与既有 REQ 冻结只读（frontmatter 为历史形态，零改写），开票登记惯例见 `docs/issues/README.md`。
+开票形态注记（2026-09-18）：新开任务票与请求（REQ）以过 schema 的 JSON 文件承载本体——文件命名 task 为 `<NN>-<slug>.json`、request 为 `<REQ-id>.json`；schema 权威＝Agent Up 包内 `references/schemas/ticket-record.schema.json`（目标项目已登记等价 schema 时以其为准）；本体无 `status` 字段，票状态唯一真相源＝`docs/issues/index.json`（单写，一条目一行），票正文 Status 行为投影打印件、目录清单状态列为人工登记投影，状态冲突以索引为准；存量 Markdown 票与既有 REQ 冻结只读（frontmatter 为历史形态，零改写），开票登记惯例见 `docs/issues/README.md`。
 
 #### R-DP-006 默认不创建 `MUST`
 
@@ -197,7 +197,7 @@
 | platform | 平台绑定信息；平台无关产物写 `neutral` |
 | update_policy | 更新策略（追加 / 状态机更新 / 可重建 / 禁止覆盖） |
 
-登记口径注记（票 33 终裁 T12/T13，2026-09-18）：记录层与状态面新载体按以下口径登记进 `docs/agent/artifacts.yaml`（逐件登记，R-DP-007）——`issue-index`（kind: index，lifecycle: Conditional，trigger 与 `docs/issues/` 同行集，owner 按写入机制：道脚本或对应阶段执行体单写）；`changes-jsonl`（kind: record，懒创建：记录层拍板后首条事实）；`progress` 条目维持 Record（整文件冻结历史档案，update_policy: 指针注记后零写入）；新增 `progress-current` 条目（现役状态投影，lifecycle: Derived，generated_from 必填＝`docs/issues/index.json`＋生成器，生成器独占写）。
+登记口径注记（记录层终裁，2026-09-18）：记录层与状态面新载体按以下口径登记进 `docs/agent/artifacts.yaml`（逐件登记，R-DP-007）——`issue-index`（kind: index，lifecycle: Conditional，trigger 与 `docs/issues/` 同行集，owner 按写入机制：道脚本或对应阶段执行体单写）；`changes-jsonl`（kind: record，懒创建：记录层拍板后首条事实）；`progress` 条目维持 Record（整文件冻结历史档案，update_policy: 指针注记后零写入）；新增 `progress-current` 条目（现役状态投影，lifecycle: Derived，generated_from 必填＝`docs/issues/index.json`＋生成器，生成器独占写）。
 
 #### R-DP-007 产物登记 `MUST`
 
@@ -279,7 +279,7 @@ absent ──用户拒绝──> deferred（记录原因）
 
 零写入禁令覆盖生产性工作面；票务与记录面按 §12.5 写入所有权矩阵明文授权，封闭列举为：开票、领取与收口状态翻转、`docs/issues/index.json` 单写、`docs/changes.jsonl` 账本落行、issues-README 状态列登记、`docs/progress-current.md` 投影再生（经生成器）——逐项经票务运维脚本 `scripts/ticket-ops.sh` 单入口承载（§12.5 票务脚本承载注记），封闭列举之外主 agent 仍零写入。
 
-执行体通道中断或不可用时，主 agent 可代记（Checkpoint、run record、账本行等记录面）或代做（阶段实现或审查工作），须在任务票 Checkpoint 与 run record 如实登记代做事实与原因（票 06/26/40 先例）；Review 仍须由独立路径取得，不得以代做方自检冒充。
+执行体通道中断或不可用时，主 agent 可代记（Checkpoint、run record、账本行等记录面）或代做（阶段实现或审查工作），须在任务票 Checkpoint 与 run record 如实登记代做事实与原因（协调层代做先例）；Review 仍须由独立路径取得，不得以代做方自检冒充。
 
 生产性工作固定按三阶段串行，不得合并进同一个执行体：
 
@@ -431,10 +431,10 @@ Triage 或 Planning 产出方案类文档（规格、方案对比、治理变更
 
 ## 9. Git 提交
 
-- 根目录只有一个 Git 仓库，默认分支 `main`；生产性工作按票采用**一票一 worktree 工作流**（用户裁决 2026-09-18，先例票 29～51）：
+- 根目录只有一个 Git 仓库，默认分支 `main`；生产性工作按票采用**一票一 worktree 工作流**（用户裁决 2026-09-18）：
   1. 票务与记录面（开票、领取、收口翻转、账本与投影维护）直接落 `main`；
   2. 实施在独立 worktree 进行：`git worktree add ../wt<N> -b ticket/<NN>-<slug>`；实施执行体零 Git 写操作，交付以工作区改动呈现；
-  3. 独立 Review 通过后，协调层在分支提交，rebase `main`（在 worktree 内执行，防分支占用误切——票 41 教训）后 fast-forward 合并回 `main`，随即删除 worktree 与分支；
+  3. 独立 Review 通过后，协调层在分支提交，rebase `main`（在 worktree 内执行，防分支占用误切——worktree 接线教训）后 fast-forward 合并回 `main`，随即删除 worktree 与分支；
   4. 多会话并行：派发前核对 `git worktree list` 与领取标记，撞号让号；
   5. 全程零 push（对齐本节末条）。
   小型单人工作经用户同意可直接在 `main`。
@@ -613,9 +613,9 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 
 run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`independent_review` 指针回填同 owner。禁止两个 session 同时写 `docs/issues/index.json` 与 `docs/progress-current.md`（现役状态投影由生成器独占写，索引条目按写入机制单写）；`docs/requests/` 是 Intake 与 Delivery 的唯一目录交集（Intake 写新 REQ，Delivery 不写）。Intake 与 Delivery 并行规则的队列侧表述见 `docs/requests/README.md`，与本矩阵一致；冲突以更严格者为准。
 
-道脚本承载注记（分级交付道，R-DP-031）：快道收尾强制——白名单核对、验证重跑、提交、记录翻转、账本落行——由零依赖 POSIX sh 道脚本承载：`check-gates.sh`（只读门禁核对：工作区改动 ⊆ 提交合同白名单、按合同重跑验证命令并记录退出码）与 `lane-commit.sh`（读行式合同文件（临时输入，不落仓库）→ 门禁 → 白名单提交 → User Review Checkpoint 追加或微账本落行 → 状态翻转（单写 `docs/issues/index.json` 状态条目 → 机械生成受影响票正文 Status 行 → 机械生成 `docs/progress-current.md` 现役状态投影等派生面）→ 记录翻转提交）。脚本权限边界 = 提交合同白名单：脚本不执行白名单外任何写入，门禁不过即停（fail-closed）。派生载体独占写：`docs/issues/index.json` 是票状态唯一真相源（单写：快道由道脚本、非快道任务由对应阶段执行体）；`docs/progress-current.md` 现役状态投影由生成器独占写（generated_from＝`docs/issues/index.json`＋生成器）；issues-README 状态列＝人工登记投影（票 37 口径：agent 按索引登记，与索引冲突以索引为准；非道脚本写入面）；票正文 Status 行由脚本自索引生成（展示投影，stale 比对兜底、可重建）；状态冲突以索引为准（票 33 终裁 T4/T10）。微账本 `docs/agent/micro.jsonl`（Record 类，一行一操作）由道脚本懒创建，agent 不代写。道脚本安装路径：`scripts/check-gates.sh`、`scripts/lane-commit.sh` 与 `scripts/generate-progress.sh` 由初始化/补缺按 §5.2 触发矩阵行复制落位目标项目 `scripts/`（来源 agent-up 公开包 `scripts/`，逐件登记，可经包内 `scripts/install.sh` 执行），脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；快道未启用则不复制，道脚本不可用的停止条件按 R-DP-031 兜底（fail-closed 不变）。
+道脚本承载注记（分级交付道，R-DP-031）：快道收尾强制——白名单核对、验证重跑、提交、记录翻转、账本落行——由零依赖 POSIX sh 道脚本承载：`check-gates.sh`（只读门禁核对：工作区改动 ⊆ 提交合同白名单、按合同重跑验证命令并记录退出码）与 `lane-commit.sh`（读行式合同文件（临时输入，不落仓库）→ 门禁 → 白名单提交 → User Review Checkpoint 追加或微账本落行 → 状态翻转（单写 `docs/issues/index.json` 状态条目 → 机械生成受影响票正文 Status 行 → 机械生成 `docs/progress-current.md` 现役状态投影等派生面）→ 记录翻转提交）。脚本权限边界 = 提交合同白名单：脚本不执行白名单外任何写入，门禁不过即停（fail-closed）。派生载体独占写：`docs/issues/index.json` 是票状态唯一真相源（单写：快道由道脚本、非快道任务由对应阶段执行体）；`docs/progress-current.md` 现役状态投影由生成器独占写（generated_from＝`docs/issues/index.json`＋生成器）；issues-README 状态列＝人工登记投影（agent 按索引登记，与索引冲突以索引为准；非道脚本写入面）；票正文 Status 行由脚本自索引生成（展示投影，stale 比对兜底、可重建）；状态冲突以索引为准。微账本 `docs/agent/micro.jsonl`（Record 类，一行一操作）由道脚本懒创建，agent 不代写。道脚本安装路径：`scripts/check-gates.sh`、`scripts/lane-commit.sh` 与 `scripts/generate-progress.sh` 由初始化/补缺按 §5.2 触发矩阵行复制落位目标项目 `scripts/`（来源 agent-up 公开包 `scripts/`，逐件登记，可经包内 `scripts/install.sh` 执行），脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；快道未启用则不复制，道脚本不可用的停止条件按 R-DP-031 兜底（fail-closed 不变）。
 
-票务脚本承载注记（两层协作票务面，§6 零写入三段式第二段）：协调层票务运维——开票、领取与收口状态翻转、`docs/issues/index.json` 单写、issues-README 状态列登记、`docs/changes.jsonl` 账本落行、`docs/progress-current.md` 投影再生——由零依赖 POSIX sh 票务脚本 `scripts/ticket-ops.sh` 单入口承载（`open`/`take`/`flip` 三子命令；校验先于写入：索引一条目一行排版与 id 锚点唯一命中、README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token、账本行键序 date,kind,scope,decision,evidence_ref 五键必备＋按 kind 条件键（lesson 必带第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone——票 81）且禁裸换行；收尾再生投影并 `--check` 核对，生成器缺失或核对不过即整体 fail-closed，已写部分如实报告）。职责边界：`ticket-ops.sh` 只做票务面写入，不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（快道收尾仍归道脚本两件；投影再生调用 `generate-progress.sh` 不在此限）；脚本落位与登记：目标项目采用任务票体系（`docs/issues/` 目录创建）时随初始化/补缺从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记，脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；落位时机不门控于快道启用——票务运维是记录层标配，非快道专属（与道脚本安装路径的快道门控为两套独立口径），未采用任务票体系则不复制。
+票务脚本承载注记（两层协作票务面，§6 零写入三段式第二段）：协调层票务运维——开票、领取与收口状态翻转、`docs/issues/index.json` 单写、issues-README 状态列登记、`docs/changes.jsonl` 账本落行、`docs/progress-current.md` 投影再生——由零依赖 POSIX sh 票务脚本 `scripts/ticket-ops.sh` 单入口承载（`open`/`take`/`flip` 三子命令；校验先于写入：索引一条目一行排版与 id 锚点唯一命中、README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token、账本行键序 date,kind,scope,decision,evidence_ref 五键必备＋按 kind 条件键（lesson 必带第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone）且禁裸换行；收尾再生投影并 `--check` 核对，生成器缺失或核对不过即整体 fail-closed，已写部分如实报告）。职责边界：`ticket-ops.sh` 只做票务面写入，不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（快道收尾仍归道脚本两件；投影再生调用 `generate-progress.sh` 不在此限）；脚本落位与登记：目标项目采用任务票体系（`docs/issues/` 目录创建）时随初始化/补缺从 agent-up 公开包 `scripts/` 复制落位目标项目 `scripts/` 并逐件登记，脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；落位时机不门控于快道启用——票务运维是记录层标配，非快道专属（与道脚本安装路径的快道门控为两套独立口径），未采用任务票体系则不复制。
 
 #### R-DP-016 写入所有权 `MUST`
 

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/request-index.schema.json",
   "title": "Agent Up request status index schema",
-  "description": "需求请求（REQ）状态索引机器 schema（票 40 分账定稿，2026-09-18）。落盘位置：docs/requests/index.json，为 REQ 状态唯一真相源——与任务票账本（docs/issues/index.json）分账：REQ 的 id 形态（REQ-YYYYMMDD-NNN）与状态机（Request 取值）均与 Task 不同，且 REQ 文件与状态账本同目录自持（目录职责对齐）。排版约束：单文件 JSON，requests 数组每元素压缩为恰好一行（一条目一行），行可寻址供 POSIX sh 零依赖脚本整行替换（沿用 issue-index 同款机制）；UTF-8 无 BOM。Request 状态机取值权威＝docs/requests/README.md R-RQ-002 与 development-process §12.1：主链 proposed/triaged/accepted/specified/ready，旁支 rejected/deferred/needs-user-decision；deferred/rejected 按 R-RQ-002 须记录原因，故全部取值允许冒号后缀原因（:reason，可选）。写入 owner：Triage 执行体（状态流转单写）；存量项目首次采用时由只读提取建立快照（票 35/40 手法）。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。",
+  "description": "需求请求（REQ）状态索引机器 schema（分账定稿，2026-09-18）。落盘位置：docs/requests/index.json，为 REQ 状态唯一真相源——与任务票账本（docs/issues/index.json）分账：REQ 的 id 形态（REQ-YYYYMMDD-NNN）与状态机（Request 取值）均与 Task 不同，且 REQ 文件与状态账本同目录自持（目录职责对齐）。排版约束：单文件 JSON，requests 数组每元素压缩为恰好一行（一条目一行），行可寻址供 POSIX sh 零依赖脚本整行替换（沿用 issue-index 同款机制）；UTF-8 无 BOM。Request 状态机取值权威＝docs/requests/README.md R-RQ-002 与 development-process §12.1：主链 proposed/triaged/accepted/specified/ready，旁支 rejected/deferred/needs-user-decision；deferred/rejected 按 R-RQ-002 须记录原因，故全部取值允许冒号后缀原因（:reason，可选）。写入 owner：Triage 执行体（状态流转单写）；存量项目首次采用时由只读提取建立快照（沿用 issue-index 建快照手法）。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。",
   "type": "object",
   "additionalProperties": false,
   "required": ["requests"],

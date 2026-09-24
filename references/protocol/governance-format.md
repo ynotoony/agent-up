@@ -7,7 +7,7 @@ read_when: 编写或修改任何治理文件、模板或规则块时；Review �
 trigger: 规则块字段、Level 取值、元数据承载形态、文件格式分工或措辞禁令语义变化
 owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）
 update_policy: 字段序、类型、规则块格式与短码登记为定稿基线；语义变化须用户确认并同步 SPEC-02 与本手册；规则块 ID 全局唯一不得复用
-depends_on: SPEC-02；被 read-policy.md 与票 08/10 的模板、SKILL 重写依赖
+depends_on: SPEC-02；被 read-policy.md 与模板、SKILL 重写依赖
 ---
 <!-- Input: SPEC-02 §2/§3/§4/§5/§8/§9 格式协议、SPEC-02 §11 第一项待决的收敛决定与公开包现有结构事实。 -->
 <!-- Output: Agent Up 治理文件的统一规则块、机器优先格式、三层结构、元数据承载形态与文件格式分工手册。 -->
@@ -175,7 +175,7 @@ depends_on: SPEC-02；被 read-policy.md 与票 08/10 的模板、SKILL 重写�
 | `docs/agent/artifacts.yaml` | 机器索引：产物清单与关系（SPEC-03） |
 | 任务票 | 元数据 + 固定区块 |
 | `docs/issues/index.json` | 票状态索引：JSON＋Schema（`agent-up/references/schemas/issue-index.schema.json`），状态机唯一真相源（单文件 JSON，一条目一行） |
-| `progress.md` | 冻结历史档案：指针注记后零写入（票 33 终裁 T12；存量行零改写） |
+| `progress.md` | 冻结历史档案：指针注记后零写入（记录层终裁定稿；存量行零改写） |
 | `docs/progress-current.md` | 现役状态投影：Derived，generated_from＝`docs/issues/index.json`＋生成器，生成器独占写 |
 | `changes.md` | 追加历史：只增不改 |
 | `docs/changes.jsonl` | 追加历史（新形态）：JSONL 一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加 |
@@ -209,7 +209,7 @@ depends_on: SPEC-02；被 read-policy.md 与票 08/10 的模板、SKILL 重写�
 ## 3. 解释与例外
 
 - SPEC-01 与既有 `changes.md`、`progress.md` 历史条目不追溯改写为规则块或 frontmatter 形态；本手册只约束新写与大改内容。
-- 本工作区既有治理文件（如根 `AGENTS.md`、`docs/development-process.md`）当前仅契约头、无九字段头，属等价头部块的过渡欠账，由票 09/10 的公开包重组与模板重写统一收敛；收敛前不构成对既有文件的追溯判罚。
-- 本手册定义格式协议，不定义任何具体模板文件的内容；模板落地由票 06～10 承担。
+- 本工作区既有治理文件（如根 `AGENTS.md`、`docs/development-process.md`）当前仅契约头、无九字段头，属等价头部块的过渡欠账，由公开包重组与模板重写统一收敛；收敛前不构成对既有文件的追溯判罚。
+- 本手册定义格式协议，不定义任何具体模板文件的内容；模板落地由公开包模板重构承担。
 - 元数据九字段适用于分工表所列治理文件与公开包 protocol 手册；`README.md` 是面向人的目录索引，只承载契约头，不强制九字段。
 - 本手册自身即自举合规样本：frontmatter 九字段按 §2.4 定稿形态书写，三层结构按 §2.3 组织，规则块用 `R-GF-` 前缀。

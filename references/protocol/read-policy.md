@@ -6,8 +6,8 @@ lifecycle: Live
 read_when: 会话开始取用治理资源时；判定读取范围、处理权威冲突或按档位加载时
 trigger: 读取阶梯、任务型最小读取范围、权威层级或档位加载范围语义变化
 owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）
-update_policy: 阶梯表、任务型范围表与权威层级顺序为定稿基线；语义变化须用户确认并同步 SPEC-02；minimum 档清单已随票 08（I-04）联动定稿为基线（2026-09-03）
-depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语义）、protocol-governance-format.md（格式规范）；minimum 档清单定稿联动票 08（已完成，2026-09-03）
+update_policy: 阶梯表、任务型范围表与权威层级顺序为定稿基线；语义变化须用户确认并同步 SPEC-02；minimum 档清单已联动定稿为基线（2026-09-03）
+depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语义）、protocol-governance-format.md（格式规范）；minimum 档清单定稿联动收口（已完成，2026-09-03）
 ---
 <!-- Input: SPEC-02 §6/§7 读取阶梯与权威层级、SPEC-05 §6 档位语义、SPEC-04 恢复顺序边界与公开包现有结构事实。 -->
 <!-- Output: Agent Up 会话的读取阶梯、任务型最小读取范围、权威层级冲突处理与 capability profile 档位加载手册。 -->
@@ -25,7 +25,7 @@ depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语�
 - 权威层级六层固定：用户决策 > 目标项目代码/测试/事实记录 > 规格/任务合同 > 流程规则 > Agent Up 模板 > 项目地图等派生文件。
 - 冲突即停：停止修改、报告冲突双方与各自层级、给出可选项、等待用户裁决。
 - 用户不在场时保持停止状态并记录阻塞，不推进。
-- capability profile 分 `minimum`/`full` 两档：`minimum` = 读取阶梯 L0-L2 最小集（定稿，票 08 联动收口）；`full` 按任务型范围执行并按需加载至 L4。
+- capability profile 分 `minimum`/`full` 两档：`minimum` = 读取阶梯 L0-L2 最小集（已定稿）；`full` 按任务型范围执行并按需加载至 L4。
 - 档位只描述治理资源加载范围，不是宿主性能、可靠性或功能承诺。
 - 恢复会话按 SPEC-04 恢复流程固定顺序执行，读取阶梯不替代恢复顺序。
 - 本手册规则块前缀 `R-RP-`；格式与措辞规范见 `governance-format.md`（前缀 `R-GF-`）。
@@ -102,12 +102,12 @@ depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语�
 | `minimum` | L0（目标项目 `AGENTS.md`）+ L1（`docs/progress-current.md` 与涉及目录 `README.md`）+ L2 最小集（当前任务票 + 直接相关规格；artifacts.yaml 在涉及产物关系时加入）；L3 仅按实施动作所需逐个文件加载；L4 不默认加载，protocol 手册仅按需读相关章节 |
 | `full` | §2.2 任务型最小读取范围的完整必读集合；L4 按需加载 |
 
-本表已随票 08（I-04，2026-09-03）联动定稿；档位边界冲突按 R-RP-003 Stop if 处理。
+本表已联动定稿（2026-09-03）；档位边界冲突按 R-RP-003 Stop if 处理。
 
 ## 3. 解释与例外
 
 - 读取阶梯不替代 SPEC-04 的恢复顺序；恢复会话按 SPEC-04 §8 恢复流程固定顺序执行，其顺序优先。
 - L4 资源的精确文件清单在目标项目由 artifacts.yaml 派生（SPEC-02 §11 第二项待决），本手册不枚举。
 - 本手册 frontmatter 的 `read_when`/`trigger` 只做导航，不构成规范性读取条件；读取义务以本手册规则块为准。
-- `minimum` 档清单是 SPEC-05 §6 待决项（"由 I-01/I-04 在 protocol 手册定稿"）的定稿结果（票 08 联动收口，2026-09-03，本手册 §2.4 为加载范围权威）；SPEC-05 正文的待决标记同步归后续规格维护。
+- `minimum` 档清单是 SPEC-05 §6 待决项（"由 I-01/I-04 在 protocol 手册定稿"）的定稿结果（已联动收口，2026-09-03，本手册 §2.4 为加载范围权威）；SPEC-05 正文的待决标记同步归后续规格维护。
 - 本手册自身按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。

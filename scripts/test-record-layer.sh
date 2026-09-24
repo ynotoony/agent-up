@@ -18,7 +18,9 @@
 #        点名出处存在），check-append-only.sh/check-artifacts.sh 补登记清单 scripts 节
 #        （10→12 件），预期串同步十七项口径并补索引删行/加全集外 ID/未登记机制值/
 #        机械行点名不存在脚本/检查项号超界/外定义行删标记词负例＋mechanism-vocab
-#        词表损坏 exit 2 负例；票 72 清单 scripts 节 12→13 件（export-payload.sh 入册），
+#        词表损坏 exit 2 负例；票 82 包内票号索引禁令断言（检查 17→18——18＝「票 ?[0-9]{2,}」
+#        扫描 md/tmpl/json/rules，行级豁免与失效豁免同款核对；.sh 代码面不扫），预期串
+#        同步十八项口径并补禁令注入/豁免生效/失效豁免负例；票 72 清单 scripts 节 12→13 件（export-payload.sh 入册），
 #        检查 8 预期串计数随动；新增 stale-claims 套件（S1/S2 配置点亮：未点亮 SKIP
 #        不计数、点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化，
 #        独立 suite 承载并在 README 声明）；票 77（NN 唯一性：ticket-ops open 补同 NN 异
@@ -845,12 +847,13 @@ PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（索引 51 行，全集 51 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
+PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
   rc=$?
   [ "$rc" -eq 0 ] && ok "正例 exit 0（包根＝${PKG_ROOT}）" || bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
-  assert_eq '正例输出逐行逐一相等（十七项 PASS＋汇总，含票 57 检查 9/10/11、票 58 检查 12/13、票 59 检查 14 与票 60 检查 15/16/17）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（十八项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17 与 18 票号禁令）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -871,12 +874,13 @@ PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（索引 51 行，全集 51 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
-check-package: FAIL（3 项未通过，共 17 项）
+PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
+check-package: FAIL（3 项未通过，共 18 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
   [ "$rc" -eq 1 ] && ok '负例 exit 1（副本删必需件，mktemp 副本纪律）' || bad '负例 exit 1（副本删必需件，mktemp 副本纪律）' "exit=$rc"
-  assert_eq '负例输出逐一相等（fail-closed 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
+  assert_eq '负例输出逐一相等（fail-closed 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动＋检查 18 同步，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
 
   # 票 57 协调层改判随票修：检查 11 逐处全等——§2.5 单处删 pi（frontmatter 完整）
   # 必须单独 FAIL 指名 :119（旧并集口径此场景漏检，回归钉死）。
@@ -899,7 +903,8 @@ PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（索引 51 行，全集 51 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
-check-package: FAIL（1 项未通过，共 17 项）
+PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
+check-package: FAIL（1 项未通过，共 18 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -1078,11 +1083,11 @@ EOF
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
   # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数 17）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 18） |/' "$D/pkgcopy13/references/templates/development-process.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 19） |/' "$D/pkgcopy13/references/templates/development-process.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/development-process.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 17 项）: 检查 18' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 18 项）: 检查 19' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -1111,6 +1116,45 @@ EOF
     ok '负例 N18 mechanism-vocab 词表损坏（跨行重复）→ exit 2 fail-closed'
   else
     bad '负例 N18 mechanism-vocab 词表损坏（跨行重复）→ exit 2 fail-closed' "exit=$rc"
+  fi
+
+  # 票 82 检查 18 负例 N19：向包内 .md 文档面注入票号引用（「票 41」形态）→ exit 1 且
+  # FAIL: 18 指名文件:行号（禁令断言只查模式不判语义）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy16"
+  printf '\n- harness fixture 票号注入行（引用本仓票 41 联动收口）\n' >> "$D/pkgcopy16/references/protocol/read-policy.md"
+  sh "$D/pkgcopy16/scripts/check-package.sh" "$D/pkgcopy16" >"$D/act.n19" 2>&1
+  rc=$?
+  n19_ln=$(wc -l < "$D/pkgcopy16/references/protocol/read-policy.md" | tr -d ' ')
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 18 包内票号索引禁令' "$D/act.n19" && grep -q "references/protocol/read-policy.md:${n19_ln}:" "$D/act.n19" && grep -q '命中票号索引禁令' "$D/act.n19"; then
+    ok '负例 N19 注入票号引用入 .md 文档面 → exit 1 且 FAIL: 18 指名文件:行号'
+  else
+    bad '负例 N19 注入票号引用入 .md 文档面 → exit 1 且 FAIL: 18 指名文件:行号' "exit=$rc"
+  fi
+
+  # 票 82 检查 18 正例 N20：同一注入行经夹具 manifest 登记行级豁免 → 该行不报 exit 0
+  # （豁免语境不报；夹具包自带引擎读取自身 manifest——检查 12 N5 同款口径）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy17"
+  printf '\n- harness fixture 票号注入行（引用本仓票 41 联动收口）\n' >> "$D/pkgcopy17/references/protocol/read-policy.md"
+  n20_ln=$(wc -l < "$D/pkgcopy17/references/protocol/read-policy.md" | tr -d ' ')
+  printf "pm_cite_exempt references/protocol/read-policy.md %d 'harness fixture 票号豁免正例（登记后该行不报）'\n" "$n20_ln" >> "$D/pkgcopy17/scripts/package-manifest.rules"
+  sh "$D/pkgcopy17/scripts/check-package.sh" "$D/pkgcopy17" >"$D/act.n20" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 18 包内票号索引禁令' "$D/act.n20"; then
+    ok '正例 N20 注入行登记行级豁免后不报 → exit 0（豁免生效）'
+  else
+    bad '正例 N20 注入行登记行级豁免后不报 → exit 0（豁免生效）' "exit=$rc"
+  fi
+
+  # 票 82 检查 18 负例 N21：豁免登记行无命中（999 行）→ 失效豁免 FAIL
+  # （防漂移静默失效，检查 12 N6 同款口径）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy18"
+  printf "pm_cite_exempt references/protocol/read-policy.md 999 'harness fixture 票号失效豁免负例'\n" >> "$D/pkgcopy18/scripts/package-manifest.rules"
+  sh "$D/pkgcopy18/scripts/check-package.sh" "$D/pkgcopy18" >"$D/act.n21" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '失效豁免（登记行无票号命中，须复核更新或删除登记）: references/protocol/read-policy.md:999' "$D/act.n21"; then
+    ok '负例 N21 票号豁免登记行无命中 → exit 1 且 FAIL: 18 报失效豁免'
+  else
+    bad '负例 N21 票号豁免登记行无命中 → exit 1 且 FAIL: 18 报失效豁免' "exit=$rc"
   fi
 
   suite_summary 'check-package'

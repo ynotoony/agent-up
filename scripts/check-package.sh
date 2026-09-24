@@ -3,7 +3,7 @@
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
 #        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标/规则索引执行
 #        机制受控词表十节唯一承载点，票 57/58/59/60）。
-# Output: 十七项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
+# Output: 十八项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
 #         检查 13 仓根无镜像时静默跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
@@ -48,10 +48,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  十七项检查全部通过
+  0  十八项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-十七项检查说明、例外登记与输出格式见同目录 README.md。
+十八项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -106,12 +106,13 @@ pm_capauth=''
 pm_captargets=''
 pm_mechs=''
 pm_mechmark=''
+pm_citeex=''
 pm_idxmech=''
 pm_idxids=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
     "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
-    "$pm_mechs" "$pm_mechmark" "$pm_idxmech" "$pm_idxids"
+    "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_idxmech" "$pm_idxids"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -127,6 +128,7 @@ pm_capauth=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_captargets=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_mechs=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_mechmark=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_citeex=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxmech=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxids=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 
@@ -197,23 +199,27 @@ pm_mechanism_marker() {
   [ $# -eq 1 ] || pm_die 'pm_mechanism_marker 行参数数量不合预期（须恰 1：外定义标记词）'
   printf '%s\n' "$1" >> "$pm_mechmark"
 }
+pm_cite_exempt() {
+  [ $# -eq 3 ] || pm_die 'pm_cite_exempt 行参数数量不合预期（须恰 3：包内相对路径、行号、理由）'
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_citeex"
+}
 
 pm_rules="$script_dir/package-manifest.rules"
 if [ ! -f "$pm_rules" ]; then
   printf 'check-package: 错误：包清单数据文件缺失: %s\n' "$pm_rules" >&2
   exit 2
 fi
-# 预校验（source 前）：非空非注释行须为顶格指令行（十三指令之一）——source 对行级失败
+# 预校验（source 前）：非空非注释行须为顶格指令行（十四指令之一）——source 对行级失败
 # 不具中止性（未知指令行报错后继续执行、尾态可能为 0），故未知指令必须在 source 前
 # 即 exit 2，不能只靠 source 返回码收敛。
 pm_bad=$(LC_ALL=C awk '
-  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror pm_capability pm_capability_authority pm_capability_target pm_mechanism pm_mechanism_marker", d, " ") }
+  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror pm_capability pm_capability_authority pm_capability_target pm_mechanism pm_mechanism_marker pm_cite_exempt", d, " ") }
   function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
   /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
   /^[[:space:]]/ { bad("行首空白（指令行须顶格）"); next }
   {
     ok = 0
-    for (k = 1; k <= 13; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
+    for (k = 1; k <= 14; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
     if (!ok) bad("未知指令或非指令行: " substr($0, 1, 40))
   }
   END { if (n > 0) exit 1 }
@@ -339,6 +345,22 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
   }
   END { if (n > 0) exit 1 }
 ' "$pm_mirrors") || true
+pm_report "$pm_bad"
+
+# 票号禁令豁免节结构校验（检查 18；节可空＝当前全免费交付，区别于其余非空下限节）。
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "ticket-citation-ban 豁免节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 3) { bad("字段数 " NF "（预期 3：路径、行号、理由）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($2 !~ /^[0-9]+$/ || $2 + 0 <= 0) { bad("行号须正整数: " $2); next }
+    if ($3 == "") { bad("缺理由（行级豁免须注记理由）"); next }
+    key = $1 "\t" $2
+    if (key in seen) { bad("路径+行号跨行重复: " $1 ":" $2) } else { seen[key] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_citeex") || true
 pm_report "$pm_bad"
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
@@ -1380,7 +1402,7 @@ fi
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
-n_total_checks=17
+n_total_checks=18
 n_mrow=0
 mech_m='机械'
 if [ "$n_idx" -eq 0 ]; then
@@ -1484,8 +1506,52 @@ else
   pass 17 "机械行点名出处存在（机械 ${n_mrow} 行）"
 fi
 
+# 检查 18：包内票号索引禁令（citation-rot 定稿配套）。扫描面＝包内 *.md/*.tmpl/*.json/
+# *.rules（*.sh 代码面不扫——断言名/注释语境为不腐烂载体，扫禁归后续裁决）；模式＝
+# 「票 ?[0-9]{2,}」字面正则，命中即 FAIL 指名文件:行号。行级豁免经清单
+# ticket-citation-ban 节 pm_cite_exempt 登记（路径+行号精确匹配，理由必填），登记行
+# 无命中即失效豁免 FAIL（防漂移静默失效，检查 12 同款口径）；豁免表当前空表交付。
+n_citeex=$(wc -l < "$pm_citeex" | tr -d ' ')
+problems=''
+awk_rc=0
+cand18=$(cd "$pkg_root" && grep -rEn '票 ?[0-9]{2,}' --include='*.md' --include='*.tmpl' --include='*.json' --include='*.rules' . 2>/dev/null | sed 's/^\.\///') || awk_rc=$?
+if [ "$awk_rc" -ne 0 ] && [ "$awk_rc" -ne 1 ]; then
+  printf 'check-package: 错误：检查 18 扫描器异常（grep exit %s）\n' "$awk_rc" >&2
+  exit 2
+fi
+if [ -n "$cand18" ]; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for h in $cand18; do
+    IFS=$OLDIFS
+    h_path=${h%%:*}
+    h_ln=${h#*:}
+    h_ln=${h_ln%%:*}
+    if LC_ALL=C awk -F'\t' -v p="$h_path" -v l="$h_ln" '$1 == p && $2 == l { f = 1 } END { exit f ? 0 : 1 }' "$pm_citeex"; then
+      continue
+    fi
+    add_problem "  - $h 命中票号索引禁令（票 ?[0-9][0-9]+；溯源改 commit message／票本，禁令依据＝包内零本仓票号索引）"
+  done
+  IFS=$OLDIFS
+fi
+# 失效豁免核对：登记行无命中即 FAIL（检查 12 同款，防漂移静默失效）。
+if [ "$n_citeex" -gt 0 ]; then
+  while IFS="$(printf '\t')" read -r ex_path ex_ln ex_reason; do
+    [ -n "$ex_path" ] || continue
+    if ! printf '%s\n' "$cand18" | LC_ALL=C grep -qE "^${ex_path}:${ex_ln}:" 2>/dev/null; then
+      add_problem "  - 失效豁免（登记行无票号命中，须复核更新或删除登记）: ${ex_path}:${ex_ln}"
+    fi
+  done < "$pm_citeex"
+fi
+if [ -n "$problems" ]; then
+  fail 18 "包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 ${n_citeex} 行）" "$problems"
+else
+  pass 18 "包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 ${n_citeex} 行）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 17 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 18 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

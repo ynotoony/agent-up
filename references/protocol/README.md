@@ -17,5 +17,5 @@
 
 ## 短码登记
 
-- `GF` = `governance-format.md`，`RP` = `read-policy.md`，`CP` = `complexity-profile.md`；正式登记表在 `governance-format.md` §2.1（`CP` 与 adapters 的 `CC`/`ZC` 在 §2.1 的补记因该手册正文冻结递延，沿票 09/10 先例以目录 README 登记面承载），与 `../README.md` adapters 条目（`CC`/`ZC`）、`../templates/README.md` 模板短码互不重叠。
+- `GF` = `governance-format.md`，`RP` = `read-policy.md`，`CP` = `complexity-profile.md`；正式登记表在 `governance-format.md` §2.1（`CP` 与 adapters 的 `CC`/`ZC` 在 §2.1 的补记因该手册正文冻结递延，以目录 README 登记面承载），与 `../README.md` adapters 条目（`CC`/`ZC`）、`../templates/README.md` 模板短码互不重叠。
 - 新增协议手册：先在 `governance-format.md` §2.1 登记短码，再创建文件并在本 README 登记；该手册正文冻结期间的例外与 `CC`/`ZC`/`CP` 同口径处理。

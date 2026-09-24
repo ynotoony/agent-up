@@ -1,8 +1,8 @@
-# Input: 十一语言（Python、JS/TS、C/C++、Rust 为票 42/43 原有，票 45 追加 Go、Java、C#、Ruby、PHP、Swift、Kotlin）的静态导入提取知识
-#        （票 42/43 落地的 per-language case 块为迁移源，票 44 表驱动化外置；语言知识唯一承载点）。
+# Input: 十一语言（Python、JS/TS、C/C++、Rust 为首批，后追加 Go、Java、C#、Ruby、PHP、Swift、Kotlin）的静态导入提取知识
+#        （早期 per-language case 块为迁移源，表驱动化外置；语言知识唯一承载点）。
 # Output: generate-module-map.sh 引擎启动时 source 本表——每语言一行 mm_rule 调用，六参：
 #         mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>。
-# Pos: 票 44 定稿的语言规则表：引擎为通用管线、零语言专名（AC 硬门禁）；加语言＝加一行＋
+# Pos: 定稿的语言规则表：引擎为通用管线、零语言专名（AC 硬门禁）；加语言＝加一行＋
 #      fixture、零引擎改动（AC3 哑语言通用性实证口径）。strategy 枚举四类：
 #      extension-map（<exts> 字段承载的语言绑定：文件按扩展名 glob 归入语言）、
 #      unresolved-node（未解析节点引用原串直出产边）、module-path（模块路径文本直出产边）、

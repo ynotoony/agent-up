@@ -1,4 +1,4 @@
-# Input: 安装政策事实（票 56 单源化拍板）：门控集合构成、每文件复制基线路径与登记
+# Input: 安装政策事实（单源化拍板）：门控集合构成、每文件复制基线路径与登记
 #        lifecycle 值——唯一承载点；SKILL.md 主流程步骤 5、references/old-project.md §3、
 #        scripts/README.md 口径段三处散文不再复写映射明细，只保留决策句与指向本表。
 # Output: install.sh 引擎启动时 source 本表——每行一个 ip_gate / ip_file 调用：
@@ -6,7 +6,7 @@
 #         ip_file <pkg-rel-path> <lifecycle> <gate> <说明>（每文件×每门控一行：包内复制
 #         基线路径、登记 lifecycle 值、所属门控、该门控下角色说明；同一文件属多个门控时
 #         逐门控各一行，引擎按文件路径去重选取）。
-# Pos: 安装政策数据文件（票 56；先例 module-map.rules：外置数据＋引擎零专名＋结构校验
+# Pos: 安装政策数据文件（先例 module-map.rules：外置数据＋引擎零专名＋结构校验
 #      fail-closed）。复制哪些脚本、在什么门控下落位只在本表登记，install.sh 引擎零脚本
 #      名零门控专名；加门控＝加一行 ip_gate＋若干 ip_file，零引擎改动。结构校验口径
 #      （install.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不写任何文件）：
@@ -30,6 +30,6 @@ ip_file agent-up/scripts/check-gates.sh Conditional fast-lane '道脚本：快�
 ip_file agent-up/scripts/lane-commit.sh Conditional fast-lane '道脚本：快道合同驱动收尾（单写索引＋投影再生＋两段式提交）'
 ip_file agent-up/scripts/generate-progress.sh Conditional fast-lane '现役状态投影生成器（快道收尾由道脚本收尾件调用）'
 ip_file agent-up/scripts/ticket-ops.sh Conditional ticket-ops '票务运维单入口（open/take/flip，记录层标配）'
-ip_file agent-up/scripts/run-record.sh Conditional ticket-ops 'run record 生成器（new/seal/stats，记录层标配；票 55 本仓交付 / 票 88 存量清算入包采纳）'
-ip_file agent-up/scripts/ticket-grade.sh Conditional ticket-ops '票定级建议器（建议不裁决，记录层标配；票 78 本仓交付 / 票 88 存量清算入包采纳）'
+ip_file agent-up/scripts/run-record.sh Conditional ticket-ops 'run record 生成器（new/seal/stats，记录层标配；本仓交付后存量清算入包采纳）'
+ip_file agent-up/scripts/ticket-grade.sh Conditional ticket-ops '票定级建议器（建议不裁决，记录层标配；本仓交付后存量清算入包采纳）'
 ip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops '回退依赖：票务收尾投影再生依赖同目录生成器（PATH 回退），目标项目未落位时一并复制'

@@ -1,14 +1,14 @@
-<!-- Input: SPEC-06 §7 发布前 11 条验收场景、票 05～11 Implementation Checkpoint 事实、本次（2026-09-03，macOS）真实执行记录。 -->
+<!-- Input: SPEC-06 §7 发布前 11 条验收场景、首批交付 Implementation Checkpoint 事实、本次（2026-09-03，macOS）真实执行记录。 -->
 <!-- Output: 十一条场景的验收边界、验收方法、逐条执行结果与证据指针清单；发布就绪前置条件核验记录。 -->
-<!-- Pos: 票 12（I-08）场景验收清单落盘；包内容变化后可按本清单复验；一旦我被更新，务必更新我的开头注释与 scripts/README.md 成员登记。 -->
+<!-- Pos: I-08 场景验收清单落盘；包内容变化后可按本清单复验；一旦我被更新，务必更新我的开头注释与 scripts/README.md 成员登记。 -->
 
 # 场景验收清单（SPEC-06 §7 发布前 11 条）
 
 ## 验收边界（先读）
 
-- **S1～S9 属"模板即产物"的静态验收**：Agent Up 的交付物是模板、协议手册与检查脚本；场景 1-9 描述的目标项目行为（生成、补缺、恢复、并行、阻塞、降级、漂移）发生在目标项目安装 Agent Up 之后。包级验收只能核对承载这些行为的协议与模板语义正确性，不声称已在真实目标项目中跑通场景（票 12 Risks：静态模拟与真实使用行为有差距，证据效力边界如实记录）。S1-S9 均以"等价静态核对"方式执行（SPEC-06 §7 允许"每条以文档静态核对或脚本证据验证"），未发起 mktemp 行为模拟实验。
-- **S10 面向包本体**：以 check-package.sh 真实运行与临时副本负例抽查验证；subtree split 导出目录的全量复跑属票 13，本清单记 `deferred-to-13` 条件项。
-- **S11 未测量即 N/A**：无隔离实验数据，按 R-CC-004 与票 12 Forbidden 不声称任何优化收益，不发起实验；仅做收益声明扫描核对。
+- **S1～S9 属"模板即产物"的静态验收**：Agent Up 的交付物是模板、协议手册与检查脚本；场景 1-9 描述的目标项目行为（生成、补缺、恢复、并行、阻塞、降级、漂移）发生在目标项目安装 Agent Up 之后。包级验收只能核对承载这些行为的协议与模板语义正确性，不声称已在真实目标项目中跑通场景（风险登记：静态模拟与真实使用行为有差距，证据效力边界如实记录）。S1-S9 均以"等价静态核对"方式执行（SPEC-06 §7 允许"每条以文档静态核对或脚本证据验证"），未发起 mktemp 行为模拟实验。
+- **S10 面向包本体**：以 check-package.sh 真实运行与临时副本负例抽查验证；subtree split 导出目录的全量复跑属交付后跟进，本清单记 `deferred-to-13` 条件项。
+- **S11 未测量即 N/A**：无隔离实验数据，按 R-CC-004 与 Forbidden 纪律不声称任何优化收益，不发起实验；仅做收益声明扫描核对。
 
 ## 运行环境与结果汇总
 
@@ -102,19 +102,19 @@
 
 ### S10 公开导出干净 — `PASS`（附 `deferred-to-13` 条件项）
 
-- **验收边界**：面向包本体；本条为真实脚本运行 + 负例抽查（本次唯一的临时目录执行项）。subtree split 实际导出目录的全量验证属票 13。
+- **验收边界**：面向包本体；本条为真实脚本运行 + 负例抽查（本次唯一的临时目录执行项）。subtree split 实际导出目录的全量验证属交付后跟进。
 - **验收方法**：`sh agent-up/scripts/check-package.sh` 对包本体运行（缺省包根与显式包根两种形态）；负例：临时副本删除一个必需入口文件后复跑，预期 FAIL，随后清理。
 - **本次执行结果**：
   - 正例（缺省包根，命令 `sh agent-up/scripts/check-package.sh`）：七项检查逐行 `PASS: 1`～`PASS: 7`，结尾 `check-package: PASS`，exit 0。
   - 正例 b（显式包根，`sh agent-up/scripts/check-package.sh agent-up`）：结尾 `check-package: PASS`，exit 0。
   - 负例（命令序：`TMPD=$(mktemp -d)`；`cp -R agent-up "$TMPD/agent-up"`（仓库根执行）；`rm "$TMPD/agent-up/SKILL.md"`；`sh "$TMPD/agent-up/scripts/check-package.sh" "$TMPD/agent-up"`）：输出 `FAIL: 1 必需入口存在（16 个文件） — - SKILL.md`、`FAIL: 2 SKILL.md frontmatter 为 name: agent-up — SKILL.md 不存在`、`check-package: FAIL（2 项未通过，共 7 项）`，exit 1——检查 1/2 如实暴露缺陷，其余五项不受影响。临时目录已 `rm -rf` 删除并确认不存在，工作区无污染。
 - **证据**：上述命令与输出为 2026-09-03 真实运行记录（macOS，Darwin arm64）；脚本约束见 `agent-up/scripts/README.md` 七项检查表。
-- **`deferred-to-13` 条件项**：subtree split 导出目录的 `check-package.sh` 全量复跑（含"导出仅含包文件"核对）在票 13 完成导出后补记；本条 PASS 仅覆盖包本体，不得被解读为导出物已验证。
+- **`deferred-to-13` 条件项**：subtree split 导出目录的 `check-package.sh` 全量复跑（含"导出仅含包文件"核对）在导出完成后补记；本条 PASS 仅覆盖包本体，不得被解读为导出物已验证。
 
 ### S11 token 声明受数据约束 — `N/A + reason`
 
-- **状态**：`N/A`。**reason**：未进行任何隔离实验或测量，无实验数据；按 R-CC-004 与票 12 Forbidden（不编造实验数据或测量结论、不发起实验），本条不声称任何 token 节省、可靠性提升或速度提升收益，也不声明包"经优化"。
-- **补充核对（声明扫描，票 12 Verification 命令）**：`rg -ni 'token|节省|可靠性提升|速度提升' agent-up --glob '!adapters/**'` 命中 6 处（含 adapters 全包扫描同 6 处），逐处核对均为边界声明或实践规则，**收益声明零命中**：
+- **状态**：`N/A`。**reason**：未进行任何隔离实验或测量，无实验数据；按 R-CC-004 与 Forbidden 纪律（不编造实验数据或测量结论、不发起实验），本条不声称任何 token 节省、可靠性提升或速度提升收益，也不声明包"经优化"。
+- **补充核对（声明扫描，Verification 命令）**：`rg -ni 'token|节省|可靠性提升|速度提升' agent-up --glob '!adapters/**'` 命中 6 处（含 adapters 全包扫描同 6 处），逐处核对均为边界声明或实践规则，**收益声明零命中**：
   1. `agent-up/README.md:62` — 禁令（"在没有实验数据的情况下声称 token 节省、速度或可靠性提升"）；
   2. `agent-up/references/templates/development-process.md.tmpl:295` — 节题"上下文与 token 卫生"（实践规则）；
   3. `agent-up/references/templates/development-process.md.tmpl:306` — smart zone 落盘时机规则（操作指引，非收益声明）；
@@ -131,7 +131,7 @@
 ## 发布就绪前置条件
 
 - 11 条场景逐条核验完成（10 PASS + 1 N/A），无 FAIL 项，**发布就绪前置条件达成**（R-06-008 前半）。
-- 剩余前置：S10 的 `deferred-to-13` 全量复跑（票 13 完成 subtree 导出后补记）；独立 Review 复核本清单后票 12 状态改 `done`；票 14 的 GitHub URL/remote/push/发布声明仍需用户**单独授权**（R-06-007），本清单不构成任何发布行为授权。
+- 剩余前置：S10 的 `deferred-to-13` 全量复跑（subtree 导出完成后补记）；独立 Review 复核本清单后清单收口；发布面 GitHub URL/remote/push/发布声明仍需用户**单独授权**（R-06-007），本清单不构成任何发布行为授权。
 
 ## 验证记录
 
@@ -141,4 +141,4 @@
 | check-package.sh 正例 | 7 PASS，`check-package: PASS`，exit 0（2026-09-03 实跑） |
 | check-package.sh 负例 | 临时副本删 SKILL.md → `FAIL（2 项未通过，共 7 项）`，exit 1；临时目录已清理 |
 | S11 声明扫描 | 6 命中逐处核对为禁令/实践表述，收益声明零命中 |
-| `git status --short` | `fatal: not a git repository`（exit 128）——本仓库未 Git 化（属票 13），全程零 Git 写操作 |
+| `git status --short` | `fatal: not a git repository`（exit 128）——执行时点本仓库未 Git 化，全程零 Git 写操作 |
