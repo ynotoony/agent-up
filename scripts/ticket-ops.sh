@@ -3,7 +3,9 @@
 #        docs/issues/index.json（票状态真相源，单文件一条目一行，票 33 终裁 T2）、
 #        docs/issues/README.md 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，
 #        人工登记投影，票 37 口径）、docs/changes.jsonl 记录账本（键序
-#        date,kind,scope,decision,evidence_ref，一行一事实，禁裸换行）。
+#        date,kind,scope,decision,evidence_ref，五键必备＋按 kind 条件键：lesson 必带
+#        第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone
+#        ——票 81，一行一事实，禁裸换行）。
 # Output: 协调层票务面写入——open＝新票本体 schema 校验＋理由非空断言（票 79，只 open
 #         时点生效，存量零回扫）＋校验＋索引新增条目（status=ready）＋README 追加目录
 #         清单行＋账本追加行；take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
@@ -45,7 +47,11 @@ usage() {
                    --title <text>            票标题（用作 README 行功能列文本；不得含
                                              竖线/反引号/换行/制表符）
                    --ledger-line <json>      完整 JSONL 账本行（键序 date,kind,scope,
-                                             decision,evidence_ref；紧凑或带空格 JSONL
+                                             decision,evidence_ref 五键必备＋按 kind 条件
+                                             键，票 81：lesson 必带第六键 promoted_to（枚
+                                             举 新票/rules/sop/validator/test/none），replan
+                                             必带 replan_original/replan_replacement/
+                                             replan_undone（布尔）；紧凑或带空格 JSONL
                                              均可；脚本只校验后追加，不代生成散文；字符
                                              串值不得内嵌引号或反斜杠）
                    [--blocked-by <id,id>]    逗号分隔 blocker id（缺省空数组）
@@ -141,8 +147,33 @@ esac
 case ${ledger_line} in
   *"${NL}"*|*"${TAB}"*) die1 '账本行含裸换行或制表符（一行一事实，禁裸换行）' ;;
 esac
-printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"[^"\\]*", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*"\}$' || \
-  die1 '账本行不合键序或形状（键序 date,kind,scope,decision,evidence_ref；五键齐全、紧凑或带空格 JSONL 均可；字符串值不得内嵌引号或反斜杠）'
+# 账本行形状校验（票 81 行型扩展，仅向前生效）：五键必备＋按 kind 条件键＋promoted_to
+# 枚举。非 lesson/replan 维持恰五键收口（既有合法面不放宽不收窄）；lesson 恰六键——第六键
+# promoted_to 枚举＝新票/rules/sop/validator/test/none（填 none 亦算显式拍板，防教训悬空；
+# 越枚举不静默收编）；replan 恰八键——三条件键须为布尔字面量 true/false。条件键一律紧跟
+# evidence_ref 之后按固定次序排布（键序稳定，键序破坏形态同拒）。
+if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"(新票|rules|sop|validator|test|none)"\}$'; then
+  :
+elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?(true|false), ?"replan_replacement": ?(true|false), ?"replan_undone": ?(true|false)\}$'; then
+  :
+elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"[^"\\]*", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*"\}$'; then
+  # 恰五键行：kind=lesson/replan 即缺条件键，指名报因；其余 kind 维持既有合法面
+  ledger_kind=$(printf '%s' "${ledger_line}" | sed -n 's/^{"date": \{0,1\}"[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}", \{0,1\}"kind": \{0,1\}"\([^"\\]*\)".*/\1/p')
+  case ${ledger_kind} in
+    lesson) die1 'lesson 行缺第六键 promoted_to（枚举 新票/rules/sop/validator/test/none，填 none 亦算显式拍板——票 81）' ;;
+    replan) die1 'replan 行缺条件键 replan_original/replan_replacement/replan_undone（布尔 true/false——票 81）' ;;
+  esac
+else
+  # 形状不符：可定位行型条件键形态的指名报因，否则通用报因（fail-closed 口径不放宽）
+  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"[^"\\]*"\}$'; then
+    promoted_to_val=$(printf '%s' "${ledger_line}" | sed -n 's/.*"promoted_to": \{0,1\}"\([^"\\]*\)".*/\1/p')
+    die1 "lesson 行 promoted_to 越枚举（枚举＝新票/rules/sop/validator/test/none，不静默收编——票 81）: ${promoted_to_val}"
+  fi
+  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?[^,]*, ?"replan_replacement": ?[^,]*, ?"replan_undone": ?[^}]*\}$'; then
+    die1 'replan 行条件键须为布尔字面量 true/false 且按 replan_original→replan_replacement→replan_undone 固定键序（票 81）'
+  fi
+  die1 '账本行不合键序或形状（键序 date,kind,scope,decision,evidence_ref；五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to（枚举 新票/rules/sop/validator/test/none）、replan 必带 replan_original/replan_replacement/replan_undone（布尔）——票 81；紧凑或带空格 JSONL 均可；字符串值不得内嵌引号或反斜杠）'
+fi
 
 case ${cmd} in
   open)

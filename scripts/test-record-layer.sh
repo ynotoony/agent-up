@@ -26,7 +26,12 @@
 #        正例本体随票 79 前置校验落位）；票 79 ticket-ops 套件加 open 本体 schema 校验
 #        ＋理由非空断言（正例夹具落位含理由两字段的本体照旧放过；负例＝缺
 #        complexity_reason／priority_reason 空值／缺本体文件，均 exit 1 零写入；夹具增
-#        schema 权威落位，python3 列为套件环境依赖）。
+#        schema 权威落位，python3 列为套件环境依赖）；票 81 账本行型扩展（lesson 必带
+#        第六键 promoted_to（枚举 新票/rules/sop/validator/test/none）、replan 必带
+#        replan_original/replan_replacement/replan_undone 布尔，既有五键行向后兼容）：
+#        正例四（lesson promoted_to=sop／replan 三键齐／lesson promoted_to=none 枚举边界／
+#        对照组五键 kind=change 行照旧）＋负例四（lesson 缺 promoted_to／promoted_to 越枚举／
+#        replan 缺 replan_undone／条件键序破坏，均 exit 1 零写入）进 ticket-ops 套件。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -639,6 +644,85 @@ suite_ticket_ops() {
     ok '负例 N-r3 本体文件缺失 → exit 1 零写入（先落位本体再开票，票 79）'
   else
     bad '负例 N-r3 本体文件缺失 → exit 1 零写入（先落位本体再开票，票 79）' "exit=$rc $(head -n 2 "$D/nr3.log" | tr '\n' '|')"
+  fi
+
+  # ---- 票 81 断言：账本行型扩展（lesson/replan 条件键＋promoted_to 枚举）----
+  # 正例四：lesson（promoted_to=sop）open 收录、replan（三键齐）open 收录、
+  # lesson（promoted_to=none 枚举边界）take 收录、对照组既有五键 kind=change 行 flip
+  # 照旧（向后兼容：链脚本生成面零回归）；负例四各自 exit 1 零写入且报明原因。
+  tix_body "$F/docs/issues/61-iota-eighth.json" 61-iota-eighth
+  LED_LESSON='{"date": "2026-09-24", "kind": "lesson", "scope": "docs/issues", "decision": "fixture lesson 61", "evidence_ref": "docs/issues/61-iota-eighth.json", "promoted_to": "sop"}'
+  sh "$F/scripts/ticket-ops.sh" open --id 61-iota-eighth --complexity C1 --title iota --ledger-line "$LED_LESSON" >"$D/ls1.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(tail -n 1 "$F/docs/changes.jsonl")" = "$LED_LESSON" ]; then
+    ok '正例 lesson 行 open → exit 0 且账本收录（promoted_to=sop，票 81 行型）'
+  else
+    bad '正例 lesson 行 open → exit 0 且账本收录（promoted_to=sop，票 81 行型）' "exit=$rc $(head -n 2 "$D/ls1.log" | tr '\n' '|')"
+  fi
+
+  tix_body "$F/docs/issues/62-kappa-ninth.json" 62-kappa-ninth
+  LED_REPLAN='{"date": "2026-09-24", "kind": "replan", "scope": "docs/issues", "decision": "fixture replan 62", "evidence_ref": "docs/issues/62-kappa-ninth.json", "replan_original": true, "replan_replacement": false, "replan_undone": true}'
+  sh "$F/scripts/ticket-ops.sh" open --id 62-kappa-ninth --complexity C1 --title kappa --ledger-line "$LED_REPLAN" >"$D/ls2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(tail -n 1 "$F/docs/changes.jsonl")" = "$LED_REPLAN" ]; then
+    ok '正例 replan 行 open → exit 0 且账本收录（三条件键齐，票 81 行型）'
+  else
+    bad '正例 replan 行 open → exit 0 且账本收录（三条件键齐，票 81 行型）' "exit=$rc $(head -n 2 "$D/ls2.log" | tr '\n' '|')"
+  fi
+
+  LED_LESSON_NONE='{"date": "2026-09-24", "kind": "lesson", "scope": "docs/issues", "decision": "fixture lesson none 61", "evidence_ref": "docs/issues/61-iota-eighth.json", "promoted_to": "none"}'
+  sh "$F/scripts/ticket-ops.sh" take --id 61-iota-eighth --status in_progress --ledger-line "$LED_LESSON_NONE" >"$D/ls3.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(tail -n 1 "$F/docs/changes.jsonl")" = "$LED_LESSON_NONE" ]; then
+    ok '正例 lesson 行 take → exit 0 且账本收录（promoted_to=none 枚举边界亦合法，票 81）'
+  else
+    bad '正例 lesson 行 take → exit 0 且账本收录（promoted_to=none 枚举边界亦合法，票 81）' "exit=$rc $(head -n 2 "$D/ls3.log" | tr '\n' '|')"
+  fi
+
+  LED_CHANGE='{"date": "2026-09-24", "kind": "change", "scope": "docs/issues", "decision": "fixture flip 20 change-row", "evidence_ref": "docs/issues/20-beta-second.json"}'
+  sh "$F/scripts/ticket-ops.sh" flip --id 20-beta-second --status review_pass --ledger-line "$LED_CHANGE" >"$D/ls4.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(tail -n 1 "$F/docs/changes.jsonl")" = "$LED_CHANGE" ]; then
+    ok '对照组 既有五键 kind=change 行 flip → exit 0（向后兼容：链脚本生成面零回归，票 81）'
+  else
+    bad '对照组 既有五键 kind=change 行 flip → exit 0（向后兼容：链脚本生成面零回归，票 81）' "exit=$rc $(head -n 2 "$D/ls4.log" | tr '\n' '|')"
+  fi
+
+  S81=$(tix_state "$F")
+  LED_LESSON_MISSING='{"date": "2026-09-24", "kind": "lesson", "scope": "docs/issues", "decision": "fixture lesson missing", "evidence_ref": "docs/issues/61-iota-eighth.json"}'
+  sh "$F/scripts/ticket-ops.sh" flip --id 61-iota-eighth --status in_progress --ledger-line "$LED_LESSON_MISSING" >"$D/ln1.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S81" = "$(tix_state "$F")" ] && grep -q 'promoted_to' "$D/ln1.log"; then
+    ok '负例 N-81a lesson 缺 promoted_to → exit 1 零写入且报文指名（票 81）'
+  else
+    bad '负例 N-81a lesson 缺 promoted_to → exit 1 零写入且报文指名（票 81）' "exit=$rc $(head -n 2 "$D/ln1.log" | tr '\n' '|')"
+  fi
+
+  LED_LESSON_BAD='{"date": "2026-09-24", "kind": "lesson", "scope": "docs/issues", "decision": "fixture lesson bad-enum", "evidence_ref": "docs/issues/61-iota-eighth.json", "promoted_to": "refactor"}'
+  sh "$F/scripts/ticket-ops.sh" flip --id 61-iota-eighth --status in_progress --ledger-line "$LED_LESSON_BAD" >"$D/ln2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S81" = "$(tix_state "$F")" ] && grep -q '越枚举' "$D/ln2.log"; then
+    ok '负例 N-81b promoted_to=refactor 越枚举 → exit 1 零写入且报明枚举（票 81 不静默收编）'
+  else
+    bad '负例 N-81b promoted_to=refactor 越枚举 → exit 1 零写入且报明枚举（票 81 不静默收编）' "exit=$rc $(head -n 2 "$D/ln2.log" | tr '\n' '|')"
+  fi
+
+  LED_REPLAN_MISSING='{"date": "2026-09-24", "kind": "replan", "scope": "docs/issues", "decision": "fixture replan missing", "evidence_ref": "docs/issues/62-kappa-ninth.json", "replan_original": true, "replan_replacement": false}'
+  sh "$F/scripts/ticket-ops.sh" flip --id 62-kappa-ninth --status in_progress --ledger-line "$LED_REPLAN_MISSING" >"$D/ln3.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S81" = "$(tix_state "$F")" ] && grep -q 'replan_undone' "$D/ln3.log"; then
+    ok '负例 N-81c replan 缺 replan_undone → exit 1 零写入且报文指名（票 81）'
+  else
+    bad '负例 N-81c replan 缺 replan_undone → exit 1 零写入且报文指名（票 81）' "exit=$rc $(head -n 2 "$D/ln3.log" | tr '\n' '|')"
+  fi
+
+  LED_REPLAN_ORDER='{"date": "2026-09-24", "kind": "replan", "scope": "docs/issues", "decision": "fixture replan bad-order", "evidence_ref": "docs/issues/62-kappa-ninth.json", "replan_replacement": false, "replan_original": true, "replan_undone": true}'
+  sh "$F/scripts/ticket-ops.sh" flip --id 62-kappa-ninth --status in_progress --ledger-line "$LED_REPLAN_ORDER" >"$D/ln4.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S81" = "$(tix_state "$F")" ] && grep -q '账本行不合键序或形状' "$D/ln4.log"; then
+    ok '负例 N-81d replan 条件键序破坏 → exit 1 零写入（条件键序稳定不放宽，票 81）'
+  else
+    bad '负例 N-81d replan 条件键序破坏 → exit 1 零写入（条件键序稳定不放宽，票 81）' "exit=$rc $(head -n 2 "$D/ln4.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'
