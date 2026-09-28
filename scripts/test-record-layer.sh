@@ -38,7 +38,12 @@
 #        file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面）：stale-claims
 #        套件登记数期望随动（未点亮 2→3、全点亮 4→5）＋S5 正负例四（新增面标注齐→
 #        exit 0；新增面缺标注→STALE 指名 file:line；存量已提交不回溯→exit 0；修改面
-#        缺标注→STALE，夹具经 git init 基线提交承载向前生效语义）。
+#        缺标注→STALE，夹具经 git init 基线提交承载向前生效语义）；票 94（S6 终态哨兵：
+#        check-stale-claims 登记表增 S6——索引 id 曾达 done/superseded 被改回非终态即
+#        STALE 指名票 id 与跃迁方向，终态史取 Git 基线）：套件登记数期望随动（未点亮
+#        3→4、全点亮 5→6）＋S6 正负例四（终态索引照旧→exit 0；done→in_progress→
+#        STALE 指名票 id 与跃迁方向；superseded→ready 同款；非终态流转零误报，终态史
+#        经 git init 基线提交承载）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -1526,7 +1531,9 @@ suite_check_artifacts() {
 # ============================================================
 # suite: stale-claims（票 72 场景沉淀：S1/S2 配置点亮正负例——未点亮 SKIP 不计数、
 # 点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化；票 85 增补：
-# S5 方案结论标注句正负例四——向前生效经 git init 基线提交承载）
+# S5 方案结论标注句正负例四——向前生效经 git init 基线提交承载；票 94 增补：
+# S6 终态哨兵正负例四——终态史经 git init 基线提交承载，done→in_progress／
+# superseded→ready 非法跃迁即报、终态稳态与非终态流转零误报）
 # ============================================================
 
 sc_build_fixture() {
@@ -1574,11 +1581,11 @@ suite_stale_claims() {
   if [ "$rc" -eq 0 ] \
     && grep -q 'SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
     && grep -q 'SKIP: S2 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
-    && grep -q '登记表 3 条全部核对' "$D/p1.out" \
+    && grep -q '登记表 4 条全部核对' "$D/p1.out" \
     && ! grep -q '^STALE' "$D/p1.out"; then
-    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 3（通用条数 S3/S4/S5，票 85）'
+    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 4（通用条数 S3/S4/S5/S6，票 94）'
   else
-    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 3（通用条数 S3/S4/S5，票 85）' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
+    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 4（通用条数 S3/S4/S5/S6，票 94）' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
   fi
 
   # 正例 P2：点亮（dp_stale_lit S1＋S2，无 payload 节）→ 无 SKIP 行、S1/S2 断言逻辑执行
@@ -1598,10 +1605,10 @@ EOF
     && ! grep -q '^SKIP: S1' "$D/p2.out" \
     && ! grep -q '^SKIP: S2' "$D/p2.out" \
     && grep -q '^STALE: README.md' "$D/p2.out" \
-    && grep -q '登记表共 5 条' "$D/p2.out"; then
-    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 5（点亮数＋通用条数 S3/S4/S5，票 85）'
+    && grep -q '登记表共 6 条' "$D/p2.out"; then
+    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 6（点亮数＋通用条数 S3/S4/S5/S6，票 94）'
   else
-    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 5（点亮数＋通用条数 S3/S4/S5，票 85）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
+    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 6（点亮数＋通用条数 S3/S4/S5/S6，票 94）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
   fi
 
   # 负例 N1：delivery.rules 解析破坏（未知指令）→ exit 2 fail-closed 指名
@@ -1628,10 +1635,10 @@ EOF
   rc=$?
   if [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/p3.out" \
-    && grep -q '登记表 3 条全部核对' "$D/p3.out"; then
-    ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 3 条'
+    && grep -q '登记表 4 条全部核对' "$D/p3.out"; then
+    ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 4 条'
   else
-    bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 3 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
+    bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 4 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
   fi
 
   # 负例 N2（票 85）：S5 新增面负例——新增扫描面文档结论行缺标注（列表标记变体）
@@ -1678,6 +1685,88 @@ EOF
     ok '负例 N3 S5 修改面追加行缺标注 → exit 1 且 STALE 指名追加行 :5（基线行 ：3 不报）'
   else
     bad '负例 N3 S5 修改面追加行缺标注 → exit 1 且 STALE 指名追加行 :5（基线行 ：3 不报）' "exit=$rc $(tail -n 2 "$D/n3.out" | tr '\n' '|')"
+  fi
+
+  # S6 辅助：夹具三面自洽覆写（索引↔issues-README 锚点数↔投影行——S4 数量相等与
+  # S3 最小比对同夹具内保持绿，S6 断言单变量隔离；终态史经 git log -p 基线锚承载）
+  sc_s6_write() {
+    # $1=夹具仓根 $2=91 状态 $3=91 updated_at $4=92 状态 $5=92 updated_at
+    printf '{"id": "91-s6-done", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "%s"}\n{"id": "92-s6-superseded", "status": "%s", "complexity": "C0", "blocked_by": [], "updated_at": "%s"}\n' "$2" "$3" "$4" "$5" > "$1/docs/issues/index.json"
+    printf '# issues\n\n任务票 1；\n任务票 2；\n' > "$1/docs/issues/README.md"
+    printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 91-s6-done | %s | - | %s |\n| 92-s6-superseded | %s | - | %s |\n' "$2" "$3" "$4" "$5" > "$1/docs/progress-current.md"
+  }
+
+  # 正例 P5（票 94）：S6 终态哨兵正例——终态索引（done/superseded 各一）随基线提交
+  # 入终态史，工作区照旧（终态保持终态）→ exit 0、无 S6 STALE（合法稳态零误报）
+  sc_build_fixture "$D/p5"
+  mkdir -p "$D/p5/eng"
+  cp "$SC" "$D/p5/eng/check-stale-claims.sh"
+  sc_s6_write "$D/p5/repo" done 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
+  sc_git_baseline "$D/p5/repo"
+  sc_run "$D/p5" > "$D/p5.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && ! grep -q '^STALE' "$D/p5.out" \
+    && ! grep -q 'S6 终态哨兵' "$D/p5.out"; then
+    ok '正例 P5 S6 终态索引照旧（done/superseded 保持终态）→ exit 0 零 STALE（合法稳态）'
+  else
+    bad '正例 P5 S6 终态索引照旧（done/superseded 保持终态）→ exit 0 零 STALE（合法稳态）' "exit=$rc $(tail -n 2 "$D/p5.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N4（票 94）：S6 终态哨兵负例——基线提交的 done 票被改回 in_progress
+  # （索引与投影同步改写，镜像道脚本单写语义；S6 断言单变量隔离）
+  # → exit 1 且 S6 STALE 指名票 id 与跃迁方向（AC2 口径）
+  sc_build_fixture "$D/n4"
+  mkdir -p "$D/n4/eng"
+  cp "$SC" "$D/n4/eng/check-stale-claims.sh"
+  sc_s6_write "$D/n4/repo" done 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
+  sc_git_baseline "$D/n4/repo"
+  sc_s6_write "$D/n4/repo" in_progress 2026-09-28T01:00:00Z superseded 2026-09-28T00:00:00Z
+  sc_run "$D/n4" > "$D/n4.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '^STALE: docs/issues/index.json:91-s6-done' "$D/n4.out" \
+    && grep -q 'S6 终态哨兵：' "$D/n4.out" \
+    && grep -q '被改回非终态 in_progress' "$D/n4.out"; then
+    ok '负例 N4 S6 done 票改回 in_progress → exit 1 STALE 指名票 id 与跃迁方向'
+  else
+    bad '负例 N4 S6 done 票改回 in_progress → exit 1 STALE 指名票 id 与跃迁方向' "exit=$rc $(tail -n 2 "$D/n4.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N5（票 94）：S6 superseded 同款覆盖——基线提交的 superseded 票改回 ready
+  # → exit 1 且 S6 STALE 指名票 id 与跃迁方向（AC3 口径）
+  sc_build_fixture "$D/n5"
+  mkdir -p "$D/n5/eng"
+  cp "$SC" "$D/n5/eng/check-stale-claims.sh"
+  sc_s6_write "$D/n5/repo" done 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
+  sc_git_baseline "$D/n5/repo"
+  sc_s6_write "$D/n5/repo" done 2026-09-28T00:00:00Z ready 2026-09-28T01:00:00Z
+  sc_run "$D/n5" > "$D/n5.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '^STALE: docs/issues/index.json:92-s6-superseded' "$D/n5.out" \
+    && grep -q '被改回非终态 ready' "$D/n5.out"; then
+    ok '负例 N5 S6 superseded 票改回 ready → exit 1 STALE 指名票 id 与跃迁方向'
+  else
+    bad '负例 N5 S6 superseded 票改回 ready → exit 1 STALE 指名票 id 与跃迁方向' "exit=$rc $(tail -n 2 "$D/n5.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P6（票 94）：S6 非终态流转零误报——基线提交 ready 票，索引＋投影同步改
+  # in_progress（ready→in_progress 合法流转，从未达终态）→ exit 0、无 S6 STALE
+  sc_build_fixture "$D/p6"
+  mkdir -p "$D/p6/eng"
+  cp "$SC" "$D/p6/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/p6/repo"
+  printf '{"id": "90-fixture", "status": "in_progress", "updated_at": "2026-09-28T01:00:00Z"}\n' > "$D/p6/repo/docs/issues/index.json"
+  printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | in_progress | - | 2026-09-28T01:00:00Z |\n' > "$D/p6/repo/docs/progress-current.md"
+  sc_run "$D/p6" > "$D/p6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && ! grep -q '^STALE' "$D/p6.out" \
+    && ! grep -q 'S6 终态哨兵' "$D/p6.out"; then
+    ok '正例 P6 S6 非终态流转（ready→in_progress）→ exit 0 零误报'
+  else
+    bad '正例 P6 S6 非终态流转（ready→in_progress）→ exit 0 零误报' "exit=$rc $(tail -n 2 "$D/p6.out" | tr '\n' '|')"
   fi
 
   suite_summary 'stale-claims'
