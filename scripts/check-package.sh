@@ -3,7 +3,7 @@
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
 #        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标/规则索引执行
 #        机制受控词表十节唯一承载点，票 57/58/59/60）。
-# Output: 十八项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
+# Output: 十九项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败 exit 1；
 #         检查 13 仓根无镜像时静默跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
@@ -48,10 +48,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  十八项检查全部通过
+  0  十九项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-十八项检查说明、例外登记与输出格式见同目录 README.md。
+十九项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -1402,7 +1402,7 @@ fi
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
-n_total_checks=18
+n_total_checks=19
 n_mrow=0
 mech_m='机械'
 if [ "$n_idx" -eq 0 ]; then
@@ -1550,8 +1550,63 @@ else
   pass 18 "包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 ${n_citeex} 行）"
 fi
 
+# 检查 19：scripts 节可执行位断言（mode 全量）。判定源＝清单 pm_script kind（数据驱动，
+# 引擎零文件名硬编码，家族惯例同检查 8/9）：kind=script（普通脚本）与 kind=test-harness
+# （被调 harness）为可执行类——须 index 100755 且盘上可执行（出生即残类失效防线：hook
+# 只调可执行件、直接执行依赖 -x 位，mode 残缺静默失效，先例 .githooks 门禁 5）；kind=rules
+# （数据规则表）为非可执行件——须 index 100644 且盘上不可执行（数据件误带执行位防扩散）。
+# 每件四态核对：index mode（git ls-files -s）、盘上 -x、期望 mode、kind 枚举兜底（未知
+# kind 即 FAIL，防 kind 枚举扩张漏配期望）。$pkg_root 非 git worktree 时（--pkg-root
+# 复制落位语境，先例检查 13 静默跳过语义）整项静默跳过零输出行——git 不可用时 index
+# mode 无从核对，不核对不宣称（假 PASS 与误报都不发生）。
+problems=''
+n_mode_scripts=$(wc -l < "$pm_scripts" | tr -d ' ')
+if git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for row in $(cat "$pm_scripts"); do
+    IFS=$OLDIFS
+    rel=${row%%"$TAB"*}
+    kind=${row#*"$TAB"}
+    kind=${kind%%"$TAB"*}
+    case $kind in
+      script|test-harness) want=100755; want_exec=1 ;;
+      rules) want=100644; want_exec=0 ;;
+      *)
+        add_problem "  - $rel kind 不合预期（script|rules|test-harness 外值，期望 mode 未配置）: $kind"
+        continue
+        ;;
+    esac
+    idx_mode=$(git -C "$pkg_root" ls-files -s -- "$rel" | LC_ALL=C awk '{print $1; exit}')
+    if [ ! -f "$pkg_root/$rel" ]; then
+      continue  # 缺件由检查 8 指名，本项不重复报
+    fi
+    if [ -z "$idx_mode" ]; then
+      add_problem "  - $rel 未被 git 跟踪（index mode 无从核对，期望 $want）"
+      continue
+    fi
+    if [ "$idx_mode" != "$want" ]; then
+      # 花括号不可省略：全角字符相邻时防止变量名吞并（先例检查 12）
+      add_problem "  - $rel index mode 为 ${idx_mode}（期望 ${want}，kind=${kind}）"
+    fi
+    if [ "$want_exec" -eq 1 ] && ! [ -x "$pkg_root/$rel" ]; then
+      add_problem "  - $rel 盘上不可执行（kind=${kind} 须可执行，chmod 755 修复）"
+    fi
+    if [ "$want_exec" -eq 0 ] && [ -x "$pkg_root/$rel" ]; then
+      add_problem "  - $rel 盘上可执行（kind=${kind} 数据件禁执行位）"
+    fi
+  done
+  IFS=$OLDIFS
+  if [ -n "$problems" ]; then
+    fail 19 "scripts 节 mode 断言（${n_mode_scripts} 件，kind 数据驱动）" "$problems"
+  else
+    pass 19 "scripts 节 mode 断言（${n_mode_scripts} 件，kind 数据驱动）"
+  fi
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 18 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 19 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

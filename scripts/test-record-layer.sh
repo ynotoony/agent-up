@@ -819,7 +819,10 @@ EOF
 # 13→14，预期串同步十四项口径——正例含检查 14 PASS 行，补检查 14 注入未登记基元/
 # 删一基元负例；票 60 检查 14→17，检查 8 清单 10→12 件，预期串同步十七项口径——
 # 正例含检查 15/16/17 PASS 行，补索引删行/加全集外 ID/未登记机制值/机械行点名不存在
-# 脚本/检查项号超界/外定义行删标记词负例＋mechanism-vocab 词表损坏 exit 2 负例）
+# 脚本/检查项号超界/外定义行删标记词负例＋mechanism-vocab 词表损坏 exit 2 负例；
+# 票 95 检查 18→19，预期串同步十九项口径——正例含检查 19 PASS 行（真包根 git 语境），
+# 负例夹具为非 git 语境检查 19 静默跳过无输出行，补 mode 断言负例一对（git 夹具语境：
+# kind=script .sh 置 644／kind=rules 规则表置 755，双断言同报））
 # ============================================================
 
 suite_check_package() {
@@ -848,12 +851,13 @@ PASS: 15 模板规则索引与规则块全集全等（索引 51 行，全集 51 
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
+PASS: 19 scripts 节 mode 断言（15 件，kind 数据驱动）
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
   rc=$?
   [ "$rc" -eq 0 ] && ok "正例 exit 0（包根＝${PKG_ROOT}）" || bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
-  assert_eq '正例输出逐行逐一相等（十八项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17 与 18 票号禁令）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（十九项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17、18 票号禁令与 19 mode 断言）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -875,7 +879,7 @@ PASS: 15 模板规则索引与规则块全集全等（索引 51 行，全集 51 
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-check-package: FAIL（3 项未通过，共 18 项）
+check-package: FAIL（3 项未通过，共 19 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -904,7 +908,7 @@ PASS: 15 模板规则索引与规则块全集全等（索引 51 行，全集 51 
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-check-package: FAIL（1 项未通过，共 18 项）
+check-package: FAIL（1 项未通过，共 19 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -1081,13 +1085,14 @@ EOF
   fi
 
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
-  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数 17）。
+  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 95 后为 19；注入
+  # 检查 20＝超界一位，随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 19） |/' "$D/pkgcopy13/references/templates/development-process.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 20） |/' "$D/pkgcopy13/references/templates/development-process.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/development-process.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 18 项）: 检查 19' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 19 项）: 检查 20' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -1155,6 +1160,45 @@ EOF
     ok '负例 N21 票号豁免登记行无命中 → exit 1 且 FAIL: 18 报失效豁免'
   else
     bad '负例 N21 票号豁免登记行无命中 → exit 1 且 FAIL: 18 报失效豁免' "exit=$rc"
+  fi
+
+  # 票 95 检查 19 负例 N22：夹具副本（cp -R 落位＝非 git 语境）检查 19 静默跳过——
+  # 全部既有负例输出零检查 19 行的语境前提钉死（git 不可用则 index mode 无从核对，
+  # 静默跳过不误报，检查 13 静默语义同款）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy19"
+  sh "$D/pkgcopy19/scripts/check-package.sh" "$D/pkgcopy19" >"$D/act.n22" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q 'scripts 节 mode 断言' "$D/act.n22"; then
+    ok '负例 N22 非 git 语境（cp 副本）检查 19 静默跳过无输出行 → exit 0'
+  else
+    bad '负例 N22 非 git 语境（cp 副本）检查 19 静默跳过无输出行 → exit 0' "exit=$rc"
+  fi
+
+  # 票 95 检查 19 负例 N23：git 夹具语境（worktree 布线）mode 双向负例——kind=script
+  # 可执行件置 644 与 kind=rules 数据件置 755 同夹具各一，双断言（index mode＋盘上 -x）
+  # 同报且逐件指名期望 mode；git add 后 index 才承载翻转，零布线的纯盘上 chmod 不得
+  # 令 index 断言误判。
+  cp -R "$PKG_ROOT" "$D/pkgcopy20"
+  (
+    cd "$D/pkgcopy20"
+    git init -q
+    git add -A
+    chmod 644 scripts/generate-progress.sh
+    chmod 755 scripts/module-map.rules
+    git add scripts/generate-progress.sh scripts/module-map.rules
+    git -c user.email=fixture@example.com -c user.name=fixture commit -qm fixture
+  ) >/dev/null 2>&1
+  sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（15 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
+    && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
+    && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
+    && grep -q 'scripts/module-map.rules 盘上可执行（kind=rules 数据件禁执行位）' "$D/act.n23"; then
+    ok '负例 N23 git 语境 mode 双向负例（script→644／rules→755）→ exit 1 且双断言同报指名期望 mode'
+  else
+    bad '负例 N23 git 语境 mode 双向负例（script→644／rules→755）→ exit 1 且双断言同报指名期望 mode' "exit=$rc"
   fi
 
   suite_summary 'check-package'
