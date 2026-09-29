@@ -545,7 +545,7 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 7. Session 置 `recovering`，判定结论：`resume` / `blocked` / `conflict`；
 8. IF 中断发生在交付完成前 THEN 完整交付后重新独立 Review ELSE 按既有 Review 证据继续。
 
-恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。Intake Session（用户说"加需求"）只执行 `docs/requests/README.md` 的 Intake 规则，不进入本流程。
+恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。Intake Session（用户说"加需求"）只执行 `docs/requests/README.md` 的 Intake 规则，不进入本流程。后台链接棒默认重开（CreateWorkflow 新 run）；Resume/Amend 续跑仅当票单与进度完全已知且需保序——换模型/换参数视为接棒即重开。升级质询的裁决必须同票 Checkpoint 落账（含 question-id 与裁决内容）——裁决不落盘即未裁决。
 
 #### R-DP-014 恢复顺序固定 `MUST`
 
