@@ -3,15 +3,19 @@
 #        的易腐状态句条目，与模式开关（第二参数或 STALE_CLAIMS_MODE 环境变量）；
 #        仓根 delivery.rules（票 72 配置点亮：dp_stale_lit 点亮位、payload 节 remote 名
 #        /包前缀/本地导出分支——S1/S2 配置面唯一承载点，解析破坏 exit 2 fail-closed；
-#        宣称锚点句「公开包已发布」属协议面留引擎，照设计 §2 分界判据）。
+#        宣称锚点句「公开包已发布」属协议面留引擎，照设计 §2 分界判据）；与 Git 历史
+#        （S6 终态基线锚：docs/issues/index.json 的现行提交历史，票 94——只读 log -p，
+#        不读其他历史面）。
 # Output: 登记条目逐项核对结果——STALE 行（过期断言，含 路径:行号:内容 定位）、
 #         WARN 行（提醒，含登记日期与【待定】阈值标注）、NOTE 行（比对机制退化说明，
 #         不计入失败）、STALE-prone 行（S4 计数模式易腐命中，指名 file:line，
-#         计入过期断言计数）、结尾汇总行；票收口模式（gate）发现过期断言 exit 1，
+#         计入过期断言计数）、S6 非法跃迁行（STALE，指名票 id 与跃迁方向 done/superseded
+#         → 非终态）、结尾汇总行；票收口模式（gate）发现过期断言 exit 1，
 #         会话启动模式（session）仅输出警告 exit 0。
 # Pos: 登记表驱动的易腐断言扫描器（REQ-20260904-010 / 票 19）；S4 计数漂移哨兵
-#      （票 65）；S5 方案结论标注句（票 85，R-DP-033 加固配套格式断言）；POSIX sh、
-#      零外部依赖、全程只读（除打印外无写操作，Git 仅使用只读子命令）。
+#      （票 65）；S5 方案结论标注句（票 85，R-DP-033 加固配套格式断言）；S6 终态哨兵
+#      （票 94，done/superseded 被改回非终态即 STALE/FAIL——复盘缺口④幽灵态机器报警）；
+#      POSIX sh、零外部依赖、全程只读（除打印外无写操作，Git 仅使用只读子命令）。
 
 # 用法、登记表条目说明与输出格式见同目录 README.md。
 # 状态陈述纪律见 development-process 模板 §15：状态以权威引用表达，本脚本
@@ -266,6 +270,15 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      Forbidden）；向前生效：只查工作区新增/修改面（git status --porcelain 判定），
 #      存量已提交文件不回溯（条文写死，票 85 风险注记：存量若回溯即红）；非 Git
 #      工作区 WARN 退化跳过（对齐 S1）。
+# S6 终态哨兵 | docs/issues/index.json（票状态真相源，一条目一行）
+#    | machine：终态哨兵（票 94，复盘缺口④幽灵态）——索引内 id 曾达终态（done/
+#      superseded）而当前 status 回到非终态（ready/in_progress/blocked/review_ready/
+#      review_pass/review_fail）即 STALE 指名票 id 与跃迁方向。基线锚＝该索引的 Git
+#      现行提交历史（`git log -p` 提取历次 + 行的 id/status；选型理由：零新增数据源
+#      ——终态史已由仓库历史承载，夹具快照反而成为第二本可漂移的账；非 Git 工作区
+#      WARN 跳过；索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过，对齐
+#      S1/S5）。对账分层：一致性对账
+#      （投影↔索引，S3）之外，终态语义由 S6 承载（development-process §5.1）。
 
 progress_rel='docs/archive/progress.md'
 readme_rel='README.md'
@@ -715,10 +728,72 @@ S5_HITS_INNER
   return 0
 }
 
+# ---- S6 终态哨兵（票 94，R3/R8 合并）-----------------------------------------
+#
+# 终态哨兵：docs/issues/index.json（票状态真相源）内 id 曾达终态（done/superseded）
+# 而当前 status 回到非终态 → STALE 指名票 id 与跃迁方向（复盘缺口④：W5 重放把 done
+# 票打回 in_progress 时对账照绿——S3 只查投影↔索引一致性，不查状态语义合法性）。
+# 基线锚＝该索引的 Git 现行提交历史：`git log -p` 逐提交提取 + 行的 id/status，曾见
+# 终态即入哨兵集（选型见登记表 S6 注记）。终态/非终态受控词表：
+#   终态   done | superseded
+#   非终态 ready | in_progress | blocked | review_ready | review_pass | review_fail
+# （与 ticket-ops.sh flip --status 的状态机八值一致；超集之外的 status 值属排版/词表
+# 破坏，归 S3 --check exit 2 语义，本哨兵不另断言。）
+# 退化语义：非 Git 工作区 → WARN 跳过；索引尚无基线提交且当前行无可提取条目（无可比
+# 历史）→ WARN 跳过，不硬猜。已知限制：`git log -p` 对 merge commit 默认不出 patch
+# ——仅经合并冲突引入索引的终态史不入哨兵集（现行流程翻转均经普通提交）。
+
+check_s6() {
+  _idx="$repo_root/docs/issues/index.json"
+  if [ ! -f "$_idx" ]; then
+    emit_warn 'docs/issues/index.json' 'S6 终态哨兵跳过：索引文件不存在（票状态真相源缺失），对齐 S3 缺失退化语义'
+    return 0
+  fi
+  if ! git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    emit_warn 'docs/issues/index.json' 'S6 终态哨兵跳过：目标当前不是 Git 工作区，终态基线不可判定，按流程退化语义跳过（对齐 S1/S5）'
+    return 0
+  fi
+  # 基线提取：历次 + 行的 id/status 对（含工作区当前行的 status）。id 提取面＝
+  # 「"id": "<token>"」紧邻 "status": "…" 的条目行（一条目一行排版，与 S3 同款口径；
+  # 缩进宽容——真实索引为 4 空格缩进、夹具为紧凑形态，均受理）。
+  _s6_hist=$(git -C "$repo_root" log -p --format= -- docs/issues/index.json 2>/dev/null \
+    | LC_ALL=C grep '^+.*{"id": "' \
+    | sed -n 's/^+[[:space:]]*{"id": "\([^"]*\)", "status": "\([^"]*\)".*/\1|\2/p') || _s6_hist=''
+  _s6_now_row=$(LC_ALL=C grep -o '"id": "[^"]*", "status": "[^"]*"' "$_idx" 2>/dev/null || true)
+  if [ -z "$_s6_hist" ] && [ -z "$_s6_now_row" ]; then
+    emit_warn 'docs/issues/index.json' 'S6 终态哨兵跳过：索引尚无基线提交且当前行无可提取条目（无可比历史），不硬猜'
+    return 0
+  fi
+  # 曾见终态集：历史上任一时刻 status 为终态的 id（当前行也计入——终态票现行终态属
+  # 合法稳态，不报；只有「曾终态→现非终态」才报）。now 行变换：grep -o 提取形态为
+  # 「"id": "<id>", "status": "<st>"」（无前导 {），依次去头、竖线化、去尾引号。
+  _s6_terminal_seen=$({ printf '%s\n' "$_s6_hist"; printf '%s\n' "$_s6_now_row" | sed 's/^"id": "//;s/", "status": "/|/;s/"$//'; } \
+    | awk -F'|' '$2=="done" || $2=="superseded" {print $1}' | LC_ALL=C sort -u)
+  [ -n "$_s6_terminal_seen" ] || return 0
+  # 当前非终态面：终态集 ∩ 当前面（历史＋现行行同源提取，当前 status 非终态即报）
+  while IFS='|' read -r _s6_id _s6_st; do
+    [ -n "$_s6_id" ] || continue
+    case $_s6_st in
+      done | superseded) continue ;;
+      ready | in_progress | blocked | review_ready | review_pass | review_fail)
+        if printf '%s\n' "$_s6_terminal_seen" | grep -qxF "$_s6_id"; then
+          emit_stale "docs/issues/index.json:$_s6_id" "S6 终态哨兵：票 $_s6_id 曾达终态，当前 status 被改回非终态 ${_s6_st}——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记"
+        fi
+        ;;
+      *)
+        # 空值/未知值不越哨兵面（状态词表外归 S3 --check 口径），零报。
+        ;;
+    esac
+  done <<S6_NOW_INNER
+$(printf '%s\n' "$_s6_now_row" | sed 's/^"id": "//;s/", "status": "/|/;s/"$//')
+S6_NOW_INNER
+  return 0
+}
+
 # ---- 执行 ------------------------------------------------------------------
 # S1/S2 配置点亮（票 72）：未点亮（delivery.rules 缺失或 calibration 节无 dp_stale_lit
 # 登记）→ 打印 SKIP 行，不计过期断言不拦票；点亮＝现行断言逻辑原样执行。
-# S3/S4/S5 为通用面（协议），无点亮位恒执行。
+# S3/S4/S5/S6 为通用面（协议），无点亮位恒执行。
 
 if [ "$s1_lit" -eq 1 ]; then
   check_s1
@@ -734,11 +809,12 @@ check_s3
 s4_parse_exempts
 check_s4
 check_s5
+check_s6
 
 _pn=$(prog_name)
-# 登记总数动态化（票 72 设计 §4③）：点亮数（S1/S2）＋通用条数（S3/S4/S5 恒 3）；
-# 全点亮语境渲染「登记表共 5 条」（票 85 起 4→5）。
-_total_entries=$((3 + s1_lit + s2_lit))
+# 登记总数动态化（票 72 设计 §4③）：点亮数（S1/S2）＋通用条数（S3/S4/S5/S6 恒 4）；
+# 全点亮语境渲染「登记表共 6 条」（票 94 起 5→6）。
+_total_entries=$((4 + s1_lit + s2_lit))
 if [ "$mode" = "session" ]; then
   printf '%s: 会话启动模式（不拦截）：过期断言 %s 处，提醒 %s 条，请人工核对上方输出\n' "$_pn" "$stale_count" "$warn_count"
   exit 0
