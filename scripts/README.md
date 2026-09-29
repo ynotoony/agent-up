@@ -23,7 +23,7 @@
 | `ticket-ops.sh` | 票务运维脚本 | 协调层票务面单入口（本仓交付后入包采纳）：`open`（开票：索引新增条目 status=ready＋issues-README 目录清单追加行＋账本追加行；NN 段查重——同 NN 异 slug 与畸形 id 拒开；open 本体 schema 校验＋定级/优先级理由非空断言）／`take`（领取：status=in_progress）／`flip`（状态翻转：状态机任意合法值；task 票收口硬拦——票 JSON 本体 actual_time 须已填且非空，缺项 exit 1 指名票 id 与缺项，request 不校验）／`ledger`（无票账本行入口：不依赖 docs/issues/index.json 条目 id，账本行形状校验先于写入，仅账本落行不触索引/README/投影——C0 修正类免建票收口经此落行）四子命令，索引与 README 锚点整行/单 token 机械改写，收尾调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对；校验先于写入、fail-closed（索引一条目一行排版破坏、锚点不唯一、账本行不合键序或行型条件键缺失即停止不写）；POSIX sh、无 jq（open 本体 schema 校验与 flip actual_time 校验另用 python3 标准库）。详见下文专节。 |
 | `run-record.sh` | run record 生成器 | run record 生成与封存单入口（本仓交付后存量清算入包采纳）：`new` 生成十三字段骨架并自动填机械字段、内容字段留【待填：…】由执行体填，`seal` 完整性校验（usage 五子字段必备，缺项 fail-closed）全过后按当前仓库状态刷新机械字段，`stats` 只读聚合 usage 用量报表；`seal`/`stats` 依赖 python3 标准库（不引第三方），SHA-256 与 stat 工具按序探测、缺失即 exit 2；fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/退出码见脚本 `-h` 与头部注释。 |
 | `ticket-grade.sh` | 定级建议器 | 票定级建议器（本仓交付后存量清算入包采纳）：读任务票 JSON 机械计算可数判据（承重验收条数、行为/契约件模块数、高风险面关键词、公共接口证据与微道承重可数面），输出各 C 级命中条件、C0-C3 建议、微道资格预审与逐票分歧账；建议不裁决（输出只写「建议/命中/预审」，不写「必须/定级为」，分歧以 Triage 为准）；python3 标准库内嵌、全程只读零写入、fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/判据口径见脚本 `-h` 与头部注释。 |
-| `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值＋generation manifest 提示），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
+| `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
 
@@ -468,7 +468,7 @@ sh scripts/ticket-ops.sh [repo-root] <command> [options]
 
 ### 落位口径（与道脚本的关键差异）
 
-- 票务运维是记录层标配，非快道专属：目标项目采用任务票体系（`docs/issues/` 目录创建）时随初始化/补缺复制落位目标项目 `scripts/` 并逐件登记 generation manifest 与 `docs/agent/artifacts.yaml`（kind: script、lifecycle: Conditional、generated_from: agent-up/scripts/ticket-ops.sh）；不门控于快道启用，未采用任务票体系不复制。三处口径同源：`../SKILL.md` 主流程步骤 5、本专节、`../references/old-project.md` §3 补缺行。
+- 票务运维是记录层标配，非快道专属：目标项目采用任务票体系（`docs/issues/` 目录创建）时随初始化/补缺复制落位目标项目 `scripts/` 并逐件登记 `docs/agent/artifacts.yaml` 条目（kind: script、lifecycle: Conditional、generated_from: agent-up/scripts/ticket-ops.sh；生成件六要素随条目单本账承载，登记口径以包内 development-process §5.3.1 为准）；不门控于快道启用，未采用任务票体系不复制。三处口径同源：`../SKILL.md` 主流程步骤 5、本专节、`../references/old-project.md` §3 补缺行。
 - 包内不运行：本包内 `agent-up/scripts/ticket-ops.sh` 是复制基线（生成源），缺省 repo-root 取所在目录的上一级，包内位置误运行会错根；仅落位到目标项目 `scripts/` 后按缺省语境运行。
 - 包内文件与本仓根 `scripts/ticket-ops.sh` 基线 cmp 零差异（入包采纳核对）；采纳后两份副本同源演化，任一侧变化须同步另一侧并 cmp 核对或逐条登记差异。
 
@@ -478,7 +478,7 @@ sh scripts/ticket-ops.sh [repo-root] <command> [options]
 
 ## install.sh（安装脚本）
 
-安装政策单源化的执行引擎（先例 `generate-module-map.sh` 表驱动化：外置数据＋引擎零专名＋结构校验 fail-closed）：按启用门控自查同目录 `install-policy.rules` 得复制集合（引擎零脚本名零门控专名，加门控＝加规则行零引擎改动），逐件 `cp` 自包 `scripts/` 至 `<target>/scripts/` 并 `cmp` 核验字节一致。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）、fail-closed：规则表缺失或结构校验不过 exit 2 不写任何文件；预检（源存在、目标可写、同名件冲突）先于复制，停止零半套；包内误运行守卫（`--target` 解析后含 `agent-up/SKILL.md` 或 `SKILL.md`、或等于本脚本所在目录）exit 1；已存在且字节一致的同名件幂等跳过，与基线不一致即停报告（reconcile 纪律：人工漂移不覆盖，检出即停报告而非覆盖）。脚本只承接已确认的复制动作——门控启用判定是用户决策（`../SKILL.md` 主流程步骤 5），不代做访谈；不代写目标治理文件（`docs/agent/artifacts.yaml`、generation manifest、`scripts/README.md` 均归执行体）。包侧工具：只在包内语境运行，不落本仓 `scripts/` 镜像（out_of_scope 口径登记）。
+安装政策单源化的执行引擎（先例 `generate-module-map.sh` 表驱动化：外置数据＋引擎零专名＋结构校验 fail-closed）：按启用门控自查同目录 `install-policy.rules` 得复制集合（引擎零脚本名零门控专名，加门控＝加规则行零引擎改动），逐件 `cp` 自包 `scripts/` 至 `<target>/scripts/` 并 `cmp` 核验字节一致。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）、fail-closed：规则表缺失或结构校验不过 exit 2 不写任何文件；预检（源存在、目标可写、同名件冲突）先于复制，停止零半套；包内误运行守卫（`--target` 解析后含 `agent-up/SKILL.md` 或 `SKILL.md`、或等于本脚本所在目录）exit 1；已存在且字节一致的同名件幂等跳过，与基线不一致即停报告（reconcile 纪律：人工漂移不覆盖，检出即停报告而非覆盖）。脚本只承接已确认的复制动作——门控启用判定是用户决策（`../SKILL.md` 主流程步骤 5），不代做访谈；不代写目标治理文件（`docs/agent/artifacts.yaml`、`scripts/README.md` 均归执行体）。包侧工具：只在包内语境运行，不落本仓 `scripts/` 镜像（out_of_scope 口径登记）。
 
 ### 用法
 
@@ -505,7 +505,7 @@ install: SKIP: <文件>（目标已存在且与基线字节一致，幂等跳过
 install: NOTE: <目标>/scripts 为本脚本新建——需生成 scripts/README.md（README 生成不归本脚本）
 install: 登记建议块（artifacts.yaml 十三字段建议值，可粘贴；写入归执行体，本脚本不代写目标治理文件）:
   {id: …, path: …, kind: script, …, generated_from: …, platform: neutral, update_policy: …}   # 每复制件一行
-install: 登记提醒: 每复制件同步登记 generation manifest（来源、日期、目标、用户确认、版本与恢复说明）
+install: 登记提醒: 每复制件按登记建议块同步登记 artifacts.yaml 条目（生成件登记并入条目单本账，见包内 development-process 模板 §5.3.1）
 install: DONE: 复制 N 件、幂等跳过 M 件 -> <目标>/scripts
 install: FAIL: <原因>        # fail-closed 停止（stderr，exit 1）
 install: <用法或环境错误说明>   # stderr，exit 2

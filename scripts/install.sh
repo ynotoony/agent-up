@@ -5,8 +5,8 @@
 # Output: 按启用门控自数据读复制集合（引擎零脚本名零门控专名），逐件 cp 自包 scripts/
 #         至 <target>/scripts/ 并 cmp 核验字节一致；stdout 输出逐件 OK/SKIP 行＋新建
 #         scripts/README.md 提示行（目录缺失时）＋登记建议块（每复制件一行 artifacts.yaml
-#         十三字段建议值＋generation manifest 提示行）；stderr 报告失败原因。不代写目标
-#         治理文件（artifacts.yaml、generation manifest、scripts/README.md 均归执行体）。
+#         十三字段建议值，生成件登记随条目单本账承载）；stderr 报告失败原因。不代写目标
+#         治理文件（artifacts.yaml、scripts/README.md 均归执行体）。
 # Pos: 安装脚本（票 56）。POSIX sh、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）、
 #      set -eu、fail-closed：规则表缺失或结构校验不过 exit 2 不写任何文件；预检（源存在、
 #      目标可写、目标同名件冲突）先于复制，停止零半套；包内误运行守卫（--target 解析后
@@ -37,7 +37,7 @@ usage() {
       加门控＝加规则行零引擎改动），逐件 cp 自包 scripts/ 至 <target>/scripts/ 并 cmp
       核验字节一致；目标 scripts/ 缺失时创建并输出需生成 scripts/README.md 提示行
       （README 生成不归本脚本）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三
-      字段建议值＋generation manifest 提示），不代写目标治理文件。已存在且字节一致的
+      字段建议值，生成件登记随条目单本账承载），不代写目标治理文件。已存在且字节一致的
       同名件幂等跳过；与基线不一致即停（不覆盖人工漂移，reconcile 纪律）。
 退出码: 0 全部复制并核验通过；1 fail-closed（包内误运行守卫、目标不存在或不可写、源
         缺失、目标同名件与基线不一致、cmp 核验失败；预检先于复制，停止零半套）；2 用法
@@ -306,7 +306,7 @@ if [ "$copied" -gt 0 ]; then
     printf '  {id: script-%s, path: scripts/%s, kind: script, authority: 权威层级第 4 级（流程规则；按目标项目权威层级定级）, owner: 经用户确认的执行体, lifecycle: %s, trigger: 对应门控启用（用户在差异清单确认时）, read_when: 目标项目运行该脚本时, sync_on: 无（包基线同源演化须登记差异）, depends_on: [development-process], generated_from: %s, platform: neutral, update_policy: 禁止覆盖（人工漂移走 reconcile，检出即停报告）}\n' "$idbase" "$base" "$lc" "$p"
   done
   IFS=$oldifs
-  printf 'install: 登记提醒: 每复制件同步登记 generation manifest（来源、日期、目标、用户确认、版本与恢复说明）；建议块仅为可粘贴建议值。\n'
+  printf 'install: 登记提醒: 每复制件按登记建议块同步登记 artifacts.yaml 条目（生成件登记并入条目单本账，见包内 development-process 模板 §5.3.1）；建议块仅为可粘贴建议值。\n'
 fi
 
 printf 'install: DONE: 复制 %s 件、幂等跳过 %s 件 -> %s（集合与登记 lifecycle 值出自 install-policy.rules）\n' "$copied" "$skipped" "$dst_dir"

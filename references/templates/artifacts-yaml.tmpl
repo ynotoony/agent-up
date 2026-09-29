@@ -17,8 +17,16 @@
 #   platform        平台绑定信息；平台无关写 neutral（当前已知集合：neutral / zcode / claude-code / codex / pi / dsh；新增宿主值先在此注释区登记）
 #   update_policy   更新策略（追加 / 状态机更新 / 可重建 / 禁止覆盖）
 #
+# 生成件登记（单本账，权威＝docs/development-process.md §5.3.1）：生成件六要素并入本
+#   条目登记，不另立第二本生成登记账——来源记 generated_from；日期与版本
+#   随 update_policy（或 sync_on）括注登记；目标即 path；用户确认随 trigger 括注登记；
+#   恢复/删除说明记 update_policy（重建口径：可重建/禁止覆盖＋reconcile 漂移即停）。
+#   缺值写 N/A + reason，不留空。
+#
 # 维护规则（权威见 docs/development-process.md §5）：
-#   生成、删除或移动任何治理产物时同步登记或注销条目；登记与实际文件漂移时将相关产物标 stale 并报告，不静默修正任一侧。
+#   生成、删除或移动任何治理产物时同步登记或注销条目；重复执行（初始化重跑、模板升级、
+#   补缺）先对照条目登记内容 reconcile——人工改动标记为漂移，漂移即停报告等裁决，写入前
+#   备份可逆；登记与实际文件漂移时将相关产物标 stale 并报告，不静默修正任一侧。
 
 artifacts:
   - id: agents-md
