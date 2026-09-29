@@ -1,7 +1,7 @@
 ---
 id: protocol-read-policy
 kind: protocol
-authority: 权威层级第 4 级（流程规则）；读取与权威语义上游为 SPEC-02（第 3 级），冲突以 SPEC-02 为准
+authority: 权威层级第 4 级（流程规则）；读取与权威语义上游为 SPEC-02（第 3 级）
 lifecycle: Live
 read_when: 会话开始取用治理资源时；判定读取范围、处理权威冲突或按档位加载时
 trigger: 读取阶梯、任务型最小读取范围、权威层级或档位加载范围语义变化

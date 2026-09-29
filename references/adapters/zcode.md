@@ -10,7 +10,7 @@ update_policy: 本文件只是运行时映射，不是事实源；与角色合�
 depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-003 适配层地位）；被目标项目宿主适配层实例依赖
 ---
 <!-- Input: adapter-capability-contract.md 能力契约、原宿主 frontmatter 形态（name/color/description/tools）与目标项目角色合同路径约定（docs/agent/roles/）。 -->
-<!-- Output: 宿主运行时映射手册：能力→宿主工具对照、三角色 frontmatter 方言模板与适配层地位边界。 -->
+<!-- Output: 宿主运行时映射手册：能力→宿主工具对照、三角色 frontmatter 方言模板、独立执行体声明与降级路径、适配层地位边界。 -->
 <!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 docs/agent/roles/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 
 # 宿主适配层映射（运行时入口）
@@ -20,14 +20,14 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 ## 1. 快速摘要
 
 - 事实源：`docs/agent/roles/implementation.md`、`review.md`、`commit.md`（平台无关角色合同，七节）。
-- 本文件承载：能力→宿主工具对照（§2.2）、三角色 frontmatter 方言模板（§2.3）。
+- 本文件承载：能力→宿主工具对照（§2.2）、三角色 frontmatter 方言模板（§2.3）、独立执行体声明与降级路径（§2.4）。
 - 原宿主 frontmatter（name/color/tools 与描述内工具列举）自角色模板移入本文件（SPEC-06 §3 R-06-002 平台绑定出模板）。
 - 适配层与角色合同冲突 → 以合同为准，修正本文件并报告（SPEC-05 R-05-003）。
 - `required_capabilities` → 宿主工具清单按 §2.2 对照表逐能力展开；角色合同能力声明变化后须同步对照表与方言模板。
 - 运行时入口的 name/description 承载派发摘要；规则权威始终在角色合同与 development-process。
 - 九能力对照完整覆盖：inspect/search/read（盘点/检索/读取）、edit/write（修改/创建）、execute 与 readonly-execute（命令执行，只读性由调用方约束）、vcs-read/vcs-write（版本库只读/写命令）。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
-- 无独立 subagent 执行体的降级路径见 capability-contract §2.3；本文件不承载流程规则。
+- 本宿主支持独立 subagent 执行体，独立 Review 默认由独立 subagent 执行；不支持或被裁剪时的降级路径见 §2.4 与 capability-contract §2.3。
 - 本文件规则块前缀 `R-ZC-`；能力契约手册前缀 `R-CC-`。
 
 ## 2. 可执行规则
@@ -107,9 +107,21 @@ tools: [Read, Grep, Glob, Bash]
 | docs/agent/roles/review.md | inspect, search, read, readonly-execute | [Read, Grep, Glob, Bash] |
 | docs/agent/roles/commit.md | inspect, vcs-read, vcs-write | [Read, Grep, Glob, Bash] |
 
+### 2.4 独立执行体声明与降级路径
+
+#### R-ZC-003 独立执行体与降级如实记录 `MUST`
+
+- **When**：在 zcode 宿主派发独立 Review，或评估宿主独立执行体能力时。
+- **Action**：声明：本宿主支持独立 subagent 执行体（本仓库 `.zcode/agents/` 运行时入口按独立 subagent 会话形态派发执行；官方文档指针【待定】，按 R-AT-001 事实准入不虚构来源）；独立 Review 默认由独立 subagent 执行。IF 部署裁剪或权限配置导致 subagent 不可用 THEN 按 capability-contract R-CC-002 依序尝试：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable` 及实际所选替代路径。
+- **Forbidden**：把同一执行体的自检标记为 Review pass；静默跳过独立 Review；把降级路径说成"与独立 subagent 等价无差"。
+- **Stop if**：三条替代路径均不可用 → 任务停在 review_ready，记录阻塞，不进入 Commit。
+- **Evidence**：审查记录含 `independent_review` 字段与所选路径；run record 可选指针字段按 schema 回填。
+- **Owner**：Review 执行体或主 agent（记录降级决定）。
+- **Authority**：capability-contract R-CC-002、SPEC-05 §5（R-05-004）。
+
 ## 3. 解释与例外
 
 - inspect 映射为 Glob + Read 的组合：目录结构盘点用 Glob，现状内容核对用 Read；单能力对应多工具时按任务需要选用。
 - 宿主本地适配层实例（目标项目内 `.zcode/agents/` 等目录）由本映射生成；其与 `docs/agent/roles/` 合同冲突时以合同为准，并报告差异。
-- capability profile 档位、无 subagent 降级路径与 platform 枚举扩展规则见 `capability-contract.md`；本文件不复述，避免第二权威。
+- capability profile 档位与 platform 枚举扩展规则见 `capability-contract.md`；降级路径语义权威在其 §2.3（本文件 §2.4 只承载本宿主的执行体声明与衔接），不复述避免第二权威。
 - 本文件与 capability-contract 按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。

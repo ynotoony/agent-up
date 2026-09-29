@@ -1,7 +1,7 @@
 ---
 id: protocol-governance-format
 kind: protocol
-authority: 权威层级第 4 级（流程规则）；格式语义上游为 SPEC-02（第 3 级），冲突以 SPEC-02 为准
+authority: 权威层级第 4 级（流程规则）；格式语义上游为 SPEC-02（第 3 级）
 lifecycle: Live
 read_when: 编写或修改任何治理文件、模板或规则块时；Review 治理文件格式 diff 时
 trigger: 规则块字段、Level 取值、元数据承载形态、文件格式分工或措辞禁令语义变化

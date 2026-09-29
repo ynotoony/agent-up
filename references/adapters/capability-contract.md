@@ -1,7 +1,7 @@
 ---
 id: adapter-capability-contract
 kind: protocol
-authority: 权威层级第 4 级（流程规则：宿主能力契约）；能力语义上游为 SPEC-05（第 3 级），冲突以 SPEC-05 为准
+authority: 权威层级第 4 级（流程规则：宿主能力契约）；能力语义上游为 SPEC-05（第 3 级）
 lifecycle: Live
 read_when: 评估宿主兼容性、编写或维护平台适配层、裁决 required_capabilities 冲突、登记新宿主或核对分级交付道快道能力束时
 trigger: 能力基元清单、阶段→能力表、降级路径、capability profile 档位、platform 枚举或分级交付道快道能力束语义变化
@@ -11,7 +11,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 ---
 <!-- Input: SPEC-05 §2-§7 能力协议、platform 枚举定稿（neutral/zcode）、independent_review 与 run record 指针字段定稿、read-policy.md 档位表。 -->
 <!-- Output: 宿主能力契约手册：九能力基元、五阶段→能力表、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
-<!-- Pos: 公开包 adapters/ 能力契约手册，adapters/ 内宿主映射文件的共同上游；能力语义上游为 SPEC-05，冲突以 SPEC-05 为准；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
+<!-- Pos: 公开包 adapters/ 能力契约手册，adapters/ 内宿主映射文件的共同上游；能力语义上游为 SPEC-05；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 
 # 宿主能力契约
 

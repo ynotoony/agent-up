@@ -92,7 +92,7 @@
 - 回答、解释、只读审查和诊断：允许只读检查，不领取任务，不修改进度，不实施修复。
 - 用户明确要求的治理或文档维护：可以不领业务任务；改变项目事实时写入对应规格或 `docs/changes.jsonl`。
 - 功能、修复或重构：必须领取一张 blocker 已完成的任务，并在开始、检查点和结束时更新进度。
-- 微维护（微任务道）：C0 且每条验收全机械可验，或纯记录维护（登记行、状态行翻转类记录更新）；由 Triage 按准入判据声明车道后单执行体全程完成（实现 → 门禁 → 提交 → 记录翻转 → 账本落行），免票；准入判据与车道边界见 §6 分级交付道（R-DP-031），执行体无权自选车道。
+- 微维护（微任务道）：C0 且每条验收全机械可验，或纯记录维护（登记行、状态行翻转类记录更新）；由 Triage 按准入判据声明车道后单执行体全程完成（实现 → 门禁 → 提交 → 记录翻转 → 账本落行），免票（提交经道脚本、由主 agent 调用行使）；准入判据与车道边界见 §6 分级交付道（R-DP-031），执行体无权自选车道。
 
 任务票用 `Type`（`feature` / `bug` / `refactor` / `docs`）和 `Priority`（`P0` 正在中断 / `P1` 核心路径或阻塞链 / `P2` 普通交付 / `P3` 文档治理）分类。进度必须覆盖：当前状态（`ready / in_progress / blocked / done`）、最后检查点、已修改范围、验证结果（失败也记录）、已知阻塞、下一步。明细写任务票 Checkpoint 区，现役状态每票一行由生成器投影至 `docs/progress-current.md`，只留状态和证据指针。
 
@@ -516,7 +516,7 @@ Session（agent_session）是单次会话的易失上下文，随时可能中断
 #### R-DP-012 状态机取值固定 `MUST`
 
 - **When**：记录或推断 Session、Task、Request 状态时。
-- **Action**：只使用上表取值；状态变更落盘到 `docs/issues/index.json` 状态条目、REQ 文件或 run record；票正文 Status 行为索引投影回写，`docs/progress-current.md` 投影行允许记录 Task 子集，完整取值以索引、任务票与 run record 为准。
+- **Action**：只使用上表取值；状态变更落盘到 `docs/issues/index.json` 状态条目、`docs/requests/index.json` 状态条目或 run record；票正文 Status 行为索引投影回写，`docs/progress-current.md` 投影行允许记录 Task 子集，完整取值以索引、任务票与 run record 为准。
 - **Forbidden**：自造状态名（如"基本完成"）；状态只存在于聊天中。
 - **Stop if**：实际情况不属于任何取值 → 停止并报告用户补充语义。
 - **Evidence**：状态字段可被静态检索且取值在允许集合内。

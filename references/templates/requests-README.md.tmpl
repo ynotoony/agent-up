@@ -1,4 +1,4 @@
-<!-- Input: 已确认需求、Intake 会话边界与 Triage 结论、REQ-*.md 请求文件。 -->
+<!-- Input: 已确认需求、Intake 会话边界与 Triage 结论、REQ-*.json 请求文件。 -->
 <!-- Output: 需求请求目录的队列规则、状态机和直接成员登记。 -->
 <!-- Pos: 需求请求索引（seed 五件之一）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
@@ -6,7 +6,7 @@
 
 ## 架构
 
-- 本目录登记从 Intake 进入的需求请求（`REQ-YYYYMMDD-NN.md`）；请求是需求事实记录，不是规格，也不是任务票。
+- 本目录登记从 Intake 进入的需求请求（`REQ-YYYYMMDD-NNN.json`）；请求是需求事实记录，不是规格，也不是任务票。
 - 请求状态机：`proposed -> triaged -> accepted -> specified -> ready ->（进入任务流程）`；旁支状态 `rejected`、`deferred`、`needs-user-decision`。
 - 请求正文记录原文、来源、时间、影响评估和待确认项；未确认事实标 `【待定：...】`。
 - REQ 状态真相源＝本目录 `index.json`（单写，一条目一行，schema 见 `references/schemas/request-index.schema.json`）；状态流转由 Triage 单写索引并同步成员文件状态列（人工登记投影）；不以聊天记录为唯一事实。
@@ -36,7 +36,7 @@
 | 名字 | 地位 | 功能 |
 | --- | --- | --- |
 | `README.md` | 目录索引 | 说明需求请求队列规则并登记直接成员。 |
-| `REQ-YYYYMMDD-NN.md` | 需求请求 | 一条需求的事实记录：原文、来源、影响与状态。 |
+| `REQ-YYYYMMDD-NNN.json` | 需求请求 | 一条需求的事实记录：原文、来源、影响与状态。 |
 
 ## Intake/Delivery 并行规则
 

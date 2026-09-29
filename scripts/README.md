@@ -63,7 +63,7 @@ sh scripts/check-package.sh [package-root]
 | 14 | 能力映射一致 | 名单＝清单 `capability-primitives` 节九基元名（自 `capability-contract.md` §2.1 权威表现场提取，引擎零基元名硬编码）；①权威表＝`pm_capability_authority` 登记文件，窄锚点「### …能力基元清单」标题下九行表首列提取，与名单双向全等（缺/多/改名即 FAIL 指名权威文件）；②检查目标＝`pm_capability_target` 节逐一核验（三角色 .tmpl 声明行 kind=decl 取 `required_capabilities（运行时）` 行反引号名集合、五适配文件 kind=table 取「| 能力基元 |」对照表首列名集合）——目标名集合与登记预期名单双向全等：注入未登记名（不在名单）／删名（缺少）／改名（未登记＋缺少并报）即 FAIL 指名文件；预期名单经载入校验逐名 ⊆ 名单且八目标并集 ⊇ 名单。表解析锚点失效即 exit 2（fail-closed 不静默过，检查 11 同款）；targets 相对 `$pkg_root` 解析，`--pkg-root` 复制落位语境与镜像检查同口径。 |
 | 15 | 模板规则索引与规则块全集全等 | 全集＝清单 `templates` 节全部 `.tmpl` 的规则块 ID（`R-<短码>-NNN`）grep 并集去重（索引宿主文件先排除表行自身再提取——索引表在扫描面内，表行加什么 ID 全集就含什么 ID，不排除则「多出全集外 ID」方向退化失效）；索引表＝`references/templates/development-process.md.tmpl` 「## 16. 规则索引」节内三列表行（窄锚点，先例检查 11/14；锚点缺失、零表行、行格式不合预期、ID 跨行重复均 FAIL）。双向全等：索引多出全集外 ID（加行）与全集 ID 缺索引行（删行/漏行）均 FAIL 指名 ID。外定义行＝短码登记 owner 不在 `references/templates/` 下的 ID（经清单 `shortcodes` 节数据判定，引擎零 ID 硬编码）：豁免一句话内容比对，但机制列必须显式标注外定义标记词（清单 `pm_mechanism_marker`），未标注算漏行 FAIL（豁免显式非静默）。索引变更先改本表再动规则块：反向（先加规则块后补索引）由本检查拦截。 |
 | 16 | 索引机制列受控词表 | 词表＝清单 `mechanism-vocab` 节受控三值（机械/门禁/约定）＋外定义标记词（`pm_mechanism_marker` 恰一行），引擎零词表零标记词硬编码。机制列语法：受控值开头，可跟全角括注「（…）」（出处/说明，括注内容不做词表核验，禁嵌套括号与全角分号），可跟「；外定义（…）」附加段（首段须为机制受控值，附加段须为词表值）；每段剥离括注后须为词表值，未登记值（含 ASCII 括号残留、空段、空列）即 FAIL 指名 ID 与值。BSD awk 对多字节 index/substr 字节/字符位语义混合不可靠，引擎先经 sed 把全角括号/分号规范化为 ASCII 再解析（字面替换为字节级，可靠）。 |
-| 17 | 机械行点名出处存在 | 机械行（机制列首段＝受控值「机械」——引擎语义锚点，词表成员资格仍以清单为权威）须在括注内点名出处：①脚本名（`*.sh`）必须真实存在于包 `scripts/` 且在清单 `scripts` 节登记（缺一即 FAIL 指名 ID 与脚本；借本检查补登记 check-append-only.sh/check-artifacts.sh）；②检查项号（「检查 N」）必须 ≤ 当前检查总数（引擎自述，现 18）。零脚本零检查项的机械行判缺点名出处 FAIL。仅机械行核验，门禁/约定行括注不做存在性核对。 |
+| 17 | 机械行点名出处存在 | 机械行（机制列首段＝受控值「机械」——引擎语义锚点，词表成员资格仍以清单为权威）须在括注内点名出处：①脚本名（`*.sh`）必须真实存在于包 `scripts/` 且在清单 `scripts` 节登记（缺一即 FAIL 指名 ID 与脚本；借本检查补登记 check-append-only.sh/check-artifacts.sh）；②检查项号（「检查 N」）必须 ≤ 当前检查总数（引擎自述为准）。零脚本零检查项的机械行判缺点名出处 FAIL。仅机械行核验，门禁/约定行括注不做存在性核对。 |
 | 18 | 包内票号索引禁令 | 扫描面＝包内全部 `*.md`/`*.tmpl`/`*.json`/`*.rules`（`*.sh` 代码面不扫——断言名/注释语境为不腐烂载体，扫禁归后续裁决）；模式＝「票 ?[0-9]{2,}」字面正则（本仓票号索引引用，消费者无本仓票务语境，溯源改由 git commit message 与票本承载——citation-rot 定稿）；命中即 FAIL 指名文件:行号；行级豁免经清单 `ticket-citation-ban` 节 `pm_cite_exempt` 登记（路径+行号精确匹配，理由必填），登记行无命中即失效豁免 FAIL（防漂移静默失效，检查 12 同款口径）；豁免表可空。只查模式不判语义（行为描述语义零变化边界由 Review 把关）。 |
 | 19 | scripts 节 mode 断言（kind 数据驱动） | 判定源＝清单 `scripts` 节 `pm_script` kind（引擎零文件名硬编码，家族惯例同检查 8/9）：`script`（普通脚本）与 `test-harness`（被调 harness）为可执行类——须 index `100755` 且盘上可执行（出生即残类失效防线：hook 只调可执行件、直接执行依赖 -x 位，mode 残缺静默失效；先例 `.githooks/pre-commit` 门禁 5）；`rules`（数据规则表）为非可执行件——须 index `100644` 且盘上不可执行（数据件误带执行位防扩散）。每件四态核对：index mode（`git ls-files -s`）、盘上 `-x`、期望 mode、kind 枚举兜底（未知 kind 即 FAIL）。包根非 git 语境（`--pkg-root` 复制落位，先例检查 13 静默语义）整项静默跳过零输出行；缺件由检查 8 指名、本项不重复报。 |
 
@@ -640,7 +640,7 @@ sh scripts/export-payload.sh [--dry-run] [repo-root]
 | 前置 | 工作区 payload 根内未提交改动即停（导出半成品）；未声明 payload 节拒跑 exit 2 | 是 | 是 |
 | 1 split | `git subtree split -P <root>` 产出新导出头 H | 落本地分支 `-b <local_ref>` | 仅经变量传递，不落本地分支引用 |
 | 2 树比对 | H 经 `git archive` 展开到全新 mktemp（即用即删），`diff -r` 对照工作区 payload 根须零差异 | 是 | 是 |
-| 3 导出树 check-package | 临时展开目录内 17 项全过（检查 13 独立语境静默跳过＝预期口径） | 是 | 是 |
+| 3 导出树 check-package | 临时展开目录内逐项全过（检查 13 独立语境静默跳过＝预期口径） | 是 | 是 |
 | 4 ff 断言 | `git ls-remote` 取远端头 R；R 空＝首推放行；否则 `merge-base --is-ancestor R H`，失败＝污染停手（报错文案照设计逐字） | 是 | 是 |
 | 5 push | `git push <remote> <local_ref>:<target>` 裸 push | 是 | 只打印将执行的命令 |
 | 6 ls-remote 复核 | 再取远端头须等于 H（推送后漂移即停） | 是 | 跳过 |

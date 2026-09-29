@@ -232,7 +232,7 @@ printf '%s: 树比对零差异\n' "$prog"
 
 # ---- 步骤 3/6：导出树 check-package（独立语境：检查 13 镜像静默跳过＝预期，票 68 口径）----
 
-printf '%s: 步骤 3/6 导出树 check-package（17 项；检查 13 独立语境静默跳过＝预期）\n' "$prog"
+printf '%s: 步骤 3/6 导出树 check-package（逐项核对；检查 13 独立语境静默跳过＝预期）\n' "$prog"
 if ! sh "$tmp_tree/scripts/check-package.sh" "$tmp_tree"; then
   printf '%s: FAIL: 导出树 check-package 未全过，已停手未推送\n' "$prog" >&2
   exit 1
