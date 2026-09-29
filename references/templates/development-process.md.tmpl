@@ -435,7 +435,7 @@ Triage 或 Planning 产出方案类文档（规格、方案对比、治理变更
 
 - 根目录只有一个 Git 仓库，默认分支 `main`；生产性工作按票采用**一票一 worktree 工作流**（用户裁决 2026-09-18）：
   1. 票务与记录面（开票、领取、收口翻转、账本与投影维护）直接落 `main`；
-  2. 实施在独立 worktree 进行：`git worktree add ../wt<N> -b ticket/<NN>-<slug>`；实施执行体零 Git 写操作，交付以工作区改动呈现；
+  2. 实施在独立 worktree 进行：`git worktree add ../<仓库名>-wt/wt<NN> -b ticket/<NN>-<slug>`——目录容器为仓库根兄弟目录 `<仓库名>-wt/`，worktree 目录名与分支名共用同一票号 NN；撞号让号时 worktree 目录随新票号（§9.4）；实施执行体零 Git 写操作，交付以工作区改动呈现；
   3. 独立 Review 通过后，协调层在分支提交，rebase `main`（在 worktree 内执行，防分支占用误切——worktree 接线教训）后 fast-forward 合并回 `main`，随即删除 worktree 与分支；
   4. 多会话并行：派发前核对 `git worktree list` 与领取标记，撞号让号；
   5. 全程零 push（对齐本节末条）。
