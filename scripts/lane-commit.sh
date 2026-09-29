@@ -2,7 +2,9 @@
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层）与行式提交合同文件
 #        （lane / ticket / whitelist / message / verify / verdict_quote / verdict_at / flips）。
 # Output: 门禁核对、白名单产品提交、记录写入（user-review 道追加 User Review Checkpoint；
-#         micro 道向 docs/agent/micro.jsonl 懒创建落 JSON 行）、索引单写与状态投影
+#         micro 道向 docs/agent/micro.jsonl 懒创建落 JSON 行——键序 date,lane,whitelist,
+#         gates,verify,commit,actual 六键＋actual 键（票 100：记净工时，缺省空串既有六键
+#         行向后兼容））、索引单写与状态投影
 #         （flips 索引条目口径：单写 docs/issues/index.json → 机械回写受影响票正文
 #         **Status:** 行 → 调 generate-progress.sh 再生 docs/progress-current.md 投影并
 #         --check 核对）与两段提交的逐步输出，两段提交 ID、各自文件清单与翻转清单分列回报。
@@ -38,6 +40,10 @@ usage() {
                    verify: <验证命令>                 （一行一条，可多行）
                    verdict_quote: <用户裁决原文>      （user-review 必填；micro 不得出现）
                    verdict_at: <裁决时间>             （user-review 必填；micro 不得出现）
+                   actual: <净工时（净工时口径文本）>  （micro 可选，票 100：记本次微收口
+                                                       净工时，落微账本 actual 键；缺省空
+                                                       串既有六键行向后兼容；user-review 不
+                                                       得出现——实际用时落票本体 actual_time）
                    flips: <file>:<field>:<value>      （行翻转：一行一条，可多行；field
                                                        不得为 status 或 index）
                    flips: docs/issues/index.json:index:<id>:<status>:<updated_at>
@@ -116,6 +122,8 @@ vq_seen=0
 verdict_quote=''
 va_seen=0
 verdict_at=''
+actual_seen=0
+actual=''
 whitelist=''
 verifies=''
 flips=''
@@ -153,6 +161,14 @@ while IFS= read -r line || [ -n "${line}" ]; do
           [ "${va_seen}" -eq 0 ] || die1 'verdict_at 行重复'
           va_seen=1
           verdict_at=${val}
+          ;;
+        actual)
+          [ "${actual_seen}" -eq 0 ] || die1 'actual 行重复'
+          actual_seen=1
+          case ${val} in
+            *"${TAB}"*) die1 "actual 行不得含制表符（JSON 行安全）: ${val}" ;;
+          esac
+          actual=${val}
           ;;
         whitelist)
           rest=${val}
@@ -241,12 +257,16 @@ case ${lane} in
     { [ "${ticket_seen}" -eq 1 ] && [ -n "${ticket}" ]; } || die1 'user-review 道缺少 ticket 行'
     { [ "${vq_seen}" -eq 1 ] && [ -n "${verdict_quote}" ]; } || die1 'user-review 道缺少 verdict_quote 行'
     { [ "${va_seen}" -eq 1 ] && [ -n "${verdict_at}" ]; } || die1 'user-review 道缺少 verdict_at 行'
+    [ "${actual_seen}" -eq 0 ] || die1 'user-review 道不得携带 actual 行（user-review 道实际用时落票本体 actual_time 字段，ticket-ops flip 收口硬拦——票 100）'
     [ -f "${repo_root}/${ticket}" ] || die1 "user-review 道票文件不存在: ${ticket}"
     ;;
   micro)
     [ "${ticket_seen}" -eq 0 ] || die1 'micro 道免票，不得携带 ticket 行'
     [ "${vq_seen}" -eq 0 ] || die1 'micro 道不得携带 verdict_quote 行'
     [ "${va_seen}" -eq 0 ] || die1 'micro 道不得携带 verdict_at 行'
+    # actual 行（票 100）：微道记净工时的合同行，落微账本 actual 键；既有六键行
+    # （不带 actual 行）向后兼容，缺省空串（开放性口径：可后补不强制）。
+    [ -n "$(printf '%s' "${actual}" | tr -d '[:space:]')" ] || actual=''
     ;;
   *)
     die1 "lane 取值须为 user-review 或 micro: ${lane}"
@@ -574,9 +594,10 @@ if [ "${lane}" = 'micro' ]; then
   [ -w "${repo_root}/${micro_file}" ] || die1 "微账本不可写: ${micro_file}"
   wl_joined=$(printf '%s' "${whitelist}" | paste -sd, -)
   wl_json=$(printf '%s' "${wl_joined}" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  actual_json=$(printf '%s' "${actual}" | sed 's/\\/\\\\/g; s/"/\\"/g')
   n_verify=$(printf '%s' "${verifies}" | grep -c . || true)
-  printf '{"date": "%s", "lane": "micro", "whitelist": "%s", "gates": "PASS", "verify": %d, "commit": "%s"}\n' \
-    "${date_today}" "${wl_json}" "${n_verify}" "${cid1}" >> "${repo_root}/${micro_file}" || die1 '微账本落行失败'
+  printf '{"date": "%s", "lane": "micro", "whitelist": "%s", "gates": "PASS", "verify": %d, "commit": "%s", "actual": "%s"}\n' \
+    "${date_today}" "${wl_json}" "${n_verify}" "${cid1}" "${actual_json}" >> "${repo_root}/${micro_file}" || die1 '微账本落行失败'
   record_files="${record_files}${micro_file}${NL}"
   printf 'lane-commit: 微账本已落行: %s\n' "${micro_file}"
 fi

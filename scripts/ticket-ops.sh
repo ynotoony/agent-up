@@ -9,8 +9,12 @@
 # Output: 协调层票务面写入——open＝新票本体 schema 校验＋理由非空断言（票 79，只 open
 #         时点生效，存量零回扫）＋校验＋索引新增条目（status=ready）＋README 追加目录
 #         清单行＋账本追加行；take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
-#         状态 token 替换＋账本追加行；三子命令收尾调 scripts/generate-progress.sh 再生
-#         docs/progress-current.md 现役状态投影并 --check 核对。
+#         状态 token 替换＋账本追加行，flip 另做 task 票 actual_time 收口硬拦（票 100：
+#         票 JSON 本体 actual_time 须已填且非空，缺项即 exit 1 指名票 id 与缺项，request
+#         不校验）＋账本追加行；ledger＝无票账本行入口（票 100：不依赖 docs/issues/index.json
+#         条目 id，账本行形状校验先于写入，仅账本落行，不触索引/README/投影）；
+#         open/take/flip 收尾调 scripts/generate-progress.sh 再生 docs/progress-current.md
+#         现役状态投影并 --check 核对（ledger 无索引面改动，不做投影再生）。
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
 #      零外部依赖（仅 POSIX 标准工具与内建，无 jq；票 79 起 open 本体 schema 校验另用
@@ -58,11 +62,18 @@ usage() {
   take           领取：--id --status --ledger-line 三项必选；--status 须为 in_progress。
   flip           收口/状态翻转：--id --status --ledger-line 三项必选；--status 为状态机
                  任意合法值（ready|in_progress|blocked|review_ready|review_pass|
-                 review_fail|done|superseded）。
+                 review_fail|done|superseded）。task 票收口硬拦（票 100）：本票 JSON
+                 本体（docs/issues/<id>.json）须含 actual_time 字段且非空（净工时口径，
+                 会话段累计减中断段），缺项或空白即 exit 1 指名票 id 与缺项（fail-closed
+                 零写入）；request 票不校验。
                  take/flip 语义: 索引 id 锚点整行替换（仅改 status/updated_at 两值）→
                  README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token 替换（行内其余
                  文本不动）→ 账本追加行 → 投影再生＋--check。索引或 README 行缺失、锚点
                  不唯一、账本行非法即停止（fail-closed，写入前预检）。
+  ledger         无票账本行入口（票 100）：--ledger-line 必选；不依赖 docs/issues/index.json
+                 条目 id，仅账本形状校验（键序五键必备＋按 kind 条件键，同上）先于写入，
+                 通过后向 docs/changes.jsonl 追加该行；不触索引/README/票文件/投影
+                 （C0 修正类免建票收口经此落账本行，决策 4）。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；open 条目
         已存在即停，非幂等；take/flip 重跑会重复落账本行，核对后处理）；2 用法或环境错误。
@@ -90,7 +101,7 @@ trap cleanup EXIT HUP INT TERM
 [ $# -ge 1 ] || { usage >&2; exit 2; }
 case $1 in
   -h|--help) usage; exit 0 ;;
-  open|take|flip)
+  open|take|flip|ledger)
     cmd=$1
     shift
     repo_root=''
@@ -100,7 +111,7 @@ case $1 in
     shift
     [ $# -ge 1 ] || { usage >&2; exit 2; }
     case $1 in
-      open|take|flip) cmd=$1; shift ;;
+      open|take|flip|ledger) cmd=$1; shift ;;
       *) usage >&2; exit 2 ;;
     esac
     ;;
@@ -136,11 +147,16 @@ done
 
 # ---- 公共校验（fail-closed，先于任何写入） ----
 
-case ${id} in
-  '') die1 "缺少 --id" ;;
+# 票锚定命令（open/take/flip）才要求 --id；ledger 无票面不依赖 id（票 100）
+case ${cmd} in
+  open|take|flip)
+    case ${id} in
+      '') die1 "缺少 --id" ;;
+    esac
+    printf '%s' "${id}" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
+      die1 "id 不合口径（^[0-9]{2,}-[a-z0-9-]+$）: ${id}"
+    ;;
 esac
-printf '%s' "${id}" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
-  die1 "id 不合口径（^[0-9]{2,}-[a-z0-9-]+$）: ${id}"
 case ${ledger_line} in
   '') die1 "缺少 --ledger-line" ;;
 esac
@@ -222,6 +238,13 @@ case ${cmd} in
     [ -z "${title}" ] || die2 'take/flip 不得携带 --title'
     [ -z "${blocked_by}" ] || die2 'take/flip 不得携带 --blocked-by'
     ;;
+  ledger)
+    [ -z "${id}" ] || die2 'ledger 不得携带 --id（无票账本行入口不依赖票 id，票 100）'
+    [ -z "${status}" ] || die2 'ledger 不得携带 --status（无票面状态可翻，票 100）'
+    [ -z "${complexity}" ] || die2 'ledger 不得携带 --complexity'
+    [ -z "${title}" ] || die2 'ledger 不得携带 --title'
+    [ -z "${blocked_by}" ] || die2 'ledger 不得携带 --blocked-by'
+    ;;
 esac
 
 index_file="${repo_root}/docs/issues/index.json"
@@ -231,12 +254,58 @@ ledger_file="${repo_root}/docs/changes.jsonl"
 ticket_file="${repo_root}/docs/issues/${id}.json"
 schema_file="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
 
-[ -f "${index_file}" ] || die1 "索引文件不存在: ${index_file}（票状态真相源缺失，fail-closed）"
-[ -r "${index_file}" ] || die1 "索引文件不可读: ${index_file}"
-[ -f "${readme_file}" ] || die1 "issues-README 不存在: ${readme_file}"
-[ -r "${readme_file}" ] || die1 "issues-README 不可读: ${readme_file}"
+# 票 100：flip 收口硬拦载体定位（actual_time 校验用）；ledger 无票面，不要求票本体。
+case ${cmd} in
+  ledger) ;;
+  *)
+    [ -f "${index_file}" ] || die1 "索引文件不存在: ${index_file}（票状态真相源缺失，fail-closed）"
+    [ -r "${index_file}" ] || die1 "索引文件不可读: ${index_file}"
+    [ -f "${readme_file}" ] || die1 "issues-README 不存在: ${readme_file}"
+    [ -r "${readme_file}" ] || die1 "issues-README 不可读: ${readme_file}"
+    ;;
+esac
 
 nn=${id%%-*}
+
+# ---- actual_time 收口硬拦（票 100，flip 专属） ----
+
+actual_time_check() {
+  # flip 收口硬拦（票 100，决策 2 fail-closed）：task 票 JSON 本体须含 actual_time 字段
+  # 且非空（净工时口径，strip 后非空；schema 同款非空口径），缺项或空白即 exit 1 指名
+  # 票 id 与缺项，零写入。request 票不校验（open 时点已过 schema 校验的 kind 为准；
+  # 本体缺失不属本断言语义——由 open 时点保证存在，此处缺本体即报缺项指名票 id）。
+  command -v python3 >/dev/null 2>&1 || \
+    die1 'python3 不可用——flip actual_time 收口校验无法执行（fail-closed；票 100 起为 flip 校验依赖）'
+  [ -r "${ticket_file}" ] || \
+    die1 "票 ${id} 收口缺 actual_time：票本体不可读: ${ticket_file}（flip 校验须先读本票本体核 actual_time——票 100）"
+  python3 - "${ticket_file}" "${id}" <<'PYEOF'
+import json
+import sys
+
+ticket_path, tid = sys.argv[1], sys.argv[2]
+
+try:
+    with open(ticket_path, "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except (OSError, json.JSONDecodeError) as exc:
+    sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——票 100\n")
+    sys.exit(1)
+
+if not isinstance(body, dict):
+    sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：票本体顶层须为 JSON object——票 100\n")
+    sys.exit(1)
+
+if body.get("kind") != "task":
+    sys.exit(0)  # request 票不校验（票 100 AC2）
+
+value = body.get("actual_time")
+if not isinstance(value, str) or not value.strip():
+    sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：task 票收口须填 actual_time（净工时口径，实际完成时间；会话段累计减中断段，测量基础随票 Checkpoint 落盘）——票 100\n")
+    sys.exit(1)
+
+sys.exit(0)
+PYEOF
+}
 
 # ---- 索引与 README 锚点预检（只扫描不写入；任何不合规在写入前停止） ----
 
@@ -442,8 +511,11 @@ PYEOF
 }
 
 # 生成器定位（收尾投影再生必需；同目录优先，PATH 回退；缺失即预检停止）
+# ledger（票 100 无票账本行入口）不触投影面，不要求生成器在位。
 gen_cmd=''
-if [ -f "${script_dir}/generate-progress.sh" ] && [ -r "${script_dir}/generate-progress.sh" ]; then
+if [ "${cmd}" = 'ledger' ]; then
+  :
+elif [ -f "${script_dir}/generate-progress.sh" ] && [ -r "${script_dir}/generate-progress.sh" ]; then
   gen_cmd="${script_dir}/generate-progress.sh"
   printf 'ticket-ops: 生成器定位: 同目录 %s\n' "${gen_cmd}"
 else
@@ -472,9 +544,14 @@ if [ "${cmd}" = 'open' ]; then
   index_check open || die1 "索引预检未通过: docs/issues/index.json（${id}）——未产生任何写入"
   index_nn_check || die1 "NN 段预检未通过: docs/issues/index.json——未产生任何写入"
   readme_row_check || die1 "issues-README 预检未通过: docs/issues/README.md——未产生任何写入"
+elif [ "${cmd}" = 'ledger' ]; then
+  : # 无票面：账本行形状校验已于公共段完成（票 100），无索引/README 预检
 else
   index_check flip || die1 "索引预检未通过: docs/issues/index.json（${id}）——未产生任何写入"
   readme_token_check || die1 "issues-README 预检未通过: docs/issues/README.md（任务票 ${nn}）——未产生任何写入"
+  if [ "${cmd}" = 'flip' ]; then
+    actual_time_check || die1 "actual_time 收口校验未通过: docs/issues/${id}.json——未产生任何写入（票 100 fail-closed）"
+  fi
 fi
 
 # ---- 写入（索引 → README → 账本 → 投影再生＋--check） ----
@@ -533,7 +610,7 @@ if [ "${cmd}" = 'open' ]; then
   mv "${tmp_readme}" "${readme_file}"
   tmp_readme=''
   printf 'ticket-ops: README 追加目录清单行: docs/issues/README.md（任务票 %s；`ready`）\n' "${nn}"
-else
+elif [ "${cmd}" != 'ledger' ]; then
   tmp_idx=$(mktemp "${t_dir%/}/tix-idx.XXXXXX")
   IDX_ID=${id} IDX_STATUS=${status} IDX_UA=${now_ua} awk '
     BEGIN {
@@ -614,12 +691,18 @@ fi
 
 if [ ! -f "${ledger_file}" ]; then
   mkdir -p "${repo_root}/docs"
-  : > "${ledger_file}" || die1 "账本懒创建失败: ${ledger_file}——已写部分如实报告：索引与 README 均已写入，账本与投影未落地"
+  : > "${ledger_file}" || die1 "账本懒创建失败: ${ledger_file}——已写部分如实报告"
 fi
-[ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}——已写部分如实报告：索引与 README 均已写入，账本与投影未落地"
+[ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}——已写部分如实报告"
 ledger_lineno=$(( $(wc -l < "${ledger_file}" | tr -d ' ') + 1 ))
-printf '%s\n' "${ledger_line}" >> "${ledger_file}" || die1 "账本落行失败: ${ledger_file}——已写部分如实报告：索引与 README 均已写入，账本与投影未落地"
+printf '%s\n' "${ledger_line}" >> "${ledger_file}" || die1 "账本落行失败: ${ledger_file}——已写部分如实报告"
 printf 'ticket-ops: 账本落行: docs/changes.jsonl（第 %d 行）\n' "${ledger_lineno}"
+
+if [ "${cmd}" = 'ledger' ]; then
+  : # 无票面写入收口（票 100）：不触索引/README/投影，仅账本落行
+  printf 'ticket-ops: PASS（ledger 完成：账本落行 %d 行，无票面写入——票 100 无票账本行入口）\n' "${ledger_lineno}"
+  exit 0
+fi
 
 sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入、投影未刷新；按生成器报因处理后核对重跑"
 sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入；投影与索引不一致，核对后重跑"
