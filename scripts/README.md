@@ -474,7 +474,7 @@ sh scripts/ticket-ops.sh [repo-root] <command> [options]
 
 ### 与 lane-commit.sh 职责边界
 
-`ticket-ops.sh` 只做票务面写入（open/take/flip），不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（投影再生调用 `generate-progress.sh` 不在此限）；快道收尾（白名单核对、验证重跑、提交、记录翻转）仍归道脚本两件。非快道票（C1+ 全三阶段）的状态翻转由 `ticket-ops.sh` 承载——lane-commit 只覆盖快道，两者在 `docs/issues/index.json` 单写机制上同锚点语义（id 锚点整行替换，仅改 status/updated_at 两值）。
+`ticket-ops.sh` 只做票务面写入（open/take/flip/ledger），不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（投影再生调用 `generate-progress.sh` 不在此限）；快道收尾（白名单核对、验证重跑、提交、记录翻转）仍归道脚本两件。非快道票（C1+ 全三阶段）的状态翻转由 `ticket-ops.sh` 承载——lane-commit 只覆盖快道，两者在 `docs/issues/index.json` 单写机制上同锚点语义（id 锚点整行替换，仅改 status/updated_at 两值）。
 
 ## install.sh（安装脚本）
 
