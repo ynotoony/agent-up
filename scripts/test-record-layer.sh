@@ -1955,7 +1955,10 @@ EOF
 
 # ============================================================
 # suite: lane-commit（票 100 场景沉淀：微账本 actual 键——合同 actual 行落第七键、
-# 不带 actual 行的既有六键行向后兼容（actual 落空串）；两段式全链经 git 夹具承载）
+# 不带 actual 行的既有六键行向后兼容（actual 落空串）；两段式全链经 git 夹具承载；
+# 票 108 增补：.json 票体 user-review 全链正负例——t_stem 剥 .json、checkpoint 落独立
+# md（创建＋已存在追加两形态）、正文 Status 回写跳过、JSON 票体零追加、flips id 不符
+# fail-closed）
 # ============================================================
 
 lc_git_commit() {
@@ -1988,6 +1991,34 @@ lc_contract() {
       printf 'actual: %s\n' "$2"
     fi
   } > "$1"
+}
+
+lc_json_docs() {
+  # $1=夹具仓根：.json 票全链三载体（最小 JSON 票体＋索引一条目一行＋issues-README 状态行；
+  # 票 108）——checkpoint 承载形态断言的命名先例＝docs/issues/<id>-review-checkpoint.md
+  mkdir -p "$1/docs/issues"
+  cat > "$1/docs/issues/index.json" <<'EOF'
+{
+  "issues": [
+    {"id": "33-lc-ticket", "status": "in_progress", "complexity": "C1", "blocked_by": [], "updated_at": "2026-09-29T10:00"}
+  ]
+}
+EOF
+  cat > "$1/docs/issues/33-lc-ticket.json" <<'EOF'
+{
+  "id": "33-lc-ticket",
+  "kind": "task",
+  "title": "fixture json ticket",
+  "created_at": "2026-09-29"
+}
+EOF
+  cat > "$1/docs/issues/README.md" <<'EOF'
+# 票据索引（fixture）
+
+| 名字 | 状态 | 说明 |
+| --- | --- | --- |
+| `33-lc-ticket.json` | 任务票 33；`in_progress`（2026-09-29 开票） | LC json fixture |
+EOF
 }
 
 suite_lane_commit() {
@@ -2078,6 +2109,110 @@ suite_lane_commit() {
     ok '负例 N3 actual 行含制表符 → exit 1（JSON 行安全）'
   else
     bad '负例 N3 actual 行含制表符 → exit 1（JSON 行安全）' "exit=$rc $(tail -n 2 "$D/n3.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 108 断言：user-review 道 .json 票体全链 ----
+  # 正例 P-json：.json 票 user-review 全链收口（索引翻转 done＋issues-README 行翻转＋
+  # checkpoint 落独立 docs/issues/33-lc-ticket-review-checkpoint.md＋正文 Status 回写跳过
+  # 说明行＋投影再生）→ exit 0；JSON 票体逐字节零追加（前后 cksum）；记录提交落地
+  # （checkpoint md 入第二段提交）。预期值独立重建。
+  lc_build_fixture "$D/pj"
+  lc_json_docs "$D/pj"
+  lc_git_commit "$D/pj"
+  printf 'change-json\n' > "$D/pj/a.txt"
+  pj_ck0=$(cksum "$D/pj/docs/issues/33-lc-ticket.json")
+  pj_n0=$(git -C "$D/pj" rev-list --count HEAD)
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: docs/issues/33-lc-ticket.json\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: fixture json ur commit\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK（fixture json 全链裁决）\n'
+    printf 'verdict_at: 2026-09-30T12:00\n'
+    printf 'flips: docs/issues/index.json:index:33-lc-ticket:done:2026-09-30T12:00\n'
+    printf 'flips: docs/issues/README.md:任务票 33；`in_progress`:| `33-lc-ticket.json` | 任务票 33；`done`（2026-09-29 开票） | LC json fixture |\n'
+  } > "$D/pj.contract"
+  sh "$LC" "$D/pj" "$D/pj.contract" >"$D/pj.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '"id": "33-lc-ticket", "status": "done"' "$D/pj/docs/issues/index.json" \
+    && grep -q '任务票 33；`done`' "$D/pj/docs/issues/README.md" \
+    && grep -q '| 33-lc-ticket | done |' "$D/pj/docs/progress-current.md" \
+    && grep -q '跳过正文 Status 回写' "$D/pj.out"; then
+    ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转＋README 替换＋投影落行＋回写跳过说明行（票 108）'
+  else
+    bad '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转＋README 替换＋投影落行＋回写跳过说明行（票 108）' "exit=$rc $(tail -n 3 "$D/pj.out" | tr '\n' '|')"
+  fi
+
+  if grep -q '^# 票 33-lc-ticket User Review Checkpoint（用户即 Review 道）$' "$D/pj/docs/issues/33-lc-ticket-review-checkpoint.md" \
+    && grep -q '^## User Review Checkpoint' "$D/pj/docs/issues/33-lc-ticket-review-checkpoint.md" \
+    && grep -q -- '- 裁决原文：OK（fixture json 全链裁决）' "$D/pj/docs/issues/33-lc-ticket-review-checkpoint.md" \
+    && [ "$(cksum "$D/pj/docs/issues/33-lc-ticket.json")" = "$pj_ck0" ]; then
+    ok '正例 P-json checkpoint 落独立 md（一级标题＋记录块）且 JSON 票体逐字节零追加（票 108）'
+  else
+    bad '正例 P-json checkpoint 落独立 md（一级标题＋记录块）且 JSON 票体逐字节零追加（票 108）' 'checkpoint md 形态或票体 cksum 不符'
+  fi
+
+  if [ "$(git -C "$D/pj" rev-list --count HEAD)" -eq "$((pj_n0 + 2))" ] \
+    && [ "$(git -C "$D/pj" show --name-only --format= HEAD | grep -c 'docs/issues/33-lc-ticket-review-checkpoint.md')" -eq 1 ]; then
+    ok '正例 P-json 记录提交落地（第二段提交含独立 checkpoint md）'
+  else
+    bad '正例 P-json 记录提交落地（第二段提交含独立 checkpoint md）' "提交数=$(git -C "$D/pj" rev-list --count HEAD)（基线 ${pj_n0}）"
+  fi
+
+  # P-json 二次收口：checkpoint md 已存在 → 追加记录块（一级标题不重复），票体仍零追加。
+  printf 'change-json2\n' > "$D/pj/a.txt"
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: docs/issues/33-lc-ticket.json\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: fixture json ur commit 2\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK（fixture json 二次裁决）\n'
+    printf 'verdict_at: 2026-09-30T13:00\n'
+    printf 'flips: docs/issues/index.json:index:33-lc-ticket:done:2026-09-30T12:00\n'
+  } > "$D/pj2.contract"
+  sh "$LC" "$D/pj" "$D/pj2.contract" >"$D/pj2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && [ "$(grep -c '^# 票 33-lc-ticket User Review Checkpoint' "$D/pj/docs/issues/33-lc-ticket-review-checkpoint.md")" -eq 1 ] \
+    && [ "$(grep -c '^## User Review Checkpoint' "$D/pj/docs/issues/33-lc-ticket-review-checkpoint.md")" -eq 2 ] \
+    && [ "$(cksum "$D/pj/docs/issues/33-lc-ticket.json")" = "$pj_ck0" ] \
+    && [ "$(git -C "$D/pj" rev-list --count HEAD)" -eq "$((pj_n0 + 4))" ]; then
+    ok '正例 P-json 二次收口 checkpoint md 已存在 → 追加记录块（标题恰 1 个、记录块 2 个）且票体仍零追加（票 108）'
+  else
+    bad '正例 P-json 二次收口 checkpoint md 已存在 → 追加记录块（标题恰 1 个、记录块 2 个）且票体仍零追加（票 108）' "exit=$rc $(tail -n 3 "$D/pj2.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N-json：flips id 与 .json 票文件不符 → exit 1 零提交零写入（id 校验语义对
+  # .json 票保持，票 108）；JSON 票体零追加同证，独立 checkpoint md 不落盘。
+  lc_build_fixture "$D/nj"
+  lc_json_docs "$D/nj"
+  lc_git_commit "$D/nj"
+  printf 'change-json\n' > "$D/nj/a.txt"
+  nj_ck=$(cksum "$D/nj/docs/issues/33-lc-ticket.json")
+  nj_n0=$(git -C "$D/nj" rev-list --count HEAD)
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: docs/issues/33-lc-ticket.json\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: fixture json id mismatch\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK\n'
+    printf 'verdict_at: 2026-09-30T12:00\n'
+    printf 'flips: docs/issues/index.json:index:34-wrong-id:done:2026-09-30T12:00\n'
+  } > "$D/nj.contract"
+  sh "$LC" "$D/nj" "$D/nj.contract" >"$D/nj.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '索引条目 id 与 ticket 票文件不符' "$D/nj.out" \
+    && [ "$(git -C "$D/nj" rev-list --count HEAD)" -eq "$nj_n0" ] \
+    && [ "$(cksum "$D/nj/docs/issues/33-lc-ticket.json")" = "$nj_ck" ] \
+    && [ ! -f "$D/nj/docs/issues/33-lc-ticket-review-checkpoint.md" ]; then
+    ok '负例 N-json flips id 与 .json 票文件不符 → exit 1 零提交零写入且票体零追加（票 108 fail-closed）'
+  else
+    bad '负例 N-json flips id 与 .json 票文件不符 → exit 1 零提交零写入且票体零追加（票 108 fail-closed）' "exit=$rc $(tail -n 2 "$D/nj.out" | tr '\n' '|')"
   fi
 
   suite_summary 'lane-commit'

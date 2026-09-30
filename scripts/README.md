@@ -264,7 +264,7 @@ check-gates: FAIL（N 项未通过）
 
 ## lane-commit.sh（快道收尾脚本）
 
-分级交付道快道的合同驱动收尾脚本（REQ-20260904-011；单写机制改造）：门禁核对 → 白名单产品提交 → 记录写入（索引单写 → 票正文 Status 投影打印件回写 → User Review Checkpoint 追加或微账本落行 → 生成器投影再生并 `--check` 核对）→ 记录提交，两段式（先产品提交后纯记录提交，R-RC-003）。行为基线 = development-process 模板 §12.5 道脚本承载注记（单写索引 → 生成正文 Status 行 → 生成投影）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖、零网络依赖、fail-closed（门禁不过、合同格式不合预期、索引或生成器缺失即停止报告；预检先于产品提交，停止时零提交零写入，不 best-effort 修补）。脚本权限边界 = 提交合同白名单，不执行白名单外任何写入；`docs/issues/README.md` 与 `docs/progress.md` 状态行不属本脚本写入面（README 状态列为人工登记投影）。
+分级交付道快道的合同驱动收尾脚本（REQ-20260904-011；单写机制改造）：门禁核对 → 白名单产品提交 → 记录写入（索引单写 → 票正文 Status 投影打印件回写（`.md` 票；`.json` 票体无 `**Status:**` 行，跳过回写并打印说明行）→ User Review Checkpoint 追加（`.md` 票追加票尾；`.json` 票体零追加，落独立 `docs/issues/<id>-review-checkpoint.md`，`<id>` 为票文件去 `.md`/`.json` 后缀）或微账本落行 → 生成器投影再生并 `--check` 核对）→ 记录提交，两段式（先产品提交后纯记录提交，R-RC-003）。行为基线 = development-process 模板 §12.5 道脚本承载注记（单写索引 → 生成正文 Status 行 → 生成投影）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖、零网络依赖、fail-closed（门禁不过、合同格式不合预期、索引或生成器缺失即停止报告；预检先于产品提交，停止时零提交零写入，不 best-effort 修补）。脚本权限边界 = 提交合同白名单，不执行白名单外任何写入；`docs/issues/README.md` 与 `docs/progress.md` 状态行不属本脚本写入面（README 状态列为人工登记投影）。
 
 ### 用法
 
@@ -283,7 +283,7 @@ sh scripts/lane-commit.sh [repo-root] <contract-file>
 | 行格式 | 说明 |
 | --- | --- |
 | `lane: user-review` 或 `lane: micro` | 必需，恰一行；取值仅 `user-review` 或 `micro`。micro 道预检两断言：白名单 ≤3 条目、改动集零新建（??）零删除（D）——违者 exit 1；user-review 道不受限。 |
-| `ticket: <仓库根相对路径>` | user-review 道必填（票文件须存在）；micro 道不得出现。 |
+| `ticket: <仓库根相对路径>` | user-review 道必填（票文件须存在）；micro 道不得出现。票体 `.md` 或 `.json`——Checkpoint 承载形态随票体分派（`.md` 票追加票尾；`.json` 票落独立 `docs/issues/<id>-review-checkpoint.md`，票体零追加）。 |
 | `whitelist: <逗号分隔相对路径>` | 必填，一行可多项；口径同 check-gates.sh（须为仓库根相对文件路径）。 |
 | `message: <产品提交说明>` | 必填，恰一行。 |
 | `verify: <验证命令>` | 一行一条，可多行；交由 check-gates.sh 重跑并记录退出码。 |
@@ -291,12 +291,12 @@ sh scripts/lane-commit.sh [repo-root] <contract-file>
 | `verdict_at: <裁决时间>` | user-review 道必填；micro 道不得出现。 |
 | `actual: <净工时>` | micro 道可选（至多一行）：本次微收口净工时文本（净工时口径：会话段累计减中断段），落微账本 `actual` 键；缺省空串——既有六键行向后兼容（合同不带 `actual:` 行照旧落行，actual 记空串）；user-review 道不得出现（其实际用时落票本体 `actual_time` 字段，ticket-ops flip 收口硬拦）。 |
 | `flips: <file>:<field>:<value>` | 行翻转：一行一条，可多行；`field` 不得为 `status`（已退役）或 `index`（索引专用段名）。 |
-| `flips: docs/issues/index.json:index:<id>:<status>:<updated_at>` | 索引条目翻转：user-review 道专用，至多一条；`id` 须与 `ticket` 票文件名去 `.md` 一致；`status` 为状态机裸值（ready / in_progress / blocked / review_ready / review_pass / review_fail / done / superseded，不带冒号后缀）；`updated_at` 形如 `YYYY-MM-DDTHH:MM[:SS]`（允许冒号，取行尾余段）。 |
+| `flips: docs/issues/index.json:index:<id>:<status>:<updated_at>` | 索引条目翻转：user-review 道专用，至多一条；`id` 须与 `ticket` 票文件名去 `.md`/`.json` 后缀一致；`status` 为状态机裸值（ready / in_progress / blocked / review_ready / review_pass / review_fail / done / superseded，不带冒号后缀）；`updated_at` 形如 `YYYY-MM-DDTHH:MM[:SS]`（允许冒号，取行尾余段）。 |
 | `# 注释` / 空行 | 行首 `#` 与空行忽略；无法识别的行、重复行判合同格式错误（exit 1）。 |
 
 flips 语义（单写机制）：
 
-- 索引条目翻转（单写机制）：单写 `docs/issues/index.json`——`"id": "<id>"` 锚点整行替换，仅改该行 `status` 与 `updated_at` 两值，`complexity`/`blocked_by`/`checkpoint_ref` 等其余字段原样保留；依赖一条目一行排版，条目行不含同行 `status`/`updated_at` 字段或锚点命中数 ≠1 即预检停止。随后机械回写 `ticket` 票正文 `**Status:**` 行为反引号包裹的 `status`（投影打印件，过渡期口径；正文 Status 行须恰命中一行），再调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对（两步任一非 0 即停止，输出指路）。生成器定位：本脚本同目录优先，PATH 回退（手动迭代 PATH 逐目录探测可读的 `generate-progress.sh`；不用 `command -v`——落位脚本不要求可执行位、恒经 sh 调用，`command -v` 对不可执行文件不报告，措辞对齐实现 lane-commit.sh 生成器定位段）；索引或生成器缺失属预检条件，先于产品提交停止。
+- 索引条目翻转（单写机制）：单写 `docs/issues/index.json`——`"id": "<id>"` 锚点整行替换，仅改该行 `status` 与 `updated_at` 两值，`complexity`/`blocked_by`/`checkpoint_ref` 等其余字段原样保留；依赖一条目一行排版，条目行不含同行 `status`/`updated_at` 字段或锚点命中数 ≠1 即预检停止。随后机械回写 `ticket` 票正文 `**Status:**` 行为反引号包裹的 `status`（投影打印件，过渡期口径；正文 Status 行须恰命中一行；`.json` 票体无 `**Status:**` 行，跳过回写并打印说明行，状态唯一真相源＝索引），再调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对（两步任一非 0 即停止，输出指路）。生成器定位：本脚本同目录优先，PATH 回退（手动迭代 PATH 逐目录探测可读的 `generate-progress.sh`；不用 `command -v`——落位脚本不要求可执行位、恒经 sh 调用，`command -v` 对不可执行文件不报告，措辞对齐实现 lane-commit.sh 生成器定位段）；索引或生成器缺失属预检条件，先于产品提交停止。
 - 行翻转：锚点为字面子串，须恰命中一行，整行换成 `value`。
 - `field: status` 已退役（frontmatter status 退役、票状态经索引单写机制承载）：合同携带即停止并指路索引条目口径。锚点不合规在写入前停止（exit 1）。
 
@@ -308,15 +308,17 @@ flips 语义（单写机制）：
 2. 翻转目标与预检（只扫描不写入）：翻转目标存在性、索引一条目一行排版与 id 锚点唯一命中、正文 Status 行唯一命中、行翻转锚点唯一命中、生成器可用性（同目录 → PATH）；全部通过才继续。
 3. 门禁核对（内部调用同目录 check-gates.sh，只读）；任一不符 exit 1。
 4. 产品提交：按白名单逐项 `git add`，防御性核对暂存内容不越出白名单，按合同 `message` 创建提交。
-5. 记录写入：索引单写 → 票正文 Status 投影打印件回写 → 行翻转 → user-review 道向票文件追加 User Review Checkpoint（裁决原文、裁决时间、产品提交 ID 与说明、diff 摘要）/ micro 道向 `docs/agent/micro.jsonl` 落一行 JSON → 生成器投影再生并 `--check` 核对。
+5. 记录写入：索引单写 → 票正文 Status 投影打印件回写（`.json` 票跳过并打印说明行）→ 行翻转 → user-review 道落 User Review Checkpoint（裁决原文、裁决时间、产品提交 ID 与说明、diff 摘要；`.md` 票追加票尾，`.json` 票落独立 `docs/issues/<id>-review-checkpoint.md`——不存在则创建带一级标题、已存在则追加记录块，票体零追加）/ micro 道向 `docs/agent/micro.jsonl` 落一行 JSON → 生成器投影再生并 `--check` 核对。
 6. 记录提交：索引、票文件、投影、微账本等记录内容统一入第二段提交（`chore(lane): 记录翻转 — <message>`）。
 
 ```text
 lane-commit: 生成器定位: 同目录 <路径>|PATH <路径>
 lane-commit: 索引单写: docs/issues/index.json（<id> → <status>，updated_at <时间>）
 lane-commit: 正文 Status 回写（投影打印件）: <ticket> → **Status:** `<status>`
+lane-commit: 跳过正文 Status 回写: <ticket>（.json 票体无 **Status:** 行，状态唯一真相源＝索引）
 lane-commit: 翻转: <file>:<field>:<value>
 lane-commit: User Review Checkpoint 已追加: <ticket>
+lane-commit: User Review Checkpoint 已追加: docs/issues/<id>-review-checkpoint.md（.json 票体零追加，独立 checkpoint md 承载）
 lane-commit: 微账本已落行: docs/agent/micro.jsonl
 lane-commit: 投影已再生并核对: docs/progress-current.md
 lane-commit: 产品提交 <提交 ID>
@@ -326,7 +328,7 @@ lane-commit: 记录文件: <逗号分隔清单>
 lane-commit: PASS（两段式完成：门禁 PASS、索引单写 N 处、翻转 N 项、投影已核对、记录已落盘）
 ```
 
-- 各行为行仅在实际发生时输出（「索引单写」「正文 Status 回写」「投影已再生并核对」随索引条目翻转；「User Review Checkpoint 已追加」仅 user-review 道；「微账本已落行」仅 micro 道）；失败输出 `lane-commit: FAIL: <原因>`（stderr），逐步骤停止原因与指路可定位。
+- 各行为行仅在实际发生时输出（「索引单写」「正文 Status 回写」「投影已再生并核对」随索引条目翻转——`.json` 票体以「跳过正文 Status 回写」替代回写行；「User Review Checkpoint 已追加」仅 user-review 道，`.json` 票目标为独立 checkpoint md；「微账本已落行」仅 micro 道）；失败输出 `lane-commit: FAIL: <原因>`（stderr），逐步骤停止原因与指路可定位。
 
 ### 退出码
 
@@ -339,7 +341,7 @@ lane-commit: PASS（两段式完成：门禁 PASS、索引单写 N 处、翻转 
 ### 微账本与维护联动
 
 - 微账本 `docs/agent/micro.jsonl`（替代竖线格式 `micro.md`；无存量迁移负担）与 user-review 道 User Review Checkpoint 由本脚本独占写：微账本懒创建（空文件起步，JSONL 不承载注释行），一行一操作，agent 不手写、其他流程不得代写。JSON 行字段与键序固定：`date`（`YYYY-MM-DD`）、`lane`（`micro`）、`whitelist`（逗号分隔白名单，JSON 转义 `"` 与 `\`）、`gates`（`PASS`）、`verify`（重跑验证命令条数）、`commit`（产品提交 ID）、`actual`（净工时文本——微道提交合同 `actual:` 行承载，JSON 转义同 whitelist，缺省空串；既有六键行向后兼容，合同不带 `actual:` 行即落空串）；每行均可被 `json.loads` 解析，禁裸换行。
-- 白名单与 flips 目标均须为仓库根相对文件路径；索引条目翻转锚点依赖 `docs/issues/index.json` 一条目一行排版与条目行内 `"status"`/`"updated_at"` 字段同行（排版破坏即预检停止），排版口径见 `../references/schemas/issue-index.schema.json`；正文 Status 回写锚点依赖票面 `**Status:**` 行格式，格式变化须同步脚本锚点语义与本 README。
+- 白名单与 flips 目标均须为仓库根相对文件路径；索引条目翻转锚点依赖 `docs/issues/index.json` 一条目一行排版与条目行内 `"status"`/`"updated_at"` 字段同行（排版破坏即预检停止），排版口径见 `../references/schemas/issue-index.schema.json`；正文 Status 回写锚点依赖票面 `**Status:**` 行格式（`.json` 票体不承载 Status 行，无此锚点依赖），格式变化须同步脚本锚点语义与本 README。
 - 生成器 `generate-progress.sh` 与本脚本同目录落位（生成项目 `scripts/` 由 SKILL 步骤 5 一并复制）；仅 PATH 回退形态运行时，投影再生依赖 PATH 上的同名脚本。索引或生成器缺失的停止属 fail-closed（对齐 development-process R-DP-031 兜底），不存在"缺失就跳过继续"路径。
 - 本脚本用法、合同行格式或退出码变化须同步脚本 usage 文本与本 README 专节；门禁清单格式口径以 check-gates.sh 专节为准。
 

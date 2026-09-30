@@ -1,13 +1,15 @@
 #!/bin/sh
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层）与行式提交合同文件
 #        （lane / ticket / whitelist / message / verify / verdict_quote / verdict_at / flips）。
-# Output: 门禁核对、白名单产品提交、记录写入（user-review 道追加 User Review Checkpoint；
-#         micro 道向 docs/agent/micro.jsonl 懒创建落 JSON 行——键序 date,lane,whitelist,
-#         gates,verify,commit,actual 六键＋actual 键（票 100：记净工时，缺省空串既有六键
-#         行向后兼容））、索引单写与状态投影
+# Output: 门禁核对、白名单产品提交、记录写入（user-review 道追加 User Review Checkpoint
+#         ——.md 票追加票尾，.json 票体零追加、落独立 docs/issues/<id>-review-checkpoint.md
+#         （票 108）；micro 道向 docs/agent/micro.jsonl 懒创建落 JSON 行——键序 date,lane,
+#         whitelist,gates,verify,commit,actual 六键＋actual 键（票 100：记净工时，缺省空串
+#         既有六键行向后兼容））、索引单写与状态投影
 #         （flips 索引条目口径：单写 docs/issues/index.json → 机械回写受影响票正文
-#         **Status:** 行 → 调 generate-progress.sh 再生 docs/progress-current.md 投影并
-#         --check 核对）与两段提交的逐步输出，两段提交 ID、各自文件清单与翻转清单分列回报。
+#         **Status:** 行（.json 票体无 Status 行，跳过回写）→ 调 generate-progress.sh 再生
+#         docs/progress-current.md 投影并 --check 核对）与两段提交的逐步输出，两段提交 ID、
+#         各自文件清单与翻转清单分列回报。
 # Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26；票 37 行为基线改造）；行为基线 =
 #      development-process 模板 §12.5 道脚本承载注记（单写索引 → 生成正文 Status 行 →
 #      生成投影，票 34 定稿）与 R-RC-003（先产品提交后纯记录提交）；POSIX sh、零外部依赖、
@@ -34,7 +36,12 @@ usage() {
                    lane: user-review|micro            （micro 道预检，票 58：白名单 ≤3 条目
                                                        且改动集零新建（??）零删除（D），
                                                        违者 exit 1；user-review 不受限）
-                   ticket: <仓库根相对路径>          （user-review 必填；micro 不得出现）
+                   ticket: <仓库根相对路径>          （user-review 必填；micro 不得出现；
+                                                       票体 .md 或 .json——.md 票 Checkpoint
+                                                       追加票尾，.json 票零追加、Checkpoint
+                                                       落独立 docs/issues/<id>-review-
+                                                       checkpoint.md（<id>＝票文件去后缀），
+                                                       票 108）
                    whitelist: <逗号分隔相对路径>      （必填，单项或逗号多项）
                    message: <产品提交说明>            （必填）
                    verify: <验证命令>                 （一行一条，可多行）
@@ -49,13 +56,14 @@ usage() {
                    flips: docs/issues/index.json:index:<id>:<status>:<updated_at>
                                                      （索引条目翻转：user-review 道专用，
                                                        至多一条；id 须与 ticket 票文件名去
-                                                       .md 一致；status 为状态机裸值；
-                                                       updated_at 允许冒号，取行尾余段）
+                                                       .md/.json 后缀一致；status 为状态机
+                                                       裸值；updated_at 允许冒号，取行尾余段）
                  # 注释（行首 #）与空行忽略；其余行判合同格式错误（exit 1）。
                  行翻转语义: 锚点为字面子串，须恰命中一行，整行换成 value。
                  索引条目翻转语义（单写机制，票 37）: 单写 docs/issues/index.json（"id" 锚点
                  整行替换，仅改 status/updated_at 两值，其余字段原样保留；依赖一条目一行
-                 排版）→ 机械回写 ticket 票正文 **Status:** 行（投影打印件 `value`）→ 调
+                 排版）→ 机械回写 ticket 票正文 **Status:** 行（.json 票体无 Status 行，
+                 跳过回写，票 108；投影打印件 `value`）→ 调
                  generate-progress.sh 再生 docs/progress-current.md 并 --check 核对（生成器
                  同目录优先、PATH 回退；索引或生成器缺失＝预检停止，fail-closed）。
   -h / --help    打印本用法。
@@ -116,6 +124,7 @@ lane_seen=0
 lane=''
 ticket_seen=0
 ticket=''
+ticket_is_json=0
 message_seen=0
 message=''
 vq_seen=0
@@ -273,11 +282,26 @@ case ${lane} in
     ;;
 esac
 
+# 票体形态分类（票 108）：user-review 道票文件为 .json 时剥 .json 后缀得纯 id——flips id
+# 校验与 checkpoint 独立承载分派的共同依据；其余票体沿用 .md 剥离口径（.md 之外不加新
+# 约束，既有行为零变化）。
+if [ "${lane}" = 'user-review' ]; then
+  t_stem=${ticket##*/}
+  case ${t_stem} in
+    *.json)
+      t_stem=${t_stem%.json}
+      ticket_is_json=1
+      ;;
+    *)
+      t_stem=${t_stem%.md}
+      ticket_is_json=0
+      ;;
+  esac
+fi
+
 if [ "${n_index_flip}" -gt 0 ]; then
   [ "${lane}" = 'user-review' ] || die1 '索引条目翻转仅限 user-review 道（micro 道免票，无票状态可翻）'
   [ "${n_index_flip}" -eq 1 ] || die1 '索引条目翻转至多一条（单写口径，票 37）'
-  t_stem=${ticket%.md}
-  t_stem=${t_stem##*/}
 fi
 
 # ---- 微道预检（票 58：微道只修不建不删；user-review 道不受此限，行为零变化）----
@@ -466,8 +490,10 @@ for flip in ${flips}; do
     [ "${f_id}" = "${t_stem}" ] || \
       die1 "索引条目 id 与 ticket 票文件不符: ${f_id} ≠ ${t_stem}（正文 Status 回写目标由 ticket 行决定）"
     index_precheck "${f_id}" || die1 "索引预检未通过: docs/issues/index.json（${f_id}）——单写已取消，未产生任何写入或提交"
-    flip_run "${ticket}" /dev/null body '' "${f_status}" || \
-      die1 "正文 Status 回写预检未通过: ${ticket}"
+    if [ "${ticket_is_json}" -eq 0 ]; then
+      flip_run "${ticket}" /dev/null body '' "${f_status}" || \
+        die1 "正文 Status 回写预检未通过: ${ticket}"
+    fi
   elif [ "${f_field}" = 'status' ]; then
     die1 "flips 行 field=status 已退役：票状态经索引条目翻转承载（flips: docs/issues/index.json:index:<id>:<status>:<updated_at>，票 37）"
   else
@@ -539,15 +565,20 @@ for flip in ${flips}; do
     mv "${tmp_idx}" "${repo_root}/docs/issues/index.json"
     tmp_idx=''
     printf 'lane-commit: 索引单写: docs/issues/index.json（%s → %s，updated_at %s）\n' "${f_id}" "${f_status}" "${f_updated}"
-    tmp_flip=$(mktemp "${t_dir%/}/lane-flip.XXXXXX")
-    flip_run "${ticket}" "${tmp_flip}" body '' "${f_status}" || {
-      rm -f "${tmp_flip}"
+    if [ "${ticket_is_json}" -eq 1 ]; then
+      # .json 票体无 **Status:** 行（状态唯一真相源＝索引），跳过正文回写（票 108）
+      printf 'lane-commit: 跳过正文 Status 回写: %s（.json 票体无 **Status:** 行，状态唯一真相源＝索引）\n' "${ticket}"
+    else
+      tmp_flip=$(mktemp "${t_dir%/}/lane-flip.XXXXXX")
+      flip_run "${ticket}" "${tmp_flip}" body '' "${f_status}" || {
+        rm -f "${tmp_flip}"
+        tmp_flip=''
+        die1 "正文 Status 回写未通过锚点校验: ${ticket}——收尾停止：产品提交 ${cid1} 已创建、索引已单写、记录提交未创建"
+      }
+      mv "${tmp_flip}" "${repo_root}/${ticket}"
       tmp_flip=''
-      die1 "正文 Status 回写未通过锚点校验: ${ticket}——收尾停止：产品提交 ${cid1} 已创建、索引已单写、记录提交未创建"
-    }
-    mv "${tmp_flip}" "${repo_root}/${ticket}"
-    tmp_flip=''
-    printf 'lane-commit: 正文 Status 回写（投影打印件）: %s → **Status:** `%s`\n' "${ticket}" "${f_status}"
+      printf 'lane-commit: 正文 Status 回写（投影打印件）: %s → **Status:** `%s`\n' "${ticket}" "${f_status}"
+    fi
     proj_file='docs/progress-current.md'
     fneedle="${NL}${proj_file}${NL}"
     case "${NL}${record_files}" in
@@ -569,20 +600,42 @@ for flip in ${flips}; do
   fi
 done
 
+emit_checkpoint_block() {
+  # User Review Checkpoint 记录块（.md 票票尾追加与 .json 票独立 checkpoint md 共用同一块格式）
+  printf '\n## User Review Checkpoint（%s，lane-commit.sh）\n\n' "${date_today}"
+  printf -- '- 裁决原文：%s\n' "${verdict_quote}"
+  printf -- '- 裁决时间：%s\n' "${verdict_at}"
+  printf -- '- 提交：%s %s\n' "${cid1}" "${subject1}"
+  printf -- '- diff 摘要：%s\n' "${diffsum1}"
+}
+
 if [ "${lane}" = 'user-review' ]; then
-  {
-    printf '\n## User Review Checkpoint（%s，lane-commit.sh）\n\n' "${date_today}"
-    printf -- '- 裁决原文：%s\n' "${verdict_quote}"
-    printf -- '- 裁决时间：%s\n' "${verdict_at}"
-    printf -- '- 提交：%s %s\n' "${cid1}" "${subject1}"
-    printf -- '- diff 摘要：%s\n' "${diffsum1}"
-  } >> "${repo_root}/${ticket}" || die1 "User Review Checkpoint 追加失败: ${ticket}"
-  tneedle="${NL}${ticket}${NL}"
+  ck_target=${ticket}
+  if [ "${ticket_is_json}" -eq 1 ]; then
+    # .json 票体零追加（票 108）：Checkpoint 落独立 checkpoint md——
+    # docs/issues/<id>-review-checkpoint.md（与仓内既有 -review-checkpoint.md 先例同命名）；
+    # 文件已存在则追加记录块，不存在则随记录块一并创建一级标题。
+    ck_target="docs/issues/${t_stem}-review-checkpoint.md"
+    if [ ! -f "${repo_root}/${ck_target}" ]; then
+      { printf '# 票 %s User Review Checkpoint（用户即 Review 道）\n' "${t_stem}"
+        emit_checkpoint_block
+      } > "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 文件创建失败: ${ck_target}"
+    else
+      emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
+    fi
+  else
+    emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
+  fi
+  tneedle="${NL}${ck_target}${NL}"
   case "${NL}${record_files}" in
     *"${tneedle}"*) : ;;
-    *) record_files="${record_files}${ticket}${NL}" ;;
+    *) record_files="${record_files}${ck_target}${NL}" ;;
   esac
-  printf 'lane-commit: User Review Checkpoint 已追加: %s\n' "${ticket}"
+  if [ "${ticket_is_json}" -eq 1 ]; then
+    printf 'lane-commit: User Review Checkpoint 已追加: %s（.json 票体零追加，独立 checkpoint md 承载）\n' "${ck_target}"
+  else
+    printf 'lane-commit: User Review Checkpoint 已追加: %s\n' "${ck_target}"
+  fi
 fi
 
 if [ "${lane}" = 'micro' ]; then
