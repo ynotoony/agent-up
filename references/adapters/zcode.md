@@ -112,7 +112,7 @@ tools: [Read, Grep, Glob, Bash]
 #### R-ZC-003 独立执行体与降级如实记录 `MUST`
 
 - **When**：在 zcode 宿主派发独立 Review，或评估宿主独立执行体能力时。
-- **Action**：声明：本宿主支持独立 subagent 执行体（本仓库 `.zcode/agents/` 运行时入口按独立 subagent 会话形态派发执行；官方文档指针【待定】，按 R-AT-001 事实准入不虚构来源）；独立 Review 默认由独立 subagent 执行。IF 部署裁剪或权限配置导致 subagent 不可用 THEN 按 capability-contract R-CC-002 依序尝试：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable` 及实际所选替代路径。
+- **Action**：声明：本宿主支持独立 subagent 执行体（本仓库 `.zcode/agents/` 运行时入口按独立 subagent 会话形态派发执行；官方文档指针【待定】，按 R-AT-001 事实准入不虚构来源）；独立 Review 默认由独立 subagent 执行。宿主实测注记（2026-09-30）：钉模型的 agent 须显式声明思考档位——agent profile 的模型选择不继承会话档位，选中模型而档位缺失时 spawn 即报 reasoning-level-missing（注册表默认档位不自动落下）；声明语法＝frontmatter `model: provider/model$档位` 或独立字段 `thoughtLevel: <档位>`（来源＝宿主实装：模型选择分隔符常量与 agent profile 解析器，`model_fallback` 非宿主字段），适配层实例 frontmatter 已按 `$high` 补声明并移除死字段；agent profile 于会话启动时装载，会话中改写 frontmatter 不生效，补丁实弹验证归新会话首派发；验证通过前，general-purpose 子代理注入同内容角色合同仍为现行有效独立形态（落本条 (b)「不同执行身份」，独立性与只读边界由合同条款承载）。IF 部署裁剪或权限配置导致 subagent 不可用 THEN 按 capability-contract R-CC-002 依序尝试：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable` 及实际所选替代路径。
 - **Forbidden**：把同一执行体的自检标记为 Review pass；静默跳过独立 Review；把降级路径说成"与独立 subagent 等价无差"。
 - **Stop if**：三条替代路径均不可用 → 任务停在 review_ready，记录阻塞，不进入 Commit。
 - **Evidence**：审查记录含 `independent_review` 字段与所选路径；run record 可选指针字段按 schema 回填。
