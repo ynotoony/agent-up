@@ -9,7 +9,7 @@ owner: Implementation 执行体（初始化生成为 docs/agent/roles/implementa
 update_policy: 七节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 development-process
 depends_on: development-process（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
-<!-- Input: 主 agent 的委派合同（14 个固定字段）、Context / Evidence 列出的文件、任务票与领域上下文。 -->
+<!-- Input: 主 agent 的委派合同（16 个固定字段）、Context / Evidence 列出的文件、任务票与领域上下文。 -->
 <!-- Output: 合同 Scope 内的实现产物、修改文件清单、真实验证证据、Implementation Checkpoint、未解决问题与风险。 -->
 <!-- Pos: 平台无关角色合同模板（SPEC-05 §4 角色合同七节），生成目标项目 docs/agent/roles/implementation.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
 
@@ -21,7 +21,7 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 
 ## 1. 输入
 
-- 主 agent 的委派合同，含 14 个固定字段；先完整读取合同和 Context / Evidence 列出的文件，再动手。
+- 主 agent 的委派合同，含 16 个固定字段；先完整读取合同和 Context / Evidence 列出的文件，再动手。
 - 当前任务票、相关规格与领域上下文。
 - 目标项目 development-process 的流程规则（读取阶梯、门禁、检查点纪律）。
 
@@ -88,7 +88,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 
 ## 6. 输出格式
 
-报告不超过 60 行，依次包含：修改文件清单（绝对路径）｜验证命令与真实结果｜已落盘的 Checkpoint 位置｜未解决问题与交给 Review 的上下文｜风险。不接受只有"完成"的摘要。代码证据只给 `文件:行号区间`。
+报告不超过 60 行，依次包含：修改文件清单（绝对路径）｜验证命令与真实结果｜已落盘的 Checkpoint 位置｜未解决问题与交给 Review 的上下文｜风险。不接受只有"完成"的摘要。代码证据只给 `文件:行号区间`。报告须含一行 token 用量自报（宿主提供执行体用量遥测时如实填报数值与来源，不提供时记 N/A + reason）——记录义务非硬门禁，缺自报不阻塞交付（委派面遥测，代记与口径见 development-process §6 委派合同固定模板）。
 
 ## 7. 阶段出口
 
