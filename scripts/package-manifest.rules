@@ -15,8 +15,8 @@
 #         pm_vague_exempt <pkg-rel-path> <行号> <理由>（检查 12 行级豁免：命中行无法安全换词
 #           时登记，理由必填；登记行无命中即失效豁免 FAIL，行号漂移须复核更新）；
 #         pm_mirror <filename>（镜像脚本单段文件名：包侧 scripts/<filename> 与包根父目录
-#           仓根 scripts/<filename> 同名件逐对 cmp——对应关系＝同名件，现状四对同源演化
-#           互为镜像（后两对存量清算采纳），检查 13；仓根无 scripts/ 或无同名件
+#           仓根 scripts/<filename> 同名件逐对 cmp——对应关系＝同名件，现状六对同源演化
+#           互为镜像（后两对欠账清偿补登），检查 13；仓根无 scripts/ 或无同名件
 #           静默跳过）；
 #         pm_capability <name>（能力基元名单项：九基元名自 references/adapters/
 #           capability-contract.md §2.1 权威表现场提取登记，不自造基元，检查 14）；
@@ -158,13 +158,15 @@ pm_vague_exempt references/protocol/governance-format.md 82 'R-GF-003 Forbidden 
 pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden 字段＝词表权威列举处（vague-words 节依据），禁令条款内引述除外'
 
 # ==== mirrors：镜像脚本登记（检查 13；对应关系＝包侧 scripts/ 与包根父目录仓根
-#      scripts/ 的同名件，逐对 cmp；现状四对同源演化互为镜像，后两对存量清算
-#      采纳）====
+#      scripts/ 的同名件，逐对 cmp；现状六对同源演化互为镜像，后两对欠账清偿
+#      补登）====
 
 pm_mirror generate-progress.sh
 pm_mirror ticket-ops.sh
 pm_mirror run-record.sh
 pm_mirror ticket-grade.sh
+pm_mirror lane-commit.sh
+pm_mirror check-gates.sh
 
 # ==== capability-primitives：能力基元名单与检查目标（检查 14）====
 # 九基元名自 references/adapters/capability-contract.md §2.1 权威表逐行现场提取登记

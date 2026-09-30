@@ -959,7 +959,8 @@ EOF
 # 负例夹具为非 git 语境检查 19 静默跳过无输出行，补 mode 断言负例一对（git 夹具语境：
 # kind=script .sh 置 644／kind=rules 规则表置 755，双断言同报）；票 101 删 R-DP-030 规则
 # 块与 §15.3 节，预期串检查 15 行 52→51 独立重建（三处）；票 102 合并 R-DP-025 入
-# R-DP-007（索引行删一＋R-DP-007 行改写），预期串检查 15 行 51→50 独立重建（三处））
+# R-DP-007（索引行删一＋R-DP-007 行改写），预期串检查 15 行 51→50 独立重建（三处）；
+# 票 103 镜像清单 4→6 对，正例预期串与负例 N7 夹具同步）
 # ============================================================
 
 suite_check_package() {
@@ -982,7 +983,7 @@ PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 4 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 6 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（索引 50 行，全集 50 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
@@ -1100,9 +1101,13 @@ EOF
   fi
 
   # 票 58 检查 13 负例 N7：仓根 scripts/ 同名件单处篡改 → FAIL: 13 指名文件。
+  # 票 103：夹具仓根复制清单全六对件（仅复制部分会让检查 13 对缺失同名件静默跳过、
+  # 计数与清单登记对数不符——六件全在位计数才与 mirrors 节 6 行相等）。
   mkdir -p "$D/mrepo/scripts"
   cp -R "$PKG_ROOT" "$D/mrepo/agent-up"
-  cp "$PKG_ROOT/scripts/generate-progress.sh" "$PKG_ROOT/scripts/ticket-ops.sh" "$D/mrepo/scripts/"
+  for m in generate-progress.sh ticket-ops.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh; do
+    cp "$PKG_ROOT/scripts/$m" "$D/mrepo/scripts/$m"
+  done
   printf '# harness fixture 镜像篡改\n' >> "$D/mrepo/scripts/ticket-ops.sh"
   sh "$SCRIPT_DIR/check-package.sh" "$D/mrepo/agent-up" >"$D/act.n7" 2>&1
   rc=$?
