@@ -5,13 +5,13 @@ authority: 权威层级第 4 级（流程规则：Implementation 阶段角色合
 lifecycle: Live
 read_when: Implementation 阶段任务派发或执行时；主 agent 核对委派合同完整性时
 trigger: 七节合同、required_capabilities 或阶段出口语义变化
-owner: Implementation 执行体（初始化生成为 docs/agent/roles/implementation.md；维护限本合同允许范围，变更经 Review 门禁）
+owner: Implementation 执行体（初始化生成为 rules/implementation/roles/implementation.md；维护限本合同允许范围，变更经 Review 门禁）
 update_policy: 七节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 development-process
 depends_on: development-process（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 主 agent 的委派合同（16 个固定字段）、Context / Evidence 列出的文件、任务票与领域上下文。 -->
 <!-- Output: 合同 Scope 内的实现产物、修改文件清单、真实验证证据、Implementation Checkpoint、未解决问题与风险。 -->
-<!-- Pos: 平台无关角色合同模板（SPEC-05 §4 角色合同七节），生成目标项目 docs/agent/roles/implementation.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
+<!-- Pos: 平台无关角色合同模板（SPEC-05 §4 角色合同七节），生成目标项目 rules/implementation/roles/implementation.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
 
 # Implementation 角色合同
 
@@ -80,7 +80,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 ## 5. 验收条件
 
 - 实现产物完整且限于合同 Scope；修改文件清单（绝对路径）逐项可对照白名单。
-- 验证优先复用仓库共享 harness（`scripts/`，规则见 development-process）；没有适用的才新增脚本并当场登记；一次性脚本在 Checkpoint 标注"待沉淀"。
+- 验证优先复用仓库共享 harness（`rules/implementation/scripts/`，规则见 development-process）；没有适用的才新增脚本并当场登记；一次性脚本在 Checkpoint 标注"待沉淀"。
 - 合同含内部检查点时，到达即运行相关测试并落盘 Implementation Checkpoint，再继续剩余范围。
 - 合同的 Budget / Checkpoints 未写明时默认 80 次工具调用；接近上限必须先落盘 Checkpoint 再继续。
 - 未解决问题与风险已列入报告。

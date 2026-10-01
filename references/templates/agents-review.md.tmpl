@@ -5,13 +5,13 @@ authority: 权威层级第 4 级（流程规则：Review 阶段角色合同）�
 lifecycle: Live
 read_when: Implementation 交付后派发独立审查时；核对降级路径与 independent_review 记录时
 trigger: 七节合同、required_capabilities 或降级记录语义变化
-owner: Review 执行体（初始化生成为 docs/agent/roles/review.md；维护限本合同允许范围，变更经 Review 门禁）
+owner: Review 执行体（初始化生成为 rules/implementation/roles/review.md；维护限本合同允许范围，变更经 Review 门禁）
 update_policy: 七节结构与 required_capabilities 为定稿基线；降级路径语义对齐 SPEC-05 §5；平台工具映射不进本文件（由宿主适配层承载）
 depends_on: development-process（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 主 agent 的审查合同、Implementation 阶段交付报告、实际 diff 与规格/验收条件。 -->
 <!-- Output: 可复核的 pass/fail 审查报告与落盘的 Independent Review Checkpoint：检查范围、证据、问题定位、后续建议。 -->
-<!-- Pos: 平台无关角色合同模板（SPEC-05 §4 角色合同七节），生成目标项目 docs/agent/roles/review.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
+<!-- Pos: 平台无关角色合同模板（SPEC-05 §4 角色合同七节），生成目标项目 rules/implementation/roles/review.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
 
 # Review 角色合同
 

@@ -8,7 +8,8 @@
 #         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
 #           kind ∈ script 普通脚本 / rules 规则表 / test-harness 回归 harness）；
 #         pm_template <basename>（references/templates/ 下 .tmpl 文件名）；
-#         pm_shortcode <CODE> <owner>（规则块两字母短码与其所属文件包内相对路径）；
+#         pm_shortcode <CODE> <owner>（规则块两字母短码与其所属文件包内相对路径；一短码
+#           可对应多件所属文件，逐行登记——流程权威拆三后 DP 对应 rules 三件模板）；
 #         pm_platform <value>（platform 枚举值）；
 #         pm_vague_word <词>（模糊措辞词表项，字面匹配非正则；词表依据＝
 #           references/protocol/governance-format.md R-GF-010 原文列举六词，引擎零词表硬编码）；
@@ -26,9 +27,9 @@
 #           kind=decl 取角色合同 required_capabilities（运行时）行反引号名集合——预期
 #           名单为该行现场转录；kind=table 取「| 能力基元 |」对照表首列名集合——预期
 #           名单须与名单全等。载入校验：预期名单逐名 ⊆ 名单且八目标并集 ⊇ 名单）；
-#         pm_mechanism <值>（规则索引执行机制受控值：模板 development-process.md.tmpl
-#           §16 机制列取值 ⊆ 本节值集，检查 16；受控三值＝机械/门禁/约定，语义见模板
-#           §16 节头）；
+#         pm_mechanism <值>（规则索引执行机制受控值：rules 三件模板
+#           assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl §16 机制列取值 ⊆ 本节
+#           值集，检查 16；受控三值＝机械/门禁/约定，语义见模板 §16 节头）；
 #         pm_mechanism_marker <标记词>（外定义标记词，恰一行：模板 §16 中定义于模板外
 #           手册的规则块行须在机制列显式标注本标记词，未标注算漏行，检查 15/16）。
 # Pos: 包清单数据文件（先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
@@ -47,13 +48,15 @@
 #      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1，字段内
 #      禁制表符）；路径禁前导斜杠、空白与
 #      .. 段；pm_script 须 scripts/ 前缀加单段文件名；kind 枚举三值（见 Output）；
-#      pm_template 须单段 .tmpl 文件名；短码两字母大写且跨行唯一，owner 须 references/
-#      前缀；platform 值须小写 token；pm_vague_word 词须非空且跨行唯一；pm_vague_exempt
+#      pm_template 须单段 .tmpl 文件名；短码两字母大写且「短码+owner」对跨行唯一（一短码
+#      允许多行 owner 登记多件所属文件），owner 须 references/ 前缀；platform 值须小写
+#      token；pm_vague_word 词须非空且跨行唯一；pm_vague_exempt
 #      行号须正整数、理由非空、路径+行号跨行唯一；pm_mirror 须单段文件名且跨行唯一；
 #      pm_capability 名须小写 token 且跨行唯一；pm_capability_authority 跨行恰一行；
 #      pm_capability_target 目标路径跨行唯一、kind ∈ decl/table、预期名单逐名 ⊆
 #      pm_capability 名单且并集 ⊇ 名单；pm_mechanism 值须非空且不含空白并跨行唯一；
-#      pm_mechanism_marker 跨行恰一行；各节内路径/文件名/短码/值跨行不重复；除
+#      pm_mechanism_marker 跨行恰一行；各节内路径/文件名/值跨行不重复（shortcodes 节按
+#      「短码+owner」对判重，一短码多行 owner 为合法形态）；除
 #      vague-exemptions 节可空外，其余九节每节至少一行。检查 12 扫描窗口口径（本表注记）：
 #      包内全部 *.md 与 *.tmpl 的 R-<短码>-NNN 规则块体（块头行起至下一标题行止，块头
 #      本身不扫），排除「解释与例外」节与各 README 文件（叙事面）；本表自身词表行为
@@ -106,9 +109,11 @@ pm_template agents-commit.md.tmpl
 pm_template agents-implementation.md.tmpl
 pm_template agents-review.md.tmpl
 pm_template artifacts-yaml.tmpl
-pm_template development-process.md.tmpl
+pm_template assessment.md.tmpl
+pm_template discipline.md.tmpl
 pm_template dir-README.md.tmpl
 pm_template issues-README.md.tmpl
+pm_template project.md.tmpl
 pm_template requests-README.md.tmpl
 pm_template research-README.md.tmpl
 pm_template scripts-README.md.tmpl
@@ -117,7 +122,9 @@ pm_template specs-README.md.tmpl
 # ==== shortcodes：规则块短码登记（检查 10：使用⊆登记）====
 
 pm_shortcode AG references/templates/AGENTS.md.tmpl
-pm_shortcode DP references/templates/development-process.md.tmpl
+pm_shortcode DP references/templates/assessment.md.tmpl
+pm_shortcode DP references/templates/discipline.md.tmpl
+pm_shortcode DP references/templates/project.md.tmpl
 pm_shortcode RQ references/templates/requests-README.md.tmpl
 pm_shortcode RI references/templates/agents-implementation.md.tmpl
 pm_shortcode RR references/templates/agents-review.md.tmpl
@@ -202,11 +209,14 @@ pm_capability_target references/adapters/dsh.md table 'inspect,search,read,edit,
 # 词表节可空（区别于其余九节非空下限）。
 
 # ==== mechanism-vocab：规则索引执行机制受控词表（检查 15/16/17）====
-# 模板 development-process.md.tmpl §16 规则索引机制列取值 ⊆ 本节词表（受控三值＋外定义
-# 标记词）；引擎零词表零标记词硬编码。三值语义（模板 §16 节头同款）：机械＝点名脚本/
+# 模板 rules 三件（assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl）§16 规则索引
+# 机制列取值 ⊆ 本节词表（受控三值＋外定义标记词）；引擎零词表零标记词硬编码。三值语义
+# （模板 §16 节头同款）：机械＝点名脚本/
 # 检查项现役断言在管；门禁＝阶段 checkpoint 卡（独立 Review Checkpoint、Commit 收尾
 # 核对、用户语义终审）；约定＝无机械无门禁，靠执行体自觉。外定义标记词＝定义于模板外
-# 手册（protocol/adapters）的规则块行在机制列的显式标注，未标注算漏行（检查 15）。
+# 手册（protocol/adapters）的规则块行在机制列的显式标注，未标注算漏行（检查 15）；
+# 拆分产生的跨件规则块（定义于 rules/ 三件中另一件）在机制列标注外定义
+# （定义于 rules/<件名>）互指形态。
 # 词表增删＝先改本节再改模板索引（数据先行），并同步 harness 夹具（红灯不隔票）。
 
 pm_mechanism 机械

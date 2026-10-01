@@ -1,0 +1,632 @@
+<!-- Input: 目标项目盘点确认的目录边界与产物清单、恢复与治理生成协议事实、项目自有条款。 -->
+<!-- Output: 读取阶梯与权威层级、仓库与目录边界、产物生命周期协议（五类、触发矩阵、登记、同步门槛、状态机、Artifact Plan）、会话恢复协议（三套状态机、恢复顺序、run record、写入所有权、故障处理、破坏性恢复禁令、六条不变量）、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、生成件登记并入 artifacts.yaml 单本账 + reconcile、checkpoint 管线、证据链登记）、状态陈述与输出瘦身纪律、项目自有条款槽位（随生长追加），及本件规则索引。 -->
+<!-- Pos: 项目规则（rules/project.md，流程权威拆三之一）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
+
+# 项目规则
+
+本文与 `rules/assessment.md`、`rules/implementation/discipline.md` 共同构成本项目 agent 开发的唯一流程权威（唯一流程事实源拆三，节号沿用拆分前统一编号，三件共享编号空间，跨件引用按编号与文件名定位）；根目录 `AGENTS.md` 只负责路由。本件承载项目协议基线：读取阶梯与权威层级、产物生命周期、会话恢复、治理生成收敛与活文档纪律，并承载项目自有条款（随生长追加）。目标：每次开发都能被验证、被接续、被提交，并在异常中断或上下文丢失后从事实恢复，而不是凭聊天记忆猜测。
+
+## 1. 快速摘要（项目协议面）
+
+- 读取阶梯五级：L0 `AGENTS.md` → L1 `facts/requirements/tickets/progress-current.md`（现役状态投影）与目录 README → L2 任务票/规格/`facts/project/artifacts.yaml` → L3 相关源码测试 → L4 按需；按任务类型取最小读取范围。
+- 权威层级六层：用户决策 > 代码/测试/事实记录 > 规格/任务合同 > 流程规则（rules/ 三件）> Agent Up 模板 > 派生文件；冲突即停报告，不自行择优。
+- 产物五类：Seed 初始化即生成；Conditional 命中触发矩阵才创建；Record 只追加或按状态机更新、模板升级不得覆盖；Derived 可重建但须标注来源/时间/覆盖范围/失效条件；Adapter 仅宿主支持且任务需要时生成。
+- 条件产物按十三行触发矩阵默认不创建；不为目录完整性预建空目录或占位文件。
+- 同步门槛：仅契约、拓扑、行为、派生关系四类变化触发级联同步；错别字、排版、纯追加记录不触发。
+- 产物状态机：absent → proposed → approved → generated → stale → refreshed/superseded；用户拒绝记 deferred + 原因。
+- 初始化与产物增删自动评估 Artifact Plan（Required/Recommended/Deferred + 理由）；治理产物逐件登记 `facts/project/artifacts.yaml`（十三字段）。
+- 任务状态经 `facts/requirements/tickets/index.json` 单写、生成器投影至 `facts/requirements/tickets/progress-current.md`（每票一行）；`facts/project/archive/progress.md` 为冻结历史档案，零写入；明细写任务票 Checkpoint 区；检查点必须可验证，不写"xx 开发中"。
+- 中断恢复只从事实出发：Session 置 `recovering` 后按八步固定顺序（AGENTS.md → progress → 任务票/Checkpoint → run record → 实际文件/Git → 重跑验证 → 判定 resume/blocked/conflict → Review 补审规则）得出结论；事实优先级四层（实际文件/测试/Git > Checkpoint/run record > progress > 聊天记录）；禁止用破坏性操作"恢复干净"。
+- 三套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）、Request（proposed/triaged/accepted/specified/ready + rejected/deferred/needs-user-decision）；写入所有权按五角色矩阵执行。
+- C2/C3、跨会话、中断、无 Git 基线或归属不明时生成 run record（`facts/requirements/runs/<run-id>.json`，十三字段，机器 schema 见公开包 `references/schemas/run-record.schema.json`）；C0/C1 写任务票 Checkpoint；六条不变量是阶段出口硬门禁。
+- run record 收口必带用量遥测：seal 对缺 usage 或缺任一子字段的收口卡 fail-closed；两段式落齐（执行体自报 duration_seconds/source/at，协调层回填 tokens_total/requests）须在 seal 前完成（R-DP-034），存量无 usage 卡冻结零改写。
+- 生成类动作按六项收敛模式治理（§13）：盘点先于生成（Discovery Record，来源/冲突/未知登记）；取信按 既有事实 > 用户确认 > 模板 > 自动推断；capability manifest 按 minimum/full 档位标 enabled/excluded/pending；生成件登记并入 artifacts.yaml 单本账并 reconcile（六要素条目内可定位、幂等、漂移即停、备份可逆，字段映射见 §5.3.1）；检查点按 discovery → confirm → generate → verify → handoff 管线落盘；外部引用登记规范标识、许可证核验与侧通道文档化关闭开关。
+- 车道准入（分级交付道三车道）与拆票评估见 `rules/assessment.md`；三道门禁、委派合同、Git/worktree 与验证纪律见 `rules/implementation/discipline.md`，各自快速摘要随件承载，不在此复述。
+
+## 2. 读取阶梯与权威层级
+
+### 2.1 读取阶梯（L0-L4）
+
+| Level | 内容 | 定位 |
+| --- | --- | --- |
+| L0 | 根目录 `AGENTS.md` | 路由与边界；每个会话第一步 |
+| L1 | `facts/requirements/tickets/progress-current.md`（现役状态投影，Derived）+ 各目录 `README.md` | 当前状态与导航地图 |
+| L2 | 当前任务票、相关规格、`facts/project/artifacts.yaml` | 任务合同与规范本体 |
+| L3 | 与改动相关的源码、测试 | 实施对象事实 |
+| L4 | 协议手册、`facts/project/archive/changes.md` 历史、`facts/project/archive/progress.md`（冻结历史档案）、架构资料、ADR、research | 协议细节与背景，按需加载 |
+
+### 2.2 任务型最小读取范围
+
+| 任务类型 | 必读 | 按需 |
+| --- | --- | --- |
+| 解释/问答 | L0 | L1 |
+| 文档/治理维护 | L0、L1、L2（本次涉及件） | L4 |
+| 新功能/实施 | L0、L1、L2、L3 | L4 |
+| Review | L0、L2、实际 diff/文件 | L3、L4 |
+| Commit | L0、L2（含 Review pass 证据）、Git 状态 | 无 |
+
+### 2.3 权威层级（高到低）
+
+1. 用户决策；
+2. 目标项目代码、测试与事实记录；
+3. 规格、任务合同；
+4. 流程规则（rules/ 三件）；
+5. Agent Up 模板；
+6. 项目地图等派生文件。
+
+#### R-DP-001 按阶梯读取 `MUST`
+
+- **When**：任何会话开始取用治理资源时。
+- **Action**：按 §2.2 任务型最小读取范围表取用；必读集合不得跳过；L4 一律按需，不默认加载。
+- **Forbidden**：跳过 L0 直接动手；用聊天记忆替代阶梯；一次全量加载全部治理文件。
+- **Stop if**：必读集合内信息互相矛盾 → 走 R-DP-002 冲突处理。
+- **Evidence**：会话产出能引用其读取层级来源（文件路径或检查点指针）。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §2（读取阶梯协议基线）。
+
+#### R-DP-002 冲突即停 `MUST`
+
+- **When**：任何两个权威来源对同一事实给出不一致结论时。
+- **Action**：停止修改；报告冲突双方、各自层级与内容；给出可选项；等待用户裁决后继续。
+- **Forbidden**：自行选择一种解释继续写；静默合并两种说法；用低层级来源覆盖高层级来源。
+- **Stop if**：用户不在场 → 保持停止状态并记录阻塞，不推进。
+- **Evidence**：冲突报告与用户裁决结果落盘到 `facts/project/changes.jsonl`（懒创建）或任务票。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §2.3（权威层级协议基线）。
+
+## 3. 仓库与目录边界
+
+【按项目填写：目录划分表（目录 / 用途 / 是否进 Git）。新项目默认 `facts/` 放项目事实，代码布局按技术栈惯例；没有依据的写【待定】。】
+
+不进 Git：依赖目录、构建产物、覆盖率、日志、真实 `.env`、密钥、真实数据和临时导入文件。根 Git 必须同时保存源码和项目事实，只跟踪发布材料会失去恢复能力。
+
+## 5. 产物生命周期
+
+### 5.1 生命周期五类
+
+| 类别 | 含义 | 默认策略 |
+| --- | --- | --- |
+| Seed | 最小骨架件 | 初始化即生成；缺失即补齐 |
+| Conditional | 满足触发矩阵才存在 | 命中任一条件才创建（§5.2） |
+| Record | 事实记录（进度、变更、运行记录、请求） | 唯一 owner 写入；只追加或按状态机更新；追加记录合法承载＝Markdown 追加条目（存量）与 JSONL 一行一事实（新形态）；选型登记 artifacts.yaml；不强制历史迁移；模板升级不得覆盖 |
+| Derived | 可从事实源重建的产物（项目地图、渲染图、progress 现役状态投影等） | 可重建；重建须标注来源/时间/覆盖范围/失效条件 |
+| Adapter | 平台适配文件 | 仅宿主支持且任务需要时生成 |
+
+对账分层注记：一致性对账（投影↔索引）之外，终态语义由终态哨兵承载——票状态索引内 id 曾达终态（done/superseded）被改回非终态即非法跃迁（幽灵态），由易腐断言扫描器（`check-stale-claims.sh`）终态哨兵指名报警；记录与 git 历史事实的一致性由此对账分层覆盖。
+
+#### R-DP-003 记录保护 `MUST`
+
+- **When**：模板升级、初始化补缺或任何自动化写入触及 Record 类产物时。
+- **Action**：保留既有事实记录；JSONL Record（如 `facts/project/changes.jsonl`、`facts/project/micro.jsonl`）的既有行同受行级保护：不截断、不改写、不重排、不删除；补缺只补结构性缺失（如缺表头、缺登记行、缺头部 schema 指针注记）。
+- **Forbidden**：用新模板重写历史记录；静默截断或覆盖既有条目；截断、改写、重排或删除 JSONL Record 既有行。
+- **Stop if**：Record 内容与模板结构冲突 → 报告用户并给选项，等待裁决。
+- **Evidence**：Record 文件的既有条目在变更前后可对照（Git diff 或变更记录）。
+- **Owner**：该 Record 产物登记的唯一写入者。
+- **Authority**：本文 §5.1（生命周期基线）。
+
+#### R-DP-004 Derived 重建标注 `MUST`
+
+- **When**：创建或重建任何 Derived 类产物时。
+- **Action**：标注生成来源（事实源路径与工具）、生成时间、覆盖范围与失效条件。
+- **Forbidden**：无标注重建；把 Derived 当作独立权威来源。
+- **Stop if**：事实源不存在或不可读 → 不重建，报告缺失。
+- **Evidence**：产物头部或 `facts/project/artifacts.yaml` 登记含四项标注。
+- **Owner**：该 Derived 产物登记的 owner。
+- **Authority**：本文 §5.1（生命周期基线）。
+
+#### R-DP-005 Adapter 生成条件 `MUST`
+
+- **When**：评估是否生成平台适配文件时。
+- **Action**：IF 目标宿主支持该平台映射 AND 当前任务需要 THEN 生成 ELSE 不生成（记录 deferred + 原因）。
+- **Forbidden**：为"功能齐全"预生成所有宿主适配；无任务需要时创建。
+- **Stop if**：宿主能力不明 → 按宿主能力评估后再决定。
+- **Evidence**：生成决定指向命中的宿主与任务需要。
+- **Owner**：Implementation 执行体（经用户确认的 Artifact Plan）。
+- **Authority**：本文 §5.1（生命周期基线）。
+
+### 5.2 条件产物触发矩阵
+
+条件产物默认不创建；命中下列至少一条才创建。触发条件中的 C2/C3 为任务复杂度分级；复杂度与 Profile 的权威表位置：【按项目填写：复杂度与 Profile 权威表位置；若使用 Agent Up 则为包内 `references/protocol/complexity-profile.md`】。
+
+| 产物 | 创建触发条件（满足其一） |
+| --- | --- |
+| `facts/project/CONTEXT.md` | 确认了项目特有术语、角色或状态 |
+| `facts/requirements/specs/` | 修改公共行为或接口；存在多条验收路径；跨会话交付；C2/C3 任务合同不足；用户要求 |
+| `facts/requirements/tickets/` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 |
+| `facts/requirements/tickets/index.json`（票状态索引） | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接（与 `facts/requirements/tickets/` 同行集；Record 类真相源：JSON＋Schema，单文件一条目一行） |
+| `facts/project/changes.jsonl`（追加账本） | 记录层拍板后首条事实（懒创建；Record 类，一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加；行型扩展（2026-09-23 复盘 B 类候选，仅向前生效）：`kind=lesson` 必带第六键 `promoted_to`（枚举 `新票`/`rules`/`sop`/`validator`/`test`/`none`，填 `none` 亦算显式拍板）、`kind=replan` 必带 `replan_original`/`replan_replacement`/`replan_undone`（布尔），既有行零改写） |
+| `facts/requirements/research/` | 需要外部调研、方案对比或 spike |
+| `docs/adr/` | 决策难回退且缺少背景会困惑 |
+| `facts/project/architecture/` | 用户要求；C2/C3 跨模块；涉及多 Adapter |
+| `facts/requirements/runs/` | C2/C3；跨会话；发生中断；无 Git 基线；改动归属不明 |
+| 项目地图 | 跨模块导航需要；仓库规模大；用户要求；旧地图过期 |
+| `rules/implementation/scripts/` | 可重复验证需要沉淀为共享 harness |
+| `facts/project/micro.jsonl`（微账本） | 微任务道首次收尾：道脚本懒创建并按行落账（Record 类，一行一操作；道脚本独占写，agent 不手写，见 §12.5 道脚本承载注记） |
+| `rules/implementation/scripts/check-gates.sh`、`rules/implementation/scripts/lane-commit.sh`（道脚本） | 用户确认启用分级交付道快道（差异清单确认时）；复制落位与登记见 §12.5 道脚本承载注记 |
+
+开票形态注记（2026-09-18）：新开任务票与请求（REQ）以过 schema 的 JSON 文件承载本体——文件命名 task 为 `<NN>-<slug>.json`、request 为 `<REQ-id>.json`；schema 权威＝Agent Up 包内 `references/schemas/ticket-record.schema.json`（目标项目已登记等价 schema 时以其为准）；本体无 `status` 字段，票状态唯一真相源＝`facts/requirements/tickets/index.json`（单写，一条目一行），票正文 Status 行为投影打印件、目录清单状态列为人工登记投影，状态冲突以索引为准；存量 Markdown 票与既有 REQ 冻结只读（frontmatter 为历史形态，零改写），开票登记惯例见 `facts/requirements/tickets/README.md`。
+
+#### R-DP-006 默认不创建 `MUST`
+
+- **When**：规划初始化或任何任务的产品与治理产物时。
+- **Action**：条件产物仅在命中触发矩阵至少一条时创建；创建决定写入 Artifact Plan 并经用户确认。
+- **Forbidden**：为目录完整性预建空目录、占位文件或"以后会用到"的产物。
+- **Stop if**：触发条件命中与否无法判定 → 列入 Artifact Plan 待决项，向用户确认。
+- **Evidence**：每个条件产物的创建能指向命中的触发条件行。
+- **Owner**：Implementation 执行体（经用户确认的 Artifact Plan）。
+- **Authority**：本文 §5.2（触发矩阵基线）。
+
+### 5.3 产物登记（facts/project/artifacts.yaml）
+
+治理产物逐件登记，字段十三个；缺值写 `N/A + reason`，不留空：
+
+| 字段 | 含义 |
+| --- | --- |
+| id | 产物稳定标识 |
+| path | 仓库内路径 |
+| kind | 产物类型（governance/spec/request/task/record/map/adapter/script 等） |
+| authority | 在权威层级（§2.3）中的层级 |
+| owner | 唯一写入者 |
+| lifecycle | Seed / Conditional / Record / Derived / Adapter |
+| trigger | 创建触发条件（对齐 §5.2 触发矩阵；Seed 写 `always`） |
+| read_when | 读取时机（对齐 §2 读取阶梯与任务类型） |
+| sync_on | 触发级联同步的变化类型（对齐 §5.4 同步门槛） |
+| depends_on | 依赖的其他产物 id |
+| generated_from | 生成来源（模板或事实源；Derived 必填） |
+| platform | 平台绑定信息；平台无关产物写 `neutral` |
+| update_policy | 更新策略（追加 / 状态机更新 / 可重建 / 禁止覆盖） |
+
+登记口径注记（记录层终裁，2026-09-18）：记录层与状态面新载体按以下口径登记进 `facts/project/artifacts.yaml`（逐件登记，R-DP-007）——`issue-index`（kind: index，lifecycle: Conditional，trigger 与 `facts/requirements/tickets/` 同行集，owner 按写入机制：道脚本或对应阶段执行体单写）；`changes-jsonl`（kind: record，懒创建：记录层拍板后首条事实）；`progress` 条目维持 Record（整文件冻结历史档案，update_policy: 指针注记后零写入）；新增 `progress-current` 条目（现役状态投影，lifecycle: Derived，generated_from 必填＝`facts/requirements/tickets/index.json`＋生成器，生成器独占写）。
+
+#### R-DP-007 产物登记与生成登记（单本账） `MUST`
+
+- **When**：生成、再生成、删除或移动任何治理产物时（含模板生成与工具复制落位）。
+- **Action**：`facts/project/artifacts.yaml` 同步登记或注销对应条目，十三字段按实际填写；不适用的字段记 `N/A + reason`。生成来源事实并入条目登记：`generated_from` 记来源（模板或事实源路径），生成日期、用户确认、版本与恢复/删除说明记入 `update_policy` 或条目内其他适用字段（缺值 `N/A + reason`），不另立第二本登记账。
+- **Forbidden**：存在无登记的治理产物；登记与实际文件漂移而不处理；同一条目的生成来源事实在 artifacts.yaml 之外另行建账登记。
+- **Stop if**：发现登记与实际漂移 → 将相关产物标 `stale` 并报告，不静默修正任一侧。
+- **Evidence**：登记与仓库文件清单可对照；每条生成件条目内可定位来源、日期、目标、用户确认、版本与恢复说明六要素。
+- **Owner**：Implementation 执行体或协调记录 owner（按产物归属）。
+- **Authority**：本文 §5.3（登记协议基线）。
+
+### 5.3.1 生成件条目字段映射（单本账登记口径）
+
+生成件六要素在 artifacts.yaml 条目内可定位，字段映射如下（权威＝本节，生成面指向句三处同源）：
+
+| 生成登记要素 | 落位字段 | 说明 |
+| --- | --- | --- |
+| 来源 | `generated_from` | 模板或事实源路径（既有字段，沿用） |
+| 日期 | `update_policy` 括注 | 生成/再生成日期一并写入更新策略句 |
+| 目标 | `path` | 条目既有字段，即生成目标路径 |
+| 用户确认 | `trigger` 括注 | 命中门控或差异清单确认句 |
+| 版本 | `sync_on` 或 `update_policy` 括注 | 包基线版本或来源版本随括注登记 |
+| 恢复说明 | `update_policy` | 重建口径（可重建/禁止覆盖＋reconcile 漂移即停） |
+
+无适用值写 `N/A + reason`，不留空；重复执行（初始化重跑、模板升级、补缺）先按条目登记内容 reconcile：人工改动标记为漂移——漂移即停，报告后等用户裁决，不静默覆盖（与 R-DP-003 记录保护一致）；写入前备份既有文件，保证每一步可逆；幂等目标：同一输入重复生成不产生无谓 diff。
+
+### 5.4 同步门槛
+
+| 变化类别 | 示例 | 触发动作 |
+| --- | --- | --- |
+| 契约变化 | Input/Output/Pos 语义、权威归属、所有权、生命周期、对外接口变化 | 更新契约头/元数据/README 登记，级联 `depends_on` |
+| 拓扑变化 | 文件新增/删除/移动/重命名、目录职责变化 | 更新目录 README 成员登记、`facts/project/artifacts.yaml`、项目地图 |
+| 行为变化 | 流程、门禁、权限、验证要求、公共接口变化 | 更新协议引用与进度状态 |
+| 派生关系变化 | 生成来源、依赖关系、平台绑定变化 | 更新 `generated_from`/`depends_on`/`platform` 并校验 Derived 标注；索引条目变更即触发 `facts/requirements/tickets/progress-current.md` 投影重建（生成器重跑） |
+
+不触发：错别字与排版修正；纯追加记录（`facts/project/changes.jsonl`/`facts/project/micro.jsonl` 追加行、既有项目 `changes.md` 历史条目（冻结归档迁居 `facts/project/archive/`，零写入）、请求追加；`facts/project/archive/progress.md` 已冻结归档，零写入）。
+
+#### R-DP-008 语义触发同步 `MUST`
+
+- **When**：任何治理文件或产物发生变更后自查联动时。
+- **Action**：IF 变更命中四类语义变化之一 THEN 执行对应级联同步 ELSE 不要求更新契约头与 README；命中判断与类别写入变更记录。
+- **Forbidden**："一改就更新 README"式机械联动；语义变化却不更新登记。
+- **Stop if**：变化类别无法归类 → 按待决项报告用户。
+- **Evidence**：变更记录注明命中/未命中同步门槛及类别。
+- **Owner**：本次变更的执行体。
+- **Authority**：本文 §5.4（同步门槛基线）。
+
+### 5.5 产物状态机
+
+```text
+absent ──触发命中──> proposed ──用户确认──> approved ──生成──> generated
+generated ──漂移或触发同步而未同步──> stale ──重新生成/同步──> refreshed
+generated/refreshed ──被新产物取代──> superseded
+proposed ──用户拒绝──> deferred（记录原因）
+absent ──用户拒绝──> deferred（记录原因）
+```
+
+#### R-DP-009 状态机驱动 `MUST`
+
+- **When**：创建、维护或淘汰任何条件产物时。
+- **Action**：按状态机流转并在 `facts/project/artifacts.yaml` 或任务票记录当前状态；`stale` 产物在恢复前不得当作可信导航。
+- **Forbidden**：跳过 `proposed` 直接生成需用户确认的条件产物；把 `deferred` 当 `rejected` 静默丢弃；`superseded` 后继续引用旧产物为权威。
+- **Stop if**：状态无法判定 → 以实际文件为准并报告。
+- **Evidence**：状态流转有落盘记录（登记行、Checkpoint 或变更条目）。
+- **Owner**：Implementation 执行体或协调记录 owner（按产物归属）。
+- **Authority**：本文 §5.5（状态机基线）。
+
+### 5.6 Artifact Plan
+
+初始化与阶段推进自动评估产物需求，产出 Artifact Plan：逐项标 `Required` / `Recommended` / `Deferred`，附理由与命中的触发条件行；Plan 随差异清单或任务票呈现给用户并落盘，不留在聊天中。
+
+#### R-DP-010 Artifact Plan 评估 `MUST`
+
+- **When**：执行初始化，或任务规划涉及产物增删时。
+- **Action**：自动评估产物需求并产出 Artifact Plan：逐项标 `Required` / `Recommended` / `Deferred`，附理由与命中的触发条件；Plan 随差异清单或任务票呈现给用户。
+- **Forbidden**：跳过评估直接创建；Plan 只留在聊天中不落盘。
+- **Stop if**：评估依据不足 → 相应项标 Deferred + 原因，不猜。
+- **Evidence**：Plan 落盘于差异清单、任务票或等价协调记录。
+- **Owner**：Implementation 执行体或协调记录 owner。
+- **Authority**：本文 §5.6（Artifact Plan 基线）。
+
+## 12. 会话恢复协议
+
+Session（agent_session）是单次会话的易失上下文，随时可能中断或消失；project_network 是仓库内持久事实——文件、Git 状态、`facts/project/artifacts.yaml`、progress、Checkpoint、run record——跨会话存续。任何需要跨会话存续的状态、结论或进度一律落盘到 project_network；恢复只从事实出发，不从聊天记忆出发。§4 Session 开始的接手门禁是本节恢复流程的快速形态；条文冲突以本节为准。
+
+### 12.1 三套状态机（取值固定）
+
+| 状态机 | 取值 | 说明 |
+| --- | --- | --- |
+| Session | `active` / `interrupted` / `unknown` / `recovering` / `closed` | `unknown` 指会话状态无法确证（如宿主崩溃后）；`recovering` 指正在执行本节恢复流程 |
+| Task | `ready` / `in_progress` / `blocked` / `review_ready` / `review_pass` / `review_fail` / `done` | 阻塞带原因（如 `blocked: scope-change`） |
+| Request | `proposed` / `triaged` / `accepted` / `specified` / `ready`；旁支 `rejected` / `deferred` / `needs-user-decision` | 流转由 Triage 写入；队列规则见 `facts/requirements/requests/README.md` |
+
+票据生命周期另有 `superseded` 标签（语义权威＝`facts/requirements/tickets/README.md`），仅用于状态索引登记历史票据，不属于 Task 状态机流转取值。
+
+#### R-DP-012 状态机取值固定 `MUST`
+
+- **When**：记录或推断 Session、Task、Request 状态时。
+- **Action**：只使用上表取值；状态变更落盘到 `facts/requirements/tickets/index.json` 状态条目、`facts/requirements/requests/index.json` 状态条目或 run record；票正文 Status 行为索引投影回写，`facts/requirements/tickets/progress-current.md` 投影行允许记录 Task 子集，完整取值以索引、任务票与 run record 为准。
+- **Forbidden**：自造状态名（如"基本完成"）；状态只存在于聊天中。
+- **Stop if**：实际情况不属于任何取值 → 停止并报告用户补充语义。
+- **Evidence**：状态字段可被静态检索且取值在允许集合内。
+- **Owner**：按 §12.5 写入所有权矩阵。
+- **Authority**：本文 §12.1（会话恢复协议基线）。
+
+### 12.2 事实优先级（四层）
+
+冲突时按以下顺序取信（高到低）：
+
+1. 实际文件、测试结果、Git 状态；
+2. Checkpoint / run record；
+3. 现役状态投影 `facts/requirements/tickets/progress-current.md`（Derived）与状态真相源 `facts/requirements/tickets/index.json`（`facts/project/archive/progress.md` 为冻结历史档案，归 L4 背景）；
+4. 聊天记录。
+
+低层级信息与高层级矛盾时以高层级为准并修正低层级记录，裁决结果落盘到被修正的记录。
+
+#### R-DP-013 事实优先级 `MUST`
+
+- **When**：任何来源对同一事实给出不一致结论时。
+- **Action**：按本节四层顺序取信；IF 高层级来源内部互相矛盾且无法用实际文件裁决 THEN 停止并报告用户 ELSE 修正低层级记录并落盘。
+- **Forbidden**：用聊天记忆覆盖文件事实；用 progress 覆盖 Checkpoint 或实际文件。
+- **Stop if**：高层级来源互相矛盾且无法裁决 → 报告用户。
+- **Evidence**：裁决结果落盘到被修正的记录。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §12.2。
+
+### 12.3 恢复流程（固定顺序，不得跳步）
+
+Delivery Session（用户说"继续剩余任务"）启动或接管中断任务时，按以下八步执行，得出结论后才动手：
+
+1. 读目标项目 `AGENTS.md`（路由与边界）；
+2. 读 `facts/requirements/tickets/progress-current.md`（现役投影）与 `facts/requirements/tickets/index.json`（状态真相源）；
+3. 读当前任务票与 Implementation Checkpoint；
+4. 读 run record（如存在）；
+5. 对照实际文件与 Git diff（无 Git 时退化为实际文件对照）；
+6. 重跑最后验证（`last_verified` 记录的命令）；
+7. Session 置 `recovering`，判定结论：`resume` / `blocked` / `conflict`；
+8. IF 中断发生在交付完成前 THEN 完整交付后重新独立 Review ELSE 按既有 Review 证据继续。
+
+恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。Intake Session（用户说"加需求"）只执行 `facts/requirements/requests/README.md` 的 Intake 规则，不进入本流程。后台链接棒默认重开（CreateWorkflow 新 run）；Resume/Amend 续跑仅当票单与进度完全已知且需保序——换模型/换参数视为接棒即重开。升级质询的裁决必须同票 Checkpoint 落账（含 question-id 与裁决内容）——裁决不落盘即未裁决。
+
+#### R-DP-014 恢复顺序固定 `MUST`
+
+- **When**：Delivery Session 启动或接管中断任务时。
+- **Action**：按八步固定顺序执行并得出 `resume` / `blocked` / `conflict` 结论；结论落盘。
+- **Forbidden**：跳过步骤；凭上一会话聊天记忆直接开工；未重跑最后验证就交接或继续未验证的改动。
+- **Stop if**：判 `conflict`（实际文件与记录矛盾）→ 按 R-DP-013 处理并报告用户；恢复顺序中任一必读项不可得且无法用实际文件重建 → 判 `blocked` 并报告。
+- **Evidence**：恢复结论与重跑验证结果落盘到 Checkpoint 或 run record。
+- **Owner**：Delivery Session 执行体。
+- **Authority**：本文 §12.3。
+
+### 12.4 Run record
+
+生成条件（满足其一）：C2/C3 任务；跨会话交接；发生中断；无 Git 基线；改动归属不明。C0/C1 任务写任务票 Checkpoint，不强制 run record。文件：`facts/requirements/runs/<run-id>.json`；`run_id` 含日期与随机后缀。字段十三项 + 收口必备 `usage`（R-DP-034） + 可选 `independent_review`，机器 schema 见公开包 `references/schemas/run-record.schema.json`：
+
+| 字段 | 含义 |
+| --- | --- |
+| run_id | 日期 + 随机后缀的唯一标识 |
+| mode | 运行模式（delivery / intake / triage） |
+| phase | 所属阶段（implementation / review / commit 等） |
+| task | 关联任务票标识 |
+| status | 会话与任务状态摘要（对齐 §12.1 状态机） |
+| scope | 本次运行的任务 Scope |
+| baseline | `{vcs_ref, workspace_fingerprint}`；无 Git 时 `vcs_ref` 记 `N/A + reason` |
+| modified_files | 本次运行修改的文件清单 |
+| last_verified | `{command, result, at}` 最后一次验证 |
+| next_step | 下一步动作 |
+| blocker | 阻塞与原因；无则空 |
+| network | 网络可用性状态（available / unavailable / unknown） |
+| updated_at | 最后更新时间 |
+| usage | 用量遥测（收口必备：seal 对缺 usage 或缺任一子字段的收口卡 fail-closed 并报明缺项；双轨来源：执行体自报 duration_seconds，tokens_total/requests 由协调层收口代记回填——执行体不可见自身账单；source 标注填报方 executor/coordinator/mixed；两段式落齐须在 seal 前完成；数值真实性由派发遥测背书） |
+
+- `workspace_fingerprint` 算法（定稿，版本前缀 `fp-v1`）：①收集工作区全部文件，排除 `.git/`、依赖与构建产物目录（`node_modules/`、`dist/`、`build/`、`coverage/`、`__pycache__/`、`.venv/`）与 `facts/requirements/runs/`（运行记录自身不参与指纹，避免自引用漂移）；②按相对路径字典序排序，每文件一行 `<相对路径>\t<字节数>\t<mtime 纪元秒>`；③拼接后取 SHA-256 十六进制前 16 位，记 `fp-v1:<hex16>`。同算法两次计算不一致即工作区自基线后有变化，按 R-DP-013 归属。
+- `independent_review` 字段（可选）定稿：独立 Review 记录本体落盘任务票 `## Independent Review Checkpoint`（Review 唯一写入目标；格式：日期、结论 pass/fail、逐项证据 `文件:行号区间`、验证命令与环境）；run record 的该字段由当前运行执行体在 Review 结论落盘后回填指针 `{verdict, ticket_ref, checkpoint, at}`，不承载审查本体。
+
+#### R-DP-015 Run record 生成与维护 `MUST`
+
+- **When**：命中任一生成条件，或已有 run record 的运行状态变化时。
+- **Action**：创建或更新 `facts/requirements/runs/<run-id>.json`，字段按本节表格与机器 schema；每完成一个可验证步骤即更新 `last_verified` 与 `next_step`。
+- **Forbidden**：C0/C1 强制创建 run record；run record 与 Checkpoint 内容矛盾不处理；编造 baseline、验证结果或网络状态。
+- **Stop if**：无法确定 baseline → 如实记录 `N/A + reason`，不编造。
+- **Evidence**：run record 存在、字段可对照机器 schema、`updated_at` 与实际活动一致。
+- **Owner**：当前运行的 Implementation 执行体。
+- **Authority**：本文 §12.4。
+
+#### R-DP-034 Run record 收口必带用量遥测 `MUST`
+
+- **When**：run record 执行 seal 收口校验，或收口回填 usage 子字段时。
+- **Action**：收口卡 `usage` 必备且五子字段齐（`tokens_total`、`requests`、`duration_seconds`、`source`、`at`）；两段式落齐分工——执行体先落 `duration_seconds`/`source`/`at`，协调层收口回填 `tokens_total`/`requests`，全部完成于 seal 之前；seal 对缺 `usage` 或缺任一子字段的收口卡 fail-closed 并报明缺项。
+- **Forbidden**：seal 放行缺 `usage` 或缺任一子字段的收口卡；回填改写存量已收口卡（存量无 usage 卡按 R-DP-003 冻结，不回填不重建）；编造遥测数值。
+- **Stop if**：协调层无法取得 `tokens_total`/`requests` 遥测 → 收口阻塞如实记录，不放行无遥测的 seal。
+- **Evidence**：seal 输出含 usage 校验项；收口卡 usage 五子字段齐且 `source` 与实际填报方一致。
+- **Owner**：Implementation 执行体（`duration_seconds`/`source`/`at` 自报）；协调层（`tokens_total`/`requests` 代记回填与 seal 收口）。
+- **Authority**：本文 §12.4。
+
+### 12.5 写入所有权矩阵
+
+| 会话/角色 | 允许写入 | 禁止 |
+| --- | --- | --- |
+| Intake | 仅新 REQ 文件 | 当前任务、progress、规格、票 |
+| Triage | Request 状态流转、规格、任务票 | 产品实现文件、Implementation Checkpoint |
+| Delivery（Implementation） | 任务 Scope 内文件 + Implementation Checkpoint | Review 记录、Commit 操作 |
+| Review | 审查记录（任务票 Independent Review Checkpoint） | 修改被审内容 |
+| Commit | 暂存与提交记录 | 扩大范围、push、deploy |
+
+run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`independent_review` 指针回填同 owner。禁止两个 session 同时写 `facts/requirements/tickets/index.json` 与 `facts/requirements/tickets/progress-current.md`（现役状态投影由生成器独占写，索引条目按写入机制单写）；`facts/requirements/requests/` 是 Intake 与 Delivery 的唯一目录交集（Intake 写新 REQ，Delivery 不写）。Intake 与 Delivery 并行规则的队列侧表述见 `facts/requirements/requests/README.md`，与本矩阵一致；冲突以更严格者为准。
+
+道脚本承载注记（分级交付道，R-DP-031）：快道收尾强制——白名单核对、验证重跑、提交、记录翻转、账本落行——由零依赖 POSIX sh 道脚本承载：`rules/implementation/scripts/check-gates.sh`（只读门禁核对：工作区改动 ⊆ 提交合同白名单、按合同重跑验证命令并记录退出码）与 `rules/implementation/scripts/lane-commit.sh`（读行式合同文件（临时输入，不落仓库）→ 门禁 → 白名单提交 → User Review Checkpoint 追加或微账本落行 → 状态翻转（单写 `facts/requirements/tickets/index.json` 状态条目 → 机械生成受影响票正文 Status 行 → 机械生成 `facts/requirements/tickets/progress-current.md` 现役状态投影等派生面）→ 记录翻转提交）。脚本权限边界 = 提交合同白名单：脚本不执行白名单外任何写入，门禁不过即停（fail-closed）。派生载体独占写：`facts/requirements/tickets/index.json` 是票状态唯一真相源（单写：快道由道脚本、非快道任务由对应阶段执行体）；`facts/requirements/tickets/progress-current.md` 现役状态投影由生成器独占写（generated_from＝`facts/requirements/tickets/index.json`＋生成器）；issues-README 状态列＝人工登记投影（agent 按索引登记，与索引冲突以索引为准；非道脚本写入面）；票正文 Status 行由脚本自索引生成（展示投影，stale 比对兜底、可重建）；状态冲突以索引为准。微账本 `facts/project/micro.jsonl`（Record 类，一行一操作）由道脚本懒创建，agent 不代写。道脚本安装路径：`rules/implementation/scripts/check-gates.sh`、`rules/implementation/scripts/lane-commit.sh` 与 `rules/implementation/scripts/generate-progress.sh` 由初始化/补缺按 §5.2 触发矩阵行复制落位目标项目 `rules/implementation/scripts/`（来源 agent-up 公开包 `scripts/`，逐件登记，可经包内 `scripts/install.sh` 执行），脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；快道未启用则不复制，道脚本不可用的停止条件按 R-DP-031 兜底（fail-closed 不变）。
+
+票务脚本承载注记（两层协作票务面，§6 零写入三段式第二段）：协调层票务运维——开票、领取与收口状态翻转、`facts/requirements/tickets/index.json` 单写、issues-README 状态列登记、`facts/project/changes.jsonl` 账本落行、`facts/requirements/tickets/progress-current.md` 投影再生——由零依赖 POSIX sh 票务脚本 `rules/implementation/scripts/ticket-ops.sh` 单入口承载（`open`/`take`/`flip`/`ledger` 四子命令；校验先于写入：索引一条目一行排版与 id 锚点唯一命中、README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token、账本行键序 date,kind,scope,decision,evidence_ref 五键必备＋按 kind 条件键（lesson 必带第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone）且禁裸换行；`flip` 另做 task 票收口硬拦——票 JSON 本体 `actual_time` 字段须已填且非空（净工时口径），缺项即 exit 1 零写入，request 不校验；`ledger` 为无票账本行入口——不依赖索引条目 id，账本行形状校验先于写入，仅账本落行不触索引/README/投影（C0 修正类免建票收口经此落行，§6 封闭列举同步）；收尾再生投影并 `--check` 核对，生成器缺失或核对不过即整体 fail-closed，已写部分如实报告）。职责边界：`ticket-ops.sh` 只做票务面写入，不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（快道收尾仍归道脚本两件；投影再生调用 `generate-progress.sh` 不在此限）；脚本落位与登记：目标项目采用任务票体系（`facts/requirements/tickets/` 目录创建）时随初始化/补缺从 agent-up 公开包 `scripts/` 复制落位目标项目 `rules/implementation/scripts/` 并逐件登记，脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；落位时机不门控于快道启用——票务运维是记录层标配，非快道专属（与道脚本安装路径的快道门控为两套独立口径），未采用任务票体系则不复制。微账本 `facts/project/micro.jsonl` 微任务道收尾行键序 date,lane,whitelist,gates,verify,commit,actual——actual 键记净工时（微任务道免票无票面，经 `lane-commit.sh` 合同行 `actual:` 承载，缺省空串既有六键行向后兼容）。
+
+#### R-DP-016 写入所有权 `MUST`
+
+- **When**：任何会话或阶段执行体写入治理文件或仓库时。
+- **Action**：只写本角色允许的目标；跨角色内容交还对应阶段。
+- **Forbidden**：两个 session 同时写 `facts/requirements/tickets/index.json` 或 `facts/requirements/tickets/progress-current.md`（现役状态投影由生成器独占写，agent 不并发手写）；Implementation 自审通过；Commit 重写实现内容。
+- **Stop if**：写入目标被其他 session 占用或发现并行写入痕迹 → 停止写、以文件现状为准（R-DP-013）、报告。
+- **Evidence**：每处变更可归属到唯一角色（对齐 `git status` 归属解释要求）。
+- **Owner**：各阶段执行体。
+- **Authority**：本文 §12.5。
+
+### 12.6 阶段故障处理
+
+#### R-DP-017 Implementation 中断 `MUST`
+
+- **When**：Implementation 执行体中断或消失后恢复时。
+- **Action**：保留已有改动，将任务标 `interrupted`，依据 Checkpoint/run record 记录已完成部分与 `next_step`，续跑未完成部分。
+- **Forbidden**：中断即回滚；丢弃未解释的改动。
+- **Stop if**：改动无法归属（不在 Scope、无记录）→ 按六条不变量第 6 条报告，不动文件。
+- **Evidence**：`interrupted` 标记与 `next_step` 落盘到 Checkpoint 或 run record。
+- **Owner**：恢复后的 Delivery Session 执行体。
+- **Authority**：本文 §12.6。
+
+#### R-DP-018 Review 中断 `MUST`
+
+- **When**：Review 执行体中断或消失后恢复时。
+- **Action**：先前未完成的 Review 不得当作 pass；新 Review 重读任务合同、完整 diff 与证据，重新只读审查；IF diff 或证据在中断后发生变化 THEN 以最新实际状态为准重新审查 ELSE 按新审查流程继续。
+- **Forbidden**：把半途 Review 记为 `review_pass`；凭中断前印象补结论。
+- **Stop if**：任务合同或证据不可得 → 停止并报告，不出结论。
+- **Evidence**：Review 报告注明审查所依据的 diff/证据快照与时间。
+- **Owner**：Review 执行体（独立于实现者）。
+- **Authority**：本文 §12.6。
+
+#### R-DP-019 Commit 中断 `MUST`
+
+- **When**：Commit 执行体中断或消失后恢复时。
+- **Action**：先核查 HEAD、暂存区、白名单与独立 Review pass 证据，再决定重试提交或如实记录中断状态。
+- **Forbidden**：盲目重试提交（可能产生重复提交）；跳过核查直接暂存。
+- **Stop if**：Review pass 证据缺失或白名单不满足 → 不提交，记录阻塞并报告。
+- **Evidence**：核查结论与提交结果（或阻塞记录）落盘。
+- **Owner**：Commit 执行体。
+- **Authority**：本文 §12.6。
+
+### 12.7 破坏性恢复禁令
+
+#### R-DP-020 破坏性操作禁令 `MUST NOT`
+
+- **When**：任何恢复、清理或纠偏动作评估时。
+- **Action**：改用非破坏路径：报告归属、请用户裁决、用新增修复替代抹除。
+- **Forbidden**：`git reset --hard`；`rm -rf`；删除未跟踪文件；覆盖归属不明的文件或改动。
+- **Stop if**：只有破坏性手段能达到目的 → 停止并把选项交用户。
+- **Evidence**：恢复过程无上述操作；例外（用户明确授权）有落盘记录。
+- **Owner**：所有执行体。
+- **Authority**：本文 §12.7。
+
+### 12.8 六条不变量（硬门禁）
+
+1. **无持久状态不算完成**——任何完成声明必须有落盘状态。
+2. **无最后验证不得交接**——交接前重跑最后验证并记录；确不适用记 `N/A + reason`。
+3. **无独立 Review pass 不得 Commit**——车道条件：仅分级交付道（R-DP-031）准入判据内的 C0 任务按车道替代证据形态替代独立 Review pass（用户即 Review 的用户裁决记录 / 微任务道的道脚本机械门禁输出）；C0 修正类默认走用户即 Review 快道（R-DP-031 快道句），非修正类 C0 与 C1+ 不适用替代。
+4. **文件/Git 状态优先于聊天记录**。
+5. **网络不可用只能 fallback 或明确阻塞**——不得假装在线或编造远程事实。
+6. **归属不明改动不得删/盖/重置**——先报告归属。
+
+#### R-DP-021 不变量硬门禁 `MUST`
+
+- **When**：任何阶段出口判断与交接时。
+- **Action**：逐条核对六条不变量；任一不满足即停止并阻塞。
+- **Forbidden**：以复杂度、进度压力或"已口头确认"为由豁免任何一条。
+- **Stop if**：不变量被违反且无法就地纠正 → 记录违反事实并报告用户。
+- **Evidence**：阶段出口记录含不变量核对结果。
+- **Owner**：各阶段执行体。
+- **Authority**：本文 §12.8。
+
+## 13. 治理生成收敛模式
+
+本节约束一切治理文件的生成与再生成（初始化、补缺、模板升级、产物生成），与 §2 权威层级、§5 产物生命周期、§6 三道门禁衔接：本节是生成动作的来源与可逆性纪律，不改变既有生命周期类别与门禁。六项模式为生成治理的固定基线。
+
+### 13.1 Discovery Record（盘点先于生成）
+
+生成类动作写入文件前，先产出 Discovery Record：逐项登记事实来源、作用域、冲突与未知项；未知项写【待定：...】并进入报告。Record 落盘到差异清单、任务票或等价协调记录，不留在聊天中；盘点先于生成——未登记来源的候选不生成，未决的冲突不写入。
+
+#### R-DP-022 Discovery Record `MUST`
+
+- **When**：初始化、补缺、模板升级或任何产物生成动作写入文件前。
+- **Action**：产出并落盘 Discovery Record：逐项登记来源、作用域、冲突与未知；未知写【待定：...】；每个生成候选可指回其来源行。
+- **Forbidden**：以目录名或模板假设替代盘点；静默略过冲突或未知；Record 只存在于聊天中。
+- **Stop if**：来源不可核验或冲突未决 → 停止生成并报告用户。
+- **Evidence**：Discovery Record 落盘，且生成候选逐项可对照其来源。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §13.1。
+
+### 13.2 precedence/trust 表（来源优先级与信任降级）
+
+生成取信按固定优先级排序：**既有事实 > 用户确认 > 模板 > 自动推断**。低优先级来源与高优先级冲突时以高者为准；不可信或未知来源只登记进 Discovery Record，不自动写入。本表约束生成内容的来源取舍，与 §2.3 权威层级（用户决策最高）一致；来源间冲突仍走 R-DP-002 冲突即停。
+
+#### R-DP-023 来源优先级与信任降级 `MUST`
+
+- **When**：任何生成内容需要从多个来源取信时。
+- **Action**：按 既有事实 > 用户确认 > 模板 > 自动推断 取信；不可信或未知来源只登记不写入。
+- **Forbidden**：模板或自动推断覆盖既有事实与用户确认；隐式信任未核验来源。
+- **Stop if**：优先级无法判定 → 列待决项报告用户，不自行择优。
+- **Evidence**：生成内容可指出其来源层级。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §13.2。
+
+### 13.3 profile/capability manifest
+
+初始化与产物增删评估按档位收敛：与用户确认 `minimum` 或 `full` 档位，并给出 capability manifest——逐项能力/产物标 `enabled` / `excluded` / `pending`；`excluded` 与 `pending` 附原因。manifest 随差异清单或任务票落盘，与实际文件逐项一致；"最小"以可核验的排除清单为准，不是"功能少"的形容词。
+
+#### R-DP-024 Profile 与 capability manifest `MUST`
+
+- **When**：执行初始化，或产物增删评估进入差异清单确认时。
+- **Action**：与用户确认 profile 档位（minimum/full）并落盘 capability manifest：逐项标 enabled/excluded/pending，excluded/pending 附原因；manifest 与实际文件逐项一致。
+- **Forbidden**：未经确认默认全量启用；manifest 只留在聊天中；无原因排除或挂起。
+- **Stop if**：档位或单项状态无法判定 → 列待决项报告用户。
+- **Evidence**：manifest 落盘且逐项可与实际文件对照。
+- **Owner**：Implementation 执行体（经用户确认的 Artifact Plan）。
+- **Authority**：本文 §13.3。
+
+### 13.4 生成件登记（并入 artifacts.yaml 单本账）
+
+生成件登记收敛为 artifacts.yaml 单本账：生成来源、日期、目标路径、用户确认、版本与恢复/删除说明六要素在条目内可定位，字段映射见 §5.3.1；重复执行（初始化重跑、模板升级、补缺）先 reconcile：对照条目登记与实际文件，人工改动标记为漂移——漂移即停，报告后等用户裁决，不静默覆盖（与 R-DP-003 记录保护一致）；写入前备份既有文件，保证每一步可逆。幂等目标：同一输入重复生成不产生无谓 diff。登记义务唯一权威＝§5.3 R-DP-007，本节不再另立登记账。
+
+### 13.5 checkpoint 管线
+
+含写入的治理任务按五段检查点管线推进：**discovery → confirm → generate → verify → handoff**。每段落盘结果、日期、未决项与下一步，段间交接以落盘证据为准；本管线是 §6 检查点纪律在治理生成任务上的固定分段，其检查点事实供 §12 恢复流程取用；verify 段对齐 §11 验证纪律，handoff 段对齐 §6 阶段交接与写入所有权矩阵（§12.5）。
+
+#### R-DP-026 检查点管线 `MUST`
+
+- **When**：执行含写入的治理任务全程。
+- **Action**：按 discovery → confirm → generate → verify → handoff 五段落盘检查点：每段记录结果、日期、未决项与下一步。
+- **Forbidden**：跳段推进；以"已完成"散文替代分段证据；把未验证的 generate 段直接交接。
+- **Stop if**：任一段无可验证结论 → 停在当前段并报告。
+- **Evidence**：五段检查点可静态检索（任务票 Checkpoint 区或 run record）。
+- **Owner**：各段执行体（按 §12.5 写入所有权矩阵）。
+- **Authority**：本文 §13.5。
+
+### 13.6 证据链登记
+
+登记外部引用与生成工具的证据链：引用按**规范标识**（规范仓库或来源标识）加取阅日期登记，不依赖深层 URL 或 registry 名作为所有权证明；**许可证经条款核验**而非信任徽标或文件名，未核验记 `N/A + reason`；生成或被采用工具的每个**侧通道**（网络、遥测、后台动作）登记并附文档化关闭开关，无关闭开关的侧通道不进入治理产物。
+
+#### R-DP-027 证据链登记 `MUST`
+
+- **When**：登记外部引用、生成件来源，或治理产物涉及任何侧通道时。
+- **Action**：登记规范标识与取阅日期；许可证逐项核验；侧通道逐项登记并附文档化关闭开关；未核验项记 `N/A + reason`。
+- **Forbidden**：以 registry 名或徽标代替所有权与许可证核验；引入无文档化关闭开关的侧通道；编造核验结果。
+- **Stop if**：许可证或所有权无法核验 → 停止采信并报告用户。
+- **Evidence**：登记条目含规范标识、核验结论与开关位置，可按规范标识复核。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §13.6。
+
+## 14. 解释与例外
+
+- 首次为既有项目补 seed 时，Record 类既有文件按 R-DP-003 保护，只补缺失件；既有文档、代码布局、命名和规则一律视为项目事实，只登记、只补缺。
+- rules/ 流程规则三件与根 `AGENTS.md`、目录 README、任务票等文件冲突时，以 rules/ 流程规则为准修正引用；条文与三阶段执行体定义冲突时以更严格者为准。
+- 模板中【按项目填写】处由初始化访谈与盘点结果填写；没问到的写【待定：...】，不编造领域事实。
+- 需求请求的队列规则（Intake 边界、Triage 边界、请求状态机）见 `facts/requirements/requests/README.md`；rules/ 三件只承载任务执行流程，不重复队列细节。
+- 目标项目当前不是 Git 仓库时：恢复流程第 5 步退化为实际文件对照，`baseline.vcs_ref` 记 `N/A + reason`，`workspace_fingerprint` 照常计算；该状态由 Git 化任务结束。
+- `needs-user-decision` 不同于 `blocked`：前者是 Request 等用户裁决，后者是 Task 停止推进。
+- 三阶段执行体文件的位置由宿主适配层决定；本文声明能力与阶段职责，不绑定任何宿主平台名或专有工具名。
+
+## 15. 状态陈述与输出瘦身纪律
+
+本节是易腐状态陈述的预防层，适用于一切活文档（治理文件、进度记录、索引、README）；配套的登记表驱动易腐断言扫描器（两模式：票收口拦截、会话启动警告）为本节的执行层——规则约束写法，扫描器核对新鲜度。手写状态句已造成的索引漂移与过期事实，靠人工记忆回改不可持续，故写入时即按本节纪律表达状态。
+
+### 15.1 状态陈述纪律
+
+活文档禁止无日期的现在时状态句：状态会流转，句子会腐坏。状态一律以权威引用表达——指向承载该状态的唯一权威位置（进度记录、票面状态、清单表行等）并带日期，不在第二处复述状态内容；同一状态只允许一个权威位置，其余位置引用它。视图（为阅读或分发派生的渲染件）单向：从源生成，永不回写源。治理文件的时间信息一律由 Git 派生（提交时间、diff 范围），禁止手工维护 `updated_at` 类双源时间戳。
+
+#### R-DP-028 状态以权威引用表达 `MUST`
+
+- **When**：在活文档中写任何状态句（"已完成/已发布/已修复"类），或更新既有状态陈述时。
+- **Action**：状态以"权威位置 + 日期"引用表达；确需本地复述时绑定日期与来源；视图只从源单向生成，不回写；时间信息取 Git 派生值。
+- **Forbidden**：无日期的现在时状态句；同一状态多处复述；视图反向修改源；手工维护 updated_at 类第二时间源。
+- **Stop if**：状态的权威位置不存在或互相冲突 → 停止写入，先收口权威位置。
+- **Evidence**：状态句可解析出权威位置与日期，且可登记为扫描条目机核。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §15.1。
+
+### 15.2 输出瘦身纪律
+
+命令输出进入上下文前先瘦身；本纪律零外部依赖、宿主通用：模式检索（rg/grep 类）或结构化查询优先于全文通读；长输出先截断（head/tail）再读，按需扩窗；重复内容去重后引用首次出现处。
+
+#### R-DP-029 命令输出先瘦身 `MUST`
+
+- **When**：任何为读取内容而执行、且输出将进入上下文的命令。
+- **Action**：优先模式检索或结构化查询代替全文 cat；长输出先 head/tail 截断再读，按需扩窗；重复内容只取一处并引用其位置。
+- **Forbidden**：默认全文倾倒长文件；同一内容反复整读；以"多看看"为由绕过截断。
+- **Stop if**：无。
+- **Evidence**：读文件走检索/区间/截断方式；上下文不出现重复大段输出。
+- **Owner**：当前会话执行体。
+- **Authority**：本文 §15.2。
+
+## 项目自有条款（随生长追加）
+
+本节承载本项目自有规则条款；协议基线由上文 §2～§15 承载，项目特有约定（技术栈规约、目录细化边界、团队协作条款等）在此追加，不复制上文已有协议。
+
+【按项目填写：项目自有条款逐条追加；每条注明来源（用户拍板/变更票）与日期。】
+
+追加纪律：
+
+- 只追加与显式修订：新条款追加成条并注明日期与来源；修订在原条目后附修订记录并注日期，不静默改写既有条款语义。
+- 冲突即停：新增条款与上文协议基线、`rules/assessment.md`、`rules/implementation/discipline.md` 或根 `AGENTS.md` 不一致时，按 R-DP-002 冲突即停报告用户裁决，不自行择优。
+- 登记与同步联动：条款变化按 §5.4 同步门槛判定级联，登记面由 `facts/project/artifacts.yaml` 承载（R-DP-007）。
+
+## 16. 规则索引
+
+本节为本件承载规则块的导航投影，随模板分发：表行语义以各规则块正文为准，本表不构成独立权威，冲突以规则块正文裁决。执行机制受控三值——机械＝点名脚本/检查项现役断言在管（脚本须在包 `scripts/` 且经 `package-manifest.rules` 登记）；门禁＝阶段 checkpoint 卡（独立 Review Checkpoint、Commit 收尾核对、用户语义终审）；约定＝无机械无门禁，靠执行体自觉。诚实性上限：一句话内容列为忠实原义的概括，无机械保真（逐行核对归独立 Review）；机械行点名出处由包完整性检查 15～17 核存在性（三件索引并集与规则块全集全等、机制列受控词表、点名脚本存在且登记、检查项号不超界）。索引变更先改本表再动规则块，反向漂移由检查 15 拦截；定义于模板外手册的规则块在机制列标注外定义；拆分产生的跨件规则块（定义于 rules/assessment.md 或 rules/implementation/discipline.md）在机制列标注"外定义（定义于 rules/<件名>）"。
+
+| ID | 一句话内容 | 执行机制 |
+| --- | --- | --- |
+| R-AG-001 | 自动化写入不重写、不截断既有事实记录，只追加或按状态机更新，补缺只补结构性缺失 | 机械（check-append-only.sh） |
+| R-AG-002 | 条件产物默认不创建，命中触发矩阵并经确认才创建 | 门禁 |
+| R-DP-001 | 按任务型最小读取范围取用治理资源，L4 按需 | 约定 |
+| R-DP-002 | 权威来源对同一事实不一致即停，报告双方等裁决 | 约定 |
+| R-DP-003 | Record 类只追加或按状态机更新，JSONL 既有行不截断、不改写、不重排、不删除 | 机械（check-append-only.sh） |
+| R-DP-004 | Derived 重建须标注来源、时间、覆盖范围与失效条件 | 机械（generate-module-map.sh、generate-progress.sh） |
+| R-DP-005 | Adapter 仅宿主支持且任务需要时生成，否则 deferred | 门禁 |
+| R-DP-006 | 条件产物命中触发矩阵至少一条才创建 | 门禁 |
+| R-DP-007 | 治理产物逐件登记 artifacts.yaml 单本账，生成六要素条目内可定位，漂移即停 | 机械（check-artifacts.sh） |
+| R-DP-008 | 仅契约、拓扑、行为、派生四类语义变化触发级联同步 | 约定 |
+| R-DP-009 | 条件产物按状态机流转，stale 恢复前不当可信导航 | 约定 |
+| R-DP-010 | 初始化与产物增删自动评估 Artifact Plan 并落盘呈现 | 门禁 |
+| R-DP-012 | Session、Task、Request 三套状态机取值固定，不自造状态名 | 机械（ticket-ops.sh、lane-commit.sh） |
+| R-DP-013 | 冲突按四层事实优先级取信并修正低层记录 | 约定 |
+| R-DP-014 | 恢复按八步固定顺序执行并落盘结论 | 约定 |
+| R-DP-015 | 命中条件生成并维护 run record 十三字段，禁编造 baseline | 约定 |
+| R-DP-016 | 各角色只写允许目标，禁两 session 并发写索引与投影 | 门禁 |
+| R-DP-017 | Implementation 中断保留改动并记 next_step 续跑 | 约定 |
+| R-DP-018 | Review 中断不得沿用作 pass，须依最新状态重审 | 约定 |
+| R-DP-019 | Commit 中断先核查 HEAD、暂存与证据再决定重试 | 约定 |
+| R-DP-020 | 禁 reset --hard、rm -rf、删未跟踪等破坏性恢复 | 约定 |
+| R-DP-021 | 六条不变量为阶段出口硬门禁，逐条核对 | 门禁 |
+| R-DP-022 | 生成动作写入前先落 Discovery Record（来源、冲突、未知） | 门禁 |
+| R-DP-023 | 取信按既有事实、用户确认、模板、自动推断次序降级 | 约定 |
+| R-DP-024 | profile 档位确认与 capability manifest 逐项落盘 | 门禁 |
+| R-DP-026 | 治理任务按 discovery、confirm、generate、verify、handoff 五段落盘 | 门禁 |
+| R-DP-027 | 外部引用、许可证、侧通道按证据链登记并附关闭开关 | 约定 |
+| R-DP-028 | 状态以权威位置加日期引用表达，禁双源时间戳 | 机械（check-stale-claims.sh） |
+| R-DP-029 | 命令输出进入上下文前先检索、截断、去重 | 约定 |
+| R-DP-034 | run record 收口必带 usage 全五子字段，seal 对缺项 fail-closed；存量卡冻结 | 约定 |
+| R-GF-007 | 治理文件三层组织（引用行，定义在模板外手册） | 约定；外定义（定义于 references/protocol/governance-format.md） |

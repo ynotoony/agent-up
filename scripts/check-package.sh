@@ -299,7 +299,10 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
     if ($1 !~ /^[A-Z][A-Z]$/) { bad("短码须两字母大写: " $1); next }
     if ($2 !~ /^references\/[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("所属文件须 references/ 前缀包内相对路径: " $2); next }
     if ($2 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $2); next }
-    if ($1 in seen) { bad("短码跨行重复: " $1) } else { seen[$1] = 1 }
+    # 判重口径＝「短码+所属文件」对：一短码允许多行 owner 登记多件所属（流程权威拆三，
+    # DP 一码对应 rules 三件模板），同对重复才违规。
+    key = $1 "\t" $2
+    if (key in seen) { bad("短码与所属文件对跨行重复: " $1 " " $2) } else { seen[key] = 1 }
   }
   END { if (n > 0) exit 1 }
 ' "$pm_codes") || true
@@ -1190,17 +1193,23 @@ else
   pass 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个）"
 fi
 
-# 检查 15：模板规则索引表与规则块全集全等（票 60 新增）。全集＝清单 templates 节全部
-# .tmpl 文件的规则块 ID（R-<短码>-NNN）grep 并集去重；索引表＝development-process.md.tmpl
-# 「## 16. 规则索引」节内三列表行（窄锚点，先例检查 11/14；锚点缺失或零表行 FAIL）。
+# 检查 15：模板规则索引表与规则块全集全等（票 60 新增；流程权威拆三适配）。全集＝清单
+# templates 节全部 .tmpl 文件的规则块 ID（R-<短码>-NNN）grep 并集去重；索引表＝索引宿主
+# 模板「## 16. 规则索引」节内三列表行的并集（窄锚点，先例检查 11/14）——流程权威拆三后
+# 索引宿主为 assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl 三件，逐件只登本件
+# 承载块与模板外手册块（跨件不重复登记，机制列「定义于 <件名>」互指形态），三件并集＝
+# 拆分前单件索引；宿主判定＝模板正文含锚点即宿主，引擎零宿主文件名硬编码，宿主锚点
+# 缺失时其块 ID 落入「全集 ID 缺索引行」方向按名指认（等效拦截）。
 # 外定义行＝短码登记 owner 不在 references/templates/ 下的 ID（经清单 shortcodes 节数据
 # 判定，引擎零 ID 硬编码）：豁免内容比对但机制列必须显式标注外定义标记词（清单
 # mechanism 标记词，检查 16 同源），未标注算漏行。索引行格式：| ID | 一句话内容 | 机制 |
 # （内容列禁竖线，机制列语法见检查 16）。
 problems=''
-idx_site="$templates_dir/development-process.md.tmpl"
 : > "$pm_idxmech"
-if [ -f "$idx_site" ]; then
+for t in $(cat "$pm_templates"); do
+  idx_site="$templates_dir/$t"
+  [ -f "$idx_site" ] || continue  # 缺件由检查 5 指名，本项不重复报
+  grep -q '^## 16\. 规则索引' "$idx_site" 2>/dev/null || continue
   LC_ALL=C awk '
     /^## 16\. 规则索引/ { insec = 1; next }
     insec && /^## / { exit }
@@ -1215,23 +1224,21 @@ if [ -f "$idx_site" ]; then
       print id "\t" mech
     }
   ' "$idx_site" >> "$pm_idxmech" || true
-else
-  add_problem '  - references/templates/development-process.md.tmpl 不存在'
-fi
+done
 grep -v '^MALFORMED' "$pm_idxmech" 2>/dev/null | LC_ALL=C cut -f1 > "$pm_idxids"
 malformed=$(LC_ALL=C awk -F'\t' '$1 == "MALFORMED" { print $2 }' "$pm_idxmech")
 n_idx=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_idxids")
 union_ids=''
-idx_base=${idx_site##*/}
 if [ -d "$templates_dir" ]; then
   OLDIFS=$IFS
   IFS='
 '
   for t in $(cat "$pm_templates"); do
     IFS=$OLDIFS
-    # 索引宿主文件先排除表行自身（行首「| R-」）再提取 ID：索引表在 grep 扫描面内，
-    # 表行加什么 ID 全集就含什么 ID，不排除则检查 15 的「多出全集外 ID」方向退化失效。
-    if [ "$t" = "$idx_base" ]; then
+    # 索引宿主文件（含「## 16. 规则索引」锚点者，可多件）先排除表行自身（行首「| R-」）
+    # 再提取 ID：索引表在 grep 扫描面内，表行加什么 ID 全集就含什么 ID，不排除则检查 15
+    # 的「多出全集外 ID」方向退化失效。
+    if [ -f "$templates_dir/$t" ] && grep -q '^## 16\. 规则索引' "$templates_dir/$t" 2>/dev/null; then
       hits=$(grep -v '^| R-' "$templates_dir/$t" 2>/dev/null | LC_ALL=C grep -ohE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' || true)
     else
       hits=$(LC_ALL=C grep -ohE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' "$templates_dir/$t" 2>/dev/null || true)
@@ -1245,10 +1252,8 @@ if [ -d "$templates_dir" ]; then
 fi
 union_ids=$(printf '%s' "$union_ids" | LC_ALL=C sort -u)
 n_union=$(printf '%s\n' "$union_ids" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
-if [ -f "$idx_site" ] && ! grep -q '^## 16\. 规则索引' "$idx_site"; then
-  add_problem '  - 索引节未找到（锚点「## 16. 规则索引」缺失）'
-elif [ "$n_idx" -eq 0 ] && [ -f "$idx_site" ]; then
-  add_problem '  - 索引节无表行（锚点在位但未提取到索引行）'
+if [ "$n_idx" -eq 0 ]; then
+  add_problem '  - 索引节无表行（无模板命中锚点「## 16. 规则索引」或宿主零索引行）'
 fi
 if [ -n "$malformed" ]; then
   OLDIFS=$IFS
@@ -1303,6 +1308,8 @@ IFS='
 for id in $(cat "$pm_idxids"); do
   IFS=$OLDIFS
   sc=$(printf '%s' "$id" | cut -c3-4)
+  # 一码多件（流程权威拆三：DP 一短码对应 rules 三件模板）时取首行 owner——同码多行
+  # owner 的登记形态下内外判定取首行即可定侧。
   owner=$(LC_ALL=C awk -F'\t' -v c="$sc" '$1 == c { print $2; exit }' "$pm_codes")
   mech=$(LC_ALL=C awk -F'\t' -v i="$id" '$1 == i { print $2; exit }' "$pm_idxmech")
   if [ -z "$owner" ]; then
@@ -1332,9 +1339,9 @@ if [ -n "$unmarked" ]; then
   add_problem "  - 外定义 ID 行未标注标记词「${mechmark}」（豁免须显式，未标注算漏行）: $unmarked"
 fi
 if [ -n "$problems" ]; then
-  fail 15 "模板规则索引与规则块全集全等（索引 ${n_idx} 行，全集 ${n_union} ID）" "$problems"
+  fail 15 "模板规则索引与规则块全集全等（三件索引并集 ${n_idx} 行，全集 ${n_union} ID）" "$problems"
 else
-  pass 15 "模板规则索引与规则块全集全等（索引 ${n_idx} 行，全集 ${n_union} ID）"
+  pass 15 "模板规则索引与规则块全集全等（三件索引并集 ${n_idx} 行，全集 ${n_union} ID）"
 fi
 
 # 检查 16：索引机制列值 ⊆ 受控词表（票 60 新增）。词表＝清单 mechanism-vocab 节（受控

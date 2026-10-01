@@ -1,15 +1,15 @@
 # Input: 目标项目的产物清单、生成/删除/移动动作与访谈盘点确认的产物事实。
-# Output: 目标项目治理产物的机器索引（docs/agent/artifacts.yaml）：十三字段登记与 seed 五件初始清单。
-# Pos: 产物机器索引（seed 五件之一）；一旦我被更新，务必更新所属目录 README 登记。
+# Output: 目标项目治理产物的机器索引（facts/project/artifacts.yaml）：十三字段登记与 seed 八件初始清单。
+# Pos: 产物机器索引（seed 八件之一）；一旦我被更新，务必更新所属目录 README 登记。
 
 # 字段（十三个；缺值写 N/A + reason，不留空）：
 #   id              产物稳定标识
 #   path            仓库内路径
 #   kind            产物类型（governance / index / record / spec / request / task / map / adapter / script 等；新增值先在此注释区登记）
-#   authority       在权威层级中的层级（层级定义见 docs/development-process.md §2.3）
+#   authority       在权威层级中的层级（层级定义见 rules/project.md 权威层级）
 #   owner           唯一写入者
 #   lifecycle       Seed / Conditional / Record / Derived / Adapter
-#   trigger         创建触发条件（对齐 docs/development-process.md §5.2 触发矩阵；Seed 写 always）
+#   trigger         创建触发条件（对齐 rules/project.md 触发矩阵；Seed 写 always）
 #   read_when       读取时机（对齐读取阶梯与任务类型）
 #   sync_on         触发级联同步的变化类型（契约 / 拓扑 / 行为 / 派生；纯追加记录写 无）
 #   depends_on      依赖的其他产物 id（YAML 列表）
@@ -17,13 +17,13 @@
 #   platform        平台绑定信息；平台无关写 neutral（当前已知集合：neutral / zcode / claude-code / codex / pi / dsh；新增宿主值先在此注释区登记）
 #   update_policy   更新策略（追加 / 状态机更新 / 可重建 / 禁止覆盖）
 #
-# 生成件登记（单本账，权威＝docs/development-process.md §5.3.1）：生成件六要素并入本
+# 生成件登记（单本账，权威＝rules/project.md 生成件登记单本账口径）：生成件六要素并入本
 #   条目登记，不另立第二本生成登记账——来源记 generated_from；日期与版本
 #   随 update_policy（或 sync_on）括注登记；目标即 path；用户确认随 trigger 括注登记；
 #   恢复/删除说明记 update_policy（重建口径：可重建/禁止覆盖＋reconcile 漂移即停）。
 #   缺值写 N/A + reason，不留空。
 #
-# 维护规则（权威见 docs/development-process.md §5）：
+# 维护规则（权威见 rules/project.md 产物生命周期）：
 #   生成、删除或移动任何治理产物时同步登记或注销条目；重复执行（初始化重跑、模板升级、
 #   补缺）先对照条目登记内容 reconcile——人工改动标记为漂移，漂移即停报告等裁决，写入前
 #   备份可逆；登记与实际文件漂移时将相关产物标 stale 并报告，不静默修正任一侧。
@@ -38,38 +38,77 @@ artifacts:
     trigger: always
     read_when: 每个会话第一步
     sync_on: 契约、拓扑（路由指向、权威来源或边界变化）
-    depends_on: [development-process, artifacts-yaml]
+    depends_on: [assessment, discipline, project, artifacts-yaml]
     generated_from: agent-up/references/templates/AGENTS.md.tmpl
     platform: neutral
     update_policy: 极短路由；语义变化经用户确认后修改
-  - id: docs-readme
-    path: docs/README.md
+  - id: rules-readme
+    path: rules/README.md
     kind: governance
     authority: 权威层级第 6 级（导航索引：从目录成员事实更新）
     owner: Implementation 执行体（目录成员变化时）
     lifecycle: Seed
     trigger: always
-    read_when: 导航 docs 目录成员时
-    sync_on: 拓扑（docs 下文件增删或目录职责变化）
-    depends_on: [development-process, artifacts-yaml]
+    read_when: 导航 rules 目录成员时
+    sync_on: 拓扑（rules 下文件增删或目录职责变化）
+    depends_on: [assessment, discipline, project, artifacts-yaml]
     generated_from: agent-up/references/templates/dir-README.md.tmpl
     platform: neutral
     update_policy: 按目录事实更新成员登记
-  - id: development-process
-    path: docs/development-process.md
+  - id: facts-readme
+    path: facts/README.md
     kind: governance
-    authority: 权威层级第 4 级（流程规则：唯一流程权威）
+    authority: 权威层级第 6 级（导航索引：从目录成员事实更新）
+    owner: Implementation 执行体（目录成员变化时）
+    lifecycle: Seed
+    trigger: always
+    read_when: 导航 facts 目录成员时
+    sync_on: 拓扑（facts 下文件增删或目录职责变化）
+    depends_on: [assessment, discipline, project, artifacts-yaml]
+    generated_from: agent-up/references/templates/dir-README.md.tmpl
+    platform: neutral
+    update_policy: 按目录事实更新成员登记
+  - id: assessment
+    path: rules/assessment.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：评估规则）
+    owner: 协调记录 owner（变更经用户确认）
+    lifecycle: Seed
+    trigger: always
+    read_when: 执行任何任务流程、判定任务大小与车道或处理权威冲突时
+    sync_on: 契约、行为（流程、门禁、权限、验证要求变化）
+    depends_on: [artifacts-yaml]
+    generated_from: agent-up/references/templates/assessment.md.tmpl
+    platform: neutral
+    update_policy: 语义变化经用户确认后修改；正文为规范本体
+  - id: discipline
+    path: rules/implementation/discipline.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：实现纪律）
+    owner: 协调记录 owner（变更经用户确认）
+    lifecycle: Seed
+    trigger: always
+    read_when: 执行任何任务流程、实施与验证或处理权威冲突时
+    sync_on: 契约、行为（流程、门禁、权限、验证要求变化）
+    depends_on: [artifacts-yaml]
+    generated_from: agent-up/references/templates/discipline.md.tmpl
+    platform: neutral
+    update_policy: 语义变化经用户确认后修改；正文为规范本体
+  - id: project
+    path: rules/project.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：项目规则）
     owner: 协调记录 owner（变更经用户确认）
     lifecycle: Seed
     trigger: always
     read_when: 执行任何任务流程、判定读取范围或处理权威冲突时
     sync_on: 契约、行为（流程、门禁、权限、验证要求变化）
     depends_on: [artifacts-yaml]
-    generated_from: agent-up/references/templates/development-process.md.tmpl
+    generated_from: agent-up/references/templates/project.md.tmpl
     platform: neutral
     update_policy: 语义变化经用户确认后修改；正文为规范本体
   - id: requests-readme
-    path: docs/requests/README.md
+    path: facts/requirements/requests/README.md
     kind: governance
     authority: 权威层级第 4 级（流程规则：REQ 队列规则）
     owner: 协调记录 owner（变更经用户确认）
@@ -77,12 +116,12 @@ artifacts:
     trigger: always
     read_when: 接收、推进或追溯需求请求时
     sync_on: 契约、行为（队列规则或状态机语义变化）
-    depends_on: [development-process]
+    depends_on: [project]
     generated_from: agent-up/references/templates/requests-README.md.tmpl
     platform: neutral
     update_policy: 队列规则变化经用户确认后修改
   - id: artifacts-yaml
-    path: docs/agent/artifacts.yaml
+    path: facts/project/artifacts.yaml
     kind: index
     authority: 权威层级第 2 级（事实记录：产物登记）
     owner: Implementation 执行体或协调记录 owner（按产物归属）
@@ -90,14 +129,14 @@ artifacts:
     trigger: always
     read_when: 涉及产物关系、增删移动或漂移自查时
     sync_on: 拓扑、派生（产物增删移动、生成来源或依赖关系变化）
-    depends_on: [development-process]
+    depends_on: [project]
     generated_from: agent-up/references/templates/artifacts-yaml.tmpl
     platform: neutral
     update_policy: 状态机更新；产物登记同步；漂移标 stale 并报告
 
   # 条件产物登记样例（命中触发矩阵/Intake 才创建；按实际产物仿照登记，不预建）：
   # - id: req-YYYYMMDD-NNN
-  #   path: docs/requests/REQ-YYYYMMDD-NNN.json
+  #   path: facts/requirements/requests/REQ-YYYYMMDD-NNN.json
   #   kind: request
   #   authority: 权威层级第 2 级（事实记录：需求请求）
   #   owner: Intake 会话执行体（新建）；Triage 执行体（状态流转）
@@ -111,7 +150,7 @@ artifacts:
   #   update_policy: 状态机更新；正文只追加不改写
   #
   # - id: project-map
-  #   path: docs/agent/project-map.json
+  #   path: facts/project/project-map.json（落位为 R24 同域类比：映射表未单列本行，与 facts/project/architecture/ 同域；定值以变更票裁决为准）
   #   kind: map
   #   authority: 权威层级第 6 级（派生文件）
   #   owner: Implementation 执行体
@@ -125,26 +164,26 @@ artifacts:
   #   update_policy: 可重建；重建须标注来源/时间/覆盖范围/失效条件
   #
   # - id: issue-index
-  #   path: docs/issues/index.json
+  #   path: facts/requirements/tickets/index.json
   #   kind: index
   #   authority: 权威层级第 2 级（事实记录：票状态机唯一真相源；单文件一条目一行）
   #   owner: 道脚本或对应阶段执行体单写（按写入机制；禁止两个 session 并写）
   #   lifecycle: Conditional
-  #   trigger: 与 docs/issues/ 同行集（需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接）
+  #   trigger: 与 facts/requirements/tickets/ 同行集（需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接）
   #   read_when: 领取任务票、核对票状态或状态翻转时（状态冲突以本索引为准）
   #   sync_on: 无（条目按状态机单写整行更新；派生面重建由 progress-current 生成器承载）
-  #   depends_on: [issues-readme, development-process]
+  #   depends_on: [issues-readme, project]
   #   generated_from: 各阶段执行体/收尾脚本按票状态索引 schema 单写维护（非 Derived）
   #   platform: neutral
   #   update_policy: 状态机更新；一条目一行整行替换
   #
   # - id: request-index
-  #   path: docs/requests/index.json
+  #   path: facts/requirements/requests/index.json
   #   kind: index
-  #   authority: 权威层级第 2 级（事实记录：REQ 状态登记；Request 状态机取值权威＝docs/requests/README.md R-RQ-002 与 development-process §12.1）
+  #   authority: 权威层级第 2 级（事实记录：REQ 状态登记；Request 状态机取值权威＝facts/requirements/requests/README.md R-RQ-002 与 rules/project.md 三套状态机）
   #   owner: Triage 执行体（状态流转单写）；协调记录 owner（快照建立）
   #   lifecycle: Conditional
-  #   trigger: docs/requests/ 目录创建且首个 REQ 落盘（REQ 状态分账；存量 REQ 由此只读提取建立快照）
+  #   trigger: facts/requirements/requests/ 目录创建且首个 REQ 落盘（REQ 状态分账；存量 REQ 由此只读提取建立快照）
   #   read_when: 处理 REQ 队列、推进请求状态或核对 REQ 状态漂移时
   #   sync_on: 无（状态机更新，条目级更新不触发级联）
   #   depends_on: [requests-readme]
@@ -153,7 +192,7 @@ artifacts:
   #   update_policy: 状态机更新；单写一条目一行；REQ 状态冲突以本索引为准
   #
   # - id: changes-jsonl
-  #   path: docs/changes.jsonl
+  #   path: facts/project/changes.jsonl
   #   kind: record
   #   authority: 权威层级第 2 级（事实记录：变更历史追加账本，一行一事实）
   #   owner: 协调记录 owner 与各阶段执行体（按追加条目）
@@ -161,13 +200,13 @@ artifacts:
   #   trigger: 记录层拍板后首条事实（懒创建）
   #   read_when: 需要变更背景、审计或追溯决策时
   #   sync_on: 无（一行一事实纯追加，不触发级联）
-  #   depends_on: [development-process]
+  #   depends_on: [project]
   #   generated_from: 各阶段落账事实（非 Derived）
   #   platform: neutral
   #   update_policy: 追加；只增不改，不改写既有行
   #
   # - id: progress-current
-  #   path: docs/progress-current.md
+  #   path: facts/requirements/tickets/progress-current.md
   #   kind: record
   #   authority: 权威层级第 2 级（事实记录：现役状态投影；非真相源，与 issue-index 冲突时以索引为准）
   #   owner: 生成器独占写（agent 不手写）
@@ -176,6 +215,6 @@ artifacts:
   #   read_when: 接手或恢复会话时（读取阶梯 L1 现役状态）
   #   sync_on: 派生（issue-index 变更即触发整文件重建）
   #   depends_on: [issue-index]
-  #   generated_from: docs/issues/index.json ＋ 生成器（Derived 必填）
+  #   generated_from: facts/requirements/tickets/index.json ＋ 生成器（Derived 必填）
   #   platform: neutral
   #   update_policy: 生成器独占写；可随时整文件重建；投影与索引不一致时以索引为准
