@@ -12,6 +12,13 @@
 # 字符串拼接或正则转义构造，运行时才拼成完整字面量，因此本目录文件不得直接
 # 写出检查 3/4 的敏感字面量（见 README.md）。
 
+# 路径常量区（票 111 波②批次 1/6）：治理路径字面量唯一收拢点；值＝原字面量，零翻值，
+# 数据区外禁再写游离治理路径字面量（注释同）；正则内转义形态与检查 3/4 自命中规避
+# 构造豁免（见头部注记与各检查内注记）。
+docs_dir='docs'
+scripts_dir='scripts'
+scripts_readme_rel='scripts/README.md'
+
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob，展开文件清单时避免意外匹配
 
@@ -657,13 +664,13 @@ else
   pass 6 '文本契约头齐全（*.md 与 *.tmpl）'
 fi
 
-# 检查 7：根治理文件不在包内（AGENTS.md、docs/、.zcode/）。
+# 检查 7：根治理文件不在包内（AGENTS.md、$docs_dir、.zcode/）。
 gov_found=''
 if [ -e "$pkg_root/AGENTS.md" ]; then
   gov_found='AGENTS.md（文件）'
 fi
-if [ -d "$pkg_root/docs" ]; then
-  gov_found="$gov_found docs/（目录）"
+if [ -d "$pkg_root/$docs_dir" ]; then
+  gov_found="$gov_found $docs_dir/（目录）"
 fi
 if [ -d "$pkg_root/.zcode" ]; then
   gov_found="$gov_found .zcode/（目录）"
@@ -699,13 +706,13 @@ else
   pass 8 "脚本必需件存在（${n_scripts} 个文件）"
 fi
 
-# 检查 9：scripts/README.md 成员表 ↔ 数据 scripts 节一致（票 57 新增）。一致口径（双向）：
+# 检查 9：$scripts_readme_rel 成员表 ↔ 数据 scripts 节一致（票 57 新增）。一致口径（双向）：
 # ①数据 scripts 节每件都在成员表登记（表＝人读投影不得漏登必需件）；②成员表登记的
-# 每件都是 scripts/ 下实际文件（表与实物不漂移）。
+# 每件都是 $scripts_dir 下实际文件（表与实物不漂移）。
 problems=''
-scripts_readme="$pkg_root/scripts/README.md"
+scripts_readme="$pkg_root/$scripts_readme_rel"
 if [ ! -f "$scripts_readme" ]; then
-  add_problem '  - scripts/README.md（成员表）不存在'
+  add_problem "  - ${scripts_readme_rel}（成员表）不存在"
 else
   # 提取成员表（锚点＝首列表头行；表格随首个非 | 行结束），每行取首列反引号名单。
   table_names=$(awk '
@@ -736,7 +743,7 @@ else
     no_file=''
     sep2=''
     for b in $table_names; do
-      if [ ! -f "$pkg_root/scripts/$b" ]; then
+      if [ ! -f "$pkg_root/$scripts_dir/$b" ]; then
         no_file="$no_file$sep2$b"
         sep2='、'
       fi
@@ -747,9 +754,9 @@ else
   fi
 fi
 if [ -n "$problems" ]; then
-  fail 9 'scripts/README.md 成员表与数据 scripts 节一致' "$problems"
+  fail 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致" "$problems"
 else
-  pass 9 'scripts/README.md 成员表与数据 scripts 节一致'
+  pass 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致"
 fi
 
 # 检查 10：规则块短码使用 ⊆ 登记（票 57 新增）。扫描范围＝包内全部 *.md 与 *.tmpl
@@ -996,24 +1003,24 @@ else
 fi
 
 # 检查 13：镜像脚本与仓根同名件一致（票 58 新增）。比对对＝清单 mirrors 节登记（对应
-# 关系＝包侧 scripts/<名> 与包根父目录仓根 scripts/<名> 同名件，注记见 manifest）；
-# 仓根无 scripts/ 或无同名件静默跳过（消费项目语义，--pkg-root 参数化语境同样跳过，
+# 关系＝包侧 $scripts_dir/<名> 与包根父目录仓根 $scripts_dir/<名> 同名件，注记见 manifest）；
+# 仓根无 $scripts_dir 或无同名件静默跳过（消费项目语义，--pkg-root 参数化语境同样跳过，
 # 无输出行）；逐对 cmp，一致 PASS、差异 FAIL 指名文件。
 problems=''
 n_mirror=$(wc -l < "$pm_mirrors" | tr -d ' ')
 mirror_compared=0
 mirror_root=$(CDPATH= cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
-if [ -n "$mirror_root" ] && [ -d "$mirror_root/scripts" ]; then
+if [ -n "$mirror_root" ] && [ -d "$mirror_root/$scripts_dir" ]; then
   OLDIFS=$IFS
   IFS='
 '
   for m in $(cat "$pm_mirrors"); do
     IFS=$OLDIFS
-    [ -f "$pkg_root/scripts/$m" ] || continue
-    [ -f "$mirror_root/scripts/$m" ] || continue
+    [ -f "$pkg_root/$scripts_dir/$m" ] || continue
+    [ -f "$mirror_root/$scripts_dir/$m" ] || continue
     mirror_compared=$((mirror_compared + 1))
-    if ! cmp -s "$pkg_root/scripts/$m" "$mirror_root/scripts/$m"; then
-      add_problem "  - scripts/$m 与仓根 scripts/$m 不一致（byte-diff，两处同源演化须互为镜像）"
+    if ! cmp -s "$pkg_root/$scripts_dir/$m" "$mirror_root/$scripts_dir/$m"; then
+      add_problem "  - $scripts_dir/$m 与仓根 $scripts_dir/$m 不一致（byte-diff，两处同源演化须互为镜像）"
     fi
   done
   IFS=$OLDIFS
@@ -1025,7 +1032,7 @@ if [ "$mirror_compared" -gt 0 ]; then
     pass 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）"
   fi
 fi
-# mirror_compared=0（仓根无 scripts/ 或无同名件）→ 静默跳过，无输出行
+# mirror_compared=0（仓根无 $scripts_dir 或无同名件）→ 静默跳过，无输出行
 
 # 检查 14：能力映射一致（票 59 新增）。名单＝清单 capability-primitives 节（九基元名，
 # 引擎零基元名硬编码）；权威表＝capability_authority 登记文件（窄锚点「### …能力基元
@@ -1398,7 +1405,7 @@ fi
 
 # 检查 17：机械行点名出处存在（票 60 新增）。机械行（机制列首段＝受控值「机械」——该值
 # 为引擎语义锚点，词表成员资格仍以清单为权威）须在括注内点名出处：脚本名（*.sh）必须
-# 真实存在于包 scripts/ 且在清单 scripts 节登记；检查项号（「检查 N」）必须 ≤ 当前检查
+# 真实存在于包 $scripts_dir 且在清单 scripts 节登记；检查项号（「检查 N」）必须 ≤ 当前检查
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
@@ -1474,9 +1481,9 @@ else
         ;;
       S)
         prev_n=$((prev_n + 1))
-        if [ ! -f "$pkg_root/scripts/$row_val" ]; then
+        if [ ! -f "$pkg_root/$scripts_dir/$row_val" ]; then
           add_problem "  - $row_id 机械行点名脚本不存在: $row_val"
-        elif ! LC_ALL=C awk -F'\t' -v p="scripts/$row_val" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_scripts"; then
+        elif ! LC_ALL=C awk -F'\t' -v p="$scripts_dir/$row_val" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_scripts"; then
           add_problem "  - $row_id 机械行点名脚本未在清单 scripts 节登记: $row_val"
         fi
         ;;

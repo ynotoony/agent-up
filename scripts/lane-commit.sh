@@ -20,6 +20,15 @@
 
 # 用法、合同行格式与输出格式见同目录 README.md。
 
+# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量集中于此；值保持现形态，零翻值）----
+
+DOCS_ISSUES_INDEX='docs/issues/index.json'
+DOCS_ISSUES_DIR='docs/issues'
+DOCS_PROGRESS_CURRENT='docs/progress-current.md'
+DOCS_AGENT_DIR='docs/agent'
+DOCS_AGENT_MICRO='docs/agent/micro.jsonl'
+SCRIPTS_DIR='scripts'
+
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
@@ -227,8 +236,8 @@ while IFS= read -r line || [ -n "${line}" ]; do
             case ${f_id} in
               *"${TAB}"*) die1 "flips 行各段不得含制表符: ${val}" ;;
             esac
-            [ "${f_file}" = 'docs/issues/index.json' ] || \
-              die1 "索引条目翻转目标须为 docs/issues/index.json: ${f_file}"
+            [ "${f_file}" = "${DOCS_ISSUES_INDEX}" ] || \
+              die1 "索引条目翻转目标须为 ${DOCS_ISSUES_INDEX}: ${f_file}"
             [ -n "${f_id}" ] || die1 "索引条目翻转 id 为空: ${val}"
             [ -n "${f_status}" ] || die1 "索引条目翻转 status 为空: ${val}"
             [ -n "${f_updated}" ] || die1 "索引条目翻转 updated_at 为空: ${val}"
@@ -404,7 +413,7 @@ index_precheck() {
       if (bad) rc = 1
       exit rc
     }
-  ' "${repo_root}/docs/issues/index.json"
+  ' "${repo_root}/${DOCS_ISSUES_INDEX}"
 }
 
 index_write() {
@@ -441,7 +450,7 @@ index_write() {
       if (bad) rc = 1
       exit rc
     }
-  ' "${repo_root}/docs/issues/index.json"
+  ' "${repo_root}/${DOCS_ISSUES_INDEX}"
 }
 
 # 生成器定位（索引翻转时必需；同目录优先，PATH 回退；缺失即预检停止）
@@ -469,7 +478,7 @@ if [ "${n_index_flip}" -gt 0 ]; then
     if [ -n "${gen_cmd}" ]; then
       printf 'lane-commit: 生成器定位: PATH %s\n' "${gen_cmd}"
     else
-      die1 '投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：按 development-process §12.5 派生载体独占写，索引翻转必须伴随投影再生；将生成器落位到本脚本同目录（scripts/）或 PATH 后重跑'
+      die1 "投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：按 development-process §12.5 派生载体独占写，索引翻转必须伴随投影再生；将生成器落位到本脚本同目录（${SCRIPTS_DIR}/）或 PATH 后重跑"
     fi
   fi
 fi
@@ -489,13 +498,13 @@ for flip in ${flips}; do
       die1 "索引条目 updated_at 不合 ISO 8601 口径（YYYY-MM-DDTHH:MM[:SS]）: ${f_updated}"
     [ "${f_id}" = "${t_stem}" ] || \
       die1 "索引条目 id 与 ticket 票文件不符: ${f_id} ≠ ${t_stem}（正文 Status 回写目标由 ticket 行决定）"
-    index_precheck "${f_id}" || die1 "索引预检未通过: docs/issues/index.json（${f_id}）——单写已取消，未产生任何写入或提交"
+    index_precheck "${f_id}" || die1 "索引预检未通过: ${DOCS_ISSUES_INDEX}（${f_id}）——单写已取消，未产生任何写入或提交"
     if [ "${ticket_is_json}" -eq 0 ]; then
       flip_run "${ticket}" /dev/null body '' "${f_status}" || \
         die1 "正文 Status 回写预检未通过: ${ticket}"
     fi
   elif [ "${f_field}" = 'status' ]; then
-    die1 "flips 行 field=status 已退役：票状态经索引条目翻转承载（flips: docs/issues/index.json:index:<id>:<status>:<updated_at>，票 37）"
+    die1 "flips 行 field=status 已退役：票状态经索引条目翻转承载（flips: ${DOCS_ISSUES_INDEX}:index:<id>:<status>:<updated_at>，票 37）"
   else
     f_rest=${flip#*"${TAB}"}
     f_val=${f_rest#*"${TAB}"}
@@ -560,11 +569,11 @@ for flip in ${flips}; do
     index_write "${f_id}" "${f_status}" "${f_updated}" > "${tmp_idx}" || {
       rm -f "${tmp_idx}"
       tmp_idx=''
-      die1 "索引单写未通过校验: docs/issues/index.json（${f_id}）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建；核对索引排版后重跑（幂等，已翻条目再跑无副作用）"
+      die1 "索引单写未通过校验: ${DOCS_ISSUES_INDEX}（${f_id}）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建；核对索引排版后重跑（幂等，已翻条目再跑无副作用）"
     }
-    mv "${tmp_idx}" "${repo_root}/docs/issues/index.json"
+    mv "${tmp_idx}" "${repo_root}/${DOCS_ISSUES_INDEX}"
     tmp_idx=''
-    printf 'lane-commit: 索引单写: docs/issues/index.json（%s → %s，updated_at %s）\n' "${f_id}" "${f_status}" "${f_updated}"
+    printf "lane-commit: 索引单写: ${DOCS_ISSUES_INDEX}（%s → %s，updated_at %s）\n" "${f_id}" "${f_status}" "${f_updated}"
     if [ "${ticket_is_json}" -eq 1 ]; then
       # .json 票体无 **Status:** 行（状态唯一真相源＝索引），跳过正文回写（票 108）
       printf 'lane-commit: 跳过正文 Status 回写: %s（.json 票体无 **Status:** 行，状态唯一真相源＝索引）\n' "${ticket}"
@@ -579,7 +588,7 @@ for flip in ${flips}; do
       tmp_flip=''
       printf 'lane-commit: 正文 Status 回写（投影打印件）: %s → **Status:** `%s`\n' "${ticket}" "${f_status}"
     fi
-    proj_file='docs/progress-current.md'
+    proj_file=${DOCS_PROGRESS_CURRENT}
     fneedle="${NL}${proj_file}${NL}"
     case "${NL}${record_files}" in
       *"${fneedle}"*) : ;;
@@ -615,7 +624,7 @@ if [ "${lane}" = 'user-review' ]; then
     # .json 票体零追加（票 108）：Checkpoint 落独立 checkpoint md——
     # docs/issues/<id>-review-checkpoint.md（与仓内既有 -review-checkpoint.md 先例同命名）；
     # 文件已存在则追加记录块，不存在则随记录块一并创建一级标题。
-    ck_target="docs/issues/${t_stem}-review-checkpoint.md"
+    ck_target="${DOCS_ISSUES_DIR}/${t_stem}-review-checkpoint.md"
     if [ ! -f "${repo_root}/${ck_target}" ]; then
       { printf '# 票 %s User Review Checkpoint（用户即 Review 道）\n' "${t_stem}"
         emit_checkpoint_block
@@ -639,8 +648,8 @@ if [ "${lane}" = 'user-review' ]; then
 fi
 
 if [ "${lane}" = 'micro' ]; then
-  micro_file='docs/agent/micro.jsonl'
-  mkdir -p "${repo_root}/docs/agent"
+  micro_file=${DOCS_AGENT_MICRO}
+  mkdir -p "${repo_root}/${DOCS_AGENT_DIR}"
   if [ ! -f "${repo_root}/${micro_file}" ]; then
     : > "${repo_root}/${micro_file}" || die1 '微账本懒创建失败'
   fi
@@ -658,7 +667,7 @@ fi
 if [ -n "${gen_cmd}" ]; then
   sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——收尾停止：产品提交 ${cid1} 已创建、索引与正文 Status 已更新、投影未刷新、记录提交未创建；手动运行生成器（sh ${gen_cmd} ${repo_root}）核对报因，修复后重跑收尾（幂等）"
   sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——收尾停止：投影与索引不一致或不可读，记录提交未创建；按生成器输出指路修复后重跑收尾（幂等）"
-  printf 'lane-commit: 投影已再生并核对: docs/progress-current.md\n'
+  printf "lane-commit: 投影已再生并核对: ${DOCS_PROGRESS_CURRENT}\n"
 fi
 
 # ---- 记录提交（两段式第二段，R-RC-003） ----

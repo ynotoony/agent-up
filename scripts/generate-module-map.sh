@@ -21,6 +21,11 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量收敛于此；值保持现形态零翻值）----
+MAP_DIR_REL='docs/architecture'
+RUNS_DIR_REL='docs/agent/runs'
+TOOL_REL='scripts/generate-module-map.sh'
+
 usage() {
   cat <<'USAGE'
 用法: sh generate-module-map.sh [repo-root]
@@ -65,8 +70,8 @@ esac
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1 || die2 "仓库根不是 Git 仓库: $repo_root"
 
-out_rel='docs/architecture/module-map.json'
-out_dir="$repo_root/docs/architecture"
+out_rel="$MAP_DIR_REL/module-map.json"
+out_dir="$repo_root/$MAP_DIR_REL"
 out_file="$repo_root/$out_rel"
 
 # ---- 临时文件与清理（全部落 TMPDIR，仓库内只写地图本件）----
@@ -238,7 +243,7 @@ set -- "$@" ')' -print
 
 src_list=$(cd "$repo_root" && LC_ALL=C find . \
   \( -name .git -o -name node_modules -o -name dist -o -name build -o -name coverage \
-     -o -name __pycache__ -o -name .venv -o -path './docs/agent/runs' \) -prune -o \
+     -o -name __pycache__ -o -name .venv -o -path "./$RUNS_DIR_REL" \) -prune -o \
   -type f "$@" \
   | sed 's|^\./||' | LC_ALL=C sort)
 
@@ -461,7 +466,7 @@ fi
 
 fp_list=$(cd "$repo_root" && LC_ALL=C find . \
   \( -name .git -o -name node_modules -o -name dist -o -name build -o -name coverage \
-     -o -name __pycache__ -o -name .venv -o -path './docs/agent/runs' \) -prune -o \
+     -o -name __pycache__ -o -name .venv -o -path "./$RUNS_DIR_REL" \) -prune -o \
   -type f -print \
   | sed 's|^\./||' | LC_ALL=C sort | grep -v -x -F -e "$out_rel") || fp_list=''
 
@@ -533,7 +538,7 @@ limits_rows=$(LC_ALL=C awk -F'\t' 'length($6) > 0 { n++; printf "%s%s", (n > 1 ?
 
 {
   printf '{\n'
-  printf '  "generated_from": "事实源=仓库源码文件的静态导入行；工具=scripts/generate-module-map.sh（票 30 拍板方案 A 首版，票 42 落位，票 43 扩展，票 44 引擎表驱动化：语言知识外置于与脚本同目录的 module-map.rules 规则表）",\n'
+  printf '  "generated_from": "事实源=仓库源码文件的静态导入行；工具='"$TOOL_REL"'（票 30 拍板方案 A 首版，票 42 落位，票 43 扩展，票 44 引擎表驱动化：语言知识外置于与脚本同目录的 module-map.rules 规则表）",\n'
   printf '  "generated_at": "%s",\n' "$generated_at"
   printf '  "coverage": {\n'
   printf '    "languages": [\n%s\n    ],\n' "$cov_body"

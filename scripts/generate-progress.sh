@@ -12,6 +12,11 @@
 
 # 用法与退出码见同目录 README.md。
 
+# ---- 路径常量区（票 111 波②：治理路径字面量收拢于此；值为登记现值，零翻值）----
+issues_index_rel='docs/issues/index.json'
+progress_current_rel='docs/progress-current.md'
+gen_script_rel='scripts/generate-progress.sh'
+
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
@@ -54,8 +59,8 @@ if [ -z "$repo_root" ]; then
   repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fi
 
-index_file="$repo_root/docs/issues/index.json"
-out_file="$repo_root/docs/progress-current.md"
+index_file="$repo_root/$issues_index_rel"
+out_file="$repo_root/$progress_current_rel"
 
 [ -f "$index_file" ] || die2 "索引文件不存在: ${index_file}（现役状态投影真相源缺失，fail-closed 不生成）"
 [ -r "$index_file" ] || die2 "索引文件不可读: $index_file"
@@ -100,10 +105,10 @@ trap cleanup EXIT HUP INT TERM
 generated_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 {
-  printf '<!-- generated_from: docs/issues/index.json + scripts/generate-progress.sh -->\n'
+  printf '<!-- generated_from: %s + %s -->\n' "$issues_index_rel" "$gen_script_rel"
   printf '<!-- generated_at: %s -->\n' "$generated_at"
-  printf '<!-- coverage: docs/issues/index.json 登记的全部票，每票一行，按 id 升序 -->\n'
-  printf '<!-- invalidation: 本文件为 Derived 投影，可由生成器整文件重建；与 docs/issues/index.json 不一致时以索引为准 -->\n'
+  printf '<!-- coverage: %s 登记的全部票，每票一行，按 id 升序 -->\n' "$issues_index_rel"
+  printf '<!-- invalidation: 本文件为 Derived 投影，可由生成器整文件重建；与 %s 不一致时以索引为准 -->\n' "$issues_index_rel"
   printf '\n'
   printf '# 现役状态投影（Derived）\n'
   printf '\n'

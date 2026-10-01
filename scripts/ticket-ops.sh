@@ -27,6 +27,14 @@
 
 # 用法、数据契约与退出码见同目录 README.md。
 
+# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量收拢于此；值为登记现值，零翻值）----
+issues_index_rel='docs/issues/index.json'
+issues_readme_rel='docs/issues/README.md'
+issues_dir_rel='docs/issues'
+changes_ledger_rel='docs/changes.jsonl'
+progress_current_rel='docs/progress-current.md'
+scripts_dir_rel='scripts'
+
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
@@ -247,11 +255,11 @@ case ${cmd} in
     ;;
 esac
 
-index_file="${repo_root}/docs/issues/index.json"
-readme_file="${repo_root}/docs/issues/README.md"
-ledger_file="${repo_root}/docs/changes.jsonl"
+index_file="${repo_root}/${issues_index_rel}"
+readme_file="${repo_root}/${issues_readme_rel}"
+ledger_file="${repo_root}/${changes_ledger_rel}"
 # 票 79：open 本体落盘位与 schema 权威（development-process §5.2 开票形态注记）
-ticket_file="${repo_root}/docs/issues/${id}.json"
+ticket_file="${repo_root}/${issues_dir_rel}/${id}.json"
 schema_file="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
 
 # 票 100：flip 收口硬拦载体定位（actual_time 校验用）；ledger 无票面，不要求票本体。
@@ -425,7 +433,7 @@ ticket_body_check() {
   command -v python3 >/dev/null 2>&1 || \
     die1 'python3 不可用——open 本体 schema 校验无法执行（fail-closed；票 79 起为本体校验依赖）'
   [ -f "${ticket_file}" ] || \
-    die1 "新票本体不存在: docs/issues/${id}.json——票 79 起 open 须先落位过 schema 的票 JSON 本体再开票"
+    die1 "新票本体不存在: ${issues_dir_rel}/${id}.json——票 79 起 open 须先落位过 schema 的票 JSON 本体再开票"
   [ -r "${ticket_file}" ] || die1 "新票本体不可读: ${ticket_file}"
   [ -f "${schema_file}" ] || \
     die1 "schema 文件不存在: ${schema_file}（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，development-process §5.2）"
@@ -535,22 +543,22 @@ else
   if [ -n "${gen_cmd}" ]; then
     printf 'ticket-ops: 生成器定位: PATH %s\n' "${gen_cmd}"
   else
-    die1 '投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——预检停止：按 development-process §12.5 派生载体独占写，票务面写入必须伴随投影再生；将生成器落位到本脚本同目录（scripts/）或 PATH 后重跑'
+    die1 "投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——预检停止：按 development-process §12.5 派生载体独占写，票务面写入必须伴随投影再生；将生成器落位到本脚本同目录（${scripts_dir_rel}/）或 PATH 后重跑"
   fi
 fi
 
 if [ "${cmd}" = 'open' ]; then
-  ticket_body_check || die1 "新票本体校验未通过: docs/issues/${id}.json——未产生任何写入"
-  index_check open || die1 "索引预检未通过: docs/issues/index.json（${id}）——未产生任何写入"
-  index_nn_check || die1 "NN 段预检未通过: docs/issues/index.json——未产生任何写入"
-  readme_row_check || die1 "issues-README 预检未通过: docs/issues/README.md——未产生任何写入"
+  ticket_body_check || die1 "新票本体校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入"
+  index_check open || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
+  index_nn_check || die1 "NN 段预检未通过: ${issues_index_rel}——未产生任何写入"
+  readme_row_check || die1 "issues-README 预检未通过: ${issues_readme_rel}——未产生任何写入"
 elif [ "${cmd}" = 'ledger' ]; then
   : # 无票面：账本行形状校验已于公共段完成（票 100），无索引/README 预检
 else
-  index_check flip || die1 "索引预检未通过: docs/issues/index.json（${id}）——未产生任何写入"
-  readme_token_check || die1 "issues-README 预检未通过: docs/issues/README.md（任务票 ${nn}）——未产生任何写入"
+  index_check flip || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
+  readme_token_check || die1 "issues-README 预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
   if [ "${cmd}" = 'flip' ]; then
-    actual_time_check || die1 "actual_time 收口校验未通过: docs/issues/${id}.json——未产生任何写入（票 100 fail-closed）"
+    actual_time_check || die1 "actual_time 收口校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（票 100 fail-closed）"
   fi
 fi
 
@@ -588,11 +596,11 @@ if [ "${cmd}" = 'open' ]; then
     }
   ' "${index_file}" > "${tmp_idx}" || {
     rm -f "${tmp_idx}"; tmp_idx=''
-    die1 "索引插入未通过校验: docs/issues/index.json——未产生任何写入"
+    die1 "索引插入未通过校验: ${issues_index_rel}——未产生任何写入"
   }
   mv "${tmp_idx}" "${index_file}"
   tmp_idx=''
-  printf 'ticket-ops: 索引新增条目: docs/issues/index.json（%s → ready，updated_at %s）\n' "${id}" "${now_ua}"
+  printf "ticket-ops: 索引新增条目: ${issues_index_rel}（%s → ready，updated_at %s）\n" "${id}" "${now_ua}"
 
   row="| \`${id}.json\` | 任务票 ${nn}；\`ready\`（${today} 开票） | ${title} |"
   tmp_readme=$(mktemp "${t_dir%/}/tix-readme.XXXXXX")
@@ -609,7 +617,7 @@ if [ "${cmd}" = 'open' ]; then
   }
   mv "${tmp_readme}" "${readme_file}"
   tmp_readme=''
-  printf 'ticket-ops: README 追加目录清单行: docs/issues/README.md（任务票 %s；`ready`）\n' "${nn}"
+  printf "ticket-ops: README 追加目录清单行: ${issues_readme_rel}（任务票 %s；\`ready\`）\n" "${nn}"
 elif [ "${cmd}" != 'ledger' ]; then
   tmp_idx=$(mktemp "${t_dir%/}/tix-idx.XXXXXX")
   IDX_ID=${id} IDX_STATUS=${status} IDX_UA=${now_ua} awk '
@@ -646,11 +654,11 @@ elif [ "${cmd}" != 'ledger' ]; then
     }
   ' "${index_file}" > "${tmp_idx}" || {
     rm -f "${tmp_idx}"; tmp_idx=''
-    die1 "索引单写未通过校验: docs/issues/index.json（${id}）——未产生任何写入"
+    die1 "索引单写未通过校验: ${issues_index_rel}（${id}）——未产生任何写入"
   }
   mv "${tmp_idx}" "${index_file}"
   tmp_idx=''
-  printf 'ticket-ops: 索引单写: docs/issues/index.json（%s → %s，updated_at %s）\n' "${id}" "${status}" "${now_ua}"
+  printf "ticket-ops: 索引单写: ${issues_index_rel}（%s → %s，updated_at %s）\n" "${id}" "${status}" "${now_ua}"
 
   tmp_readme=$(mktemp "${t_dir%/}/tix-readme.XXXXXX")
   RD_ANCHOR="任务票 ${nn}；" RD_STATUS=${status} awk '
@@ -686,7 +694,7 @@ elif [ "${cmd}" != 'ledger' ]; then
   }
   mv "${tmp_readme}" "${readme_file}"
   tmp_readme=''
-  printf 'ticket-ops: README 状态列替换: docs/issues/README.md（任务票 %s → `%s`，行内其余文本不动）\n' "${nn}" "${status}"
+  printf "ticket-ops: README 状态列替换: ${issues_readme_rel}（任务票 %s → \`%s\`，行内其余文本不动）\n" "${nn}" "${status}"
 fi
 
 if [ ! -f "${ledger_file}" ]; then
@@ -696,7 +704,7 @@ fi
 [ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}——已写部分如实报告"
 ledger_lineno=$(( $(wc -l < "${ledger_file}" | tr -d ' ') + 1 ))
 printf '%s\n' "${ledger_line}" >> "${ledger_file}" || die1 "账本落行失败: ${ledger_file}——已写部分如实报告"
-printf 'ticket-ops: 账本落行: docs/changes.jsonl（第 %d 行）\n' "${ledger_lineno}"
+printf "ticket-ops: 账本落行: ${changes_ledger_rel}（第 %d 行）\n" "${ledger_lineno}"
 
 if [ "${cmd}" = 'ledger' ]; then
   : # 无票面写入收口（票 100）：不触索引/README/投影，仅账本落行
@@ -706,6 +714,6 @@ fi
 
 sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入、投影未刷新；按生成器报因处理后核对重跑"
 sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入；投影与索引不一致，核对后重跑"
-printf 'ticket-ops: 投影已再生并核对: docs/progress-current.md\n'
+printf "ticket-ops: 投影已再生并核对: ${progress_current_rel}\n"
 
 printf 'ticket-ops: PASS（%s 完成：索引、issues-README、账本、投影 --check 全部落地）\n' "${cmd}"

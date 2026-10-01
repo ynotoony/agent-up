@@ -35,6 +35,11 @@ NL='
 '
 TAB=$(printf '\t')
 
+# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量收敛于此；值保持现形态零翻值）----
+RUNS_DIR_REL='docs/agent/runs'
+ISSUES_DIR_REL='docs/issues'
+SCRIPTS_README_REL='scripts/README.md'
+
 usage() {
   cat <<'USAGE'
 用法: sh scripts/run-record.sh [repo-root] <command> [options]
@@ -140,8 +145,8 @@ git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1 || \
 # ---- stats 子命令（票 71）：只读聚合 usage 用量报表，零写入，坏卡 fail-closed ----
 
 if [ "$cmd" = stats ]; then
-  [ -d "$repo_root/docs/agent/runs" ] || \
-    die1 'docs/agent/runs/ 不存在——无卡可聚合（fail-closed）'
+  [ -d "$repo_root/$RUNS_DIR_REL" ] || \
+    die1 "$RUNS_DIR_REL/ 不存在——无卡可聚合（fail-closed）"
   RR=$repo_root python3 - <<'PYEOF'
 import glob, json, os, sys
 
@@ -235,7 +240,7 @@ compute_fingerprint() {
   : > "$tmp_fp"
   fp_list=$(cd "$repo_root" && LC_ALL=C find . \
     \( -name .git -o -name node_modules -o -name dist -o -name build -o -name coverage \
-       -o -name __pycache__ -o -name .venv -o -path './docs/agent/runs' \) -prune -o \
+       -o -name __pycache__ -o -name .venv -o -path "./$RUNS_DIR_REL" \) -prune -o \
     -type f -print \
     | sed 's|^\./||' | LC_ALL=C sort) || fp_list=''
   [ -n "$fp_list" ] || die1 '工作区文件清单为空——无法计算 fp-v1 指纹'
@@ -302,7 +307,7 @@ json_array_body() {
 
 get_index_status() {
   # $1=票 id：自 docs/issues/index.json 锚点行读 status 现值（真相源；fail-closed 校验）。
-  idx_file="$repo_root/docs/issues/index.json"
+  idx_file="$repo_root/$ISSUES_DIR_REL/index.json"
   [ -f "$idx_file" ] || die1 "票索引文件不存在: $idx_file（票状态真相源缺失）"
   [ -r "$idx_file" ] || die1 "票索引文件不可读: $idx_file"
   idx_hits=$(grep -c -F "\"id\": \"${1}\"" "$idx_file" || true)
@@ -357,8 +362,8 @@ if [ "$cmd" = 'new' ]; then
   printf '%s' "$run_id" | LC_ALL=C grep -Eq '^[0-9]{8}-[a-z0-9]{6,}$' || \
     die1 "生成的 run_id 不合 schema pattern: ${run_id}"
 
-  out_rel="docs/agent/runs/${run_id}.json"
-  out_dir="$repo_root/docs/agent/runs"
+  out_rel="$RUNS_DIR_REL/${run_id}.json"
+  out_dir="$repo_root/$RUNS_DIR_REL"
   out_file="$repo_root/$out_rel"
   [ -e "$out_file" ] && die1 "目标文件已存在（new 非幂等防覆盖）: $out_file"
 
@@ -378,7 +383,7 @@ if [ "$cmd" = 'new' ]; then
     printf '  "run_id": "%s",\n' "$run_id"
     printf '  "mode": "%s",\n' "$mode"
     printf '  "phase": "%s",\n' "$phase"
-    printf '  "task": "docs/issues/%s.json（票 %s）",\n' "$ticket" "${ticket%%-*}"
+    printf '  "task": "'"$ISSUES_DIR_REL"'/%s.json（票 %s）",\n' "$ticket" "${ticket%%-*}"
     printf '  "status": {\n'
     printf '    "session": "active",\n'
     printf '    "task": "%s"\n' "$idx_status"
@@ -427,7 +432,7 @@ esac
 [ -f "$rr_file" ] || die1 "run record 文件不存在: $rr_file"
 [ -r "$rr_file" ] || die1 "run record 文件不可读: $rr_file"
 command -v python3 >/dev/null 2>&1 || \
-  die2 '未找到 python3（seal 解析校验依赖，口径见 scripts/README.md 专节）——无法校验'
+  die2 "未找到 python3（seal 解析校验依赖，口径见 $SCRIPTS_README_REL 专节）——无法校验"
 
 if grep -q -F '【待填' "$rr_file"; then
   die1 '存在【待填】残留（scope/last_verified/next_step 未填或未删干净）——fail-closed'

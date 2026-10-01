@@ -18,6 +18,9 @@
 set -eu
 set -f  # 关闭文件名展开：参数只按字面传递
 
+# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径唯一承载点；零翻值）----
+scripts_readme='scripts/README.md'  # 口径登记面（同目录 README ticket-grade 专节）
+
 usage() {
   cat <<'USAGE'
 用法: sh scripts/ticket-grade.sh <ticket.json> [<ticket.json> ...]
@@ -40,7 +43,7 @@ esac
 [ $# -ge 1 ] || { usage >&2; exit 2; }
 die() { printf 'ticket-grade: %s\n' "$1" >&2; exit 2; }
 command -v python3 >/dev/null 2>&1 || \
-  die '未找到 python3（判据计算依赖，口径见 scripts/README.md 专节）——无法计算'
+  die "未找到 python3（判据计算依赖，口径见 $scripts_readme 专节）——无法计算"
 
 python3 - "$@" <<'PYEOF'
 # -*- coding: utf-8 -*-

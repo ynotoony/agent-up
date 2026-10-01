@@ -14,6 +14,16 @@
 set -eu
 set -f  # 关闭文件名展开：模式匹配只经 case，路径展开不可依赖
 
+# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径唯一承载点；零翻值）----
+artifacts_yaml='docs/agent/artifacts.yaml'   # 治理产物登记（仓根相对）
+docs_dir='docs'                              # 受管目录（递归树根，数据块引用）
+scripts_dir='scripts'                        # 受管目录（单层平面根，数据块引用）
+agent_runs='docs/agent/runs/'                # 协议豁免：运行记录投影（整目录）
+progress_current='docs/progress-current.md'  # 协议豁免：生成投影（生成器独占写）
+issues_index='docs/issues/index.json'        # 协议豁免：状态真相源单写面
+changes_jsonl='docs/changes.jsonl'           # 协议豁免：追加面账本
+agent_micro='docs/agent/micro.jsonl'         # 协议豁免＋懒创建：道账本
+
 usage() {
   cat <<'USAGE'
 用法: sh check-artifacts.sh <repo-root>
@@ -41,7 +51,7 @@ esac
 repo_root=$1
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 repo_root=$(CDPATH= cd "$repo_root" && pwd)
-yaml="$repo_root/docs/agent/artifacts.yaml"
+yaml="$repo_root/$artifacts_yaml"
 [ -f "$yaml" ] || die2 "治理产物登记缺失: docs/agent/artifacts.yaml（相对 $repo_root）"
 
 t_dir=${TMPDIR:-/tmp}
@@ -51,7 +61,8 @@ ca_scan=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 cleanup() { rm -f "$ca_entries" "$ca_managed" "$ca_scan"; }
 trap cleanup EXIT HUP INT TERM
 
-# ---- 对账数据块（票 59 D2 定谳；受管口径与协议豁免唯一承载点，引擎零目录硬编码）----
+# ---- 对账数据块（票 59 D2 定谳；受管口径与协议豁免唯一承载点，引擎零目录硬编码；
+#      路径字面值见头部路径常量区，票 111 波②）----
 # ca_managed_file <repo-root 相对路径>       受管根单文件（存在才进反向清单）
 # ca_managed_tree <目录> <扩展名逗号清单>     受管目录（递归，按扩展名过滤）
 # ca_managed_flat <目录> <扩展名逗号清单>     受管目录（单层，按扩展名过滤）
@@ -62,17 +73,17 @@ trap cleanup EXIT HUP INT TERM
 # 约定（设计票 §2 分界判据）；本数据块仅保留记录层通用语义的协议豁免（基线五项）。
 load_reconcile_data() {
   ca_managed_file AGENTS.md
-  ca_managed_tree docs md,json,jsonl,yaml
-  ca_managed_flat scripts sh,rules
+  ca_managed_tree "$docs_dir" md,json,jsonl,yaml
+  ca_managed_flat "$scripts_dir" sh,rules
   # 协议豁免（票 59 基线五项：记录层通用语义＝协议面留引擎，理由注记＝维护时不得
   # 静默增删；校准豁免见 delivery.rules calibration 节）：
-  ca_exempt docs/agent/runs/              # 运行记录投影（整目录）
-  ca_exempt docs/progress-current.md      # 生成投影（生成器独占写）
-  ca_exempt docs/issues/index.json        # 状态真相源单写面
-  ca_exempt docs/changes.jsonl            # 追加面账本
-  ca_exempt docs/agent/micro.jsonl        # 道账本（懒创建追加面）
+  ca_exempt "$agent_runs"                 # 运行记录投影（整目录）
+  ca_exempt "$progress_current"           # 生成投影（生成器独占写）
+  ca_exempt "$issues_index"               # 状态真相源单写面
+  ca_exempt "$changes_jsonl"              # 追加面账本
+  ca_exempt "$agent_micro"                # 道账本（懒创建追加面）
   # 懒创建面（登记允许暂缺，票 59 校准：微账本由道脚本首次收尾懒创建）：
-  ca_lazy docs/agent/micro.jsonl
+  ca_lazy "$agent_micro"
 }
 
 ca_exempts=''
@@ -307,7 +318,7 @@ ca_bad=$(LC_ALL=C awk '
   }
 ' "$yaml") || ca_parse_rc=$?
 if [ "${ca_parse_rc:-0}" -ne 0 ]; then
-  printf 'check-artifacts: 错误：登记解析破坏（fail-closed，不产生部分结论）: docs/agent/artifacts.yaml\n' >&2
+  printf 'check-artifacts: 错误：登记解析破坏（fail-closed，不产生部分结论）: %s\n' "$artifacts_yaml" >&2
   printf '%s\n' "$ca_bad" | grep '^ERR: ' | sed 's/^ERR: //' >&2
   exit 2
 fi

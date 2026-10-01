@@ -18,6 +18,13 @@
 
 # 用法、守卫口径与维护规则见同目录 README.md 专节。
 
+# ---- 路径常量区（票 111 波②：docs/ 治理路径字面量集中于此；值保持现形态，零翻值）----
+
+DOCS_CHANGES='docs/changes.jsonl'
+DOCS_AGENT_MICRO='docs/agent/micro.jsonl'
+DOCS_PROGRESS_FROZEN='docs/progress.md'
+DOCS_ARCHIVE_PROGRESS='docs/archive/progress.md'
+
 set -eu
 
 usage() {
@@ -200,9 +207,9 @@ check_frozen_file() {
   return 0
 }
 
-check_append_file 'docs/changes.jsonl'
-check_append_file 'docs/agent/micro.jsonl'
-check_frozen_file 'docs/progress.md' 'docs/archive/progress.md'
+check_append_file "${DOCS_CHANGES}"
+check_append_file "${DOCS_AGENT_MICRO}"
+check_frozen_file "${DOCS_PROGRESS_FROZEN}" "${DOCS_ARCHIVE_PROGRESS}"
 
 if [ "${violations}" -gt 0 ]; then
   printf 'check-append-only: FAIL（%d 个文件违规）\n' "${violations}"

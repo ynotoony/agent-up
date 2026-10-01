@@ -21,6 +21,19 @@
 # 状态陈述纪律见 development-process 模板 §15：状态以权威引用表达，本脚本
 # 即"登记表条目 = 权威位置 + 核对方式"的执行器。
 
+# ---- 路径常量区（票 111 波②：治理路径字面量收拢于此；值为登记现值，零翻值）----
+progress_rel='docs/archive/progress.md'
+progress_current_rel='docs/progress-current.md'
+archive_changes_rel='docs/archive/changes.md'
+issues_dir_rel='docs/issues'
+issues_readme_rel='docs/issues/README.md'
+issues_index_rel='docs/issues/index.json'
+artifacts_yaml_rel='docs/agent/artifacts.yaml'
+agent_runs_dir_rel='docs/agent/runs'
+arch_generated_dir_rel='docs/architecture/generated'
+repo_scripts_dir_rel='scripts'
+s5_scan_glob='docs/research/*.md'
+
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
@@ -280,13 +293,11 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      S1/S5）。对账分层：一致性对账
 #      （投影↔索引，S3）之外，终态语义由 S6 承载（development-process §5.1）。
 
-progress_rel='docs/archive/progress.md'
 readme_rel='README.md'
 # S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，
 # 引擎零包前缀硬编码；未声明 payload 节时为空，S2 安装行子项按退化语义 WARN 跳过）
 pkg_readme_rel=''
 [ -n "$DP_ROOT" ] && pkg_readme_rel="$DP_ROOT/README.md"
-issues_readme_rel='docs/issues/README.md'
 
 # ---- S1 Git 状态句 ---------------------------------------------------------
 
@@ -441,13 +452,13 @@ s3_projection_rows() {
 }
 
 check_s3() {
-  _idx="$repo_root/docs/issues/index.json"
-  _proj="$repo_root/docs/progress-current.md"
+  _idx="$repo_root/$issues_index_rel"
+  _proj="$repo_root/$progress_current_rel"
   _gen=''
   if [ -f "$script_dir/generate-progress.sh" ] && [ -r "$script_dir/generate-progress.sh" ]; then
     _gen="$script_dir/generate-progress.sh"
-  elif [ -f "$repo_root/scripts/generate-progress.sh" ] && [ -r "$repo_root/scripts/generate-progress.sh" ]; then
-    _gen="$repo_root/scripts/generate-progress.sh"
+  elif [ -f "$repo_root/$repo_scripts_dir_rel/generate-progress.sh" ] && [ -r "$repo_root/$repo_scripts_dir_rel/generate-progress.sh" ]; then
+    _gen="$repo_root/$repo_scripts_dir_rel/generate-progress.sh"
   fi
 
   if [ -n "$_gen" ]; then
@@ -456,33 +467,33 @@ check_s3() {
     sh "$_gen" --check "$repo_root" >/dev/null 2>&1 || _grc=$?
     case $_grc in
       0) : ;;
-      1) emit_stale "docs/progress-current.md" '投影与索引不一致或投影缺失（generate-progress --check exit 1）——运行生成器刷新投影（docs/progress-current.md 为 Derived，生成器独占写）' ;;
-      2) emit_stale "docs/issues/index.json" '索引缺失、不可读或条目行不合预期（generate-progress --check exit 2）——真相源排版须修复或登记条目重新核对' ;;
-      *) emit_stale "docs/progress-current.md" "投影一致性核对异常（generate-progress --check exit $_grc）——人工核对生成器输出" ;;
+      1) emit_stale "$progress_current_rel" "投影与索引不一致或投影缺失（generate-progress --check exit 1）——运行生成器刷新投影（$progress_current_rel 为 Derived，生成器独占写）" ;;
+      2) emit_stale "$issues_index_rel" '索引缺失、不可读或条目行不合预期（generate-progress --check exit 2）——真相源排版须修复或登记条目重新核对' ;;
+      *) emit_stale "$progress_current_rel" "投影一致性核对异常（generate-progress --check exit $_grc）——人工核对生成器输出" ;;
     esac
     return 0
   fi
 
   # 退化路径：生成器不可用 → 内建最小比对（id/status/updated_at 三元组）并输出说明。
-  printf 'NOTE: docs/issues/index.json — 生成器 generate-progress.sh 不可用（脚本同目录与仓库 scripts/ 均未找到），S3 退化为内建最小比对（id/status/updated_at 三元组；checkpoint_ref 等列不参与）\n'
+  printf 'NOTE: %s — 生成器 generate-progress.sh 不可用（脚本同目录与仓库 %s/ 均未找到），S3 退化为内建最小比对（id/status/updated_at 三元组；checkpoint_ref 等列不参与）\n' "$issues_index_rel" "$repo_scripts_dir_rel"
   if [ ! -f "$_idx" ]; then
-    emit_stale "docs/issues/index.json" '登记的权威位置失效：索引文件不存在（票状态真相源缺失）'
+    emit_stale "$issues_index_rel" '登记的权威位置失效：索引文件不存在（票状态真相源缺失）'
     return 0
   fi
   if [ ! -f "$_proj" ]; then
-    emit_stale "docs/progress-current.md" '现役状态投影缺失——运行生成器落盘（generate-progress.sh，Derived 生成器独占写）'
+    emit_stale "$progress_current_rel" '现役状态投影缺失——运行生成器落盘（generate-progress.sh，Derived 生成器独占写）'
     return 0
   fi
   _a=$(s3_index_rows "$_idx") || {
-    emit_stale "docs/issues/index.json" '索引条目行缺必备字段（id/status/updated_at）或不合一条目一行排版——真相源排版须修复或登记条目重新核对'
+    emit_stale "$issues_index_rel" '索引条目行缺必备字段（id/status/updated_at）或不合一条目一行排版——真相源排版须修复或登记条目重新核对'
     return 0
   }
   _b=$(s3_projection_rows "$_proj") || {
-    emit_stale "docs/progress-current.md" '投影状态表行缺字段或不含任何状态表行——投影损坏，运行生成器重建'
+    emit_stale "$progress_current_rel" '投影状态表行缺字段或不含任何状态表行——投影损坏，运行生成器重建'
     return 0
   }
   if [ "$(printf '%s\n' "$_a" | LC_ALL=C sort)" != "$(printf '%s\n' "$_b" | LC_ALL=C sort)" ]; then
-    emit_stale "docs/progress-current.md" '投影与索引不一致（最小比对 id/status/updated_at 三元组存在差异）——运行生成器刷新投影；与 docs/issues/index.json 冲突时以索引为准'
+    emit_stale "$progress_current_rel" "投影与索引不一致（最小比对 id/status/updated_at 三元组存在差异）——运行生成器刷新投影；与 $issues_index_rel 冲突时以索引为准"
   fi
 }
 
@@ -580,9 +591,9 @@ S4_EXEMPT_INNER
 check_s4_count() {
   # S4-① 数量相等：README 锚点行数 ↔ index 任务条目行数；缺失/锚点零命中 WARN 跳过。
   _rf="$repo_root/$issues_readme_rel"
-  _idx="$repo_root/docs/issues/index.json"
+  _idx="$repo_root/$issues_index_rel"
   if [ ! -f "$_rf" ] || [ ! -f "$_idx" ]; then
-    emit_warn "$issues_readme_rel" 'S4 数量相等断言跳过：docs/issues/README.md 或 docs/issues/index.json 缺失，按退化语义不硬猜'
+    emit_warn "$issues_readme_rel" "S4 数量相等断言跳过：$issues_readme_rel 或 $issues_index_rel 缺失，按退化语义不硬猜"
     return 0
   fi
   _rn=$(LC_ALL=C grep -c '任务票 [0-9][0-9]*；' "$_rf") || _rn=0
@@ -592,7 +603,7 @@ check_s4_count() {
     return 0
   fi
   if [ "$_rn" -ne "$_in" ]; then
-    emit_stale "$issues_readme_rel" "S4 数量相等断言失效：README「任务票 NN；」锚点行 $_rn 行 vs docs/issues/index.json 任务条目 $_in 条——ticket-ops 双写锁定面漂移，核对缺失侧"
+    emit_stale "$issues_readme_rel" "S4 数量相等断言失效：README「任务票 NN；」锚点行 $_rn 行 vs $issues_index_rel 任务条目 $_in 条——ticket-ops 双写锁定面漂移，核对缺失侧"
   fi
   return 0
 }
@@ -619,15 +630,15 @@ check_s4_scan() {
     done
     return 0
   }
-  if [ -f "$repo_root/docs/agent/artifacts.yaml" ]; then
-    _scan_file "$repo_root/docs/agent/artifacts.yaml"
+  if [ -f "$repo_root/$artifacts_yaml_rel" ]; then
+    _scan_file "$repo_root/$artifacts_yaml_rel"
   fi
   _s4_files=$(find "$repo_root/docs" \
-    \( -path "$repo_root/docs/issues" -o -path "$repo_root/docs/agent/runs" -o -path "$repo_root/docs/architecture/generated" \) -prune -o \
+    \( -path "$repo_root/$issues_dir_rel" -o -path "$repo_root/$agent_runs_dir_rel" -o -path "$repo_root/$arch_generated_dir_rel" \) -prune -o \
     -type f -name '*.md' -print 2>/dev/null)
   for _s4f in $_s4_files; do
     case $_s4f in
-      "$repo_root/docs/archive/progress.md" | "$repo_root/docs/archive/changes.md" | "$repo_root/docs/progress-current.md") continue ;;
+      "$repo_root/$progress_rel" | "$repo_root/$archive_changes_rel" | "$repo_root/$progress_current_rel") continue ;;
     esac
     [ -f "$_s4f" ] || continue
     _scan_file "$_s4f"
@@ -654,9 +665,7 @@ check_s4() {
 # 适用轨受控词表：本仓自用 | agent-up（两值；未来多产品轨预留登记机制，不扩展实现）。
 
 s5_load_globs() {
-  cat <<'S5_GLOB_DATA'
-docs/research/*.md
-S5_GLOB_DATA
+  printf '%s\n' "$s5_scan_glob"
 }
 
 s5_track_pat='轨:(本仓自用|agent-up)'
@@ -668,7 +677,7 @@ check_s5() {
   _s5_globs=$(s5_load_globs)
   [ -n "$_s5_globs" ] || return 0
   if ! git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    emit_warn 'docs/research/*.md' 'S5 结论标注断言跳过：目标当前不是 Git 工作区，新增/修改面无法判定，按流程退化语义跳过（对齐 S1）'
+    emit_warn "$s5_scan_glob" 'S5 结论标注断言跳过：目标当前不是 Git 工作区，新增/修改面无法判定，按流程退化语义跳过（对齐 S1）'
     return 0
   fi
   _s5_changed=$(git -C "$repo_root" -c core.quotePath=off status --porcelain --untracked-files=all 2>/dev/null) || _s5_changed=''
@@ -744,24 +753,24 @@ S5_HITS_INNER
 # ——仅经合并冲突引入索引的终态史不入哨兵集（现行流程翻转均经普通提交）。
 
 check_s6() {
-  _idx="$repo_root/docs/issues/index.json"
+  _idx="$repo_root/$issues_index_rel"
   if [ ! -f "$_idx" ]; then
-    emit_warn 'docs/issues/index.json' 'S6 终态哨兵跳过：索引文件不存在（票状态真相源缺失），对齐 S3 缺失退化语义'
+    emit_warn "$issues_index_rel" 'S6 终态哨兵跳过：索引文件不存在（票状态真相源缺失），对齐 S3 缺失退化语义'
     return 0
   fi
   if ! git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    emit_warn 'docs/issues/index.json' 'S6 终态哨兵跳过：目标当前不是 Git 工作区，终态基线不可判定，按流程退化语义跳过（对齐 S1/S5）'
+    emit_warn "$issues_index_rel" 'S6 终态哨兵跳过：目标当前不是 Git 工作区，终态基线不可判定，按流程退化语义跳过（对齐 S1/S5）'
     return 0
   fi
   # 基线提取：历次 + 行的 id/status 对（含工作区当前行的 status）。id 提取面＝
   # 「"id": "<token>"」紧邻 "status": "…" 的条目行（一条目一行排版，与 S3 同款口径；
   # 缩进宽容——真实索引为 4 空格缩进、夹具为紧凑形态，均受理）。
-  _s6_hist=$(git -C "$repo_root" log -p --format= -- docs/issues/index.json 2>/dev/null \
+  _s6_hist=$(git -C "$repo_root" log -p --format= -- "$issues_index_rel" 2>/dev/null \
     | LC_ALL=C grep '^+.*{"id": "' \
     | sed -n 's/^+[[:space:]]*{"id": "\([^"]*\)", "status": "\([^"]*\)".*/\1|\2/p') || _s6_hist=''
   _s6_now_row=$(LC_ALL=C grep -o '"id": "[^"]*", "status": "[^"]*"' "$_idx" 2>/dev/null || true)
   if [ -z "$_s6_hist" ] && [ -z "$_s6_now_row" ]; then
-    emit_warn 'docs/issues/index.json' 'S6 终态哨兵跳过：索引尚无基线提交且当前行无可提取条目（无可比历史），不硬猜'
+    emit_warn "$issues_index_rel" 'S6 终态哨兵跳过：索引尚无基线提交且当前行无可提取条目（无可比历史），不硬猜'
     return 0
   fi
   # 曾见终态集：历史上任一时刻 status 为终态的 id（当前行也计入——终态票现行终态属
@@ -777,7 +786,7 @@ check_s6() {
       done | superseded) continue ;;
       ready | in_progress | blocked | review_ready | review_pass | review_fail)
         if printf '%s\n' "$_s6_terminal_seen" | grep -qxF "$_s6_id"; then
-          emit_stale "docs/issues/index.json:$_s6_id" "S6 终态哨兵：票 $_s6_id 曾达终态，当前 status 被改回非终态 ${_s6_st}——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记"
+          emit_stale "$issues_index_rel:$_s6_id" "S6 终态哨兵：票 $_s6_id 曾达终态，当前 status 被改回非终态 ${_s6_st}——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记"
         fi
         ;;
       *)

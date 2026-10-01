@@ -18,6 +18,10 @@
 
 # 用法、安装政策数据格式与退出码见同目录 README.md 专节。
 
+# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量收拢于此；值为登记现值，零翻值）----
+scripts_dir_rel='scripts'
+scripts_readme_rel='scripts/README.md'
+
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
@@ -232,7 +236,7 @@ for row in $plan; do
   p=${row%%"$TAB"*}
   base=${p##*/}
   src="$script_dir/$base"
-  dst="$target_abs/scripts/$base"
+  dst="$target_abs/${scripts_dir_rel}/$base"
   if [ ! -f "$src" ]; then
     missing_src="$missing_src$sep  - ${p}（包内缺失: ${src}）"
   fi
@@ -250,7 +254,7 @@ fi
 
 # ---- 复制与逐件 cmp 核验（目标 scripts/ 缺失时创建并提示 README 事项）----
 
-dst_dir="$target_abs/scripts"
+dst_dir="$target_abs/${scripts_dir_rel}"
 created_scripts=0
 if [ ! -d "$dst_dir" ]; then
   mkdir -p "$dst_dir" || die1 "目标 scripts 目录创建失败: $dst_dir"
@@ -288,7 +292,7 @@ done
 IFS=$oldifs
 
 if [ "$created_scripts" -eq 1 ]; then
-  printf 'install: NOTE: %s 为本脚本新建——需生成 scripts/README.md（目录索引；README 生成不归本脚本，由执行体按包内模板补齐）\n' "$dst_dir"
+  printf "install: NOTE: %s 为本脚本新建——需生成 ${scripts_readme_rel}（目录索引；README 生成不归本脚本，由执行体按包内模板补齐）\n" "$dst_dir"
 fi
 
 # ---- 登记建议块（每复制件一行 artifacts.yaml 十三字段建议值；不代写目标治理文件）----
@@ -303,7 +307,7 @@ if [ "$copied" -gt 0 ]; then
     lc=${rest%%"$TAB"*}
     base=${p##*/}
     idbase=${base%.*}
-    printf '  {id: script-%s, path: scripts/%s, kind: script, authority: 权威层级第 4 级（流程规则；按目标项目权威层级定级）, owner: 经用户确认的执行体, lifecycle: %s, trigger: 对应门控启用（用户在差异清单确认时）, read_when: 目标项目运行该脚本时, sync_on: 无（包基线同源演化须登记差异）, depends_on: [development-process], generated_from: %s, platform: neutral, update_policy: 禁止覆盖（人工漂移走 reconcile，检出即停报告）}\n' "$idbase" "$base" "$lc" "$p"
+    printf "  {id: script-%s, path: ${scripts_dir_rel}/%s, kind: script, authority: 权威层级第 4 级（流程规则；按目标项目权威层级定级）, owner: 经用户确认的执行体, lifecycle: %s, trigger: 对应门控启用（用户在差异清单确认时）, read_when: 目标项目运行该脚本时, sync_on: 无（包基线同源演化须登记差异）, depends_on: [development-process], generated_from: %s, platform: neutral, update_policy: 禁止覆盖（人工漂移走 reconcile，检出即停报告）}\n" "$idbase" "$base" "$lc" "$p"
   done
   IFS=$oldifs
   printf 'install: 登记提醒: 每复制件按登记建议块同步登记 artifacts.yaml 条目（生成件登记并入条目单本账，见包内 development-process 模板 §5.3.1）；建议块仅为可粘贴建议值。\n'
