@@ -16,6 +16,8 @@
 # 数据区外禁再写游离治理路径字面量（注释同）；正则内转义形态与检查 3/4 自命中规避
 # 构造豁免（见头部注记与各检查内注记）。
 docs_dir='docs'
+rules_dir='rules'
+facts_dir='facts'
 scripts_dir='scripts'
 scripts_readme_rel='scripts/README.md'
 
@@ -667,13 +669,20 @@ else
   pass 6 '文本契约头齐全（*.md 与 *.tmpl）'
 fi
 
-# 检查 7：根治理文件不在包内（AGENTS.md、$docs_dir、.zcode/）。
+# 检查 7：根治理文件不在包内（AGENTS.md、$docs_dir、$rules_dir、$facts_dir、.zcode/——
+# 票 113 波④：rules/、facts/ 为新布局治理面，包内禁出现目标录像 docs/ 旧形态）。
 gov_found=''
 if [ -e "$pkg_root/AGENTS.md" ]; then
   gov_found='AGENTS.md（文件）'
 fi
 if [ -d "$pkg_root/$docs_dir" ]; then
   gov_found="$gov_found $docs_dir/（目录）"
+fi
+if [ -d "$pkg_root/$rules_dir" ]; then
+  gov_found="$gov_found $rules_dir/（目录）"
+fi
+if [ -d "$pkg_root/$facts_dir" ]; then
+  gov_found="$gov_found $facts_dir/（目录）"
 fi
 if [ -d "$pkg_root/.zcode" ]; then
   gov_found="$gov_found .zcode/（目录）"

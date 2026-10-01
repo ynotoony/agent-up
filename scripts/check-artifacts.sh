@@ -1,5 +1,5 @@
 #!/bin/sh
-# Input: 仓库根目录（唯一参数）与其治理产物登记 docs/agent/artifacts.yaml；受管口径与协议
+# Input: 仓库根目录（唯一参数）与其治理产物登记 facts/project/artifacts.yaml；受管口径与协议
 #        豁免自本脚本对账数据块（ca_* 指令，票 59 D2 定谳）读取——引擎零目录硬编码；
 #        校准豁免自仓根 delivery.rules calibration 节 dp_artifact_exempt 读取（票 72 迁移，
 #        解析破坏 exit 2 fail-closed；缺该行＝豁免消失，对应文件按未登记 FAIL 暴露）。
@@ -14,21 +14,22 @@
 set -eu
 set -f  # 关闭文件名展开：模式匹配只经 case，路径展开不可依赖
 
-# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径唯一承载点；零翻值）----
-artifacts_yaml='docs/agent/artifacts.yaml'   # 治理产物登记（仓根相对）
-docs_dir='docs'                              # 受管目录（递归树根，数据块引用）
-scripts_dir='scripts'                        # 受管目录（单层平面根，数据块引用）
-agent_runs='docs/agent/runs/'                # 协议豁免：运行记录投影（整目录）
-progress_current='docs/progress-current.md'  # 协议豁免：生成投影（生成器独占写）
-issues_index='docs/issues/index.json'        # 协议豁免：状态真相源单写面
-changes_jsonl='docs/changes.jsonl'           # 协议豁免：追加面账本
-agent_micro='docs/agent/micro.jsonl'         # 协议豁免＋懒创建：道账本
+# ---- 路径常量区（票 111 波②建立；票 113 波④翻值 rules/facts 新形态：
+#      映射 R9/R11/R12/R13/R15/R25）----
+artifacts_yaml='facts/project/artifacts.yaml'  # 治理产物登记（R9，仓根相对）
+rules_dir='rules'                              # 受管目录：约束面（递归树根）
+facts_dir='facts'                              # 受管目录：事实面（递归树根）
+requirements_runs='facts/requirements/runs/'   # 协议豁免：运行记录投影（整目录，R25）
+progress_current='facts/requirements/tickets/progress-current.md'  # 协议豁免：生成投影（R13）
+issues_index='facts/requirements/tickets/index.json'  # 协议豁免：状态真相源单写面（R15）
+changes_jsonl='facts/project/changes.jsonl'    # 协议豁免：追加面账本（R11）
+micro_jsonl='facts/project/micro.jsonl'        # 协议豁免＋懒创建：道账本（R12）
 
 usage() {
   cat <<'USAGE'
 用法: sh check-artifacts.sh <repo-root>
 参数:
-  repo-root  仓库根目录（其治理产物登记为 <repo-root>/docs/agent/artifacts.yaml）。
+  repo-root  仓库根目录（其治理产物登记为 <repo-root>/facts/project/artifacts.yaml）。
 对账口径:
   正向  登记条目 path 目标（剥离全角括注）必须存在（文件/目录/聚合 glob ≥1 匹配）；
         数据块懒创建面登记暂缺输出 SKIP 不计缺口。
@@ -52,7 +53,7 @@ repo_root=$1
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 repo_root=$(CDPATH= cd "$repo_root" && pwd)
 yaml="$repo_root/$artifacts_yaml"
-[ -f "$yaml" ] || die2 "治理产物登记缺失: docs/agent/artifacts.yaml（相对 $repo_root）"
+[ -f "$yaml" ] || die2 "治理产物登记缺失: facts/project/artifacts.yaml（相对 $repo_root）"
 
 t_dir=${TMPDIR:-/tmp}
 ca_entries=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
@@ -65,7 +66,8 @@ trap cleanup EXIT HUP INT TERM
 #      路径字面值见头部路径常量区，票 111 波②）----
 # ca_managed_file <repo-root 相对路径>       受管根单文件（存在才进反向清单）
 # ca_managed_tree <目录> <扩展名逗号清单>     受管目录（递归，按扩展名过滤）
-# ca_managed_flat <目录> <扩展名逗号清单>     受管目录（单层，按扩展名过滤）
+# ca_managed_flat <目录> <扩展名逗号清单>     受管目录（单层，按扩展名过滤；rules/facts
+#                                              布局下无数据块调用方，引擎段已移除）
 # ca_exempt <路径>                           反向豁免：精确路径；尾斜杠＝目录整支豁免
 # ca_lazy <路径>                             正向暂缺许可：登记目标允许尚不存在（懒创建面）
 # 注记（票 72 豁免迁移）：校准类豁免（docs/architecture/generated/，机器生成投影面）
@@ -73,17 +75,17 @@ trap cleanup EXIT HUP INT TERM
 # 约定（设计票 §2 分界判据）；本数据块仅保留记录层通用语义的协议豁免（基线五项）。
 load_reconcile_data() {
   ca_managed_file AGENTS.md
-  ca_managed_tree "$docs_dir" md,json,jsonl,yaml
-  ca_managed_flat "$scripts_dir" sh,rules
+  ca_managed_tree "$rules_dir" md,json,jsonl,yaml,sh,rules
+  ca_managed_tree "$facts_dir" md,json,jsonl,yaml
   # 协议豁免（票 59 基线五项：记录层通用语义＝协议面留引擎，理由注记＝维护时不得
   # 静默增删；校准豁免见 delivery.rules calibration 节）：
-  ca_exempt "$agent_runs"                 # 运行记录投影（整目录）
-  ca_exempt "$progress_current"           # 生成投影（生成器独占写）
-  ca_exempt "$issues_index"               # 状态真相源单写面
-  ca_exempt "$changes_jsonl"              # 追加面账本
-  ca_exempt "$agent_micro"                # 道账本（懒创建追加面）
+  ca_exempt "$requirements_runs"          # 运行记录投影（整目录，R25）
+  ca_exempt "$progress_current"           # 生成投影（生成器独占写，R13）
+  ca_exempt "$issues_index"               # 状态真相源单写面（R15）
+  ca_exempt "$changes_jsonl"              # 追加面账本（R11）
+  ca_exempt "$micro_jsonl"                # 道账本（懒创建追加面，R12）
   # 懒创建面（登记允许暂缺，票 59 校准：微账本由道脚本首次收尾懒创建）：
-  ca_lazy "$agent_micro"
+  ca_lazy "$micro_jsonl"
 }
 
 ca_exempts=''
@@ -114,12 +116,8 @@ ca_managed_tree() {
   fi
   return 0
 }
-ca_managed_flat() {
-  if [ -d "$repo_root/$1" ]; then
-    scan_ext_files "$repo_root/$1" flat "$2"
-  fi
-  return 0
-}
+# ca_managed_flat 指令处理函数已随 rules/facts 布局适配移除（票 113：双递归树收敛，
+# 单层平面扫描无数据块调用方）。
 scan_ext_files() {
   # $1=绝对目录 $2=tree|flat $3=扩展名逗号清单；命中文件以 repo-root 相对路径追加。
   # case 模式位上的变量展开发生在模式语法解析之后——模式内竖线是字面量而非分隔符，
@@ -146,6 +144,7 @@ scan_ext_files() {
   else
     find "$_dir" -type f > "$ca_scan" 2>/dev/null || true
   fi
+  # 注：flat 分支保留（scan_ext_files 通用形态），rules/facts 布局仅走 tree 分支。
   while IFS= read -r _fp; do
     [ -n "$_fp" ] || continue
     IFS='

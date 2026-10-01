@@ -4,7 +4,7 @@
 #        仓根 delivery.rules（票 72 配置点亮：dp_stale_lit 点亮位、payload 节 remote 名
 #        /包前缀/本地导出分支——S1/S2 配置面唯一承载点，解析破坏 exit 2 fail-closed；
 #        宣称锚点句「公开包已发布」属协议面留引擎，照设计 §2 分界判据）；与 Git 历史
-#        （S6 终态基线锚：docs/issues/index.json 的现行提交历史，票 94——只读 log -p，
+#        （S6 终态基线锚：facts/requirements/tickets/index.json 的现行提交历史，票 94——只读 log -p，
 #        不读其他历史面）。
 # Output: 登记条目逐项核对结果——STALE 行（过期断言，含 路径:行号:内容 定位）、
 #         WARN 行（提醒，含登记日期与【待定】阈值标注）、NOTE 行（比对机制退化说明，
@@ -21,18 +21,19 @@
 # 状态陈述纪律见 development-process 模板 §15：状态以权威引用表达，本脚本
 # 即"登记表条目 = 权威位置 + 核对方式"的执行器。
 
-# ---- 路径常量区（票 111 波②：治理路径字面量收拢于此；值为登记现值，零翻值）----
-progress_rel='docs/archive/progress.md'
-progress_current_rel='docs/progress-current.md'
-archive_changes_rel='docs/archive/changes.md'
-issues_dir_rel='docs/issues'
-issues_readme_rel='docs/issues/README.md'
-issues_index_rel='docs/issues/index.json'
-artifacts_yaml_rel='docs/agent/artifacts.yaml'
-agent_runs_dir_rel='docs/agent/runs'
-arch_generated_dir_rel='docs/architecture/generated'
-repo_scripts_dir_rel='scripts'
-s5_scan_glob='docs/research/*.md'
+# ---- 路径常量区（票 111 波②收拢；票 113 波④按 rules-facts-layout-spec §2 R9/R13/R14/R15/R18/R19/R24/R25 翻值）----
+progress_rel='facts/project/archive/progress.md'
+progress_current_rel='facts/requirements/tickets/progress-current.md'
+archive_changes_rel='facts/project/archive/changes.md'
+issues_dir_rel='facts/requirements/tickets'
+issues_readme_rel='facts/requirements/tickets/README.md'
+issues_index_rel='facts/requirements/tickets/index.json'
+artifacts_yaml_rel='facts/project/artifacts.yaml'
+agent_runs_dir_rel='facts/requirements/runs'
+arch_generated_dir_rel='facts/project/architecture/generated'
+repo_scripts_dir_rel='rules/implementation/scripts'
+s5_scan_glob='facts/requirements/research/*.md'
+facts_tree_rel='facts'
 
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -41,7 +42,7 @@ usage() {
   cat <<'USAGE'
 用法: sh check-stale-claims.sh [repo-root] [gate|session]
 参数:
-  repo-root  待核对的仓库根目录；缺省时取本脚本所在目录向上两级（脚本位于 agent-up/scripts/）。
+  repo-root  待核对的仓库根目录；缺省时取本脚本所在目录向上两级（脚本位于 agent-up/scripts/，仓库治理面在 facts/ 与 rules/implementation/scripts/）。
   模式        gate  票收口模式（默认）：发现过期断言输出定位并 exit 1，清洁 exit 0。
               session 会话启动模式：同样输出 STALE/WARN 但只作警告，恒 exit 0。
   也可用环境变量 STALE_CLAIMS_MODE=session 指定会话启动模式（第二参数优先）。
@@ -248,25 +249,25 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 # ---------------------------------------------------------------------------
 # 登记表（首批三条，结构：断言模式 | 权威位置 | 校验方式）
 #
-# S1 Git 状态句 | docs/archive/progress.md 的「Git 恢复基线」块（2026-09-23 票 87
-#    | 迁址自 docs/progress.md）
+# S1 Git 状态句 | facts/project/archive/progress.md 的「Git 恢复基线」块（2026-09-23 票 87
+#    | 迁址自 docs/progress.md，现 facts/project/archive/progress.md）
 #    | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、
 #      唯一 remote 与宣称地址一致、本地 main 未被他者远端分支包含）；非 Git 工作区按
 #      流程退化语义输出提醒跳过。（2026-09-18 票 37 修订：移除"工作区存在未提交改动"
-#      子项核对（原 1e）——该陈述为票 13 时点历史快照，docs/progress.md 现为冻结历史
+#      子项核对（原 1e）——该陈述为票 13 时点历史快照，docs/progress.md（现 facts/project/archive/progress.md）现为冻结历史
 #      档案（零写入），清洁工作区属稳态，逐字核对构成恒触发误报（S1-1e 已知缺口，
 #      1080560 补记在案）；基线块原文按"不改历史"保留，不因本修订改写。）
 # S2 发布状态句 | 根 README.md 宣称行 + agent-up/README.md 安装行
 #    | machine：文档宣称的仓库地址与实际远端配置归一化比对；远端可达性/可见性本地
 #      不核验（不出网）→ reminder。
-# S3 frontier 句 | docs/issues/index.json（票状态真相源）+ docs/progress-current.md（现役状态投影）
+# S3 frontier 句 | facts/requirements/tickets/index.json（票状态真相源）+ facts/requirements/tickets/progress-current.md（现役状态投影）
 #    | machine：投影 vs 索引比对——优先调用 generate-progress.sh --check（exit 0 一致；
 #      exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；
 #      生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明。
-#      （2026-09-18 票 37 修订：原"docs/issues/README.md 表行逐票对照票面状态"实现退役
+#      （2026-09-18 票 37 修订：原"docs/issues/README.md（现 facts/requirements/tickets/README.md）表行逐票对照票面状态"实现退役
 #      ——README 状态列已定位为人工登记投影（票 35 起），与索引冲突时以索引为准。）
-# S4 计数漂移句 | docs/issues/README.md 目录清单锚点行 + docs/issues/index.json 任务条目
-#               | docs/ 树 md + docs/agent/artifacts.yaml 现行面计数措辞
+# S4 计数漂移句 | facts/requirements/tickets/README.md 目录清单锚点行 + facts/requirements/tickets/index.json 任务条目
+#               | facts/ 树 md + facts/project/artifacts.yaml 现行面计数措辞
 #    | machine：两断言（票 65）——①数量相等：README「任务票 NN；」锚点行数与 index
 #      「"id": "NN-…"」条目行数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写
 #      锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：
@@ -275,7 +276,7 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      协调层 2026-09-21 裁决 O3：历史真陈述/机器生成面收窄出扫描面，现行面全数字
 #      免费、豁免表空表交付）。
 # S5 方案结论标注句 | 扫描面 glob 清单登记的方案类文档（s5_load_globs 数据节，现行唯一
-#               | 条目 docs/research/*.md；扩面须同步修订 R-DP-033 条文与本数据节，
+#               | 条目 facts/requirements/research/*.md；扩面须同步修订 R-DP-033 条文与本数据节，
 #               | 禁静默扩面——票 78 词表教训）
 #    | machine：R-DP-033 加固配套格式断言（票 85）——结论行（识别规则登记于 S5 数据
 #      节：行首「结论：」形态）逐行核对证据出处（file:）与适用轨（轨:本仓自用／
@@ -283,7 +284,7 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      Forbidden）；向前生效：只查工作区新增/修改面（git status --porcelain 判定），
 #      存量已提交文件不回溯（条文写死，票 85 风险注记：存量若回溯即红）；非 Git
 #      工作区 WARN 退化跳过（对齐 S1）。
-# S6 终态哨兵 | docs/issues/index.json（票状态真相源，一条目一行）
+# S6 终态哨兵 | facts/requirements/tickets/index.json（票状态真相源，一条目一行）
 #    | machine：终态哨兵（票 94，复盘缺口④幽灵态）——索引内 id 曾达终态（done/
 #      superseded）而当前 status 回到非终态（ready/in_progress/blocked/review_ready/
 #      review_pass/review_fail）即 STALE 指名票 id 与跃迁方向。基线锚＝该索引的 Git
@@ -499,15 +500,15 @@ check_s3() {
 
 # ---- S4 计数漂移哨兵（票 65）------------------------------------------------
 #
-# S4-① 数量相等：docs/issues/README.md 目录清单锚点行「任务票 <NN>；」（ticket-ops
-#      写入锚）行数与 docs/issues/index.json 任务条目行（"id": "<NN>-…" 形态）行数
+# S4-① 数量相等：facts/requirements/tickets/README.md 目录清单锚点行「任务票 <NN>；」（ticket-ops
+#      写入锚）行数与 facts/requirements/tickets/index.json 任务条目行（"id": "<NN>-…" 形态）行数
 #      机械相等；不等即 STALE 指名两侧计数（ticket-ops 双写锁定面漂移，手工删行/
 #      加行即报）。README 或索引缺失、锚点零命中 → WARN 跳过不硬猜（对齐 S1 非 Git
 #      退化语义）。比对对象是「README 里的票行」与「index 里的条目」，两文件自身
 #      不入计数。
 #
-# S4-② 计数模式扫描（推数字免费化，票 61 先例）：扫描面＝docs/ 树 *.md ＋
-#      docs/agent/artifacts.yaml，命中下述任一模式即 STALE-prone 指名 file:line，
+# S4-② 计数模式扫描（推数字免费化，票 61 先例）：扫描面＝facts/ 树 *.md ＋
+#      facts/project/artifacts.yaml，命中下述任一模式即 STALE-prone 指名 file:line，
 #      计入过期断言计数（gate exit 1 / session 只警告）。模式为 ERE、全程 LC_ALL=C
 #      字节语义；量词用交替字面量而非括号表达式（C locale 下多字节括号表达式按单
 #      字节匹配，不可靠）：
@@ -515,12 +516,12 @@ check_s3() {
 #        模式乙：共 [0-9]+ (张|条|项|件|个)
 #      排除面（数据注记，每条一句理由——历史真陈述/机器生成面非现行声明，不属
 #      「会腐烂的现行计数」；2026-09-21 协调层裁决 O3 收窄）：
-#        docs/issues/*.md              票面历史文件——历史票文不改写原则
-#        docs/agent/runs/              run record 投影——运行记录面
-#        docs/progress-current.md      现役状态投影——Derived 生成器独占写
-#        docs/archive/progress.md      冻结历史档案——指针注记后零写入（票 87 迁址）
-#        docs/archive/changes.md       只追加账本冻结件——历史条目不可改写（票 87 迁址）
-#        docs/architecture/generated/  机器生成投影面——与 runs/ 同性质（票 59 口径）
+#        facts/requirements/tickets/*.md       票面历史文件——历史票文不改写原则
+#        facts/requirements/runs/              run record 投影——运行记录面
+#        facts/requirements/tickets/progress-current.md      现役状态投影——Derived 生成器独占写
+#        facts/project/archive/progress.md      冻结历史档案——指针注记后零写入（票 87 迁址）
+#        facts/project/archive/changes.md       只追加账本冻结件——历史条目不可改写（票 87 迁址）
+#        facts/project/architecture/generated/  机器生成投影面——与 runs/ 同性质（票 59 口径）
 #      已知限制：文件清单经 find 逐名循环，路径含空白或冒号的病态形态不受理。
 #      裁量留痕（票 65）：现行文本预扫 15 命中＞3 停止线 → 阻塞报告 → 协调层裁决
 #      O3：排除面如上收窄 ＋ artifacts.yaml 两聚合注记免费化改写（除计数片段外
@@ -609,9 +610,9 @@ check_s4_count() {
 }
 
 check_s4_scan() {
-  # S4-② 计数模式扫描：artifacts.yaml 单件＋docs/ 树 md（排除面见数据节注记），
+  # S4-② 计数模式扫描：artifacts.yaml 单件＋facts/ 树 md（排除面见数据节注记），
   # 命中经豁免表恰整行比对后报 STALE-prone（计入过期断言计数）。
-  [ -d "$repo_root/docs" ] || return 0
+  [ -d "$repo_root/$facts_tree_rel" ] || return 0
   _s4_total=0
   _scan_file() {
     _sf=$1
@@ -633,16 +634,18 @@ check_s4_scan() {
   if [ -f "$repo_root/$artifacts_yaml_rel" ]; then
     _scan_file "$repo_root/$artifacts_yaml_rel"
   fi
-  _s4_files=$(find "$repo_root/docs" \
-    \( -path "$repo_root/$issues_dir_rel" -o -path "$repo_root/$agent_runs_dir_rel" -o -path "$repo_root/$arch_generated_dir_rel" \) -prune -o \
-    -type f -name '*.md' -print 2>/dev/null)
-  for _s4f in $_s4_files; do
-    case $_s4f in
-      "$repo_root/$progress_rel" | "$repo_root/$archive_changes_rel" | "$repo_root/$progress_current_rel") continue ;;
-    esac
-    [ -f "$_s4f" ] || continue
-    _scan_file "$_s4f"
-  done
+  if [ -d "$repo_root/$facts_tree_rel" ]; then
+    _s4_files=$(find "$repo_root/$facts_tree_rel" \
+      \( -path "$repo_root/$issues_dir_rel" -o -path "$repo_root/$agent_runs_dir_rel" -o -path "$repo_root/$arch_generated_dir_rel" \) -prune -o \
+      -type f -name '*.md' -print 2>/dev/null)
+    for _s4f in $_s4_files; do
+      case $_s4f in
+        "$repo_root/$progress_rel" | "$repo_root/$archive_changes_rel" | "$repo_root/$progress_current_rel") continue ;;
+      esac
+      [ -f "$_s4f" ] || continue
+      _scan_file "$_s4f"
+    done
+  fi
   stale_count=$((stale_count + _s4_total))
   return 0
 }
@@ -739,7 +742,7 @@ S5_HITS_INNER
 
 # ---- S6 终态哨兵（票 94，R3/R8 合并）-----------------------------------------
 #
-# 终态哨兵：docs/issues/index.json（票状态真相源）内 id 曾达终态（done/superseded）
+# 终态哨兵：facts/requirements/tickets/index.json（票状态真相源）内 id 曾达终态（done/superseded）
 # 而当前 status 回到非终态 → STALE 指名票 id 与跃迁方向（复盘缺口④：W5 重放把 done
 # 票打回 in_progress 时对账照绿——S3 只查投影↔索引一致性，不查状态语义合法性）。
 # 基线锚＝该索引的 Git 现行提交历史：`git log -p` 逐提交提取 + 行的 id/status，曾见

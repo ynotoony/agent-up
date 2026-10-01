@@ -1,7 +1,7 @@
 #!/bin/sh
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层，check-gates.sh :20 先例）＋语言规则表
 #        module-map.rules（与脚本同目录；语言提取知识唯一承载点，票 44 表驱动化）。
-# Output: <root>/docs/architecture/module-map.json——Derived 四标注头部（generated_from/
+# Output: <root>/facts/project/architecture/module-map.json——Derived 四标注头部（generated_from/
 #         generated_at/coverage/invalidation，R-DP-004）＋workspace_fingerprint（fp-v1，
 #         R-DP-015 算法；指纹输入排除本图自身，避免自引用漂移）＋nodes（已扫描源码文件，
 #         仓库根相对路径）＋edges（from=仓库根相对路径，to=导入语句文本中的模块引用原串，
@@ -21,10 +21,10 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
-# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量收敛于此；值保持现形态零翻值）----
-MAP_DIR_REL='docs/architecture'
-RUNS_DIR_REL='docs/agent/runs'
-TOOL_REL='scripts/generate-module-map.sh'
+# ---- 路径常量区（票 111 波②收拢；票 113 波④按 rules-facts-layout-spec §2 R19/R24/R25 翻值）----
+MAP_DIR_REL='facts/project/architecture'
+RUNS_DIR_REL='facts/requirements/runs'
+TOOL_REL='rules/implementation/scripts/generate-module-map.sh'
 
 usage() {
   cat <<'USAGE'
@@ -32,7 +32,7 @@ usage() {
 参数:
   repo-root   仓库根目录；缺省取当前目录所在 Git 仓库顶层。
   -h / --help 打印本用法。
-输出: <root>/docs/architecture/module-map.json（Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌）。
+输出: <root>/facts/project/architecture/module-map.json（Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌）。
 语言: 提取规则外置于脚本同目录的 module-map.rules（每语言一行，加语言＝加规则行、零引擎改动）；
       规则表缺失或不合预期即退出码 2（fail-closed）。
 退出码: 0 生成成功；1 生成条件不满足（无已登记源码、路径含控制字符、写入失败等；
@@ -226,7 +226,7 @@ fi
 MM_ROWS=$(cat "$tmp_rules")
 export MM_ROWS
 
-# ---- 源码文件发现（扩展名自规则表；prune 排除 .git、依赖与构建产物目录、docs/agent/runs）----
+# ---- 源码文件发现（扩展名自规则表；prune 排除 .git、依赖与构建产物目录、facts/requirements/runs）----
 
 mm_exts_all=$(LC_ALL=C awk -F'\t' '{ printf "%s ", $2 }' "$tmp_rules")
 set --

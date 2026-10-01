@@ -1,10 +1,10 @@
 #!/bin/sh
-# Input: 子命令与选项（new/seal/stats）与机械字段事实源三类：docs/issues/index.json（票状态
+# Input: 子命令与选项（new/seal/stats）与机械字段事实源三类：facts/requirements/tickets/index.json（票状态
 #        真相源，status.task 现值）、Git 只读命令（rev-parse HEAD 全哈希、status 改动
 #        清单）、工作区文件面（fp-v1 指纹，R-DP-015 算法，定稿描述权威＝agent-up/
 #        references/schemas/run-record.schema.json workspace_fingerprint 字段）。stats
-#        的输入＝docs/agent/runs/*.json 全量只读扫描（票 71）。
-# Output: new＝docs/agent/runs/<YYYYMMDD>-t<NN><phase 后缀>.json 十三字段骨架——机械字段
+#        的输入＝facts/requirements/runs/*.json 全量只读扫描（票 71）。
+# Output: new＝facts/requirements/runs/<YYYYMMDD>-t<NN><phase 后缀>.json 十三字段骨架——机械字段
 #         （run_id/mode/phase/task/status/updated_at/vcs_ref/指纹/modified_files）自动填，
 #         内容字段（scope/last_verified/next_step）留【待填：…】由执行体填，blocker 缺省
 #         空串、network 缺省 unknown；seal＝校验（python3 json.load 可解析、十四必填字段
@@ -13,7 +13,7 @@
 #         usage 必备且五子字段齐——票 70：缺 usage 或缺任一子字段 fail-closed 报明缺项，
 #         两段式落齐须在 seal 前完成）全过后按当前仓库状态重算重写四个机械字段
 #         （updated_at/vcs_ref/指纹/modified_files；重算指纹与旧值不同属正常刷新不算
-#         fail）；stats＝只读聚合 docs/agent/runs/*.json 的 usage 用量报表（票 71）：
+#         fail）；stats＝只读聚合 facts/requirements/runs/*.json 的 usage 用量报表（票 71）：
 #         总卡数、带 usage 卡数与覆盖率、tokens_total/requests/duration_seconds 三项
 #         合计、缺 usage 卡 run_id 清单与口径说明行；零写入，坏 JSON 卡或 usage 形状
 #         坏值 fail-closed 报文件名（exit 1）。
@@ -35,9 +35,9 @@ NL='
 '
 TAB=$(printf '\t')
 
-# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量收敛于此；值保持现形态零翻值）----
-RUNS_DIR_REL='docs/agent/runs'
-ISSUES_DIR_REL='docs/issues'
+# ---- 路径常量区（票 111 波②建立、票 113 波④翻值：治理路径字面量收敛于此；值＝rules/facts 新形态 R15/R25/R19；SCRIPTS_README_REL 包内自引用保持现值）----
+RUNS_DIR_REL='facts/requirements/runs'
+ISSUES_DIR_REL='facts/requirements/tickets'
 SCRIPTS_README_REL='scripts/README.md'
 
 usage() {
@@ -46,22 +46,22 @@ usage() {
 参数:
   repo-root      仓库根目录；缺省取脚本所在目录的上一级。
 命令:
-  new            生成 run record 骨架: docs/agent/runs/<YYYYMMDD>-t<NN><后缀>.json
+  new            生成 run record 骨架: facts/requirements/runs/<YYYYMMDD>-t<NN><后缀>.json
                  （后缀: implementation=impl / review=rev / commit=cmt；run_id＝文件名
                  去 .json，沿现役惯例如 20260921-t54impl）。机械字段自动填:
                  updated_at（当前 ISO 分钟）、baseline.vcs_ref（git rev-parse HEAD 全
                  哈希）、baseline.workspace_fingerprint（fp-v1: 排除 .git/node_modules/
-                 dist/build/coverage/__pycache__/.venv/docs-agent-runs，相对路径字典序，
+                 dist/build/coverage/__pycache__/.venv/facts-requirements-runs，相对路径字典序，
                  每行 路径<TAB>字节<TAB>mtime 纪元秒，SHA-256 前 16 位）、modified_files
                  （git status --porcelain -uall 改动清单＋本骨架自身，未跟踪目录展开到
                  文件，绝对路径）、status.task（自
-                 docs/issues/index.json 读该票现值）、status.session=active、task（票
+                 facts/requirements/tickets/index.json 读该票现值）、status.session=active、task（票
                  路径）、mode/phase（取参数，缺省 delivery/implementation）。内容字段
                  scope/last_verified/next_step 留【待填：…】由执行体填；blocker 缺省
                  空串、network 缺省 unknown（不算待填）。目标文件已存在即 exit 1（非幂
                  等防覆盖，撞日多卡由调用方换 phase 或后缀，脚本不静默改名）。选项:
                    --ticket <NN-slug>   票 id（^[0-9]{2,}-[a-z0-9-]+$，必选；须已在
-                                        docs/issues/index.json 登记恰 1 行且状态在 run
+                                        facts/requirements/tickets/index.json 登记恰 1 行且状态在 run
                                         record status.task 枚举内）
                    [--phase implementation|review|commit]
                    [--mode delivery|intake|triage]
@@ -78,7 +78,7 @@ usage() {
                  pattern。全过后按当前仓库状态重算重写四个机械字段（updated_at/vcs_ref/
                  指纹/modified_files；重算指纹与文件内旧值不同属正常刷新不算 fail），
                  缩进 2 写回。任一校验不过 exit 1（文件保持原字节）。
-  stats          只读聚合 docs/agent/runs/*.json 的 usage 用量报表（票 71）：输出总卡
+  stats          只读聚合 facts/requirements/runs/*.json 的 usage 用量报表（票 71）：输出总卡
                  数、带 usage 卡数与覆盖率、tokens_total/requests/duration_seconds 三
                  项合计、缺 usage 卡 run_id 清单与口径说明行。零写入零参数；坏 JSON
                  卡或 usage 形状坏值（非对象/非 ≥0 整数）fail-closed 报文件名 exit 1
@@ -150,9 +150,9 @@ if [ "$cmd" = stats ]; then
   RR=$repo_root python3 - <<'PYEOF'
 import glob, json, os, sys
 
-runs = sorted(glob.glob(os.path.join(os.environ['RR'], 'docs', 'agent', 'runs', '*.json')))
+runs = sorted(glob.glob(os.path.join(os.environ['RR'], 'facts', 'requirements', 'runs', '*.json')))
 if not runs:
-    print('run-record: FAIL: docs/agent/runs/ 无 .json 卡——无数据可聚合', file=sys.stderr)
+    print('run-record: FAIL: facts/requirements/runs/ 无 .json 卡——无数据可聚合', file=sys.stderr)
     sys.exit(1)
 total = with_usage = 0
 tok = req = dur = 0
@@ -233,7 +233,7 @@ fi
 
 compute_fingerprint() {
   # fp-v1（R-DP-015；算法描述权威＝run-record.schema.json workspace_fingerprint 字段）：
-  # 全文件排除 .git/node_modules/dist/build/coverage/__pycache__/.venv 与 docs/agent/runs
+  # 全文件排除 .git/node_modules/dist/build/coverage/__pycache__/.venv 与 facts/requirements/runs
   # （运行记录自身不参与指纹，避免自引用漂移），相对路径字典序，每行
   # 路径<TAB>字节数<TAB>mtime 纪元秒，SHA-256 十六进制前 16 位记 fp-v1:<hex16>。
   tmp_fp=$(mktemp "${t_dir%/}/runrecord.XXXXXX")
@@ -306,7 +306,7 @@ json_array_body() {
 }
 
 get_index_status() {
-  # $1=票 id：自 docs/issues/index.json 锚点行读 status 现值（真相源；fail-closed 校验）。
+  # $1=票 id：自 facts/requirements/tickets/index.json 锚点行读 status 现值（真相源；fail-closed 校验）。
   idx_file="$repo_root/$ISSUES_DIR_REL/index.json"
   [ -f "$idx_file" ] || die1 "票索引文件不存在: $idx_file（票状态真相源缺失）"
   [ -r "$idx_file" ] || die1 "票索引文件不可读: $idx_file"

@@ -1,9 +1,10 @@
 #!/bin/sh
 # Input: 仓库根目录（唯一参数）。守卫对象（票 58）：
-#        docs/changes.jsonl 与 docs/agent/micro.jsonl——只追加账本（Record 类，一行一事实，
+#        facts/project/changes.jsonl 与 facts/project/micro.jsonl——只追加账本（Record 类，一行一事实，
 #        懒创建）：工作树内容相对 HEAD 旧 blob 必须为尾部追加（旧 blob 内容为新内容前缀），
 #        中间插入/改写历史行/截断/删除即违规，FAIL 指名文件与首个违规行号（新文件行号）；
-#        docs/progress.md（未迁移仓稳态）与 docs/archive/progress.md（票 87 迁移后继）
+#        facts/project/archive/progress.md 与 facts/project/archive/changes.md（票 87 迁移后继、
+#        票 113 波④按 R14 平移）
 #        ——冻结历史档案（指针注记后零写入，development-process §11）：任何 diff 即
 #        违规；迁移窗口（HEAD 尚无后继路径）以后继工作树内容与 HEAD 旧路径逐字节
 #        一致为承继通过。文件不存在跳过（懒创建语义）；无 Git 基线（无 HEAD）输出
@@ -18,12 +19,12 @@
 
 # 用法、守卫口径与维护规则见同目录 README.md 专节。
 
-# ---- 路径常量区（票 111 波②：docs/ 治理路径字面量集中于此；值保持现形态，零翻值）----
+# ---- 路径常量区（票 111 波②建立、票 113 波④翻值：治理路径字面量集中于此；值＝facts 新形态 R11/R12/R14——冻结件平移 facts/project/archive/ 同名零改写）----
 
-DOCS_CHANGES='docs/changes.jsonl'
-DOCS_AGENT_MICRO='docs/agent/micro.jsonl'
-DOCS_PROGRESS_FROZEN='docs/progress.md'
-DOCS_ARCHIVE_PROGRESS='docs/archive/progress.md'
+FACTS_CHANGES='facts/project/changes.jsonl'
+FACTS_PROJECT_MICRO='facts/project/micro.jsonl'
+FACTS_PROGRESS_FROZEN='facts/project/archive/progress.md'
+FACTS_ARCHIVE_CHANGES='facts/project/archive/changes.md'
 
 set -eu
 
@@ -33,10 +34,10 @@ usage() {
 参数:
   repo-root  仓库根目录。
 守卫对象:
-  docs/changes.jsonl、docs/agent/micro.jsonl  只追加账本：HEAD 旧 blob 须为新内容前缀
+  facts/project/changes.jsonl、facts/project/micro.jsonl  只追加账本：HEAD 旧 blob 须为新内容前缀
                                               （尾部追加合法）；中间插入/改写历史行/
                                               截断/删除即 FAIL（指名文件与首个违规行号）。
-  docs/progress.md（迁移后继 docs/archive/progress.md，票 87）
+  facts/project/archive/progress.md（迁移后继 facts/project/archive/changes.md，票 87/113）
                                               冻结历史档案：任何 diff 即 FAIL；
                                               迁移窗口按 HEAD 旧路径承继基线核对。
   文件不存在跳过（懒创建语义）；无 Git 基线（无 HEAD）WARN 退出 0（票 49 先例）。
@@ -133,7 +134,7 @@ check_append_file() {
 
 check_frozen_file() {
   # $1=仓库根相对路径（冻结语义：任何 diff 即违规）
-  # $2=可选迁移后继路径（票 87：冻结件自 docs/ 根迁 docs/archive/；缺省无后继语义）
+  # $2=可选迁移后继路径（票 87：冻结件自 docs/ 根迁 docs/archive/、票 113 波④按 R14 平移至 facts/project/archive/；缺省无后继语义）
   #    ——后继两侧皆缺 → 静默（家族缺席由 $1 的 SKIP 行承载）；
   #      后继基线＝HEAD:$2；HEAD 无 $2 时退 HEAD:$1（迁移窗口承继基线）；
   #      $1 在 HEAD 有而工作树缺 → 后继存在且承继核对通过视为已迁移（OK），否则按删除违规。
@@ -207,9 +208,9 @@ check_frozen_file() {
   return 0
 }
 
-check_append_file "${DOCS_CHANGES}"
-check_append_file "${DOCS_AGENT_MICRO}"
-check_frozen_file "${DOCS_PROGRESS_FROZEN}" "${DOCS_ARCHIVE_PROGRESS}"
+check_append_file "${FACTS_CHANGES}"
+check_append_file "${FACTS_PROJECT_MICRO}"
+check_frozen_file "${FACTS_PROGRESS_FROZEN}" "${FACTS_ARCHIVE_CHANGES}"
 
 if [ "${violations}" -gt 0 ]; then
   printf 'check-append-only: FAIL（%d 个文件违规）\n' "${violations}"

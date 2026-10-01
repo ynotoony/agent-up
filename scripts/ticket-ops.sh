@@ -27,13 +27,13 @@
 
 # 用法、数据契约与退出码见同目录 README.md。
 
-# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径字面量收拢于此；值为登记现值，零翻值）----
-issues_index_rel='docs/issues/index.json'
-issues_readme_rel='docs/issues/README.md'
-issues_dir_rel='docs/issues'
-changes_ledger_rel='docs/changes.jsonl'
-progress_current_rel='docs/progress-current.md'
-scripts_dir_rel='scripts'
+# ---- 路径常量区（票 113 波④：值翻 rules/facts 新形态，映射见 rules-facts-layout-spec §2 R11/R13/R15/R19）----
+issues_index_rel='facts/requirements/tickets/index.json'
+issues_readme_rel='facts/requirements/tickets/README.md'
+issues_dir_rel='facts/requirements/tickets'
+changes_ledger_rel='facts/project/changes.jsonl'
+progress_current_rel='facts/requirements/tickets/progress-current.md'
+scripts_dir_rel='rules/implementation/scripts'
 
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -44,11 +44,11 @@ TAB=$(printf '\t')
 
 usage() {
   cat <<'USAGE'
-用法: sh scripts/ticket-ops.sh [repo-root] <command> [options]
+用法: sh rules/implementation/scripts/ticket-ops.sh [repo-root] <command> [options]
 参数:
   repo-root      仓库根目录；缺省取脚本所在目录的上一级。
 命令:
-  open           开票：先过新票本体校验（docs/issues/<id>.json 须已落位并过
+  open           开票：先过新票本体校验（facts/requirements/tickets/<id>.json 须已落位并过
                  ticket-record.schema.json 校验＋定级/优先级理由非空断言，票 79；缺本体
                  或校验不过即 fail-closed 零写入），再写索引条目（status=ready）＋
                  issues-README 目录清单追加行＋账本追加行，收尾投影再生＋--check。
@@ -71,16 +71,16 @@ usage() {
   flip           收口/状态翻转：--id --status --ledger-line 三项必选；--status 为状态机
                  任意合法值（ready|in_progress|blocked|review_ready|review_pass|
                  review_fail|done|superseded）。task 票收口硬拦（票 100）：本票 JSON
-                 本体（docs/issues/<id>.json）须含 actual_time 字段且非空（净工时口径，
+                 本体（facts/requirements/tickets/<id>.json）须含 actual_time 字段且非空（净工时口径，
                  会话段累计减中断段），缺项或空白即 exit 1 指名票 id 与缺项（fail-closed
                  零写入）；request 票不校验。
                  take/flip 语义: 索引 id 锚点整行替换（仅改 status/updated_at 两值）→
                  README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token 替换（行内其余
                  文本不动）→ 账本追加行 → 投影再生＋--check。索引或 README 行缺失、锚点
                  不唯一、账本行非法即停止（fail-closed，写入前预检）。
-  ledger         无票账本行入口（票 100）：--ledger-line 必选；不依赖 docs/issues/index.json
+  ledger         无票账本行入口（票 100）：--ledger-line 必选；不依赖 facts/requirements/tickets/index.json
                  条目 id，仅账本形状校验（键序五键必备＋按 kind 条件键，同上）先于写入，
-                 通过后向 docs/changes.jsonl 追加该行；不触索引/README/票文件/投影
+                 通过后向 facts/project/changes.jsonl 追加该行；不触索引/README/票文件/投影
                  （C0 修正类免建票收口经此落账本行，决策 4）。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；open 条目
@@ -454,7 +454,7 @@ try:
     with open(ticket_path, "r", encoding="utf-8") as fh:
         body = json.load(fh)
 except json.JSONDecodeError as exc:
-    fail(f"新票本体非合法 JSON: docs/issues/{want_id}.json（第 {exc.lineno} 行 {exc.msg}）")
+    fail(f"新票本体非合法 JSON: facts/requirements/tickets/{want_id}.json（第 {exc.lineno} 行 {exc.msg}）")
 except OSError as exc:
     fail(f"新票本体不可读: {ticket_path}（{exc.strerror}）")
 
@@ -698,7 +698,7 @@ elif [ "${cmd}" != 'ledger' ]; then
 fi
 
 if [ ! -f "${ledger_file}" ]; then
-  mkdir -p "${repo_root}/docs"
+  mkdir -p "${repo_root}/$(dirname "${changes_ledger_rel}")"
   : > "${ledger_file}" || die1 "账本懒创建失败: ${ledger_file}——已写部分如实报告"
 fi
 [ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}——已写部分如实报告"

@@ -12,19 +12,19 @@
 
 # 用法与退出码见同目录 README.md。
 
-# ---- 路径常量区（票 111 波②：治理路径字面量收拢于此；值为登记现值，零翻值）----
-issues_index_rel='docs/issues/index.json'
-progress_current_rel='docs/progress-current.md'
-gen_script_rel='scripts/generate-progress.sh'
+# ---- 路径常量区（票 113 波④：值翻 rules/facts 新形态，映射见 rules-facts-layout-spec §2 R13/R15/R19）----
+issues_index_rel='facts/requirements/tickets/index.json'
+progress_current_rel='facts/requirements/tickets/progress-current.md'
+gen_script_rel='rules/implementation/scripts/generate-progress.sh'
 
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
 usage() {
   cat <<'USAGE'
-用法: sh scripts/generate-progress.sh [--check] [repo-root]
+用法: sh rules/implementation/scripts/generate-progress.sh [--check] [repo-root]
 参数:
-  --check       dry-run 模式：与既有 docs/progress-current.md 比对（规范化 generated_at
+  --check       dry-run 模式：与既有 facts/requirements/tickets/progress-current.md 比对（规范化 generated_at
                 行后逐字节比对），一致 exit 0，不一致 exit 1；不写任何文件。
   repo-root     仓库根目录；缺省取脚本所在目录的上一级。
   -h / --help   打印本用法。
