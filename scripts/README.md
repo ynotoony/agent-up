@@ -155,7 +155,7 @@ sh scripts/check-stale-claims.sh [repo-root] [gate|session]
 | S2 | 发布状态句 | 根 `README.md`「公开包已发布」宣称行 + 包内 README 安装行（包前缀自 `delivery.rules` dp_payload_root 派生） | machine：文档宣称的仓库地址与实际 remote 配置归一化比对（remote 名自 dp_payload_remote 读取）、包内安装行同源核对；远端可达性/可见性本地不核验（不出网）→ reminder。 |
 | S3 | frontier 句 | `docs/issues/index.json`（票状态真相源）+ `docs/progress-current.md`（现役状态投影） | machine：投影 vs 索引比对——优先调用 `generate-progress.sh --check`（exit 0 一致；exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明（不计入失败）。（修订：原"`docs/issues/README.md` 表行逐票对照票面状态"实现退役——README 状态列已定位为人工登记投影，与索引冲突时以索引为准。） |
 | S4 | 计数漂移句 | `docs/issues/README.md` 目录清单锚点行（「任务票 NN；」）+ `docs/issues/index.json` 任务条目；`docs/` 树 md + `docs/agent/artifacts.yaml` 现行面计数措辞 | machine：两断言（详见下文 S4 小节）——①数量相等：README「任务票 NN；」锚点行数与 index「`"id": "NN-…"`」条目数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：「N～M 共」「共 N 量词」命中输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；扫描面排除与豁免表见下文 S4 小节。 |
-| S5 | 方案结论标注句 | 扫描面 glob 清单登记的方案类文档（`s5_load_globs` 数据节，现行唯一条目 `docs/research/*.md`；扩面须同步修订 R-DP-033 条文与数据节） | machine：R-DP-033 加固配套格式断言（详见下文 S5 小节）——结论行（行首「结论：」形态）逐行核对证据出处（`file:`）与适用轨（`轨:` 受控两值 本仓自用/agent-up）；只查格式不判语义；向前生效只查工作区新增/修改面（`git status --porcelain`），存量不回溯；非 Git 工作区 WARN 退化跳过。 |
+| S5 | 方案结论标注句 | 扫描面 glob 清单登记的方案类文档（`s5_load_globs` 数据节，现行唯一条目 `facts/requirements/research/*.md`（源仓实例迁移后）；扩面须同步修订 R-DP-033 条文与数据节） | machine：R-DP-033 加固配套格式断言（详见下文 S5 小节）——结论行（行首「结论：」形态）逐行核对证据出处（`file:`）与适用轨（`轨:` 受控两值 本仓自用/agent-up）；只查格式不判语义；向前生效只查工作区新增/修改面（`git status --porcelain`），存量不回溯；非 Git 工作区 WARN 退化跳过。 |
 | S6 | 终态哨兵 | `docs/issues/index.json`（票状态真相源，一条目一行）＋该索引的 Git 现行提交历史（基线锚） | machine：终态哨兵（详见下文 S6 小节）——索引内 id 曾达终态（done/superseded）而当前 status 回到非终态（ready/in_progress/blocked/review_ready/review_pass/review_fail）即 STALE 指名票 id 与跃迁方向；非 Git 工作区 WARN 退化跳过，索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过；对账分层＝一致性对账（S3 投影↔索引）之外终态语义由 S6 承载。 |
 
 机器可校验项直接对现实核验；不可机器校验项输出存在时长提醒（WARN，阈值【待定】，定稿后同步本登记）。
@@ -203,7 +203,7 @@ R-DP-033 加固（2026-09-23 复盘产出）配套格式断言：调研/对比�
 - 结论行识别规则（登记防误扫）：行首（允许前置空白与一个「- 」列表标记）以「结论：」起始的行；非此形态零命中即零报。
 - 结论行格式断言：①证据出处——行内至少一处 `file:`；②适用轨——行内 `轨:` 标注取值 ∈ 受控两值（`本仓自用`／`agent-up`；未来多产品轨预留登记机制不扩展实现）。缺任一即 STALE 指名 `文件:行号`、计入过期断言计数（gate exit 1 / session 只警告）。
 - 向前生效（条文写死，风险注记：存量若回溯即红）：只查工作区新增/修改面——`git status --porcelain --untracked-files=all` 判定（未跟踪/新增/修改/改名后路径），存量已提交文件不回溯；非 Git 工作区按流程退化语义 WARN 跳过（对齐 S1）。
-- 扫描面 glob 清单（脚本内 `s5_load_globs` 数据节，唯一承载点；条文同步登记于 R-DP-033，扩面两处同步改、禁静默扩面——词表扩面教训）：每行一条「`<目录>/*.md`」形态（单层语义）；现行唯一条目 `docs/research/*.md`；登记破坏（非该形态）exit 2 fail-closed；病态形态（路径含空白/冒号、非 ASCII 引号转义路径）不受理（对齐 S4 已知限制）。
+- 扫描面 glob 清单（脚本内 `s5_load_globs` 数据节，唯一承载点；条文同步登记于 R-DP-033，扩面两处同步改、禁静默扩面——词表扩面教训）：每行一条「`<目录>/*.md`」形态（单层语义）；现行唯一条目 `facts/requirements/research/*.md`（源仓实例迁移后随波④扩面）；登记破坏（非该形态）exit 2 fail-closed；病态形态（路径含空白/冒号、非 ASCII 引号转义路径）不受理（对齐 S4 已知限制）。
 
 ### S6 终态哨兵
 

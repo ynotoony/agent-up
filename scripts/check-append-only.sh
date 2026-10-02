@@ -37,7 +37,7 @@ usage() {
   facts/project/changes.jsonl、facts/project/micro.jsonl  只追加账本：HEAD 旧 blob 须为新内容前缀
                                               （尾部追加合法）；中间插入/改写历史行/
                                               截断/删除即 FAIL（指名文件与首个违规行号）。
-  facts/project/archive/progress.md（迁移后继 facts/project/archive/changes.md，票 87/113）
+  facts/project/archive/progress.md 与 facts/project/archive/changes.md（R14 并列冻结对，同名平移零改写；非承继关系——票 87/113 口径裁定）
                                               冻结历史档案：任何 diff 即 FAIL；
                                               迁移窗口按 HEAD 旧路径承继基线核对。
   文件不存在跳过（懒创建语义）；无 Git 基线（无 HEAD）WARN 退出 0（票 49 先例）。
@@ -134,7 +134,7 @@ check_append_file() {
 
 check_frozen_file() {
   # $1=仓库根相对路径（冻结语义：任何 diff 即违规）
-  # $2=可选迁移后继路径（票 87：冻结件自 docs/ 根迁 docs/archive/、票 113 波④按 R14 平移至 facts/project/archive/；缺省无后继语义）
+  # $2=可选迁移后继路径（票 87：冻结件迁址承继核对；票 113/115 裁定 R14 下 archive 两件为并列冻结对非承继，现网两参调用=并列口径；缺省无后继语义）
   #    ——后继两侧皆缺 → 静默（家族缺席由 $1 的 SKIP 行承载）；
   #      后继基线＝HEAD:$2；HEAD 无 $2 时退 HEAD:$1（迁移窗口承继基线）；
   #      $1 在 HEAD 有而工作树缺 → 后继存在且承继核对通过视为已迁移（OK），否则按删除违规。
@@ -169,7 +169,25 @@ check_frozen_file() {
       printf 'check-append-only: SKIP: %s（不存在）\n' "${_f}"
     fi
   elif [ "${_old_here}" -eq 0 ]; then
-    fail1 "${_f} 冻结历史档案相对 HEAD 出现新内容（冻结档案零写入）"
+    # 迁移窗口（R14 同名平移，票 115）：新路径 HEAD 无而工作树有 → 核对内容承继自
+    # 旧路径族（docs/archive/ 同名件逐字节一致即承继通过＝已迁移，非新增）。
+    _legacy=""
+    for _cand in "docs/archive/$(basename "${_f}")" "docs/$(basename "${_f}")"; do
+      if git -C "${repo_root}" cat-file -e "HEAD:${_cand}" 2>/dev/null; then
+        _legacy="${_cand}"
+        break
+      fi
+    done
+    if [ -n "${_legacy}" ]; then
+      git -C "${repo_root}" show "HEAD:${_legacy}" > "${tmp_old}"
+      if cmp -s "${tmp_old}" "${repo_root}/${_f}"; then
+        printf 'check-append-only: OK: %s（迁移承继：与 HEAD %s 逐字节一致）\n' "${_f}" "${_legacy}"
+      else
+        fail1 "${_f} 冻结历史档案相对 HEAD 出现新内容（冻结档案零写入）"
+      fi
+    else
+      fail1 "${_f} 冻结历史档案相对 HEAD 出现新内容（冻结档案零写入）"
+    fi
   elif cmp -s "${tmp_old}" "${repo_root}/${_f}"; then
     printf 'check-append-only: OK: %s（与 HEAD 一致，零 diff）\n' "${_f}"
   else
@@ -202,6 +220,24 @@ check_frozen_file() {
   fi
   if [ "${_suc_wt}" -eq 1 ] && [ "${_old_here}" -eq 1 ] && cmp -s "${tmp_old}" "${repo_root}/${_suc}"; then
     printf 'check-append-only: OK: %s（迁移承继：与 HEAD %s 逐字节一致，票 87）\n' "${_suc}" "${_f}"
+  elif [ "${_suc_wt}" -eq 1 ] && [ "${_old_here}" -eq 0 ]; then
+    # 迁移窗口（R14 同名平移，票 115）：后继新路径 HEAD 无而工作树有 → 同承继核对，
+    # 旧路径族（docs/archive/、docs/）同名件逐字节一致即承继通过＝已迁移，非新增。
+    _suc_legacy=""
+    for _cand in "docs/archive/$(basename "${_suc}")" "docs/$(basename "${_suc}")"; do
+      if git -C "${repo_root}" cat-file -e "HEAD:${_cand}" 2>/dev/null; then
+        _suc_legacy="${_cand}"
+        break
+      fi
+    done
+    if [ -n "${_suc_legacy}" ]; then
+      git -C "${repo_root}" show "HEAD:${_suc_legacy}" > "${tmp_new}"
+      if cmp -s "${tmp_new}" "${repo_root}/${_suc}"; then
+        printf 'check-append-only: OK: %s（迁移承继：与 HEAD %s 逐字节一致）\n' "${_suc}" "${_suc_legacy}"
+        return 0
+      fi
+    fi
+    fail1 "${_suc} 冻结历史档案相对 HEAD 出现新内容（冻结档案零写入）"
   else
     fail1 "${_suc} 冻结历史档案相对 HEAD 出现新内容（冻结档案零写入）"
   fi

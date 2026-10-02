@@ -165,7 +165,9 @@ pm_vague_exempt references/protocol/governance-format.md 82 'R-GF-003 Forbidden 
 pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden 字段＝词表权威列举处（vague-words 节依据），禁令条款内引述除外'
 
 # ==== mirrors：镜像脚本登记（检查 13；对应关系＝包侧 scripts/ 与包根父目录仓根
-#      scripts/ 的同名件，逐对 cmp；对数以本节登记行为准）====
+#      scripts/ 的同名件，逐对 cmp；对数以本节登记行为准）。源仓实例迁移后
+#      镜像对应件居 rules/implementation/scripts/；检查 13 在仓根无 scripts/ 时静默
+#      跳过＝消费项目语义，源仓镜像纪律由 cmp 抽查承载。====
 
 pm_mirror generate-progress.sh
 pm_mirror ticket-ops.sh
