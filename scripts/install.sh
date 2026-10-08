@@ -195,6 +195,22 @@ enabled=${enabled# }
 
 # ---- 包内误运行守卫与目标解析（fail-closed，exit 1）----
 
+# worktree 自拒（R-DP-036）：在链接 worktree 内运行安装器＝把未合并分支的包基线装进
+# 消费项目，禁止（判别＝git-dir ≠ git-common-dir；非 Git 语境不适用本守卫照常走）。
+_it_gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || _it_gd=''
+if [ -n "$_it_gd" ]; then
+  _it_gcd=$(git rev-parse --git-common-dir 2>/dev/null) || _it_gcd=''
+  if [ -n "$_it_gcd" ]; then
+    case $_it_gcd in
+      /*) ;;
+      *) _it_gcd=$(CDPATH= cd "$(git rev-parse --show-toplevel)/$_it_gcd" && pwd) ;;
+    esac
+    if [ "$_it_gd" != "$_it_gcd" ]; then
+      die1 "worktree 自拒：当前在链接 worktree（git-dir ${_it_gd} ≠ common-dir ${_it_gcd}）。安装属 main-only 动作（R-DP-036）：包基线须出自主检出已合并状态，请在主检出运行。"
+    fi
+  fi
+fi
+
 [ -d "$target" ] || die1 "目标目录不存在: $target"
 target_abs=$(CDPATH= cd "$target" && pwd) || die1 "目标目录不可进入: $target"
 if [ -e "$target_abs/agent-up/SKILL.md" ]; then

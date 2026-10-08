@@ -1606,7 +1606,7 @@ if git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1; then
       continue  # 缺件由检查 8 指名，本项不重复报
     fi
     if [ -z "$idx_mode" ]; then
-      add_problem "  - $rel 未被 git 跟踪（index mode 无从核对，期望 $want）"
+      add_problem "  - $rel 未被 git 跟踪（index mode 无从核对，期望 ${want}）"
       continue
     fi
     if [ "$idx_mode" != "$want" ]; then

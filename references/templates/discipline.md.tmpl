@@ -148,7 +148,7 @@ Scope:
 
 - 根目录只有一个 Git 仓库，默认分支 `main`；生产性工作按票采用**一票一 worktree 工作流**（用户裁决 2026-09-18）：
   1. 票务与记录面（开票、领取、收口翻转、账本与投影维护）直接落 `main`；
-  2. 实施在独立 worktree 进行：`git worktree add ../<仓库名>-wt/wt<NN> -b ticket/<NN>-<slug>`——目录容器为仓库根兄弟目录 `<仓库名>-wt/`，worktree 目录名与分支名共用同一票号 NN；撞号让号时 worktree 目录随新票号（§9.4）；实施执行体零 Git 写操作，交付以工作区改动呈现；
+  2. 实施在独立 worktree 进行：经 `rules/implementation/scripts/worktree-add.sh ../<仓库名>-wt/wt<NN> ticket/<NN>-<slug>` 栅栏化创建（无栅栏配置的仓径用 `git worktree add` 同参数）——目录容器为仓库根兄弟目录 `<仓库名>-wt/`，worktree 目录名与分支名共用同一票号 NN；撞号让号时 worktree 目录随新票号（§9.4）；main-only 脚本（R-DP-036）由创建面栅栏自 worktree 排除（物理不在场）；实施执行体零 Git 写操作，交付以工作区改动呈现；
   3. 独立 Review 通过后，协调层在分支提交，rebase `main`（在 worktree 内执行，防分支占用误切——worktree 接线教训）后 fast-forward 合并回 `main`，随即删除 worktree 与分支；
   4. 多会话并行：派发前核对 `git worktree list` 与领取标记，撞号让号；
   5. 全程零 push（对齐本节末条）。
@@ -156,6 +156,7 @@ Scope:
 - 提交格式 `<type>(<scope>): <结果>`，type 允许 `feat` `fix` `docs` `test` `refactor` `build` `chore`。
 - 一个提交是一个可解释的恢复点；不把多个任务塞进一个提交，不为"干净历史"重写或丢弃未确认归属的改动。
 - 公开载荷的发布走仓根 `delivery.rules` payload 节声明的导出形态，经 `export-payload.sh` 单命令完成（split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核）；命令永不 force——ff 断言不过即停手，远端恢复或覆盖须用户明确授权另票执行；载荷内容再变更须新票并重新导出推送。
+- main-only 脚本（R-DP-036）＝真跑写入面越出本仓或须以 main 提交为基准的脚本，禁止在链接 worktree 运行：逐仓清单登记仓根 `delivery.rules` main-only 节（`dp_mainonly <路径>` 逐行一条），创建面由 `worktree-add.sh` 按清单排除，运行面由 `export-payload.sh` 真跑主检出门禁与 `install.sh` worktree 自拒双闸兜底（`export-payload.sh --dry-run` 零写入不受限）。
 - 未经用户明确要求不 push、不部署、不发布。
 
 ## 10. 实现纪律（编码层规则：最懒可行与编程思想五问）
@@ -212,6 +213,16 @@ Scope:
 - **Owner**：实施执行体（自建断言）与独立评审（审其有无）。
 - **Authority**：本文 §11（验证与记录基线）。
 
+#### R-DP-036 main-only 脚本禁自链接 worktree 运行 `MUST`
+
+- **When**：脚本的真跑写入面越出本仓（推送公开仓、安装到消费项目、部署生产）或其正确性以 main 提交状态为基准时，该脚本定为 main-only；在链接 worktree 内启动 main-only 脚本、或从 worktree 分支执行其承载动作时。
+- **Action**：三闸合围——①创建面：逐仓在 `delivery.rules` main-only 节登记 `dp_mainonly <路径>` 清单，worktree 经 `worktree-add.sh` 栅栏化创建，清单路径自 worktree 物理排除（sparse-checkout 排除＋`read-tree` 物化＋首条路径不在场断言）；②运行面自拒：main-only 脚本启动时以 `git rev-parse --absolute-git-dir` ≠ `--git-common-dir` 判别链接 worktree，命中即 fail-closed 拒跑；③规则面：本条随模板分发，`export-payload.sh --dry-run` 等零写入形态不受限。
+- **Forbidden**：从链接 worktree 真跑 main-only 脚本（未合并分支的代码不得经导出/安装/部署面外流）；`worktree-add.sh` 在未声明 main-only 节的仓静默降级（栅栏未知即拒跑 exit 2）；删除或改写运行面自拒判别式。
+- **Stop if**：worktree 内确需运行 main-only 动作 → 停止，报告用户在主检出执行或明确授权例外，不得自行绕闸。
+- **Evidence**：票 Checkpoint 含栅栏生效证据（worktree 内 main-only 路径不在场的 `ls`/运行失败输出）或运行面拒跑输出。
+- **Owner**：协调层（main-only 清单拍板与登记）；实施执行体（经栅栏创建 worktree）。
+- **Authority**：本文 §9（Git 提交与一票一 worktree 纪律）。
+
 ## 16. 规则索引
 
 本节为本件承载规则块的导航投影，随模板分发：表行语义以各规则块正文为准，本表不构成独立权威，冲突以规则块正文裁决。执行机制受控三值（机械/门禁/约定）的定义、诚实性上限与索引变更纪律统一见 `rules/project.md` §16；拆分产生的跨件规则块（定义于 rules/ 三件中另一件）在机制列标注"外定义（定义于 rules/<件名>）"，定义于模板外手册的规则块标注外定义出处。
@@ -223,6 +234,7 @@ Scope:
 | R-DP-011 | 三道门禁（含分级交付道车道替代形态，C1+ 无替代） | 门禁 |
 | R-DP-032 | 编码层按编程思想五问把结论落进代码结构 | 门禁 |
 | R-DP-035 | 涉运行行为的票验收必含体系外真值断言（真触发/远端到位/历史在/身份比对按面选型，冒烟级最低线） | 门禁 |
+| R-DP-036 | main-only 脚本禁止自链接 worktree 运行（创建面 worktree-add.sh 栅栏排除＋运行面自拒判别＋规则面本条，三闸合围） | 门禁（worktree-add.sh、export-payload.sh、install.sh） |
 | R-RC-001 | 核对 Review pass 后只暂存白名单文件创建提交 | 机械（check-gates.sh、lane-commit.sh） |
 | R-RC-002 | 停止条件即停，禁 push、reset、回滚他人改动 | 门禁 |
 | R-RC-003 | 记录翻转例外：先产品提交后纯记录提交，不混提 | 机械（lane-commit.sh） |

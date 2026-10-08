@@ -161,19 +161,21 @@ dp_load_rules() {
       an[1] = "# ==== payload：导出形态（export-payload.sh 读）===="
       an[2] = "# ==== boundary：禁入名单（pre-push 安检读）===="
       an[3] = "# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）===="
+      an[4] = "# ==== main-only：worktree 排除清单（worktree-add.sh 读）===="
       sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"
+      sc[4] = "main-only"
     }
     function is_known(d) {
       return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
         || d == "dp_payload_local_ref" || d == "dp_forbid" || d == "dp_artifact_exempt" \
-        || d == "dp_stale_lit")
+        || d == "dp_stale_lit" || d == "dp_mainonly")
     }
     {
       line = $0
       sub(/[[:space:]]+$/, "", line)
       if (line == "") next
       hit = 0
-      for (k = 1; k <= 3; k++) {
+      for (k = 1; k <= 4; k++) {
         if (line == an[k]) {
           hit = 1
           if (seen[k]++) bad("锚点重复: " an[k])
@@ -194,6 +196,12 @@ dp_load_rules() {
       if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
       if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }
       if ((d == "dp_artifact_exempt" || d == "dp_stale_lit") && cur != "calibration") { bad("条目违属：" d " 仅得出现于 calibration 锚点后"); next }
+      if (d == "dp_mainonly" && cur != "main-only") { bad("条目违属：dp_mainonly 仅得出现于 main-only 锚点后"); next }
+      if (d == "dp_mainonly") {
+        if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
+        if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }
+        if (v ~ /\/$/) { bad("路径禁尾斜杠: " v); next }
+      }
       if ((d == "dp_payload_root" || d == "dp_forbid" || d == "dp_artifact_exempt")) {
         if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
         if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }

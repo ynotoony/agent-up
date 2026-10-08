@@ -67,19 +67,21 @@ dp_load_rules() {
       an[1] = "# ==== payload：导出形态（export-payload.sh 读）===="
       an[2] = "# ==== boundary：禁入名单（pre-push 安检读）===="
       an[3] = "# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）===="
+      an[4] = "# ==== main-only：worktree 排除清单（worktree-add.sh 读）===="
       sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"
+      sc[4] = "main-only"
     }
     function is_known(d) {
       return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
         || d == "dp_payload_local_ref" || d == "dp_forbid" || d == "dp_artifact_exempt" \
-        || d == "dp_stale_lit")
+        || d == "dp_stale_lit" || d == "dp_mainonly")
     }
     {
       line = $0
       sub(/[[:space:]]+$/, "", line)
       if (line == "") next
       hit = 0
-      for (k = 1; k <= 3; k++) {
+      for (k = 1; k <= 4; k++) {
         if (line == an[k]) {
           hit = 1
           if (seen[k]++) bad("锚点重复: " an[k])
@@ -100,6 +102,12 @@ dp_load_rules() {
       if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
       if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }
       if ((d == "dp_artifact_exempt" || d == "dp_stale_lit") && cur != "calibration") { bad("条目违属：" d " 仅得出现于 calibration 锚点后"); next }
+      if (d == "dp_mainonly" && cur != "main-only") { bad("条目违属：dp_mainonly 仅得出现于 main-only 锚点后"); next }
+      if (d == "dp_mainonly") {
+        if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
+        if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }
+        if (v ~ /\/$/) { bad("路径禁尾斜杠: " v); next }
+      }
       if ((d == "dp_payload_root" || d == "dp_forbid" || d == "dp_artifact_exempt")) {
         if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
         if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }
@@ -163,6 +171,23 @@ for _arg in "$@"; do
       ;;
   esac
 done
+
+# ---- 主检出门禁（真跑前置；R-DP-036：公开仓推送属 main-only 动作，禁止自链接
+#      worktree 发布未合并分支——链接 worktree 判别＝git-dir ≠ git-common-dir。
+#      --dry-run 零写入零远端接触，不受本门禁约束）----
+
+if [ "$dry_run" -ne 1 ]; then
+  _ep_gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || die2 '目标不是 Git 工作区'
+  _ep_gcd=$(git rev-parse --git-common-dir 2>/dev/null) || die2 '目标不是 Git 工作区'
+  case $_ep_gcd in
+    /*) ;;
+    *) _ep_gcd=$(CDPATH= cd "$(git rev-parse --show-toplevel)/$_ep_gcd" && pwd) ;;
+  esac
+  if [ "$_ep_gd" != "$_ep_gcd" ]; then
+    printf '%s: FAIL: 主检出门禁：当前在链接 worktree（git-dir %s ≠ common-dir %s）。真跑推送属 main-only 动作（R-DP-036）：未合并分支不得上公开仓，请在主检出（main）运行；--dry-run 不受限。\n' "$prog" "${_ep_gd}" "${_ep_gcd}" >&2
+    exit 1
+  fi
+fi
 
 script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
 if [ -z "$repo_root" ]; then

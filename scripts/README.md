@@ -24,7 +24,8 @@
 | `run-record.sh` | run record 生成器 | run record 生成与封存单入口（本仓交付后存量清算入包采纳）：`new` 生成十三字段骨架并自动填机械字段、内容字段留【待填：…】由执行体填，`seal` 完整性校验（usage 五子字段必备，缺项 fail-closed）全过后按当前仓库状态刷新机械字段，`stats` 只读聚合 usage 用量报表；`seal`/`stats` 依赖 python3 标准库（不引第三方），SHA-256 与 stat 工具按序探测、缺失即 exit 2；fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/退出码见脚本 `-h` 与头部注释。 |
 | `ticket-grade.sh` | 定级建议器 | 票定级建议器（本仓交付后存量清算入包采纳）：读任务票 JSON 机械计算可数判据（承重验收条数、行为/契约件模块数、高风险面关键词、公共接口证据与微道承重可数面），输出各 C 级命中条件、C0-C3 建议、微道资格预审与逐票分歧账；建议不裁决（输出只写「建议/命中/预审」，不写「必须/定级为」，分歧以 Triage 为准）；python3 标准库内嵌、全程只读零写入、fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/判据口径见脚本 `-h` 与头部注释。 |
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
-| `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
+| `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
+| `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（未声明＝栅栏未知拒跑 exit 2 fail-closed）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
 
 ## 用途与用法
@@ -640,7 +641,7 @@ sh scripts/export-payload.sh [--dry-run] [repo-root]
 
 | 步骤 | 动作 | 实跑 | `--dry-run` |
 | --- | --- | --- | --- |
-| 前置 | 工作区 payload 根内未提交改动即停（导出半成品）；未声明 payload 节拒跑 exit 2 | 是 | 是 |
+| 前置 | 工作区 payload 根内未提交改动即停（导出半成品）；未声明 payload 节拒跑 exit 2；真跑另设主检出门禁（链接 worktree 内拒绝真跑，R-DP-036；`--dry-run` 不受限） | 是 | 干跑免检 |
 | 1 split | `git subtree split -P <root>` 产出新导出头 H | 落本地分支 `-b <local_ref>` | 仅经变量传递，不落本地分支引用 |
 | 2 树比对 | H 经 `git archive` 展开到全新 mktemp（即用即删），`diff -r` 对照工作区 payload 根须零差异 | 是 | 是 |
 | 3 导出树 check-package | 临时展开目录内逐项全过（检查 13 独立语境静默跳过＝预期口径） | 是 | 是 |
@@ -657,6 +658,33 @@ sh scripts/export-payload.sh [--dry-run] [repo-root]
 | 2 | 用法或配置错误（参数不合、非 Git 工作区、delivery.rules 缺 payload 节或解析破坏、payload 根不存在、git subtree 不可用）。 |
 
 真实推送公开仓须用户现场授权；日常自证以 `--dry-run` 为准（零远端写、零本地分支写）。
+
+## worktree-add.sh（worktree 栅栏化创建单命令）
+
+一票一 worktree 工作流的创建面栅栏（R-DP-036 配套；运行面两闸＝export-payload 真跑主检出门禁与 install.sh worktree 自拒，本命令承载创建面一闸——三闸合围 main-only 脚本不得自链接 worktree 运行）。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）；排除清单读仓根 `delivery.rules` main-only 节（引擎零项目约定硬编码；解析引擎段内嵌，fail-closed 六规则与同族消费脚本同款）。
+
+### 用法
+
+```text
+sh scripts/worktree-add.sh [--force] <path> <branch>
+```
+
+- `<path>`：worktree 路径（git worktree add 同义）；`<branch>`：新分支名，须匹配 `ticket/<NN>-<slug>`（NN 两位数字起，与路径容器票号纪律同源）。
+- `--force`：透传 git worktree add --force（目标已存在等场景）；不改变本脚本其余门禁。
+- `-h` / `--help`：打印用法。
+
+### 流程（四步）
+
+| 步骤 | 动作 | 失败行为 |
+| --- | --- | --- |
+| 1 主检出自拒 | `git rev-parse --absolute-git-dir` ≠ `--git-common-dir`＝链接 worktree，拒绝运行（worktree 创建属协调层职责） | exit 1 |
+| 2 配置加载 | 读 `<repo-root>/delivery.rules` main-only 节；未声明 main-only 锚点＝栅栏未知，拒跑（如本仓无 main-only 脚本，登记空节或径用 `git worktree add`）；解析破坏拒跑 | exit 2 |
+| 3 创建 | 分支存在即检出、不存在即 `-b` 创建；`--no-checkout` 延迟物化 | exit 1 |
+| 4 栅栏设置与生效断言 | sparse-checkout 非锥形：`/*` 放行全部＋逐条 `!<路径>` 排除（不带尾斜杠，同型覆盖文件与目录）；`read-tree -mu HEAD` 按 sparse 模式物化（`--no-checkout` 空树上 reapply 不物化，实证）；断言首条排除路径在 worktree 内物理不在场 | exit 1（附删除该 worktree 重试指路） |
+
+- main-only 脚本自此在该 worktree 内不可运行（文件不在场——运行缺失文件与写入缺失目录均失败；绕过需显式 `sparse-checkout disable` 并重新物化，非静默动作）。
+- 排除清单持久于该 worktree `$GIT_DIR/info/sparse-checkout`，随 worktree 删除一并消失；主检出永不启用 sparse-checkout（零影响）。
+- 不执行 git push；不删除既有 worktree（同名目录已存在即停，`--force` 只放宽 git 层）。
 
 ## test-record-layer.sh（记录层回归 harness）
 
