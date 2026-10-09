@@ -95,7 +95,7 @@ trim_git_url() {
 
 prog_dir() {
   # 输出本脚本所在目录绝对路径（供 S3 定位同目录生成器）。
-  CDPATH= cd "$(dirname "$0")" && pwd
+  CDPATH='' cd "$(dirname "$0")" && pwd
 }
 
 # ---- 参数解析 --------------------------------------------------------------
@@ -135,7 +135,7 @@ script_dir=$(prog_dir)
 if [ $# -ge 1 ]; then
   repo_root=$1
 else
-  repo_root=$(CDPATH= cd "$script_dir/../.." && pwd)
+  repo_root=$(CDPATH='' cd "$script_dir/../.." && pwd)
 fi
 if [ ! -d "$repo_root" ]; then
   printf 'check-stale-claims: 错误：仓库根目录不存在：%s\n' "$repo_root" >&2
@@ -147,6 +147,7 @@ fi
 
 # ---- delivery.rules 解析引擎段（fail-closed 六规则，设计 §2；与 export-payload.sh
 #      同款，错误前缀参数化）----
+# shellcheck disable=SC2034  # DP 引擎统一解析产出字段（五副本同构契约；本脚本未消费≠冗余，禁删——调研报告禁改面）
 dp_load_rules() {
   DP_PRESENT=0
   DP_HAS_PAYLOAD=0
@@ -333,6 +334,7 @@ check_s1() {
   fi
 
   # 1a 基线块宣称的首个提交存在
+  # shellcheck disable=SC2016  # sed/awk 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
   _sha=$(printf '%s' "$_anchor" | sed -n 's/.*首个提交 `\([0-9a-f][0-9a-f]*\)`.*/\1/p')
   if [ -n "$_sha" ]; then
     if ! git -C "$repo_root" cat-file -e "$_sha" >/dev/null 2>&1; then
@@ -562,6 +564,7 @@ s4_parse_exempts() {
     case $_line in
       '' | '#'*) continue ;;
       s4_exempt\ *)
+        # shellcheck disable=SC2086  # set -- \$_line 刻意按空白分词取字段（分词即解析手段）
         set -- $_line
         if [ $# -lt 3 ]; then
           printf 'check-stale-claims: 错误：S4 豁免表行字段不足（须 路径 行号 理由）：%s\n' "$_line" >&2

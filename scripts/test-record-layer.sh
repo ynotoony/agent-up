@@ -57,7 +57,7 @@ set -u
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
 SUITE='all'
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 2
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) || exit 2
 PKG_ROOT=''
 
 usage() {
@@ -91,7 +91,7 @@ for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress
   [ -f "$SCRIPT_DIR/$f" ] || { printf 'test-record-layer: 被测成员缺失: %s/%s\n' "$SCRIPT_DIR" "$f" >&2; exit 2; }
 done
 if [ -z "$PKG_ROOT" ]; then
-  PKG_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd) || exit 2
+  PKG_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd) || exit 2
 fi
 [ -d "$PKG_ROOT" ] || { printf 'test-record-layer: 包根不存在: %s\n' "$PKG_ROOT" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'test-record-layer: git 不可用——module-map/ticket-ops 夹具依赖被测脚本声明的 Git\n' >&2; exit 2; }
@@ -130,6 +130,7 @@ assert_eq() {
 # ---- 临时目录与清理（票 11/26 纪律：异常退出路径也清）----
 
 T=''
+# shellcheck disable=SC2329  # cleanup 由 trap 回调（shellcheck 单文件视野误报）
 cleanup() { [ -n "$T" ] && rm -rf "$T"; return 0; }
 trap cleanup EXIT HUP INT TERM
 T=$(mktemp -d "${TMPDIR:-/tmp}/test-record-layer.XXXXXX") || exit 2
@@ -337,10 +338,18 @@ suite_module_map() {
 
   out=$(sh "$MM" "$D/repo" 2>"$D/err1")
   rc=$?
-  [ "$rc" -eq 0 ] && ok '正例生成 exit 0（11 语言夹具仓）' || bad '正例生成 exit 0（11 语言夹具仓）' "exit=$rc stderr=$(head -n 1 "$D/err1")"
+  if [ "$rc" -eq 0 ]; then
+    ok '正例生成 exit 0（11 语言夹具仓）'
+  else
+    bad '正例生成 exit 0（11 语言夹具仓）' "exit=$rc stderr=$(head -n 1 "$D/err1")"
+  fi
 
   summary=$(printf '%s\n' "$out" | sed -n 's/^generate-module-map: OK: .*（fp-v1:[0-9a-f]\{16\}，nodes \([0-9]\{1,\}\)，edges \([0-9]\{1,\}\)）$/\1 \2/p')
-  [ "$summary" = '19 50' ] && ok 'stdout 摘要计数（nodes 19，edges 50）' || bad 'stdout 摘要计数（nodes 19，edges 50）' "实际: $summary"
+  if [ "$summary" = '19 50' ]; then
+    ok 'stdout 摘要计数（nodes 19，edges 50）'
+  else
+    bad 'stdout 摘要计数（nodes 19，edges 50）' "实际: $summary"
+  fi
 
   map="$D/repo/facts/project/architecture/module-map.json"
   mm_json "$map" > "$D/norm.json"
@@ -360,12 +369,20 @@ suite_module_map() {
 
   sh "$MM" "$D/repo" >/dev/null 2>&1
   fp2=$(sed -n 's/^  "workspace_fingerprint": "\(fp-v1:[0-9a-f]\{16\}\)",\{0,1\}$/\1/p' "$D/repo/facts/project/architecture/module-map.json")
-  [ -n "$fp1" ] && [ "$fp1" = "$fp2" ] && ok 'fp 稳定性（同输入复跑指纹不变）' || bad 'fp 稳定性（同输入复跑指纹不变）' "$fp1 vs $fp2"
+  if [ -n "$fp1" ] && [ "$fp1" = "$fp2" ]; then
+    ok 'fp 稳定性（同输入复跑指纹不变）'
+  else
+    bad 'fp 稳定性（同输入复跑指纹不变）' "$fp1 vs $fp2"
+  fi
 
   printf '\n' >> "$D/repo/app.py"
   sh "$MM" "$D/repo" >/dev/null 2>&1
   fp3=$(sed -n 's/^  "workspace_fingerprint": "\(fp-v1:[0-9a-f]\{16\}\)",\{0,1\}$/\1/p' "$D/repo/facts/project/architecture/module-map.json")
-  [ -n "$fp3" ] && [ "$fp1" != "$fp3" ] && ok 'fp 变更检出（内容改动后指纹变化）' || bad 'fp 变更检出（内容改动后指纹变化）' "$fp1 vs $fp3"
+  if [ -n "$fp3" ] && [ "$fp1" != "$fp3" ]; then
+    ok 'fp 变更检出（内容改动后指纹变化）'
+  else
+    bad 'fp 变更检出（内容改动后指纹变化）' "$fp1 vs $fp3"
+  fi
 
   # 负例 N1：规则表损坏 → exit 2 且不写地图（临时副本上结构破坏：mm_rule 参数数不合预期，
   # 被测本体零触碰；行为级破坏——label 漂移——由注入自检与边集断言承载）
@@ -396,7 +413,11 @@ suite_module_map() {
   mkdir -p "$D/nogit"
   sh "$MM" "$D/nogit" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '负例 N3 非 Git 目录 → exit 2' || bad '负例 N3 非 Git 目录 → exit 2' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '负例 N3 非 Git 目录 → exit 2'
+  else
+    bad '负例 N3 非 Git 目录 → exit 2' "exit=$rc"
+  fi
 
   suite_summary 'module-map'
 }
@@ -523,6 +544,7 @@ tix_expect_full() {
 
   {
     printf '# 票据索引（fixture）\n\n| 名字 | 状态 | 说明 |\n| --- | --- | --- |\n'
+    # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
     printf '| `10-alpha-first.json` | 任务票 10；`done`（2026-09-19 开票） | Alpha fixture ticket |\n'
     printf '%s\n' "$7"
     printf '%s\n' "$6"
@@ -534,7 +556,11 @@ tix_expect_full() {
   assert_eq '投影全文件逐一相等（generated_at 规范化后 cmp，票 35 三路径口径）' "$F/act.progress.md" "$F/exp.progress.md"
 
   n=$(wc -l < "$F/facts/project/changes.jsonl" | tr -d ' ')
-  [ "$n" -eq "$8" ] && ok "账本行数＝$8（一行一事实，追加不重写）" || bad "账本行数＝$8（一行一事实，追加不重写）" "实际 $n"
+  if [ "$n" -eq "$8" ]; then
+    ok "账本行数＝$8（一行一事实，追加不重写）"
+  else
+    bad "账本行数＝$8（一行一事实，追加不重写）" "实际 $n"
+  fi
 }
 
 suite_ticket_ops() {
@@ -562,7 +588,11 @@ suite_ticket_ops() {
   # repo-root 传参指明项目根＝$F）----
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/open.log" 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok 'open exit 0（生成项目语境，repo-root 显式传参）' || bad 'open exit 0（生成项目语境，repo-root 显式传参）' "exit=$rc $(head -n 2 "$D/open.log" | tr '\n' '|')"
+  if [ "$rc" -eq 0 ]; then
+    ok 'open exit 0（生成项目语境，repo-root 显式传参）'
+  else
+    bad 'open exit 0（生成项目语境，repo-root 显式传参）' "exit=$rc $(head -n 2 "$D/open.log" | tr '\n' '|')"
+  fi
 
   UA30=$(sed -n 's/.*"updated_at": "\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}:[0-9]\{2\}\)".*/\1/p' "$F/facts/requirements/tickets/index.json" | tail -n 1)
   case $UA30 in
@@ -574,39 +604,76 @@ suite_ticket_ops() {
     20??-??-??) ;;
     *) bad 'open 后 README 行开票日期形状' "实际: $TODAY" ;;
   esac
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   ROW30='| `30-gamma-third.json` | 任务票 30；`ready`（'"$TODAY"' 开票） | Gamma fixture ticket |'
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   tix_expect_full "$F" 'ready' "$UA30" 'ready' '2026-09-19T11:00' "$ROW30" '| `20-beta-second.json` | 任务票 20；`ready`（2026-09-19 开票） | Beta fixture ticket |' 2
 
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" take --id 30-gamma-third --status in_progress --ledger-line "$LED_TAKE" >"$D/take.log" 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok 'take exit 0（领取语义 status=in_progress）' || bad 'take exit 0（领取语义 status=in_progress）' "exit=$rc $(head -n 2 "$D/take.log" | tr '\n' '|')"
+  if [ "$rc" -eq 0 ]; then
+    ok 'take exit 0（领取语义 status=in_progress）'
+  else
+    bad 'take exit 0（领取语义 status=in_progress）' "exit=$rc $(head -n 2 "$D/take.log" | tr '\n' '|')"
+  fi
   UA30B=$(sed -n 's/.*"updated_at": "\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}:[0-9]\{2\}\)".*/\1/p' "$F/facts/requirements/tickets/index.json" | tail -n 1)
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   ROW30B='| `30-gamma-third.json` | 任务票 30；`in_progress`（'"$TODAY"' 开票） | Gamma fixture ticket |'
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   tix_expect_full "$F" 'in_progress' "$UA30B" 'ready' '2026-09-19T11:00' "$ROW30B" '| `20-beta-second.json` | 任务票 20；`ready`（2026-09-19 开票） | Beta fixture ticket |' 3
 
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" flip --id 20-beta-second --status review_ready --ledger-line "$LED_FLIP" >"$D/flip.log" 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok 'flip exit 0（状态机任意合法值翻转）' || bad 'flip exit 0（状态机任意合法值翻转）' "exit=$rc $(head -n 2 "$D/flip.log" | tr '\n' '|')"
+  if [ "$rc" -eq 0 ]; then
+    ok 'flip exit 0（状态机任意合法值翻转）'
+  else
+    bad 'flip exit 0（状态机任意合法值翻转）' "exit=$rc $(head -n 2 "$D/flip.log" | tr '\n' '|')"
+  fi
   UA20=$(sed -n 's/.*"updated_at": "\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}:[0-9]\{2\}\)".*/\1/p' "$F/facts/requirements/tickets/index.json" | sed -n '2p')
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   ROW20B='| `20-beta-second.json` | 任务票 20；`review_ready`（2026-09-19 开票） | Beta fixture ticket |'
   tix_expect_full "$F" 'in_progress' "$UA30B" 'review_ready' "$UA20" "$ROW30B" "$ROW20B" 4
 
   sh "$F/rules/implementation/scripts/generate-progress.sh" --check "$F" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok '收尾投影 --check exit 0（全链后一致性核对）' || bad '收尾投影 --check exit 0（全链后一致性核对）' "exit=$rc"
+  if [ "$rc" -eq 0 ]; then
+    ok '收尾投影 --check exit 0（全链后一致性核对）'
+  else
+    bad '收尾投影 --check exit 0（全链后一致性核对）' "exit=$rc"
+  fi
 
   # ---- 负例（fail-closed 零写入；N5 用独立夹具）----
   S0=$(tix_state "$F")
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" open --id 10-alpha-first --complexity C1 --title dup --ledger-line "$LED_OPEN" >/dev/null 2>&1
-  [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ] && ok '负例 N1 重复 id open → exit 1 零写入（open 非幂等）' || bad '负例 N1 重复 id open → exit 1 零写入（open 非幂等）' "exit/状态不符"
-  sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" flip --id 99-ghost-none --status done --ledger-line "$LED_FLIP" >/dev/null 2>&1
-  [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ] && ok '负例 N2 未知 id flip → exit 1 零写入' || bad '负例 N2 未知 id flip → exit 1 零写入' "exit/状态不符"
+  if [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ]; then
+    ok '负例 N1 重复 id open → exit 1 零写入（open 非幂等）'
+  else
+    bad '负例 N1 重复 id open → exit 1 零写入（open 非幂等）' "exit/状态不符"
+  fi
+  sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" flip --id 99-ghost-none --status 'done' --ledger-line "$LED_FLIP" >/dev/null 2>&1
+  if [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ]; then
+    ok '负例 N2 未知 id flip → exit 1 零写入'
+  else
+    bad '负例 N2 未知 id flip → exit 1 零写入' "exit/状态不符"
+  fi
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" open --id 40-delta-fourth --complexity C0 --title d --ledger-line '{"kind": "scope", "date": "2026-09-20", "scope": "x", "decision": "bad-order", "evidence_ref": "y"}' >/dev/null 2>&1
-  [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ] && ok '负例 N3 账本键序违规 → exit 1 零写入' || bad '负例 N3 账本键序违规 → exit 1 零写入' "exit/状态不符"
+  if [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ]; then
+    ok '负例 N3 账本键序违规 → exit 1 零写入'
+  else
+    bad '负例 N3 账本键序违规 → exit 1 零写入' "exit/状态不符"
+  fi
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" take --id 20-beta-second --status ready --ledger-line "$LED_FLIP" >/dev/null 2>&1
-  [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ] && ok '负例 N4 take 非 in_progress → exit 1 零写入' || bad '负例 N4 take 非 in_progress → exit 1 零写入' "exit/状态不符"
+  if [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ]; then
+    ok '负例 N4 take 非 in_progress → exit 1 零写入'
+  else
+    bad '负例 N4 take 非 in_progress → exit 1 零写入' "exit/状态不符"
+  fi
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" flip --id 20-beta-second --status bogus_status --ledger-line "$LED_FLIP" >/dev/null 2>&1
-  [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ] && ok '负例 N6 非法状态值 → exit 1 零写入' || bad '负例 N6 非法状态值 → exit 1 零写入' "exit/状态不符"
+  if [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ]; then
+    ok '负例 N6 非法状态值 → exit 1 零写入'
+  else
+    bad '负例 N6 非法状态值 → exit 1 零写入' "exit/状态不符"
+  fi
 
   # N5：索引一条目一行排版破坏（条目缺 updated_at）→ 预检停止，零写入且无投影
   tix_build_fixture "$D/fix5"
@@ -639,7 +706,11 @@ suite_ticket_ops() {
 
   # N8：畸形 id（NN 段不合 ^[0-9]{2,}-）→ 一并拒，零写入（NN 段提取与 id 正则一致，防绕过段查重）
   sh "$F7/rules/implementation/scripts/ticket-ops.sh" "$F7" open --id 7-short-nn --complexity C1 --title d --ledger-line "$LED_OPEN" >/dev/null 2>&1
-  [ "$?" -eq 1 ] && [ "$S7" = "$(tix_state "$F7")" ] && ok '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）' || bad '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）' "exit/状态不符"
+  if [ "$?" -eq 1 ] && [ "$S7" = "$(tix_state "$F7")" ]; then
+    ok '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）'
+  else
+    bad '负例 N8 畸形 id（个位 NN 段）open → exit 1 零写入（id 口径门先拦）' "exit/状态不符"
+  fi
 
   # 正例：同夹具换新 NN 新 slug 正常开票照旧（open 成功路径零回归；票 79 起本体先落位——
   # tix_body 正例形态含理由两字段，过本体校验后走完全链）
@@ -784,14 +855,16 @@ suite_ticket_ops() {
     {"id": "32-at-req", "status": "in_progress", "complexity": "C1", "blocked_by": [], "updated_at": "2026-09-29T10:01"}\
   ]/' "$F100/facts/requirements/tickets/index.json" > "$F100/idx100.tmp" && mv "$F100/idx100.tmp" "$F100/facts/requirements/tickets/index.json"
   # issues-README 补两状态行（flip 预检要求锚点恰 1 行）
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   printf '| \`31-at-clip.json\` | 任务票 31；\`in_progress\`（2026-09-29 开票） | AT clip fixture |\n' >> "$F100/facts/requirements/tickets/README.md"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   printf '| \`32-at-req.json\` | 任务票 32；\`in_progress\`（2026-09-29 开票） | AT req fixture |\n' >> "$F100/facts/requirements/tickets/README.md"
   LED_AT='{"date": "2026-09-29", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture at 100", "evidence_ref": "facts/requirements/tickets/31-at-clip.json"}'
 
   tix_body_at "$F100/facts/requirements/tickets/31-at-clip.json" 31-at-clip
   sed 's/"actual_time": "2h（fixture 净工时占位：会话段累计减中断段）"/"actual_time": ""/' "$F100/facts/requirements/tickets/31-at-clip.json" > "$F100/at1.tmp" && mv "$F100/at1.tmp" "$F100/facts/requirements/tickets/31-at-clip.json"
   S100=$(tix_state "$F100")
-  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 31-at-clip --status done --ledger-line "$LED_AT" >"$D/at1.log" 2>&1
+  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 31-at-clip --status 'done' --ledger-line "$LED_AT" >"$D/at1.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S100" = "$(tix_state "$F100")" ] && grep -q 'actual_time' "$D/at1.log" && grep -q '31-at-clip' "$D/at1.log"; then
     ok '负例 N-100a flip 本体 actual_time 空值 → exit 1 零写入且指名票 id 与缺项（票 100 fail-closed）'
@@ -801,7 +874,7 @@ suite_ticket_ops() {
 
   # N-100b：字段缺失（tix_body 正例形态无 actual_time）
   tix_body "$F100/facts/requirements/tickets/31-at-clip.json" 31-at-clip
-  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 31-at-clip --status done --ledger-line "$LED_AT" >"$D/at2.log" 2>&1
+  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 31-at-clip --status 'done' --ledger-line "$LED_AT" >"$D/at2.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S100" = "$(tix_state "$F100")" ] && grep -q 'actual_time' "$D/at2.log" && grep -q '31-at-clip' "$D/at2.log"; then
     ok '负例 N-100b flip 本体缺 actual_time 字段 → exit 1 零写入且指名票 id 与缺项（票 100）'
@@ -810,7 +883,7 @@ suite_ticket_ops() {
   fi
 
   # N-100c：本体文件缺失
-  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 31-at-clip --status done --ledger-line "$LED_AT" >"$D/at3.log" 2>&1
+  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 31-at-clip --status 'done' --ledger-line "$LED_AT" >"$D/at3.log" 2>&1
   rc=$?
   rm -f "$F100/facts/requirements/tickets/31-at-clip.json"
   if [ "$rc" -eq 1 ] && [ "$S100" = "$(tix_state "$F100")" ] && grep -q 'actual_time' "$D/at3.log" && grep -q '31-at-clip' "$D/at3.log"; then
@@ -829,7 +902,7 @@ suite_ticket_ops() {
 }
 EOF
   LED_AT_REQ='{"date": "2026-09-29", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture at req 100", "evidence_ref": "facts/requirements/tickets/32-at-req.json"}'
-  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 32-at-req --status done --ledger-line "$LED_AT_REQ" >"$D/at4.log" 2>&1
+  sh "$F100/rules/implementation/scripts/ticket-ops.sh" "$F100" flip --id 32-at-req --status 'done' --ledger-line "$LED_AT_REQ" >"$D/at4.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '"id": "32-at-req", "status": "done"' "$F100/facts/requirements/tickets/index.json"; then
     ok '正例 N-100d request 票 flip → exit 0 且索引单写（request 不校验 actual_time，票 100）'
@@ -901,7 +974,11 @@ suite_progress() {
 EOF
   sh "$SCRIPT_DIR/generate-progress.sh" "$P" >"$D/gen.log" 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok '生成 exit 0（乱序 id 索引）' || bad '生成 exit 0（乱序 id 索引）' "exit=$rc $(head -n 1 "$D/gen.log")"
+  if [ "$rc" -eq 0 ]; then
+    ok '生成 exit 0（乱序 id 索引）'
+  else
+    bad '生成 exit 0（乱序 id 索引）' "exit=$rc $(head -n 1 "$D/gen.log")"
+  fi
 
   {
     printf '<!-- generated_from: facts/requirements/tickets/index.json + rules/implementation/scripts/generate-progress.sh -->\n'
@@ -921,22 +998,38 @@ EOF
 
   sh "$SCRIPT_DIR/generate-progress.sh" --check "$P" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok '--check 一致 exit 0（dry-run 不写）' || bad '--check 一致 exit 0（dry-run 不写）' "exit=$rc"
+  if [ "$rc" -eq 0 ]; then
+    ok '--check 一致 exit 0（dry-run 不写）'
+  else
+    bad '--check 一致 exit 0（dry-run 不写）' "exit=$rc"
+  fi
 
   sed 's/| ready |/| done |/' "$P/facts/requirements/tickets/progress-current.md" > "$D/tamper.tmp" && mv "$D/tamper.tmp" "$P/facts/requirements/tickets/progress-current.md"
   sh "$SCRIPT_DIR/generate-progress.sh" --check "$P" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 1 ] && ok '篡改检出 → --check exit 1（投影 stale）' || bad '篡改检出 → --check exit 1（投影 stale）' "exit=$rc"
+  if [ "$rc" -eq 1 ]; then
+    ok '篡改检出 → --check exit 1（投影 stale）'
+  else
+    bad '篡改检出 → --check exit 1（投影 stale）' "exit=$rc"
+  fi
 
   rm -f "$P/facts/requirements/tickets/progress-current.md"
   sh "$SCRIPT_DIR/generate-progress.sh" --check "$P" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 1 ] && ok '投影缺失 → --check exit 1（先运行生成器落盘）' || bad '投影缺失 → --check exit 1（先运行生成器落盘）' "exit=$rc"
+  if [ "$rc" -eq 1 ]; then
+    ok '投影缺失 → --check exit 1（先运行生成器落盘）'
+  else
+    bad '投影缺失 → --check exit 1（先运行生成器落盘）' "exit=$rc"
+  fi
 
   mkdir -p "$D/noindex/facts/requirements/tickets"
   sh "$SCRIPT_DIR/generate-progress.sh" "$D/noindex" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '索引缺失 → exit 2（fail-closed 不写投影）' || bad '索引缺失 → exit 2（fail-closed 不写投影）' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '索引缺失 → exit 2（fail-closed 不写投影）'
+  else
+    bad '索引缺失 → exit 2（fail-closed 不写投影）' "exit=$rc"
+  fi
 
   mkdir -p "$D/badidx/facts/requirements/tickets"
   cat > "$D/badidx/facts/requirements/tickets/index.json" <<'EOF'
@@ -948,7 +1041,11 @@ EOF
 EOF
   sh "$SCRIPT_DIR/generate-progress.sh" "$D/badidx" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '条目行缺必备字段（updated_at）→ exit 2' || bad '条目行缺必备字段（updated_at）→ exit 2' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '条目行缺必备字段（updated_at）→ exit 2'
+  else
+    bad '条目行缺必备字段（updated_at）→ exit 2' "exit=$rc"
+  fi
 
   suite_summary 'progress'
 }
@@ -1007,7 +1104,11 @@ check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok "正例 exit 0（包根＝${PKG_ROOT}）" || bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
+  if [ "$rc" -eq 0 ]; then
+    ok "正例 exit 0（包根＝${PKG_ROOT}）"
+  else
+    bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
+  fi
   assert_eq '正例输出逐行逐一相等（十九项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17、18 票号禁令与 19 mode 断言）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
@@ -1034,12 +1135,17 @@ check-package: FAIL（3 项未通过，共 19 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
-  [ "$rc" -eq 1 ] && ok '负例 exit 1（副本删必需件，mktemp 副本纪律）' || bad '负例 exit 1（副本删必需件，mktemp 副本纪律）' "exit=$rc"
+  if [ "$rc" -eq 1 ]; then
+    ok '负例 exit 1（副本删必需件，mktemp 副本纪律）'
+  else
+    bad '负例 exit 1（副本删必需件，mktemp 副本纪律）' "exit=$rc"
+  fi
   assert_eq '负例输出逐一相等（fail-closed 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动＋检查 18 同步，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
 
   # 票 57 协调层改判随票修：检查 11 逐处全等——§2.5 单处删 pi（frontmatter 完整）
   # 必须单独 FAIL 指名 :119（旧并集口径此场景漏检，回归钉死）。
   cp -R "$PKG_ROOT" "$D/pkgcopy2"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
 PASS: 1 必需入口存在（16 个文件）
@@ -1063,7 +1169,11 @@ check-package: FAIL（1 项未通过，共 19 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
-  [ "$rc" -eq 1 ] && ok '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' || bad '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' "exit=$rc"
+  if [ "$rc" -eq 1 ]; then
+    ok '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）'
+  else
+    bad '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' "exit=$rc"
+  fi
   assert_eq '负例输出逐一相等（检查 11 逐处全等，FAIL 行按行号指名 :119 缺少 pi）' "$D/act.cc" "$D/exp.cc"
 
   # 票 58 检查 12 负例 N4：词表首词（自夹具包 manifest 词表节提取，harness 零词面字面量）
@@ -1164,6 +1274,7 @@ EOF
   # 票 59 检查 14 负例 N10：向 agents-implementation.md.tmpl 的 required_capabilities 行
   # 注入未登记基元名 → exit 1 且 FAIL: 14 指名文件（多出＝不在名单）。
   cp -R "$PKG_ROOT" "$D/pkgcopy7"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's/`execute`；治理写入许可/`execute`、`harness-fixture-cap`；治理写入许可/' \
     "$D/pkgcopy7/references/templates/agents-implementation.md.tmpl" > "$D/tmpl7.tmp" \
     && mv "$D/tmpl7.tmp" "$D/pkgcopy7/references/templates/agents-implementation.md.tmpl"
@@ -1178,6 +1289,7 @@ EOF
   # 票 59 检查 14 负例 N11：自同一声明行删除一基元名（edit）→ exit 1 且 FAIL: 14 指名
   # 文件（缺少＝相对登记预期名单）。
   cp -R "$PKG_ROOT" "$D/pkgcopy8"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's/、`edit`//' "$D/pkgcopy8/references/templates/agents-implementation.md.tmpl" > "$D/tmpl8.tmp" \
     && mv "$D/tmpl8.tmp" "$D/pkgcopy8/references/templates/agents-implementation.md.tmpl"
   sh "$D/pkgcopy8/scripts/check-package.sh" "$D/pkgcopy8" >"$D/act.n11" 2>&1
@@ -1338,7 +1450,7 @@ EOF
   # 令 index 断言误判。
   cp -R "$PKG_ROOT" "$D/pkgcopy20"
   (
-    cd "$D/pkgcopy20"
+    cd "$D/pkgcopy20" || exit 1
     git init -q
     git add -A
     chmod 644 scripts/generate-progress.sh
@@ -1565,14 +1677,26 @@ EARLY' "$D/n6/facts/project/micro.jsonl" > "$D/x" && mv "$D/x" "$D/n6/facts/proj
   # 用法负例 N7：无参数 → exit 2；多参数 → exit 2；非 Git 目录 → exit 2
   sh "$AO" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '负例 N7 无参数 → exit 2' || bad '负例 N7 无参数 → exit 2' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '负例 N7 无参数 → exit 2'
+  else
+    bad '负例 N7 无参数 → exit 2' "exit=$rc"
+  fi
   sh "$AO" a b >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '负例 N8 两参数 → exit 2' || bad '负例 N8 两参数 → exit 2' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '负例 N8 两参数 → exit 2'
+  else
+    bad '负例 N8 两参数 → exit 2' "exit=$rc"
+  fi
   mkdir -p "$D/nogit"
   sh "$AO" "$D/nogit" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '负例 N9 非 Git 目录 → exit 2' || bad '负例 N9 非 Git 目录 → exit 2' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '负例 N9 非 Git 目录 → exit 2'
+  else
+    bad '负例 N9 非 Git 目录 → exit 2' "exit=$rc"
+  fi
 
   suite_summary 'append-only'
 }
@@ -1629,7 +1753,11 @@ suite_check_artifacts() {
   rt_build_fixture "$D/p1"
   sh "$CA" "$D/p1" > "$D/p1.out" 2>&1
   rc=$?
-  [ "$rc" -eq 0 ] && ok '正例 P1 全对账 → exit 0' || bad '正例 P1 全对账 → exit 0' "exit=$rc $(head -n 2 "$D/p1.out" | tr '\n' '|')"
+  if [ "$rc" -eq 0 ]; then
+    ok '正例 P1 全对账 → exit 0'
+  else
+    bad '正例 P1 全对账 → exit 0' "exit=$rc $(head -n 2 "$D/p1.out" | tr '\n' '|')"
+  fi
   if grep -q 'SKIP: 条目 micro-ledger 登记目标暂缺（数据块懒创建许可）: facts/project/micro.jsonl' "$D/p1.out" && ! grep -q '^check-artifacts: FAIL' "$D/p1.out"; then
     ok '正例 P1 懒创建面登记暂缺 → SKIP 行且零 FAIL（豁免命中不报同证）'
   else
@@ -1721,10 +1849,18 @@ suite_check_artifacts() {
   # 用法负例 N5/N6：无参数 → exit 2；repo-root 不存在 → exit 2
   sh "$CA" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '负例 N5 无参数 → exit 2' || bad '负例 N5 无参数 → exit 2' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '负例 N5 无参数 → exit 2'
+  else
+    bad '负例 N5 无参数 → exit 2' "exit=$rc"
+  fi
   sh "$CA" "$D/no-such-root" >/dev/null 2>&1
   rc=$?
-  [ "$rc" -eq 2 ] && ok '负例 N6 repo-root 不存在 → exit 2' || bad '负例 N6 repo-root 不存在 → exit 2' "exit=$rc"
+  if [ "$rc" -eq 2 ]; then
+    ok '负例 N6 repo-root 不存在 → exit 2'
+  else
+    bad '负例 N6 repo-root 不存在 → exit 2' "exit=$rc"
+  fi
 
   suite_summary 'check-artifacts'
 }
@@ -1903,7 +2039,7 @@ EOF
   sc_build_fixture "$D/p5"
   mkdir -p "$D/p5/eng"
   cp "$SC" "$D/p5/eng/check-stale-claims.sh"
-  sc_s6_write "$D/p5/repo" done 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
+  sc_s6_write "$D/p5/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/p5/repo"
   sc_run "$D/p5" > "$D/p5.out" 2>&1
   rc=$?
@@ -1921,7 +2057,7 @@ EOF
   sc_build_fixture "$D/n4"
   mkdir -p "$D/n4/eng"
   cp "$SC" "$D/n4/eng/check-stale-claims.sh"
-  sc_s6_write "$D/n4/repo" done 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
+  sc_s6_write "$D/n4/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/n4/repo"
   sc_s6_write "$D/n4/repo" in_progress 2026-09-28T01:00:00Z superseded 2026-09-28T00:00:00Z
   sc_run "$D/n4" > "$D/n4.out" 2>&1
@@ -1940,9 +2076,9 @@ EOF
   sc_build_fixture "$D/n5"
   mkdir -p "$D/n5/eng"
   cp "$SC" "$D/n5/eng/check-stale-claims.sh"
-  sc_s6_write "$D/n5/repo" done 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
+  sc_s6_write "$D/n5/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/n5/repo"
-  sc_s6_write "$D/n5/repo" done 2026-09-28T00:00:00Z ready 2026-09-28T01:00:00Z
+  sc_s6_write "$D/n5/repo" 'done' 2026-09-28T00:00:00Z ready 2026-09-28T01:00:00Z
   sc_run "$D/n5" > "$D/n5.out" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
@@ -2096,6 +2232,7 @@ suite_lane_commit() {
   lc_build_fixture "$D/n2"
   mkdir -p "$D/n2/facts/requirements/tickets"
   printf '{"id": "33-lc-ticket", "status": "in_progress"}\n' > "$D/n2/facts/requirements/tickets/index.json"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   printf '# 票\n\n**Status:** `in_progress`\n' > "$D/n2/facts/requirements/tickets/33-lc-ticket.md"
   lc_git_commit "$D/n2"
   printf 'change2\n' > "$D/n2/a.txt"
@@ -2154,10 +2291,12 @@ suite_lane_commit() {
     printf 'verdict_quote: OK（fixture json 全链裁决）\n'
     printf 'verdict_at: 2026-09-30T12:00\n'
     printf 'flips: facts/requirements/tickets/index.json:index:33-lc-ticket:done:2026-09-30T12:00\n'
+    # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
     printf 'flips: facts/requirements/tickets/README.md:任务票 33；`in_progress`:| `33-lc-ticket.json` | 任务票 33；`done`（2026-09-29 开票） | LC json fixture |\n'
   } > "$D/pj.contract"
   sh "$LC" "$D/pj" "$D/pj.contract" >"$D/pj.out" 2>&1
   rc=$?
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   if [ "$rc" -eq 0 ] \
     && grep -q '"id": "33-lc-ticket", "status": "done"' "$D/pj/facts/requirements/tickets/index.json" \
     && grep -q '任务票 33；`done`' "$D/pj/facts/requirements/tickets/README.md" \
@@ -2317,10 +2456,10 @@ RULES
   # 正例 P1：栅栏化创建 → exit 0；main-only 路径不在场；非 main-only 件在场
   # （夹具全程 cd 到夹具仓内运行：脚本以 cwd 判主检出，路径参数按夹具仓相对解析）
   wt_build_fixture "$D/p1/repo"
-  cd "$D/p1/repo"
+  cd "$D/p1/repo" || exit 1
   sh "$WA" ../wt1 ticket/42-test >"$D/p1.out" 2>&1
   rc=$?
-  cd "$SAVED_PWD"
+  cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 0 ] && [ ! -e "$D/p1/wt1/deploy" ] && [ ! -e "$D/p1/wt1/agent-up/scripts/export-payload.sh" ] && [ -f "$D/p1/wt1/agent-up/scripts/other.sh" ] && [ -f "$D/p1/wt1/docs/a.md" ]; then
     ok '正例 P1 栅栏化创建 exit 0 且 main-only 路径物理不在场、其余件在场'
   else
@@ -2362,10 +2501,10 @@ RULES
   fi
 
   # 负例 N2：链接 worktree 内运行 → exit 1 主检出自拒（cwd 在 P1 的 worktree 内）
-  cd "$D/p1/wt1"
+  cd "$D/p1/wt1" || exit 1
   sh "$WA" ../wt3 ticket/43-test >"$D/n2.out" 2>&1 </dev/null
   rc=$?
-  cd "$SAVED_PWD"
+  cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 1 ] && grep -q '主检出自拒' "$D/n2.out"; then
     ok '负例 N2 链接 worktree 内运行 → exit 1 主检出自拒'
   else
@@ -2382,10 +2521,10 @@ dp_payload_target b
 dp_payload_local_ref l
 ' > "$D/n3/repo/delivery.rules"
   git -C "$D/n3/repo" add delivery.rules && git -C "$D/n3/repo" commit -qm rules
-  cd "$D/n3/repo"
+  cd "$D/n3/repo" || exit 1
   sh "$WA" ../wt4 ticket/44-test >"$D/n3.out" 2>&1
   rc=$?
-  cd "$SAVED_PWD"
+  cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 2 ] && grep -q '未声明 main-only 节' "$D/n3.out"; then
     ok '负例 N3 未声明 main-only 节 → exit 2 拒跑（栅栏未知 fail-closed）'
   else
@@ -2400,10 +2539,10 @@ dp_mainonly deploy
 dp_mainonly deploy
 ' > "$D/n4/repo/delivery.rules"
   git -C "$D/n4/repo" add delivery.rules && git -C "$D/n4/repo" commit -qm rules
-  cd "$D/n4/repo"
+  cd "$D/n4/repo" || exit 1
   sh "$WA" ../wt5 ticket/45-test >"$D/n4.out" 2>&1
   rc=$?
-  cd "$SAVED_PWD"
+  cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 2 ] && grep -q '解析破坏' "$D/n4.out"; then
     ok '负例 N4 delivery.rules 解析破坏 → exit 2 不产生部分结论'
   else
@@ -2414,10 +2553,10 @@ dp_mainonly deploy
   # 负例 N5：既有分支可检出（先建分支再经脚本创建 worktree）
   wt_build_fixture "$D/p3/repo"
   git -C "$D/p3/repo" branch ticket/46-test
-  cd "$D/p3/repo"
+  cd "$D/p3/repo" || exit 1
   sh "$WA" ../wt6 ticket/46-test >"$D/p3.out" 2>&1
   rc=$?
-  cd "$SAVED_PWD"
+  cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 0 ] && [ -d "$D/p3/wt6" ] && [ ! -e "$D/p3/wt6/deploy" ]; then
     ok '正例 P3 既有分支检出 → exit 0 且栅栏同效'
   else

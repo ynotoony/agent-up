@@ -74,7 +74,7 @@ header_window() {
   ' "$1"
 }
 
-script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 if [ $# -gt 1 ]; then
   printf 'check-package: 错误：至多接受一个参数\n' >&2
   usage >&2
@@ -89,7 +89,7 @@ if [ $# -eq 1 ]; then
   esac
   pkg_root=$1
 else
-  pkg_root=$(CDPATH= cd "$script_dir/.." && pwd)
+  pkg_root=$(CDPATH='' cd "$script_dir/.." && pwd)
 fi
 if [ ! -d "$pkg_root" ]; then
   printf 'check-package: 错误：包根目录不存在：%s\n' "$pkg_root" >&2
@@ -237,6 +237,7 @@ pm_report "$pm_bad"
 # source 窗口临时关 set -e：行执行出错须经返回码收敛为 exit 2，而非被 set -e 直接
 # 以 127 退出（fail-closed 统一退出码口径；pm_* 函数内 arg-count 违规经 pm_die 直达 exit 2）。
 set +e
+# shellcheck disable=SC1090  # source 外置规则表（数据路径含变量；外置数据＋引擎零专名设计）
 . "$pm_rules"
 pm_src_rc=$?
 set -e
@@ -467,13 +468,13 @@ add_problem() {
 n_entries=$(wc -l < "$pm_entries" | tr -d ' ')
 missing_entries=''
 sep=''
-for rel in $(cat "$pm_entries"); do
+while IFS= read -r rel; do
   if [ ! -f "$pkg_root/$rel" ]; then
     missing_entries="$missing_entries$sep  - $rel"
     sep='
 '
   fi
-done
+done < "$pm_entries"
 if [ -n "$missing_entries" ]; then
   fail 1 "必需入口存在（${n_entries} 个文件）" "$missing_entries"
 else
@@ -566,13 +567,12 @@ if [ -d "$templates_dir" ]; then
   OLDIFS=$IFS
   IFS='
 '
-  for b in $(cat "$pm_templates"); do
-    IFS=$OLDIFS
+  while IFS= read -r b; do
     if [ ! -f "$templates_dir/$b" ]; then
       data_no_file="$data_no_file$sep2$b"
       sep2='、'
     fi
-  done
+  done < "$pm_templates"
   IFS=$OLDIFS
   if [ -n "$data_no_file" ]; then
     add_problem "  - 数据登记但无实际文件：$data_no_file"
@@ -582,19 +582,19 @@ if [ -d "$templates_dir" ]; then
     add_problem '  - templates/README.md（manifest）不存在'
   else
     # 仅在“## 目录清单”至“## 取舍”节内提取（票 09 口径：避开取舍登记散文提及）。
+    # shellcheck disable=SC2016  # sed 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
     man_names=$(sed -n '/^## 目录清单/,/^## 取舍/p' "$manifest" | sed -n 's/[^`]*`\([^`]*\.tmpl\)`.*/\1/p' | sort -u)
     data_no_man=''
     sep2=''
     OLDIFS=$IFS
     IFS='
 '
-    for b in $(cat "$pm_templates"); do
-      IFS=$OLDIFS
+    while IFS= read -r b; do
       if ! printf '%s\n' "$man_names" | grep -qxF "$b"; then
         data_no_man="$data_no_man$sep2$b"
         sep2='、'
       fi
-    done
+    done < "$pm_templates"
     IFS=$OLDIFS
     if [ -n "$data_no_man" ]; then
       add_problem "  - 未在 manifest 登记：$data_no_man"
@@ -708,15 +708,14 @@ sep=''
 OLDIFS=$IFS
 IFS='
 '
-for row in $(cat "$pm_scripts"); do
-  IFS=$OLDIFS
+while IFS= read -r row; do
   rel=${row%%"$TAB"*}
   if [ ! -f "$pkg_root/$rel" ]; then
     missing_scripts="$missing_scripts$sep  - $rel"
     sep='
 '
   fi
-done
+done < "$pm_scripts"
 IFS=$OLDIFS
 if [ -n "$missing_scripts" ]; then
   fail 8 "脚本必需件存在（${n_scripts} 个文件）" "$missing_scripts"
@@ -733,6 +732,7 @@ if [ ! -f "$scripts_readme" ]; then
   add_problem "  - ${scripts_readme_rel}（成员表）不存在"
 else
   # 提取成员表（锚点＝首列表头行；表格随首个非 | 行结束），每行取首列反引号名单。
+  # shellcheck disable=SC2016  # awk 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
   table_names=$(awk '
     /^\| 名字 \| 地位 \| 功能 \|/ { f = 1; next }
     f { if ($0 !~ /^\|/) f = 0; else print }
@@ -745,15 +745,14 @@ else
     OLDIFS=$IFS
     IFS='
 '
-    for row in $(cat "$pm_scripts"); do
-      IFS=$OLDIFS
+    while IFS= read -r row; do
       rel=${row%%"$TAB"*}
       b=${rel##*/}
       if ! printf '%s\n' "$table_names" | grep -qxF "$b"; then
         miss_tbl="$miss_tbl$sep2$b"
         sep2='、'
       fi
-    done
+    done < "$pm_scripts"
     IFS=$OLDIFS
     if [ -n "$miss_tbl" ]; then
       add_problem "  - 数据登记未在成员表：$miss_tbl"
@@ -1031,13 +1030,12 @@ fi
 # 机械拦截面：仓侧镜像件改动未同步包内时本检查即红，不等导出波。
 problems=''
 mirror_compared=0
-mirror_root=$(CDPATH= cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
+mirror_root=$(CDPATH='' cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
 mirror_new_dir='rules/implementation/scripts'
 OLDIFS=$IFS
 IFS='
 '
-for m in $(cat "$pm_mirrors"); do
-  IFS=$OLDIFS
+while IFS= read -r m; do
   [ -f "$pkg_root/$scripts_dir/$m" ] || continue
   _m_dst=''
   if [ -n "$mirror_root" ] && [ -f "$mirror_root/$scripts_dir/$m" ]; then
@@ -1052,7 +1050,7 @@ for m in $(cat "$pm_mirrors"); do
   if ! cmp -s "$pkg_root/$scripts_dir/$m" "$_m_dst"; then
     add_problem "  - $scripts_dir/$m 与仓根 $_m_loc 不一致（byte-diff，两处同源演化须互为镜像）"
   fi
-done
+done < "$pm_mirrors"
 IFS=$OLDIFS
 if [ "$mirror_compared" -gt 0 ]; then
   if [ -n "$problems" ]; then
@@ -1232,7 +1230,7 @@ fi
 # （内容列禁竖线，机制列语法见检查 16）。
 problems=''
 : > "$pm_idxmech"
-for t in $(cat "$pm_templates"); do
+while IFS= read -r t; do
   idx_site="$templates_dir/$t"
   [ -f "$idx_site" ] || continue  # 缺件由检查 5 指名，本项不重复报
   grep -q '^## 16\. 规则索引' "$idx_site" 2>/dev/null || continue
@@ -1250,7 +1248,7 @@ for t in $(cat "$pm_templates"); do
       print id "\t" mech
     }
   ' "$idx_site" >> "$pm_idxmech" || true
-done
+done < "$pm_templates"
 grep -v '^MALFORMED' "$pm_idxmech" 2>/dev/null | LC_ALL=C cut -f1 > "$pm_idxids"
 malformed=$(LC_ALL=C awk -F'\t' '$1 == "MALFORMED" { print $2 }' "$pm_idxmech")
 n_idx=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_idxids")
@@ -1259,8 +1257,7 @@ if [ -d "$templates_dir" ]; then
   OLDIFS=$IFS
   IFS='
 '
-  for t in $(cat "$pm_templates"); do
-    IFS=$OLDIFS
+  while IFS= read -r t; do
     # 索引宿主文件（含「## 16. 规则索引」锚点者，可多件）先排除表行自身（行首「| R-」）
     # 再提取 ID：索引表在 grep 扫描面内，表行加什么 ID 全集就含什么 ID，不排除则检查 15
     # 的「多出全集外 ID」方向退化失效。
@@ -1273,7 +1270,7 @@ if [ -d "$templates_dir" ]; then
       union_ids="$union_ids$hits
 "
     fi
-  done
+  done < "$pm_templates"
   IFS=$OLDIFS
 fi
 union_ids=$(printf '%s' "$union_ids" | LC_ALL=C sort -u)
@@ -1306,13 +1303,12 @@ extra=''; sep2=''
 OLDIFS=$IFS
 IFS='
 '
-for id in $(cat "$pm_idxids"); do
-  IFS=$OLDIFS
+while IFS= read -r id; do
   if ! printf '%s\n' "$union_ids" | grep -qxF "$id"; then
     extra="$extra$sep2$id"
     sep2='、'
   fi
-done
+done < "$pm_idxids"
 IFS=$OLDIFS
 missing=''; sep2=''
 OLDIFS=$IFS
@@ -1331,8 +1327,7 @@ unmarked=''; sep2=''
 OLDIFS=$IFS
 IFS='
 '
-for id in $(cat "$pm_idxids"); do
-  IFS=$OLDIFS
+while IFS= read -r id; do
   sc=$(printf '%s' "$id" | cut -c3-4)
   # 一码多件（流程权威拆三：DP 一短码对应 rules 三件模板）时取首行 owner——同码多行
   # owner 的登记形态下内外判定取首行即可定侧。
@@ -1353,7 +1348,7 @@ for id in $(cat "$pm_idxids"); do
         ;;
     esac
   fi
-done
+done < "$pm_idxids"
 IFS=$OLDIFS
 if [ -n "$extra" ]; then
   add_problem "  - 索引多出全集外 ID: $extra"
@@ -1577,7 +1572,7 @@ if [ -n "$cand18" ]; then
 fi
 # 失效豁免核对：登记行无命中即 FAIL（检查 12 同款，防漂移静默失效）。
 if [ "$n_citeex" -gt 0 ]; then
-  while IFS="$(printf '\t')" read -r ex_path ex_ln ex_reason; do
+  while IFS="$(printf '\t')" read -r ex_path ex_ln _; do
     [ -n "$ex_path" ] || continue
     if ! printf '%s\n' "$cand18" | LC_ALL=C grep -qE "^${ex_path}:${ex_ln}:" 2>/dev/null; then
       add_problem "  - 失效豁免（登记行无票号命中，须复核更新或删除登记）: ${ex_path}:${ex_ln}"
@@ -1605,8 +1600,7 @@ if git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1; then
   OLDIFS=$IFS
   IFS='
 '
-  for row in $(cat "$pm_scripts"); do
-    IFS=$OLDIFS
+  while IFS= read -r row; do
     rel=${row%%"$TAB"*}
     kind=${row#*"$TAB"}
     kind=${kind%%"$TAB"*}
@@ -1636,7 +1630,7 @@ if git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1; then
     if [ "$want_exec" -eq 0 ] && [ -x "$pkg_root/$rel" ]; then
       add_problem "  - $rel 盘上可执行（kind=${kind} 数据件禁执行位）"
     fi
-  done
+  done < "$pm_scripts"
   IFS=$OLDIFS
   if [ -n "$problems" ]; then
     fail 19 "scripts 节 mode 断言（${n_mode_scripts} 件，kind 数据驱动）" "$problems"

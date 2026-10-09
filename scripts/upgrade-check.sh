@@ -57,8 +57,8 @@ pkg_dir=$1
 repo_root=$2
 [ -d "$pkg_dir" ] || die2 "包基线目录不存在: $pkg_dir"
 [ -d "$repo_root" ] || die2 "目标项目根不存在: $repo_root"
-pkg_dir=$(CDPATH= cd "$pkg_dir" && pwd)
-repo_root=$(CDPATH= cd "$repo_root" && pwd)
+pkg_dir=$(CDPATH='' cd "$pkg_dir" && pwd)
+repo_root=$(CDPATH='' cd "$repo_root" && pwd)
 [ -f "$pkg_dir/scripts/install-policy.rules" ] || die2 "包基线缺 install-policy.rules: $pkg_dir/scripts/install-policy.rules"
 [ -f "$pkg_dir/scripts/upgrade-check.sh" ] || die2 "包基线缺 upgrade-check.sh（本件应随包分发）: $pkg_dir/scripts/upgrade-check.sh"
 [ -f "$pkg_dir/references/templates/delivery-rules.tmpl" ] || die2 "包基线缺 delivery-rules.tmpl: $pkg_dir/references/templates/delivery-rules.tmpl"

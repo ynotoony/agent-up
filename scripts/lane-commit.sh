@@ -122,7 +122,7 @@ esac
 [ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
 [ -r "${contract}" ] || die2 "合同文件不可读: ${contract}"
 git -C "${repo_root}" rev-parse --git-dir >/dev/null 2>&1 || die2 "仓库根不是 Git 仓库: ${repo_root}"
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 [ -r "${script_dir}/check-gates.sh" ] || die2 '同目录 check-gates.sh 缺失，无法执行门禁核对'
 
 IFS=${NL}
@@ -319,10 +319,7 @@ fi
 # 文件超出口径；stop 时零写入零提交（本段先于翻转预检与门禁，任何 die1 均安全）。
 
 if [ "${lane}" = 'micro' ]; then
-  n_wl=0
-  for wentry in ${whitelist}; do
-    n_wl=$((n_wl + 1))
-  done
+  n_wl=$(printf '%s' "${whitelist}" | wc -w | tr -d ' ')
   [ "${n_wl}" -le 3 ] || die1 "微道白名单条目 ${n_wl} 个（须 ≤3，票 58）——超出属非微任务，改走 user-review 道开票收尾"
   st_out=$(git -C "${repo_root}" status --porcelain)
   while IFS= read -r stline; do
@@ -586,6 +583,7 @@ for flip in ${flips}; do
       }
       mv "${tmp_flip}" "${repo_root}/${ticket}"
       tmp_flip=''
+      # shellcheck disable=SC2016  # sed/awk 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
       printf 'lane-commit: 正文 Status 回写（投影打印件）: %s → **Status:** `%s`\n' "${ticket}" "${f_status}"
     fi
     proj_file=${FACTS_TICKETS_PROGRESS}
