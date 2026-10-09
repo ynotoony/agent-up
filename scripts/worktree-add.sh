@@ -270,7 +270,7 @@ if ! git -C "$wt_abs" read-tree -mu HEAD; then
   die1 "read-tree 物化失败: ${wt_abs}（栅栏未生效，请删除该 worktree 后重试）"
 fi
 # 生效断言：main-only 首条路径在 worktree 内必须不在场（目录或文件皆然）。
-_first=${DP_MAINONLY%%$'\n'*}
+_first=$(printf '%s' "$DP_MAINONLY" | sed -n '1p')
 if [ -n "$_first" ] && [ -e "$wt_abs/$_first" ]; then
   die1 "栅栏未生效断言失败: $wt_abs/$_first 仍存在（排除模式未生效；请删除该 worktree 后重试）"
 fi

@@ -2319,8 +2319,8 @@ RULES
   wt_build_fixture "$D/p1/repo"
   cd "$D/p1/repo"
   sh "$WA" ../wt1 ticket/42-test >"$D/p1.out" 2>&1
-  cd "$SAVED_PWD"
   rc=$?
+  cd "$SAVED_PWD"
   if [ "$rc" -eq 0 ] && [ ! -e "$D/p1/wt1/deploy" ] && [ ! -e "$D/p1/wt1/agent-up/scripts/export-payload.sh" ] && [ -f "$D/p1/wt1/agent-up/scripts/other.sh" ] && [ -f "$D/p1/wt1/docs/a.md" ]; then
     ok '正例 P1 栅栏化创建 exit 0 且 main-only 路径物理不在场、其余件在场'
   else
@@ -2416,8 +2416,8 @@ dp_mainonly deploy
   git -C "$D/p3/repo" branch ticket/46-test
   cd "$D/p3/repo"
   sh "$WA" ../wt6 ticket/46-test >"$D/p3.out" 2>&1
-  cd "$SAVED_PWD"
   rc=$?
+  cd "$SAVED_PWD"
   if [ "$rc" -eq 0 ] && [ -d "$D/p3/wt6" ] && [ ! -e "$D/p3/wt6/deploy" ]; then
     ok '正例 P3 既有分支检出 → exit 0 且栅栏同效'
   else

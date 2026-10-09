@@ -667,7 +667,7 @@ fi
 if [ -n "${gen_cmd}" ]; then
   sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——收尾停止：产品提交 ${cid1} 已创建、索引与正文 Status 已更新、投影未刷新、记录提交未创建；手动运行生成器（sh ${gen_cmd} ${repo_root}）核对报因，修复后重跑收尾（幂等）"
   sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——收尾停止：投影与索引不一致或不可读，记录提交未创建；按生成器输出指路修复后重跑收尾（幂等）"
-  printf "lane-commit: 投影已再生并核对: ${FACTS_TICKETS_PROGRESS}\n"
+  printf 'lane-commit: 投影已再生并核对: %s\n' "$FACTS_TICKETS_PROGRESS"
 fi
 
 # ---- 记录提交（两段式第二段，R-RC-003） ----

@@ -1030,7 +1030,6 @@ fi
 # 在场即比对；两形态皆无＝保持消费项目静默跳过语义）。此为"仓领先于包"倒挂的提交前
 # 机械拦截面：仓侧镜像件改动未同步包内时本检查即红，不等导出波。
 problems=''
-n_mirror=$(wc -l < "$pm_mirrors" | tr -d ' ')
 mirror_compared=0
 mirror_root=$(CDPATH= cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
 mirror_new_dir='rules/implementation/scripts'

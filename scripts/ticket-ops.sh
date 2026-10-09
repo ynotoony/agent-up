@@ -714,6 +714,6 @@ fi
 
 sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入、投影未刷新；按生成器报因处理后核对重跑"
 sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入；投影与索引不一致，核对后重跑"
-printf "ticket-ops: 投影已再生并核对: ${progress_current_rel}\n"
+printf 'ticket-ops: 投影已再生并核对: %s\n' "$progress_current_rel"
 
 printf 'ticket-ops: PASS（%s 完成：索引、issues-README、账本、投影 --check 全部落地）\n' "${cmd}"

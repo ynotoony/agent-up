@@ -538,7 +538,7 @@ limits_rows=$(LC_ALL=C awk -F'\t' 'length($6) > 0 { n++; printf "%s%s", (n > 1 ?
 
 {
   printf '{\n'
-  printf '  "generated_from": "事实源=仓库源码文件的静态导入行；工具='"$TOOL_REL"'（票 30 拍板方案 A 首版，票 42 落位，票 43 扩展，票 44 引擎表驱动化：语言知识外置于与脚本同目录的 module-map.rules 规则表）",\n'
+  printf '  "generated_from": "事实源=仓库源码文件的静态导入行；工具=%s（票 30 拍板方案 A 首版，票 42 落位，票 43 扩展，票 44 引擎表驱动化：语言知识外置于与脚本同目录的 module-map.rules 规则表）",\n' "$TOOL_REL"
   printf '  "generated_at": "%s",\n' "$generated_at"
   printf '  "coverage": {\n'
   printf '    "languages": [\n%s\n    ],\n' "$cov_body"
