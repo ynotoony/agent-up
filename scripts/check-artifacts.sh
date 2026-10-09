@@ -76,7 +76,7 @@ done
 [ "$ca_apply" -eq 0 ] || [ "$ca_fix" -eq 1 ] || { usage >&2; die2 '--apply 仅与 --fix 同用'; }
 repo_root=$ca_pos
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
-repo_root=$(CDPATH= cd "$repo_root" && pwd)
+repo_root=$(CDPATH='' cd "$repo_root" && pwd)
 yaml="$repo_root/$artifacts_yaml"
 [ -f "$yaml" ] || die2 "治理产物登记缺失: facts/project/artifacts.yaml（相对 $repo_root）"
 
@@ -190,6 +190,7 @@ scan_ext_files() {
 }
 # ---- delivery.rules 解析引擎段（fail-closed 六规则，设计 §2；与 export-payload.sh
 #      同款，错误前缀参数化）----
+# shellcheck disable=SC2034  # DP 引擎统一解析产出字段（五副本同构契约；本脚本未消费≠冗余，禁删——调研报告禁改面）
 dp_load_rules() {
   DP_PRESENT=0
   DP_HAS_PAYLOAD=0
@@ -399,6 +400,7 @@ is_exempt() {
         esac
         ;;
       *)
+          # shellcheck disable=SC2254  # case 模式变量＝目录前缀豁免的刻意 glob 匹配（登记数据受控）
         case $_f in
           $_x) return 0 ;;
         esac
@@ -439,6 +441,7 @@ reg_covered() {
         esac
         ;;
       *)
+          # shellcheck disable=SC2254  # case 模式变量＝目录前缀豁免的刻意 glob 匹配（登记数据受控）
         case $_f in
           $_p) return 0 ;;
         esac
@@ -503,20 +506,22 @@ if [ "$ca_fix" -eq 1 ]; then
       [ -n "$ca_f" ] || continue
       ca_fid=$(printf '%s' "${ca_f%.*}" | tr '/' '\n' | tail -n 1 | sed 's/[^a-z0-9-][^a-z0-9-]*/-/g; s/^-*//; s/-*$//')
       [ -n "$ca_fid" ] || ca_fid=artifact
-      printf '  - id: artifact-%s\n' "$ca_fid" >> "$ca_fix_block"
-      printf '    path: %s\n' "$ca_f" >> "$ca_fix_block"
-      printf '    kind: 【按项目填写：governance/index/record/script 等；新增值先在 artifacts-yaml.tmpl 注释区登记】\n' >> "$ca_fix_block"
-      printf '    authority: 【按项目填写：权威层级第 N 级（理由）】\n' >> "$ca_fix_block"
-      printf '    owner: 【按项目填写：唯一写入者】\n' >> "$ca_fix_block"
-      printf '    lifecycle: 【按项目填写：Seed/Conditional/Record/Derived/Adapter】\n' >> "$ca_fix_block"
-      printf '    trigger: 【按项目填写：创建触发条件】\n' >> "$ca_fix_block"
-      printf '    read_when: 【按项目填写：读取时机】\n' >> "$ca_fix_block"
-      printf '    sync_on: 【按项目填写：契约/拓扑/行为/派生/无】\n' >> "$ca_fix_block"
-      printf '    depends_on: []\n' >> "$ca_fix_block"
-      printf '    generated_from: N/A + reason（非派生件写不适用理由）\n' >> "$ca_fix_block"
-      printf '    platform: neutral\n' >> "$ca_fix_block"
-      printf '    update_policy: 【按项目填写：更新策略】\n' >> "$ca_fix_block"
-      printf '\n' >> "$ca_fix_block"
+      {
+        printf '  - id: artifact-%s\n' "$ca_fid"
+        printf '    path: %s\n' "$ca_f"
+        printf '    kind: 【按项目填写：governance/index/record/script 等；新增值先在 artifacts-yaml.tmpl 注释区登记】\n'
+        printf '    authority: 【按项目填写：权威层级第 N 级（理由）】\n'
+        printf '    owner: 【按项目填写：唯一写入者】\n'
+        printf '    lifecycle: 【按项目填写：Seed/Conditional/Record/Derived/Adapter】\n'
+        printf '    trigger: 【按项目填写：创建触发条件】\n'
+        printf '    read_when: 【按项目填写：读取时机】\n'
+        printf '    sync_on: 【按项目填写：契约/拓扑/行为/派生/无】\n'
+        printf '    depends_on: []\n'
+        printf '    generated_from: N/A + reason（非派生件写不适用理由）\n'
+        printf '    platform: neutral\n'
+        printf '    update_policy: 【按项目填写：更新策略】\n'
+        printf '\n'
+      } >> "$ca_fix_block"
     done < "$ca_unreg_list"
     if [ "$ca_apply" -eq 1 ]; then
       cat "$ca_fix_block" >> "$yaml"

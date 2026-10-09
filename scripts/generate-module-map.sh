@@ -135,9 +135,10 @@ mm_rule() {
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$tmp_rules"
 }
 
-mm_script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+mm_script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 mm_rules_path="$mm_script_dir/module-map.rules"
 [ -f "$mm_rules_path" ] || die2 "语言规则表缺失: $mm_rules_path"
+# shellcheck disable=SC1090  # source 外置规则表（数据路径含变量；外置数据＋引擎零专名设计）
 . "$mm_rules_path"
 [ -s "$tmp_rules" ] || die2 "语言规则表未登记任何语言行: $mm_rules_path"
 

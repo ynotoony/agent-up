@@ -33,7 +33,6 @@ set -f  # 关闭文件名展开：脚本不依赖 glob
 
 NL='
 '
-TAB=$(printf '\t')
 
 # ---- 路径常量区（票 111 波②建立、票 113 波④翻值：治理路径字面量收敛于此；值＝rules/facts 新形态 R15/R25/R19；SCRIPTS_README_REL 包内自引用保持现值）----
 RUNS_DIR_REL='facts/requirements/runs'
@@ -136,7 +135,7 @@ case $1 in
 esac
 
 if [ -z "$repo_root" ]; then
-  repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+  repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 fi
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1 || \

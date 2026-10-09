@@ -62,6 +62,7 @@ die2() {
 # ---- delivery.rules 解析引擎段（fail-closed 六规则，与同族消费脚本同款；本脚本消费
 #      main-only 节。用法: dp_load_rules <repo-root> <错误前缀>；副作用全局 DP_*；
 #      返回 0 正常（含文件缺失＝全默认未声明）、2 解析破坏（不产生部分结论）----
+# shellcheck disable=SC2034  # DP 引擎统一解析产出字段（五副本同构契约；本脚本未消费≠冗余，禁删——调研报告禁改面）
 dp_load_rules() {
   DP_PRESENT=0
   DP_HAS_MAINONLY=0
@@ -194,7 +195,7 @@ _gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || die2 '目标不是 Git �
 _gcd=$(git rev-parse --git-common-dir 2>/dev/null) || die2 '目标不是 Git 工作区（须在主检出运行）'
 case $_gcd in
   /*) ;;
-  *) _gcd=$(CDPATH= cd "$(git rev-parse --show-toplevel)/$_gcd" && pwd) ;;
+  *) _gcd=$(CDPATH='' cd "$(git rev-parse --show-toplevel)/$_gcd" && pwd) ;;
 esac
 if [ "$_gd" != "$_gcd" ]; then
   die1 "主检出自拒：当前在链接 worktree（git-dir ${_gd} ≠ common-dir ${_gcd}）。worktree 创建属协调层职责，请在主检出运行本脚本。"
@@ -243,7 +244,7 @@ else
     die1 "git worktree add -b 失败: $path ${branch}（目标不可创建或分支名被拒）"
   fi
 fi
-wt_abs=$(CDPATH= cd "$path" && pwd) || die1 "新建 worktree 不可进入: $path"
+wt_abs=$(CDPATH='' cd "$path" && pwd) || die1 "新建 worktree 不可进入: $path"
 wt_gd=$(git -C "$wt_abs" rev-parse --absolute-git-dir)
 
 if ! git -C "$wt_abs" sparse-checkout init --no-cone; then
