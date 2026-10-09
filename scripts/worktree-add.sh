@@ -6,7 +6,7 @@
 # Output: 一票一 worktree 的栅栏化创建单命令——按 delivery.rules main-only 节逐条排除
 #         main-only 路径（目录或文件；sparse-checkout 非锥形模式，创建后该路径在工作树
 #         物理不在场：目录内文件不可写、直接运行不存在），输出排除清单行与完成行。
-#         delivery.rules 缺失或未声明 main-only 节＝拒跑 exit 2（未声明排除形态＝栅栏
+#         delivery.rules 缺失或 main-only 锚点缺失＝拒跑 exit 2（未声明排除形态＝栅栏
 #         未知，fail-closed：worktree-add 只在有栅栏配置的仓提供）；解析破坏 exit 2。
 # Pos: 公开包 worktree 创建单命令（交付面规则：main-only 脚本禁止在链接 worktree 运行，
 #      与 export-payload.sh 真跑门禁、install.sh worktree 自拒互为三闸——创建面排除＋
@@ -14,6 +14,10 @@
 #      引擎零项目约定硬编码）；POSIX sh；不执行 git push / 不删除既有 worktree（同名
 #      目录已存在即停，--force 只放宽 git 层）；.sparse-checkout 排除清单持久在该
 #      worktree 的 $GIT_DIR/info/sparse-checkout（随 worktree 删除一并消失）。
+# dp-parser: 2
+#      （解析器版本注记：本文件内嵌 dp_load_rules 的版本号；落地拷贝遇未知锚点/指令时
+#      报错引用此值，版本落后包内现版即升级指引信号——同步方式见 references/old-project.md
+#      §3 dp_load_rules 引擎件行。四件同族脚本注记须一致。）
 
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -30,8 +34,9 @@ usage() {
 行为:
   1. 主检出自拒：本脚本只在仓库主检出（git-dir ＝ git-common-dir）运行，链接 worktree
      内运行即拒（exit 1）。
-  2. 读仓根 delivery.rules main-only 节（dp_mainonly 逐行一条排除路径；未声明节＝拒跑
-     exit 2，栅栏未知 fail-closed；解析破坏 exit 2）。
+  2. 读仓根 delivery.rules main-only 节（dp_mainonly 逐行一条排除路径；锚点缺失或文件
+     缺失＝拒跑 exit 2，栅栏未知 fail-closed；锚点在场即已声明，空清单＝裸锚点＋注释
+     条目（分发模板预期形态）；解析破坏 exit 2）。
   3. git worktree add（--no-checkout）创建；对新区设 sparse-checkout 非锥形模式：
      '/*' 放行全部，再按 dp_mainonly 清单逐条 '!<路径>' 排除，reapply 生效；输出排除
      清单与完成行。
@@ -76,6 +81,7 @@ dp_load_rules() {
       an[3] = "# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）===="
       an[4] = "# ==== main-only：worktree 排除清单（worktree-add.sh 读）===="
       sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"; sc[4] = "main-only"
+      dpv = 2
     }
     function is_known(d) {
       return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
@@ -96,14 +102,17 @@ dp_load_rules() {
         }
       }
       if (hit) next
-      if (line ~ /^#/) next
+      if (line ~ /^#/) {
+        if (line ~ /^# ==== .+：.+====$/) bad2("锚点 " line " 本版解析器（dp-parser: " dpv "）不识别——落地拷贝可能早于包当前版本，请与包内同件 diff 后同步")
+        next
+      }
       if (line ~ /^[[:space:]]/) { bad("行首空白（指令行须顶格）"); next }
       if (index(line, "\t") > 0) { bad("字段内禁制表符"); next }
       sp = index(line, " ")
       if (sp == 0) { bad("未知指令行: " substr(line, 1, 40)); next }
       d = substr(line, 1, sp - 1)
       v = substr(line, sp + 1)
-      if (!is_known(d)) { bad("未知指令行: " d); next }
+      if (!is_known(d)) { bad("未知指令行: " d "（锚点/指令表见本脚本 dp_load_rules BEGIN 段；若为包新增指令而本件头部 dp-parser 版本早于包内现版，落地拷贝可能早于包当前版本，请与包内同件 diff 后同步）"); next }
       if (v == "" || v ~ /[[:space:]]/) { bad("值须为恰一非空字段（禁空白与多余空格）: " d); next }
       if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
       if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }
@@ -131,6 +140,7 @@ dp_load_rules() {
         np = split("dp_payload_root dp_payload_remote dp_payload_target dp_payload_local_ref", pd, " ")
         for (k = 1; k <= np; k++) if (cnt[pd[k]] != 1) bad2("恰数违：payload 节存在时 " pd[k] " 须恰一行（实测 " cnt[pd[k]] + 0 "）")
       }
+      if (seen[4]) printf "dp_mainonly_declared\ty\n" >> out
       if (n > 0) exit 1
     }
   ' "$_dp_file") || _dp_rc=$?
@@ -147,6 +157,7 @@ dp_load_rules() {
     case $_dp_d in
       dp_mainonly) DP_MAINONLY="$DP_MAINONLY$_dp_v
 " ; DP_HAS_MAINONLY=1 ;;
+      dp_mainonly_declared) DP_MAINONLY_DECLARED=1 ;;
     esac
   done < "$_dp_stream"
   rm -f "$_dp_stream"
@@ -201,8 +212,13 @@ esac
 # ---- 配置加载（未声明 main-only 节＝栅栏未知，拒跑 exit 2 fail-closed）----
 
 dp_load_rules "$repo_root" "$prog" || exit 2
-if [ "$DP_HAS_MAINONLY" -ne 1 ]; then
+# 已声明＝main-only 锚点在场（含空清单——注释形态示例条目即空清单，模板分发语境）；
+# 未声明（锚点缺失或文件缺失）＝栅栏未知，拒跑 fail-closed 不变。
+if [ "${DP_MAINONLY_DECLARED:-0}" -ne 1 ]; then
   printf '%s: 拒跑：delivery.rules 未声明 main-only 节（栅栏未知 fail-closed；如本仓无 main-only 脚本，登记空节或径用 git worktree add）\n' "$prog" >&2
+  printf '%s: 最小示例（分发模板 references/templates/delivery-rules.tmpl；条目行取消注释即生效，无 main-only 脚本保留空节即可）:\n' "$prog" >&2
+  printf '%s:   # ==== main-only：worktree 排除清单（worktree-add.sh 读）====\n' "$prog" >&2
+  printf '%s:   # dp_mainonly agent-up/scripts/export-payload.sh\n' "$prog" >&2
   exit 2
 fi
 
@@ -255,7 +271,7 @@ if ! git -C "$wt_abs" read-tree -mu HEAD; then
 fi
 # 生效断言：main-only 首条路径在 worktree 内必须不在场（目录或文件皆然）。
 _first=${DP_MAINONLY%%$'\n'*}
-if [ -e "$wt_abs/$_first" ]; then
+if [ -n "$_first" ] && [ -e "$wt_abs/$_first" ]; then
   die1 "栅栏未生效断言失败: $wt_abs/$_first 仍存在（排除模式未生效；请删除该 worktree 后重试）"
 fi
 

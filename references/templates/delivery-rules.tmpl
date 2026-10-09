@@ -1,0 +1,35 @@
+# Input: 目标项目的 delivery 配置决策（用户确认的导出远端/包根/排除清单）——逐仓事实由执行体按盘点与用户确认填写，不编造。
+# Output: 仓根 delivery.rules（四节锚点＋dp_ 指令行式配置），供 export-payload.sh、pre-push 安检、check-artifacts.sh、check-stale-claims.sh、worktree-add.sh 加载；fail-closed 六规则任一命中 exit 2。
+# Pos: delivery.rules 唯一分发模板：锚点行与包内四脚本 dp_load_rules BEGIN 段 an[1..4] 逐字一致（写错即解析失败，升级同步见 references/old-project.md §3）；触发＝用户确认启用快道（--fast-lane 语境，生成到目标项目仓库根）；main-only 节裸锚点＋注释条目＝空排除清单已声明（无 main-only 脚本保留空节）；本头 # 形态＝解析器跳 # 行，包完整性检查按 artifacts-yaml.tmpl 先例豁免。
+
+# ==== payload：导出形态（export-payload.sh 读）====
+
+dp_payload_root 【按项目填写：公开包在仓内的根目录，如 agent-up】
+dp_payload_remote 【按项目填写：公开仓远端名，如 public】
+dp_payload_target 【按项目填写：公开仓目标分支，如 main】
+dp_payload_local_ref 【按项目填写：本地导出分支名，如 public-export】
+
+# ==== boundary：禁入名单（pre-push 安检读）====
+
+# 逐行一条 dp_forbid <仓库根相对路径>（目录带尾斜杠＝整支；命中任一即拒推）：
+# dp_forbid rules/
+# dp_forbid facts/
+# dp_forbid .zcode/
+# dp_forbid AGENTS.md
+
+# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====
+
+# 机器生成投影面豁免（目录带尾斜杠＝整支；check-artifacts 反向对账不报未登记）：
+# dp_artifact_exempt facts/project/architecture/generated/
+# 易腐断言扫描点亮位（二选一或都亮）：dp_stale_lit S1 ／ dp_stale_lit S2
+# dp_stale_lit S1
+# dp_stale_lit S2
+
+# ==== main-only：worktree 排除清单（worktree-add.sh 读）====
+
+# main-only 脚本＝真跑写入面越出本仓的脚本（如 export-payload.sh 真跑推公开仓、
+# install.sh 装包进消费项目）；逐行一条 dp_mainonly <路径>（禁前导斜杠、.. 段与尾斜杠），
+# 经 worktree-add.sh 创建的 worktree 物理排除该路径（R-DP-036 三闸之创建面）。
+# 示例（取消注释即生效；无 main-only 脚本则保留空节）：
+# dp_mainonly agent-up/scripts/export-payload.sh
+# dp_mainonly agent-up/scripts/install.sh

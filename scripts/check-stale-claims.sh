@@ -16,6 +16,10 @@
 #      （票 65）；S5 方案结论标注句（票 85，R-DP-033 加固配套格式断言）；S6 终态哨兵
 #      （票 94，done/superseded 被改回非终态即 STALE/FAIL——复盘缺口④幽灵态机器报警）；
 #      POSIX sh、零外部依赖、全程只读（除打印外无写操作，Git 仅使用只读子命令）。
+# dp-parser: 2
+#      （解析器版本注记：本文件内嵌 dp_load_rules 的版本号；落地拷贝遇未知锚点/指令时
+#      报错引用此值，版本落后包内现版即升级指引信号——同步方式见 references/old-project.md
+#      §3 dp_load_rules 引擎件行。四件同族脚本注记须一致。）
 
 # 用法、登记表条目说明与输出格式见同目录 README.md。
 # 状态陈述纪律见 development-process 模板 §15：状态以权威引用表达，本脚本
@@ -164,6 +168,7 @@ dp_load_rules() {
       an[4] = "# ==== main-only：worktree 排除清单（worktree-add.sh 读）===="
       sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"
       sc[4] = "main-only"
+      dpv = 2
     }
     function is_known(d) {
       return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
@@ -184,14 +189,17 @@ dp_load_rules() {
         }
       }
       if (hit) next
-      if (line ~ /^#/) next
+      if (line ~ /^#/) {
+        if (line ~ /^# ==== .+：.+====$/) bad2("锚点 " line " 本版解析器（dp-parser: " dpv "）不识别——落地拷贝可能早于包当前版本，请与包内同件 diff 后同步")
+        next
+      }
       if (line ~ /^[[:space:]]/) { bad("行首空白（指令行须顶格）"); next }
       if (index(line, "\t") > 0) { bad("字段内禁制表符"); next }
       sp = index(line, " ")
       if (sp == 0) { bad("未知指令行: " substr(line, 1, 40)); next }
       d = substr(line, 1, sp - 1)
       v = substr(line, sp + 1)
-      if (!is_known(d)) { bad("未知指令行: " d); next }
+      if (!is_known(d)) { bad("未知指令行: " d "（锚点/指令表见本脚本 dp_load_rules BEGIN 段；若为包新增指令而本件头部 dp-parser 版本早于包内现版，落地拷贝可能早于包当前版本，请与包内同件 diff 后同步）"); next }
       if (v == "" || v ~ /[[:space:]]/) { bad("值须为恰一非空字段（禁空白与多余空格）: " d); next }
       if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
       if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }

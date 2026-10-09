@@ -636,6 +636,12 @@ for f in $file_list; do
       m_out='# Output:'
       m_pos='# Pos:'
       ;;
+    */delivery-rules.tmpl)
+      win=$(head -n 5 "$f")
+      m_in='# Input:'
+      m_out='# Output:'
+      m_pos='# Pos:'
+      ;;
     *)
       win=$(header_window "$f")
       m_in='Input:'

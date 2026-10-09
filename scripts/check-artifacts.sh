@@ -9,7 +9,14 @@
 # Pos: 治理产物对账器（票 59；兑现 R-DP-007 逐件登记核对）：POSIX sh、零外部依赖、
 #      fail-closed（yaml 解析破坏 exit 2 不产生部分结论）；退出码口径同 ticket-ops.sh：
 #      0 全对账 / 1 存在缺口 / 2 用法或环境错误。用法、受管口径与豁免维护规则见同目录
-#      README.md 专节。
+#      README.md 专节。--fix 修复形态（配对设计准则见同目录 README「构建规约」前节）：
+#      缺省 dry-run 仅打印将追加的登记条目建议块零写入；显式 --apply 才落盘（反向未登记
+#      文件的十三字段登记条目骨架逐条追加进 artifacts.yaml，正向缺失不修——缺的是实物
+#      不是登记）；修复与检测共用同一判定代码（--fix 复跑同一对账管线取未登记清单）。
+# dp-parser: 2
+#      （解析器版本注记：本文件内嵌 dp_load_rules 的版本号；落地拷贝遇未知锚点/指令时
+#      报错引用此值，版本落后包内现版即升级指引信号——同步方式见 references/old-project.md
+#      §3 dp_load_rules 引擎件行。四件同族脚本注记须一致。）
 
 set -eu
 set -f  # 关闭文件名展开：模式匹配只经 case，路径展开不可依赖
@@ -27,9 +34,14 @@ micro_jsonl='facts/project/micro.jsonl'        # 协议豁免＋懒创建：道�
 
 usage() {
   cat <<'USAGE'
-用法: sh check-artifacts.sh <repo-root>
+用法: sh check-artifacts.sh [--fix [--apply]] <repo-root>
 参数:
   repo-root  仓库根目录（其治理产物登记为 <repo-root>/facts/project/artifacts.yaml）。
+  --fix      修复形态（dry-run 缺省）：复跑同一对账管线，将反向未登记文件的登记条目
+             建议块（十三字段骨架，逐条对应一个 FAIL 路径）打印到 stdout，零写入。
+  --apply    仅与 --fix 同用：把建议条目块追加进 artifacts.yaml（与 dry-run 预览同源
+             生成、逐字一致）；追加后本脚本即止（不复跑），复跑核缺口归零归调用方——
+             正向缺失（实物不存在）不修，缺的是实物不是登记，补登记归执行体按实际产物定。
 对账口径:
   正向  登记条目 path 目标（剥离全角括注）必须存在（文件/目录/聚合 glob ≥1 匹配）；
         数据块懒创建面登记暂缺输出 SKIP 不计缺口。
@@ -45,11 +57,24 @@ die2() {
   exit 2
 }
 
-[ $# -eq 1 ] || { usage >&2; exit 2; }
-case $1 in
-  -h|--help) usage; exit 0 ;;
-esac
-repo_root=$1
+[ $# -ge 1 ] || { usage >&2; exit 2; }
+ca_fix=0
+ca_apply=0
+ca_pos=''
+while [ $# -gt 0 ]; do
+  case $1 in
+    -h|--help) usage; exit 0 ;;
+    --fix) ca_fix=1 ;;
+    --apply) ca_apply=1 ;;
+    *)
+      if [ -n "$ca_pos" ]; then usage >&2; die2 '多余位置参数（repo-root 恰一）'; fi
+      ca_pos=$1
+      ;;
+  esac
+  shift
+done
+[ "$ca_apply" -eq 0 ] || [ "$ca_fix" -eq 1 ] || { usage >&2; die2 '--apply 仅与 --fix 同用'; }
+repo_root=$ca_pos
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 repo_root=$(CDPATH= cd "$repo_root" && pwd)
 yaml="$repo_root/$artifacts_yaml"
@@ -59,7 +84,8 @@ t_dir=${TMPDIR:-/tmp}
 ca_entries=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 ca_managed=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 ca_scan=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
-cleanup() { rm -f "$ca_entries" "$ca_managed" "$ca_scan"; }
+ca_unreg_list=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
+cleanup() { rm -f "$ca_entries" "$ca_managed" "$ca_scan" "$ca_unreg_list"; }
 trap cleanup EXIT HUP INT TERM
 
 # ---- 对账数据块（票 59 D2 定谳；受管口径与协议豁免唯一承载点，引擎零目录硬编码；
@@ -185,6 +211,7 @@ dp_load_rules() {
       an[4] = "# ==== main-only：worktree 排除清单（worktree-add.sh 读）===="
       sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"
       sc[4] = "main-only"
+      dpv = 2
     }
     function is_known(d) {
       return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
@@ -205,14 +232,17 @@ dp_load_rules() {
         }
       }
       if (hit) next
-      if (line ~ /^#/) next
+      if (line ~ /^#/) {
+        if (line ~ /^# ==== .+：.+====$/) bad2("锚点 " line " 本版解析器（dp-parser: " dpv "）不识别——落地拷贝可能早于包当前版本，请与包内同件 diff 后同步")
+        next
+      }
       if (line ~ /^[[:space:]]/) { bad("行首空白（指令行须顶格）"); next }
       if (index(line, "\t") > 0) { bad("字段内禁制表符"); next }
       sp = index(line, " ")
       if (sp == 0) { bad("未知指令行: " substr(line, 1, 40)); next }
       d = substr(line, 1, sp - 1)
       v = substr(line, sp + 1)
-      if (!is_known(d)) { bad("未知指令行: " d); next }
+      if (!is_known(d)) { bad("未知指令行: " d "（锚点/指令表见本脚本 dp_load_rules BEGIN 段；若为包新增指令而本件头部 dp-parser 版本早于包内现版，落地拷贝可能早于包当前版本，请与包内同件 diff 后同步）"); next }
       if (v == "" || v ~ /[[:space:]]/) { bad("值须为恰一非空字段（禁空白与多余空格）: " d); next }
       if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
       if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }
@@ -442,6 +472,7 @@ done < "$ca_entries"
 ca_files=0
 ca_unreg=0
 ca_exempthit=0
+: > "$ca_unreg_list"
 while IFS= read -r ca_f; do
   [ -n "$ca_f" ] || continue
   ca_files=$((ca_files + 1))
@@ -452,8 +483,52 @@ while IFS= read -r ca_f; do
   else
     ca_unreg=$((ca_unreg + 1))
     printf 'check-artifacts: FAIL: 受管文件未登记: %s\n' "$ca_f"
+    printf '%s\n' "$ca_f" >> "$ca_unreg_list"
   fi
 done < "$ca_managed"
+
+# ---- --fix 修复形态（票 119；与检测共用同一判定代码——未登记清单即上循环产出）----
+# 登记 id 推导：路径去扩展名取末段、非 [a-z0-9-] 字段折叠为单横线（含前导），前缀
+# artifact-；十三字段骨架中不可机械推断的值写【按项目填写：...】占位，粘贴前由执行体
+# 按实际产物补齐（缺值写 N/A + reason 纪律见 artifacts-yaml.tmpl）。
+# 单一生成：建议块先写临时文件一次成型，dry-run cat 预览／--apply 追加两用（同一生成
+# 代码，禁双实现——预览与落盘逐字一致由同源保证）。
+if [ "$ca_fix" -eq 1 ]; then
+  if [ ! -s "$ca_unreg_list" ]; then
+    printf 'check-artifacts: --fix: 无未登记受管文件，无需修复\n'
+  else
+    ca_fix_block=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
+    cleanup() { rm -f "$ca_entries" "$ca_managed" "$ca_scan" "$ca_unreg_list" "$ca_fix_block"; }
+    while IFS= read -r ca_f; do
+      [ -n "$ca_f" ] || continue
+      ca_fid=$(printf '%s' "${ca_f%.*}" | tr '/' '\n' | tail -n 1 | sed 's/[^a-z0-9-][^a-z0-9-]*/-/g; s/^-*//; s/-*$//')
+      [ -n "$ca_fid" ] || ca_fid=artifact
+      printf '  - id: artifact-%s\n' "$ca_fid" >> "$ca_fix_block"
+      printf '    path: %s\n' "$ca_f" >> "$ca_fix_block"
+      printf '    kind: 【按项目填写：governance/index/record/script 等；新增值先在 artifacts-yaml.tmpl 注释区登记】\n' >> "$ca_fix_block"
+      printf '    authority: 【按项目填写：权威层级第 N 级（理由）】\n' >> "$ca_fix_block"
+      printf '    owner: 【按项目填写：唯一写入者】\n' >> "$ca_fix_block"
+      printf '    lifecycle: 【按项目填写：Seed/Conditional/Record/Derived/Adapter】\n' >> "$ca_fix_block"
+      printf '    trigger: 【按项目填写：创建触发条件】\n' >> "$ca_fix_block"
+      printf '    read_when: 【按项目填写：读取时机】\n' >> "$ca_fix_block"
+      printf '    sync_on: 【按项目填写：契约/拓扑/行为/派生/无】\n' >> "$ca_fix_block"
+      printf '    depends_on: []\n' >> "$ca_fix_block"
+      printf '    generated_from: N/A + reason（非派生件写不适用理由）\n' >> "$ca_fix_block"
+      printf '    platform: neutral\n' >> "$ca_fix_block"
+      printf '    update_policy: 【按项目填写：更新策略】\n' >> "$ca_fix_block"
+      printf '\n' >> "$ca_fix_block"
+    done < "$ca_unreg_list"
+    if [ "$ca_apply" -eq 1 ]; then
+      cat "$ca_fix_block" >> "$yaml"
+      printf 'check-artifacts: --apply: 已追加 %d 条登记条目骨架进 %s（占位值须补齐；复跑本脚本核反向缺口归零）\n' \
+        "$(wc -l < "$ca_unreg_list" | tr -d ' ')" "$artifacts_yaml"
+    else
+      printf 'check-artifacts: --fix: %d 个未登记受管文件的登记条目建议块（dry-run 缺省零写入；显式 --apply 追加进 %s）:\n' \
+        "$(wc -l < "$ca_unreg_list" | tr -d ' ')" "$artifacts_yaml"
+      cat "$ca_fix_block"
+    fi
+  fi
+fi
 
 printf 'check-artifacts: 正向: 登记目标 %d 个，缺失 %d 个，懒创建暂缺 %d 个\n' \
   "$ca_targets" "$ca_missing" "$ca_lazyskip"

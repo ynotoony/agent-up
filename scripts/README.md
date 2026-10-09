@@ -11,7 +11,7 @@
 | `README.md` | 目录索引 | 说明脚本用途、用法、十九项检查、包清单数据表格式、输出格式、退出码与维护联动规则。 |
 | `check-package.sh` | 包完整性检查 | 按十九项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004；检查 1/5/8 清单自 `package-manifest.rules` 数据读取，检查 9/10/11 以数据为比对基准；检查 12 规则块体模糊措辞扫描、检查 13 镜像脚本与仓根同名件 cmp；检查 14 能力映射一致性；检查 15 模板规则索引与规则块全集全等、检查 16 索引机制列受控词表、检查 17 机械行点名出处存在、检查 19 scripts 节 mode 断言）；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
 | `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（承接「Record 行级保护」候选口径）：`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`docs/progress.md`（未迁移仓）及其迁移后继 `docs/archive/progress.md` 冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（不硬猜基线先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
-| `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`docs/agent/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed。详见下文专节。 |
+| `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`docs/agent/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed；`--fix` 修复形态（反向未登记 → 十三字段登记条目骨架，dry-run 缺省零写入、`--apply` 显式落盘且与预览逐字一致、与检测共用判定代码；正向缺失不修）。详见下文专节。 |
 | `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010；S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口；S4 计数漂移哨兵：README 锚点行数↔index 条目数相等断言＋「N～M 共」「共 N 量词」计数模式扫描；S5 方案结论标注句：结论行 file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面；S6 终态哨兵：索引 id 曾达 done/superseded 被改回非终态即 STALE 指名票 id 与跃迁方向，终态史取 Git 基线，对账分层＝一致性对账之外终态语义由 S6 承载）；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
 | `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的只读门禁核对（REQ-20260904-011）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；POSIX sh、严格只读、零外部依赖。详见下文专节。 |
 | `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011；单写机制改造；微道预检两断言）：门禁 → 白名单产品提交 → 索引单写（`docs/issues/index.json` 票状态真相源）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 追加或微账本（`docs/agent/micro.jsonl`）落行 → 生成器投影再生并 `--check` 核对 → 记录提交（两段式，R-RC-003）；micro 道预检两断言（白名单 ≤3 条目、改动集零新建（??）零删除（D），违者 exit 1，user-review 道不受限）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
@@ -25,7 +25,7 @@
 | `ticket-grade.sh` | 定级建议器 | 票定级建议器（本仓交付后存量清算入包采纳）：读任务票 JSON 机械计算可数判据（承重验收条数、行为/契约件模块数、高风险面关键词、公共接口证据与微道承重可数面），输出各 C 级命中条件、C0-C3 建议、微道资格预审与逐票分歧账；建议不裁决（输出只写「建议/命中/预审」，不写「必须/定级为」，分歧以 Triage 为准）；python3 标准库内嵌、全程只读零写入、fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/判据口径见脚本 `-h` 与头部注释。 |
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
-| `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（未声明＝栅栏未知拒跑 exit 2 fail-closed）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
+| `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
 
 ## 用途与用法
@@ -577,10 +577,12 @@ check-append-only: PASS
 ### 用法
 
 ```text
-sh scripts/check-artifacts.sh <repo-root>
+sh scripts/check-artifacts.sh [--fix [--apply]] <repo-root>
 ```
 
-- `<repo-root>` 必填，仓库根目录（登记文件固定取 `<repo-root>/docs/agent/artifacts.yaml`）。
+- `<repo-root>` 必填，仓库根目录（登记文件固定取 `<repo-root>/facts/project/artifacts.yaml`）。
+- `--fix`：修复形态（dry-run 缺省，零写入）——复跑同一对账管线，将反向未登记受管文件的登记条目建议块（十三字段骨架，逐条对应一个 FAIL 路径）打印到 stdout；不可机械推断的字段写【按项目填写】占位，粘贴前由执行体补齐。
+- `--apply`：仅与 `--fix` 同用（单用即用法错误 exit 2）——把建议条目块追加进 artifacts.yaml（条目块与 dry-run 预览同一生成代码、逐字一致；条目间空行分隔）；追加后本脚本即止，复跑核反向缺口归零归调用方；正向缺失不修（缺的是实物不是登记，补登记归执行体按实际产物定）。
 - `-h` / `--help`：打印用法。
 
 ### 对账数据块（受管口径与豁免，定谳唯一承载点）
@@ -678,7 +680,7 @@ sh scripts/worktree-add.sh [--force] <path> <branch>
 | 步骤 | 动作 | 失败行为 |
 | --- | --- | --- |
 | 1 主检出自拒 | `git rev-parse --absolute-git-dir` ≠ `--git-common-dir`＝链接 worktree，拒绝运行（worktree 创建属协调层职责） | exit 1 |
-| 2 配置加载 | 读 `<repo-root>/delivery.rules` main-only 节；未声明 main-only 锚点＝栅栏未知，拒跑（如本仓无 main-only 脚本，登记空节或径用 `git worktree add`）；解析破坏拒跑 | exit 2 |
+| 2 配置加载 | 读 `<repo-root>/delivery.rules` main-only 节；main-only 锚点缺失或文件缺失＝栅栏未知，拒跑（如本仓无 main-only 脚本，登记空节或径用 `git worktree add`；拒跑输出附分发模板 `../references/templates/delivery-rules.tmpl` 最小示例）；锚点在场即已声明（含空清单——裸锚点＋注释条目＝空排除清单，模板分发语境预期形态）；解析破坏拒跑 | exit 2 |
 | 3 创建 | 分支存在即检出、不存在即 `-b` 创建；`--no-checkout` 延迟物化 | exit 1 |
 | 4 栅栏设置与生效断言 | sparse-checkout 非锥形：`/*` 放行全部＋逐条 `!<路径>` 排除（不带尾斜杠，同型覆盖文件与目录）；`read-tree -mu HEAD` 按 sparse 模式物化（`--no-checkout` 空树上 reapply 不物化，实证）；断言首条排除路径在 worktree 内物理不在场 | exit 1（附删除该 worktree 重试指路） |
 
@@ -753,3 +755,14 @@ test-record-layer: FAIL（共 N 项断言，M 项失败）    # exit 1
 - 禁在检查表达式内嵌命令替换（如 `$(find … | head -1)`）：先算好结果存变量再判，防 quoting 漂移与 `set -e` 误报。
 - 优先用返回 shell 状态的 `check_*` 小函数（如 `check_file_exists`、`check_dir_exists`、`check_contains`）。
 - 目录内容检查用预计算计数：先取计数存变量再比较，不在检查表达式内联展开。
+
+### check 系验证器配对修复形态（--fix 设计准则）
+
+包分发的 check 系验证器凡能机器定位缺陷的，配对 `--fix` 修复形态；准则四条（先例 `check-artifacts.sh` --fix）：
+
+1. **配对条件**：缺陷可被脚本逐条机器定位（指名文件/行/条目）且修复内容可机械生成骨架——两者皆备才配 `--fix`；修复需语义判断（如权威定级、owner 归属）的输出【按项目填写】占位，粘贴前由执行体补齐。
+2. **dry-run 默认**：`--fix` 无参只打印将改动的内容（逐条与 FAIL 输出对应），零写入。
+3. **显式落盘**：`--apply` 与 `--fix` 同用才写文件；`--apply` 单用即用法错误 exit 2；落盘内容与 dry-run 预览逐字一致（同一生成代码，禁双实现）。
+4. **共用判定代码**：修复与检测跑同一对账/扫描管线取缺陷清单（不复制判定逻辑），`--fix` 不引入第二真相源。
+
+首批落点：`check-artifacts.sh --fix`（反向未登记 → 追加十三字段登记条目骨架进 artifacts.yaml；正向缺失不修——缺的是实物不是登记）。落地仓自有的 README 成员行/契约头检查器（check-doc-governance 系）按同模式自建 fixer，不随包分发。

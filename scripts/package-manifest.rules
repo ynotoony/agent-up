@@ -111,6 +111,7 @@ pm_template agents-implementation.md.tmpl
 pm_template agents-review.md.tmpl
 pm_template artifacts-yaml.tmpl
 pm_template assessment.md.tmpl
+pm_template delivery-rules.tmpl
 pm_template discipline.md.tmpl
 pm_template dir-README.md.tmpl
 pm_template issues-README.md.tmpl

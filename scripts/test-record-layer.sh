@@ -971,7 +971,9 @@ EOF
 # 票 103 镜像清单 4→6 对，正例预期串与负例 N7 夹具同步；票 113 波④包翻值后金样串独立
 # 重建：检查 5 计数 13→15（三模板拆分入册）、检查 15 三件索引并集 50 行、检查 7 治理面
 # 扩五项（AGENTS.md/docs//rules//facts//.zcode/）；负例 N12/N13/N14/N15/N16/N17 注入目标
-# 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）
+# 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）；
+# delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户
+# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）
 # ============================================================
 
 suite_check_package() {
@@ -986,7 +988,7 @@ PASS: 1 必需入口存在（16 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 15 个且全部登记
+PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 PASS: 8 脚本必需件存在（16 个文件）
@@ -995,7 +997,7 @@ PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
-PASS: 15 模板规则索引与规则块全集全等（三件索引并集 52 行，全集 52 ID）
+PASS: 15 模板规则索引与规则块全集全等（三件索引并集 53 行，全集 53 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
@@ -1014,7 +1016,7 @@ PASS: 1 必需入口存在（16 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 15 个且全部登记
+PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 FAIL: 8 脚本必需件存在（16 个文件） —   - scripts/generate-progress.sh
@@ -1023,7 +1025,7 @@ PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
-PASS: 15 模板规则索引与规则块全集全等（三件索引并集 52 行，全集 52 ID）
+PASS: 15 模板规则索引与规则块全集全等（三件索引并集 53 行，全集 53 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
@@ -1043,7 +1045,7 @@ PASS: 1 必需入口存在（16 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 15 个且全部登记
+PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 PASS: 8 脚本必需件存在（16 个文件）
@@ -1052,7 +1054,7 @@ PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :119 登记与数据不一致：缺少 pi
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
-PASS: 15 模板规则索引与规则块全集全等（三件索引并集 52 行，全集 52 ID）
+PASS: 15 模板规则索引与规则块全集全等（三件索引并集 53 行，全集 53 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
