@@ -12,6 +12,7 @@
 | --- | --- | --- |
 | `README.md` | 目录索引 | 说明本目录用途并登记直接成员。 |
 | `old-project.md` | 旧项目手册 | 指导已有代码或部分治理项目的盘点、补缺与交付。 |
+| `upgrade.md` | 升级手册 | 指导已初始化项目同步包新版的升级主链（模式判定第四态；盘点落地面→逐件三态对比→差异清单确认→reconcile 更新→验证收尾）。 |
 | `templates/` | 模板目录 | 保存新建治理文件和阶段角色合同的模板（manifest 见 `templates/README.md`）。 |
 | `protocol/` | 协议手册目录 | 承载治理格式与读取协议手册（短码 `GF`/`RP`），成员与短码登记见 `protocol/README.md`。 |
 | `adapters/` | 平台适配目录 | 承载宿主能力契约与宿主映射（短码 `CC`/`ZC`；运行时映射，不是事实源，事实源为目标项目 `docs/agent/roles/` 角色合同与核心协议），成员见 `adapters/README.md`。 |

@@ -1,6 +1,6 @@
 ---
 name: agent-up
-description: 把 Agent Up 治理体系初始化或补齐到任意项目：AGENTS.md 路由入口、rules/facts 权威文档分层、rules/implementation/roles 三阶段角色合同、机器产物索引、契约头与目录 README 登记、可审计交付门禁。当用户要求"初始化这个项目"、"新项目开工"、"给项目加 agent 规则/治理"、"补 AGENTS.md"、"补 README 登记或契约头"，或在空目录/已有仓库里开始正式工作前建立规则时使用；对新项目和旧项目都生效，旧项目只补缺、不覆盖既有事实。
+description: 把 Agent Up 治理体系初始化或补齐到任意项目：AGENTS.md 路由入口、rules/facts 权威文档分层、rules/implementation/roles 三阶段角色合同、机器产物索引、契约头与目录 README 登记、可审计交付门禁。当用户要求"初始化这个项目"、"新项目开工"、"给项目加 agent 规则/治理"、"补 AGENTS.md"、"补 README 登记或契约头"，或在空目录/已有仓库里开始正式工作前建立规则时使用；已初始化的项目要求"升级"、"同步包新版"、"拉新模板"时也用（升级模式，走 references/upgrade.md）；对新项目和旧项目都生效，旧项目只补缺、不覆盖既有事实。
 ---
 <!-- Input: 目标项目的盘点结果、访谈结论、既有事实与用户确认的差异清单。 -->
 <!-- Output: 目标项目治理骨架的安装与补缺执行路径、三阶段门禁约束与收尾报告；详细协议按需读取 references/ 手册，不在本文件复制。 -->
@@ -15,8 +15,9 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 ## 2. 触发条件
 
 - 用户要求初始化项目、新项目开工，或为项目补治理规则、补 `AGENTS.md`、补目录 README 登记或契约头。
+- 用户要求升级、同步包新版或拉新模板（目标项目已按本体系初始化）——升级模式，先读 `references/upgrade.md`。
 - 空目录或已有仓库中，正式开工前需要建立 Agent 工作规则。
-- IF 目标项目已有治理体系 THEN 只补缺失件并校验联动，不执行全新安装。
+- IF 目标项目已有治理体系且未要求升级 THEN 只补缺失件并校验联动，不执行全新安装；要求升级 THEN 走升级模式。
 
 ## 3. 不可违反的核心规则
 
@@ -36,7 +37,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 全程按五段检查点管线（checkpoint pipeline）推进：discovery → confirm → generate → verify → handoff。六项生成治理收敛模式（Discovery Record、precedence/trust、profile/capability manifest、生成件登记并入 artifacts.yaml 单本账 + reconcile、checkpoint 管线、证据链登记）在各步骤落位，规则权威是生成的规则三件（`rules/assessment.md`＋`rules/implementation/discipline.md`＋`rules/project.md`），本文件只标注落点。
 
 1. **盘点**：查清 Git 状态、既有规则文件（如 `AGENTS.md`、`CONTRIBUTING.md`、其他宿主规则文件）、技术栈标记、测试/构建/验证命令与顶层目录实际用途；目录职责抽查内部文件确认，不凭目录名猜。盘点结果落为 Discovery Record：逐项登记来源、作用域、冲突与未知，未知写 `【待定：...】`；盘点先于任何生成动作，未登记来源的候选不生成。
-2. **模式判定**：全新（空目录或无治理骨架）/ 已有代码（先读 `references/old-project.md`）/ 部分治理（只补缺）。目标目录不是 Git 仓库时，是否 `git init` 由用户确认决定，不自行初始化。
+2. **模式判定**：全新（空目录或无治理骨架）/ 已有代码（先读 `references/old-project.md`）/ 部分治理（只补缺）/ **已治理（升级）**（仓内已有 seed 件且用户要求升级、同步包新版或拉新模板——先读 `references/upgrade.md`，把落地面有确认地对齐到包新基线；既有事实与 Record 类产物不动）。目标目录不是 Git 仓库时，是否 `git init` 由用户确认决定，不自行初始化。
 3. **访谈与待定**：新项目先把定位、角色、核心对象、状态与合法转换、主要流程、范围边界、技术栈与验证方式问清（一次一个问题，附推荐答案；能从仓库查到的事实自己查）；项目特有术语敲定后按 `CONTEXT.md.tmpl` 的词条格式写入领域上下文；没问到的一律 `【待定：...】`，不编造。
 4. **差异清单确认**：任何写入之前，先给用户差异清单并等待确认，确认前一个字都不写；清单含现状与目标，按四类分组——将新建 / 将修改 / 登记不动 / 冲突待决。四类分组之外给**执行形态与预估**：逐项（或逐组）标注建议执行形态——亲写脚本 / 单 agent / 全三阶段管线——并给预估与保证差（亲写脚本最快但只承载机械面、无独立 Review 保证，适合一次性批量变换与机械可验改动；单 agent 承担常规单上下文任务；全三阶段管线含独立 Review，保证最强、成本最高）；C2 及以上任务逐项给三形状对比行。每张任务票评估 Complexity 与 Requirement Profile 并写入任务合同；分级、拆票与委派合同规则的权威在生成的规则三件（`rules/assessment.md`＋`rules/implementation/discipline.md`＋`rules/project.md`；何时拆票、委派合同、三道门禁各节），本文件不复制其表格。取信按 precedence/trust 排序：既有事实 > 用户确认 > 模板 > 自动推断，未知只登记不推断；确认时同时与用户选定 profile 档位（minimum/full）并落盘 capability manifest——逐项标 enabled/excluded/pending，排除与待定附原因。
 5. **安装/补缺**：按 `references/templates/README.md` 的 manifest 生成 seed 八件套、命中的条件产物与三阶段角色合同（生成到 `rules/implementation/roles/`），初始化产物按以下目标形态落位：
@@ -79,6 +80,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 | `references/protocol/read-policy.md` | 判定会话读取范围、处理权威冲突或按 capability profile 档位加载时 |
 | `references/protocol/complexity-profile.md` | 规划、拆票或写任务票前：评估 Complexity 与 Requirement Profile、判定 C2/C3 触发矩阵命中、拆票策略或声明分级交付道车道（两快道准入判据）时 |
 | `references/old-project.md` | 已有代码或部分治理项目的盘点、补缺与交付 |
+| `references/upgrade.md` | 已治理项目升级（同步包新版）：模式判定命中升级态、盘点落地面、逐件对比与 reconcile 更新全程 |
 | `references/templates/README.md` | 生成治理骨架前：模板 manifest、seed 八件套映射、条件产物触发矩阵与角色合同模板 |
 | `references/adapters/`（成员见其目录 README） | 判定宿主能力、处理 `required_capabilities` 冲突、无独立执行体降级，或在宿主生成角色运行时入口时 |
 | `references/schemas/`（成员见其目录 README） | 会话恢复填写 run record 或校验其字段时 |

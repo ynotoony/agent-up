@@ -26,6 +26,7 @@
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
+| `upgrade-check.sh` | 落地面升级对账器 | 已治理仓对包新基线的逐件三态对账（升级一等流程②）：cmp 面＝install-policy.rules 登记件在目标仓两落位形态（rules/implementation/scripts/ 新布局／scripts/ 旧布局）逐件对照包内同名件（一致＝同步、存在但不一致＝漂移、皆缺失＝落后）＋仓根 delivery.rules main-only 节锚点在位性（节在＝同步，条目为项目事实不判）＋模板生成件对应关系提示（只提示不判漂移，项目可能合法改写）；全程只读 fail-closed、退出码 0 全同步/1 有差距/2 用法环境；cmp 面自 install-policy.rules 数据读取、引擎零落位路径硬编码；升级流程规则权威＝references/upgrade.md 与目标项目 rules/project.md，本件只对账不出修复动作。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
 
 ## 用途与用法
@@ -54,7 +55,7 @@ sh scripts/check-package.sh [package-root]
 | 5 | 模板清单一致（数据↔磁盘↔manifest 双向；数据驱动） | `references/templates/` 下实际 `.tmpl` 与清单 `templates` 节集合一致（数量相等、互不缺多），且数据每件在 `templates/README.md` manifest 目录清单节有登记行、manifest 登记的每个 `.tmpl` 都在数据内——manifest 表＝人读投影，数据＝机器真相，双向漂移即 FAIL。 |
 | 6 | 文本契约头齐全 | `*.md` 与 `*.tmpl` 在检测窗口内含 `Input:`/`Output:`/`Pos:` 三行：无 frontmatter 的文件取前 5 行，首行为 `---` 的文件取 frontmatter 结束后的 5 行（frontmatter 未闭合判失败）。例外：`artifacts-yaml.tmpl` 以 YAML `#` 注释承载（前 5 行含 `# Input:`/`# Output:`/`# Pos:`，登记见 `templates/README.md`）；`LICENSE` 与 `schemas/*.json` 不属扫描范围（JSON 以 `$id`/`title`/`description` 承载导航元数据，例外登记见 `schemas/README.md`）。 |
 | 7 | 根治理文件不在包内 | 包根不存在 `AGENTS.md`（文件）、`docs/`（目录）、`.zcode/`（目录）。 |
-| 8 | 脚本必需件存在（扩清单历次联动；存量清算后 15 件） | 清单 `scripts` 节逐行 `test -f`（现 15 件：`scripts/` 下十二 `.sh`（check-gates、lane-commit、check-stale-claims、generate-progress、generate-module-map、ticket-ops、run-record、ticket-grade——后两件存量清算入包采纳；install、check-append-only、check-artifacts、export-payload）、两规则表（`module-map.rules`、`install-policy.rules`）、`test-record-layer.sh`——口径差定谳定为必需件，kind 标 `test-harness`）；任一缺失即 FAIL 并逐件指名缺失件（fail-closed，不因部分存在而放宽）。增删包内脚本成员须同步数据表 `scripts` 节。 |
+| 8 | 脚本必需件存在（扩清单历次联动；升级对账器入册后 17 件） | 清单 `scripts` 节逐行 `test -f`（现 17 件：`scripts/` 下十四 `.sh`（check-gates、lane-commit、check-stale-claims、generate-progress、generate-module-map、ticket-ops、run-record、ticket-grade——后两件存量清算入包采纳；install、check-append-only、check-artifacts、export-payload、worktree-add、upgrade-check）、两规则表（`module-map.rules`、`install-policy.rules`）、`test-record-layer.sh`——口径差定谳定为必需件，kind 标 `test-harness`）；任一缺失即 FAIL 并逐件指名缺失件（fail-closed，不因部分存在而放宽）。增删包内脚本成员须同步数据表 `scripts` 节。 |
 | 9 | scripts/README.md 成员表与数据 scripts 节一致 | 双向口径：①清单 `scripts` 节每件都在成员表登记（表＝人读投影不得漏登必需件）；②成员表登记的每件都是 `scripts/` 下实际文件（表与实物不漂移）。成员表提取锚点＝首列 `名字/地位/功能` 表头行。 |
 | 10 | 规则块短码使用均在登记内 | 扫描包内全部 `*.md` 与 `*.tmpl`（同检查 6 文件面）提取规则块 ID `R-<短码>-<三位序号>` 的两字母前缀，与清单 `shortcodes` 节比对：使用⊆登记；SPEC 规格号（`R-02-001` 形态，数字段）不落入提取模式。短码全集以 grep 实测为准（现 16 个），新增短码先登记数据表再使用。 |
 | 11 | platform 枚举登记与数据一致（逐处全等） | 各登记处值集合与清单 `platform-enum` 节逐处全等（任一处缺值/多值/改值即不一致，FAIL 行按行号指名漂移处）：`references/templates/artifacts-yaml.tmpl` platform 字段注释区（锚点＝`当前已知集合：` 标记）、`references/adapters/capability-contract.md` 内每个「已知集合」句（frontmatter 与 §2.5 各一处，各自单独比对，不并集）；提取锚点为登记标记文本，值集合以数据为权威。 |
@@ -687,6 +688,38 @@ sh scripts/worktree-add.sh [--force] <path> <branch>
 - main-only 脚本自此在该 worktree 内不可运行（文件不在场——运行缺失文件与写入缺失目录均失败；绕过需显式 `sparse-checkout disable` 并重新物化，非静默动作）。
 - 排除清单持久于该 worktree `$GIT_DIR/info/sparse-checkout`，随 worktree 删除一并消失；主检出永不启用 sparse-checkout（零影响）。
 - 不执行 git push；不删除既有 worktree（同名目录已存在即停，`--force` 只放宽 git 层）。
+
+## upgrade-check.sh（落地面升级对账器）
+
+已治理仓对包新基线的逐件三态对账器（升级一等流程②；升级流程规则权威＝`../references/upgrade.md` 与目标项目 `rules/project.md`，本件只对账不出修复动作——与 check 系 --fix 准则的配对条件留后续票评估）。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖、全程只读（除打印外无写操作）、fail-closed。
+
+### 用法
+
+```text
+sh scripts/upgrade-check.sh <pkg-dir> <repo-root>
+```
+
+- `<pkg-dir>`：包基线目录（clone/pull 后的 agent-up 包根，含 scripts/ 与 references/）。
+- `<repo-root>`：目标项目根（已按本体系初始化）。
+- `-h` / `--help`：打印用法。
+
+### 对账口径（三态）
+
+| 态 | cmp 面 | 判定 |
+| --- | --- | --- |
+| 同步 | 落位脚本＋配置面 | install-policy.rules 登记件在目标仓两落位形态（`rules/implementation/scripts/` 新布局／`scripts/` 旧布局）下与包内同名件 cmp 一致；delivery.rules main-only 节锚点在位（条目为项目事实不判）。 |
+| 落后 | 落位脚本＋配置面＋模板生成件 | 登记件两形态皆缺失（未安装）；delivery.rules 缺失或无 main-only 锚点；模板生成件（rules/ 三件）缺失。 |
+| 漂移 | 落位脚本 | 存在但与包内同名件不一致（人工改过或本地演化）——停，报告用户裁决（沿用/跟包/登记分歧），不静默覆盖。 |
+
+模板生成件（rules/ 三件 ↔ 拆三模板）只列对应关系提示、不判漂移——项目自有条款槽位本就是合法改写面，是否采纳新版条款由用户逐件决定（`../references/upgrade.md` §2）。cmp 面自同目录 `install-policy.rules` 数据读取（引擎零落位路径硬编码，先例 install.sh 同款加载）。
+
+### 退出码
+
+| 退出码 | 语义 |
+| --- | --- |
+| 0 | 全同步（落地面与包基线一致）。 |
+| 1 | 有差距（落后/漂移行见输出；升级流程入口＝`../references/upgrade.md`）。 |
+| 2 | 用法或环境错误（参数数量不合、pkg-dir/repo-root 不存在、install-policy.rules 或 delivery-rules.tmpl 或本件在包基线缺失）。 |
 
 ## test-record-layer.sh（记录层回归 harness）
 

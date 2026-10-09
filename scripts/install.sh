@@ -316,6 +316,14 @@ fi
 
 # ---- 登记建议块（每复制件一行 artifacts.yaml 十三字段建议值；不代写目标治理文件）----
 
+# 升级语境提示（升级一等流程②）：目标仓已落位同件或已有 delivery.rules ＝ 已治理仓，
+# 新增模板的生成义务在此指路（引擎零模板专名——探测包内模板与目标文件存在性差）。
+if [ -f "$target_abs/${scripts_dir_rel}/install-policy.rules" ] || [ -f "$target_abs/delivery.rules" ]; then
+  if [ -f "$script_dir/../references/templates/delivery-rules.tmpl" ] && [ ! -f "$target_abs/delivery.rules" ]; then
+    printf 'install: 升级提示: 本包含 delivery.rules 分发模板（references/templates/delivery-rules.tmpl）而目标仓尚无 delivery.rules——按模板生成到仓根（锚点逐字匹配，禁手抄）；升级流程全貌见包内 references/upgrade.md，落地面差距核对跑同目录 upgrade-check.sh。\n'
+  fi
+fi
+
 if [ "$copied" -gt 0 ]; then
   printf 'install: 登记建议块（artifacts.yaml 十三字段建议值，可粘贴；写入归执行体，本脚本不代写目标治理文件）:\n'
   IFS=$NL

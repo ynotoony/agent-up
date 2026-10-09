@@ -90,7 +90,7 @@ flowchart TD
 git clone https://github.com/ynotoony/agent-up.git ~/.agents/skills/agent-up
 ```
 
-装完即用，不用任何配置。以后想升级，进这个目录 `git pull` 拉最新版就行。
+装完即用，不用任何配置。以后想升级：先进这个目录 `git pull` 拉最新版（更新了什么看 `CHANGELOG.md`）；已初始化的项目再跑 `sh <包目录>/scripts/upgrade-check.sh <包目录> <项目根>` 看落地面差距，按 `references/upgrade.md` 走升级流程——漂移件会停下等确认，你的记录和改动不会被覆盖。
 
 ## 使用
 
