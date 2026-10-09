@@ -888,21 +888,15 @@ check_s7() {
     fi
     # ② 链环：指向票自身又指向他人即环（含自指）——环检测看指向票自身是否也带
     #    superseded_by（不论指向谁），链式二度替代一律拆环直指最终替代票。
-    #    （只对每个环上的"被二度替代票"报一次：src 去重后emit，避免 91→92 与
-    #    92 自身两轮循环对同一票重复计数。）
-    case ${_s7_dst} in
-      *_s7_ring_reported)
-        : ;;
-      *)
-        if printf '%s\n' "$_s7_marked" | awk -F'|' -v d="${_s7_dst}" '$1==d && $2!="" {found=1} END{exit !found}' \
-          && ! printf '%s\n' "${_s7_ring_reported:-}" | LC_ALL=C grep -qxF "${_s7_dst}"; then
-          emit_stale "${issues_index_rel}:${_s7_dst}" "S7 替代标记断言：票 ${_s7_dst} 自身亦带 superseded_by 替代标记——替代链出现二度替代（环语义无法裁决现行依据），登记时拆环只指最终替代票（R-DP-039）"
-          _s7_ring_reported="${_s7_ring_reported:-}${_s7_dst}
+    #    （同一被二度替代票只报一次：_s7_ring_reported 累积已报 id，grep -qxF 整行
+    #    去重，避免 91→92 与 92 自身两轮循环对同一票重复计数。）
+    if printf '%s\n' "$_s7_marked" | awk -F'|' -v d="${_s7_dst}" '$1==d && $2!="" {found=1} END{exit !found}' \
+      && ! printf '%s\n' "${_s7_ring_reported:-}" | LC_ALL=C grep -qxF "${_s7_dst}"; then
+      emit_stale "${issues_index_rel}:${_s7_dst}" "S7 替代标记断言：票 ${_s7_dst} 自身亦带 superseded_by 替代标记——替代链出现二度替代（环语义无法裁决现行依据），登记时拆环只指最终替代票（R-DP-039）"
+      _s7_ring_reported="${_s7_ring_reported:-}${_s7_dst}
 "
-          continue
-        fi
-        ;;
-    esac
+      continue
+    fi
     # ③ 收口顺序：指向票非终态仅 WARN（先标后收合法）
     #    （消息内变量一律 ${} 花括号引用——bash 3.2 set -u 下 $var 后紧跟多字节字符
     #    会把 UTF-8 字节并入变量名解析，实测 _s7_dst_st）触发 unbound，dash 无此问题，
