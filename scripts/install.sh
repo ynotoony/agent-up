@@ -92,7 +92,7 @@ ip_file() {
   printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$tmp_rows"
 }
 
-script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
 rules_path="$script_dir/install-policy.rules"
 [ -f "$rules_path" ] || die2 "安装政策规则表缺失: $rules_path"
 if ! . "$rules_path"; then
@@ -212,15 +212,21 @@ if [ -n "$_it_gd" ]; then
 fi
 
 [ -d "$target" ] || die1 "目标目录不存在: $target"
-target_abs=$(CDPATH= cd "$target" && pwd) || die1 "目标目录不可进入: $target"
-if [ -e "$target_abs/agent-up/SKILL.md" ]; then
-  die1 "包内误运行守卫：目标含 agent-up/SKILL.md（疑似包所在仓根或含包副本）: $target_abs"
-fi
+target_abs=$(CDPATH= cd -P "$target" && pwd) || die1 "目标目录不可进入: $target"
+# 包内误运行守卫（票 124 精确化）：拦截面＝真正的自写/自毁场景，不以仓根存在包文件一票
+# 否决——源仓/含包副本的仓落位目的地（rules/implementation/scripts/）与复制基线
+# （agent-up/scripts/）是不同目录，属合法落位（升级流程 §4 步骤 1 依赖此路径）。
+# 三条拒绝：①target 含裸 SKILL.md（target 即包根本体，复制会污染包）；②target＝本脚本
+# 所在目录；③target 落位目录＝本脚本所在目录（cp 源与目的地同一，自写复制基线）。
 if [ -e "$target_abs/SKILL.md" ]; then
-  die1 "包内误运行守卫：目标含 SKILL.md（疑似包目录）: $target_abs"
+  die1 "包内误运行守卫：目标含裸 SKILL.md（疑似包根本体）: $target_abs"
 fi
 if [ "$target_abs" = "$script_dir" ]; then
   die1 "包内误运行守卫：目标为本脚本所在目录: $target_abs"
+fi
+_it_dst=$(CDPATH= cd -P "$target_abs/$scripts_dir_rel" 2>/dev/null && pwd) || _it_dst=''
+if [ -n "$_it_dst" ] && [ "$_it_dst" = "$script_dir" ]; then
+  die1 "包内误运行守卫：目标落位目录即本脚本所在目录（复制源＝目的地，自写复制基线）: $target_abs/$scripts_dir_rel"
 fi
 
 # ---- 复制集合选取（按启用门控取行，按文件路径去重）----
