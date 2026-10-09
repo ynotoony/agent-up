@@ -1,14 +1,14 @@
 #!/bin/sh
-# Input: 一个或多个任务票 JSON 路径（docs/issues/*.json 形态，票 70 先例）；判据权威＝
+# Input: 一个或多个任务票 JSON 路径（facts/requirements/tickets/*.json 形态，票 70 先例）；判据权威＝
 #        agent-up/references/protocol/complexity-profile.md §2.1（C0-C3 可数触发条件）
-#        与 §2.3（微任务道承重判据可数面）；车道德协议权威＝docs/development-process.md
-#        §6 分级交付道（R-DP-031）。票的 profile 七维字段不在可算面，本脚本不读取。
+#        与 §2.3（微任务道承重判据可数面）；车道德协议权威＝rules/assessment.md
+#        §6 分级交付道（R-DP-031，流程权威拆三件）。票的 profile 七维字段不在可算面，本脚本不读取。
 # Output: 每票一节的定级建议表（stdout）——各 C 级命中条件清单、C0-C3 建议、微道资格
 #         预审、逐条验收形态标注、与票面 actual 定级（complexity 字段＝Triage 实际定级）
 #         的逐票对照；批量末尾输出分歧账汇总。建议不裁决：输出只写「建议/命中/预审」，
 #         不写「必须/定级为」；车道结论一律「待 Triage 裁决」。
 # Pos: 本仓定级建议器（票 78，判断面最小化第一批，用户 2026-09-22 拍板三选一）；
-#      python3 标准库内嵌（先例 scripts/run-record.sh seal/stats）；fail-closed——票文件
+#      python3 标准库内嵌（先例 rules/implementation/scripts/run-record.sh seal/stats）；fail-closed——票文件
 #      缺失、非 JSON、缺 id/complexity/acceptance/scope 字段即报明退出，零副作用（全程
 #      只读，不写任何文件）。建议与 Triage 定级冲突时以 Triage 为准，分歧如实记录供
 #      采纳票引用。
@@ -18,12 +18,12 @@
 set -eu
 set -f  # 关闭文件名展开：参数只按字面传递
 
-# ---- 路径常量区（票 111 波②：docs/、scripts/ 治理路径唯一承载点；零翻值）----
-scripts_readme='scripts/README.md'  # 口径登记面（同目录 README ticket-grade 专节）
+# ---- 路径常量区（票 111 波②建；票 115 波⑤值翻新布局）----
+scripts_readme='rules/implementation/scripts/README.md'  # 口径登记面（同目录 README ticket-grade 专节）
 
 usage() {
   cat <<'USAGE'
-用法: sh scripts/ticket-grade.sh <ticket.json> [<ticket.json> ...]
+用法: sh rules/implementation/scripts/ticket-grade.sh <ticket.json> [<ticket.json> ...]
 参数:
   ticket.json  任务票 JSON 路径（至少一个；多个则逐票出节，末尾附分歧账汇总）。
   -h / --help  打印本用法。
@@ -303,7 +303,7 @@ def grade(ticket_path):
 def main():
     argv = sys.argv[1:]
     if not argv:
-        usage_sh = ("用法: sh scripts/ticket-grade.sh <ticket.json> [...]  "
+        usage_sh = ("用法: sh rules/implementation/scripts/ticket-grade.sh <ticket.json> [...]  "
                     "（-h 看全量；退出码见 README）")
         die(usage_sh, 2)
     results = [grade(p) for p in argv]

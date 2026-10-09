@@ -1,12 +1,12 @@
 #!/bin/sh
-# Input: docs/issues/index.json（票状态索引真相源，单文件一条目一行，票 33 终裁 T2）
+# Input: facts/requirements/tickets/index.json（票状态索引真相源，单文件一条目一行，票 33 终裁 T2）
 #        与可选参数：--check 开关、仓库根目录（缺省取脚本所在目录的上一级）。
-# Output: docs/progress-current.md 现役状态投影——Derived 四标注头部（generated_from、
+# Output: facts/requirements/tickets/progress-current.md 现役状态投影——Derived 四标注头部（generated_from、
 #         生成时间、覆盖范围、失效条件）＋每票一行 `| id | status | checkpoint_ref | updated_at |`
 #         状态表，按 id 升序；--check 模式为 dry-run：生成结果与既有投影各自规范化
 #         generated_at 行后逐字节比对，一致 exit 0，不一致 exit 1，不落盘不写任何文件。
-# Pos: 本仓记录层投影生成器（票 33 草案 §5.1.4 生成规则 / 票 35 落位）；生成器独占写
-#      docs/progress-current.md（development-process §12.5 派生载体独占写），agent 不手写。
+# Pos: 本仓记录层投影生成器（票 33 草案 §5.1.4 生成规则 / 票 35 落位；票 115 波⑤路径随 rules/facts 布局翻值）；生成器独占写
+#      facts/requirements/tickets/progress-current.md（流程权威 discipline.md §12.5 派生载体独占写），agent 不手写。
 #      POSIX sh、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）；fail-closed：索引缺失、
 #      不可读或条目行不合预期即停止报告，不写投影。投影与索引不一致时以索引为准。
 

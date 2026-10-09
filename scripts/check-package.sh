@@ -1024,25 +1024,37 @@ fi
 # 关系＝包侧 $scripts_dir/<名> 与包根父目录仓根 $scripts_dir/<名> 同名件，注记见 manifest）；
 # 仓根无 $scripts_dir 或无同名件静默跳过（消费项目语义，--pkg-root 参数化语境同样跳过，
 # 无输出行）；逐对 cmp，一致 PASS、差异 FAIL 指名文件。
+# 票 123 增补（源仓倒挂拦截）：仓根镜像迁居新布局（rules/implementation/scripts/）后，
+# 包根父目录 $scripts_dir 不在场导致本检查静默跳过＝防线失效——补第二落位形态探测：
+# 仓根 rules/implementation/scripts/ 下同名件在场即 cmp（同一 mirrors 清单，两形态任一
+# 在场即比对；两形态皆无＝保持消费项目静默跳过语义）。此为"仓领先于包"倒挂的提交前
+# 机械拦截面：仓侧镜像件改动未同步包内时本检查即红，不等导出波。
 problems=''
 n_mirror=$(wc -l < "$pm_mirrors" | tr -d ' ')
 mirror_compared=0
 mirror_root=$(CDPATH= cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
-if [ -n "$mirror_root" ] && [ -d "$mirror_root/$scripts_dir" ]; then
-  OLDIFS=$IFS
-  IFS='
+mirror_new_dir='rules/implementation/scripts'
+OLDIFS=$IFS
+IFS='
 '
-  for m in $(cat "$pm_mirrors"); do
-    IFS=$OLDIFS
-    [ -f "$pkg_root/$scripts_dir/$m" ] || continue
-    [ -f "$mirror_root/$scripts_dir/$m" ] || continue
-    mirror_compared=$((mirror_compared + 1))
-    if ! cmp -s "$pkg_root/$scripts_dir/$m" "$mirror_root/$scripts_dir/$m"; then
-      add_problem "  - $scripts_dir/$m 与仓根 $scripts_dir/$m 不一致（byte-diff，两处同源演化须互为镜像）"
-    fi
-  done
+for m in $(cat "$pm_mirrors"); do
   IFS=$OLDIFS
-fi
+  [ -f "$pkg_root/$scripts_dir/$m" ] || continue
+  _m_dst=''
+  if [ -n "$mirror_root" ] && [ -f "$mirror_root/$scripts_dir/$m" ]; then
+    _m_dst="$mirror_root/$scripts_dir/$m"
+    _m_loc="$scripts_dir/$m"
+  elif [ -n "$mirror_root" ] && [ -f "$mirror_root/$mirror_new_dir/$m" ]; then
+    _m_dst="$mirror_root/$mirror_new_dir/$m"
+    _m_loc="$mirror_new_dir/$m"
+  fi
+  [ -n "$_m_dst" ] || continue
+  mirror_compared=$((mirror_compared + 1))
+  if ! cmp -s "$pkg_root/$scripts_dir/$m" "$_m_dst"; then
+    add_problem "  - $scripts_dir/$m 与仓根 $_m_loc 不一致（byte-diff，两处同源演化须互为镜像）"
+  fi
+done
+IFS=$OLDIFS
 if [ "$mirror_compared" -gt 0 ]; then
   if [ -n "$problems" ]; then
     fail 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）" "$problems"
@@ -1050,7 +1062,7 @@ if [ "$mirror_compared" -gt 0 ]; then
     pass 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）"
   fi
 fi
-# mirror_compared=0（仓根无 $scripts_dir 或无同名件）→ 静默跳过，无输出行
+# mirror_compared=0（仓根两形态皆无同名件）→ 静默跳过，无输出行
 
 # 检查 14：能力映射一致（票 59 新增）。名单＝清单 capability-primitives 节（九基元名，
 # 引擎零基元名硬编码）；权威表＝capability_authority 登记文件（窄锚点「### …能力基元

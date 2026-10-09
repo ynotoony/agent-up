@@ -1,8 +1,8 @@
 #!/bin/sh
 # Input: 子命令与参数（[repo-root] open/take/flip + 选项）与三个票务面数据载体：
-#        docs/issues/index.json（票状态真相源，单文件一条目一行，票 33 终裁 T2）、
-#        docs/issues/README.md 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，
-#        人工登记投影，票 37 口径）、docs/changes.jsonl 记录账本（键序
+#        facts/requirements/tickets/index.json（票状态真相源，单文件一条目一行，票 33 终裁 T2）、
+#        facts/requirements/tickets/README.md 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，
+#        人工登记投影，票 37 口径）、facts/project/changes.jsonl 记录账本（键序
 #        date,kind,scope,decision,evidence_ref，五键必备＋按 kind 条件键：lesson 必带
 #        第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone
 #        ——票 81，一行一事实，禁裸换行）。
@@ -11,9 +11,9 @@
 #         清单行＋账本追加行；take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
 #         状态 token 替换＋账本追加行，flip 另做 task 票 actual_time 收口硬拦（票 100：
 #         票 JSON 本体 actual_time 须已填且非空，缺项即 exit 1 指名票 id 与缺项，request
-#         不校验）＋账本追加行；ledger＝无票账本行入口（票 100：不依赖 docs/issues/index.json
+#         不校验）＋账本追加行；ledger＝无票账本行入口（票 100：不依赖 facts/requirements/tickets/index.json
 #         条目 id，账本行形状校验先于写入，仅账本落行，不触索引/README/投影）；
-#         open/take/flip 收尾调 scripts/generate-progress.sh 再生 docs/progress-current.md
+#         open/take/flip 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
 #         现役状态投影并 --check 核对（ledger 无索引面改动，不做投影再生）。
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
