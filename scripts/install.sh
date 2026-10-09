@@ -68,6 +68,7 @@ t_dir=${TMPDIR:-/tmp}
 tmp_gates=''
 tmp_rows=''
 tmp_copied=''
+# shellcheck disable=SC2329  # DSL 函数由被 source 的规则表在加载时调用（外置数据＋引擎零专名设计；单文件视野不可见）
 cleanup() {
   rm -f "$tmp_gates" "$tmp_rows" "$tmp_copied"
 }
@@ -82,19 +83,22 @@ tmp_copied=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 #   ip_file <pkg-rel-path> <lifecycle> <gate> <说明>
 # 逐行 TAB 连接落 tmp_gates / tmp_rows，供结构校验与集合选取。
 
+# shellcheck disable=SC2329  # DSL 函数由被 source 的规则表在加载时调用（外置数据＋引擎零专名设计；单文件视野不可见）
 ip_gate() {
   [ $# -eq 3 ] || die2 '规则表 ip_gate 行参数数量不合预期（须恰 3：gate、flag、说明）'
   printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$tmp_gates"
 }
 
+# shellcheck disable=SC2329  # DSL 函数由被 source 的规则表在加载时调用（外置数据＋引擎零专名设计；单文件视野不可见）
 ip_file() {
   [ $# -eq 4 ] || die2 '规则表 ip_file 行参数数量不合预期（须恰 4：基线路径、lifecycle、门控、说明）'
   printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$tmp_rows"
 }
 
-script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
+script_dir=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
 rules_path="$script_dir/install-policy.rules"
 [ -f "$rules_path" ] || die2 "安装政策规则表缺失: $rules_path"
+# shellcheck disable=SC1090  # source 外置规则表（数据路径含变量；外置数据＋引擎零专名设计）
 if ! . "$rules_path"; then
   die2 "安装政策规则表 source 失败（语法损坏或行执行出错）: $rules_path"
 fi
@@ -203,7 +207,7 @@ if [ -n "$_it_gd" ]; then
   if [ -n "$_it_gcd" ]; then
     case $_it_gcd in
       /*) ;;
-      *) _it_gcd=$(CDPATH= cd "$(git rev-parse --show-toplevel)/$_it_gcd" && pwd) ;;
+      *) _it_gcd=$(CDPATH='' cd "$(git rev-parse --show-toplevel)/$_it_gcd" && pwd) ;;
     esac
     if [ "$_it_gd" != "$_it_gcd" ]; then
       die1 "worktree 自拒：当前在链接 worktree（git-dir ${_it_gd} ≠ common-dir ${_it_gcd}）。安装属 main-only 动作（R-DP-036）：包基线须出自主检出已合并状态，请在主检出运行。"
@@ -212,7 +216,7 @@ if [ -n "$_it_gd" ]; then
 fi
 
 [ -d "$target" ] || die1 "目标目录不存在: $target"
-target_abs=$(CDPATH= cd -P "$target" && pwd) || die1 "目标目录不可进入: $target"
+target_abs=$(CDPATH='' cd -P "$target" && pwd) || die1 "目标目录不可进入: $target"
 # 包内误运行守卫（票 124 精确化）：拦截面＝真正的自写/自毁场景，不以仓根存在包文件一票
 # 否决——源仓/含包副本的仓落位目的地（rules/implementation/scripts/）与复制基线
 # （agent-up/scripts/）是不同目录，属合法落位（升级流程 §4 步骤 1 依赖此路径）。
@@ -224,7 +228,7 @@ fi
 if [ "$target_abs" = "$script_dir" ]; then
   die1 "包内误运行守卫：目标为本脚本所在目录: $target_abs"
 fi
-_it_dst=$(CDPATH= cd -P "$target_abs/$scripts_dir_rel" 2>/dev/null && pwd) || _it_dst=''
+_it_dst=$(CDPATH='' cd -P "$target_abs/$scripts_dir_rel" 2>/dev/null && pwd) || _it_dst=''
 if [ -n "$_it_dst" ] && [ "$_it_dst" = "$script_dir" ]; then
   die1 "包内误运行守卫：目标落位目录即本脚本所在目录（复制源＝目的地，自写复制基线）: $target_abs/$scripts_dir_rel"
 fi
@@ -333,15 +337,14 @@ fi
 if [ "$copied" -gt 0 ]; then
   printf 'install: 登记建议块（artifacts.yaml 十三字段建议值，可粘贴；写入归执行体，本脚本不代写目标治理文件）:\n'
   IFS=$NL
-  for row in $(cat "$tmp_copied"); do
-    IFS=$oldifs
+  while IFS= read -r row; do
     p=${row%%"$TAB"*}
     rest=${row#*"$TAB"}
     lc=${rest%%"$TAB"*}
     base=${p##*/}
     idbase=${base%.*}
     printf "  {id: script-%s, path: ${scripts_dir_rel}/%s, kind: script, authority: 权威层级第 4 级（流程规则；按目标项目权威层级定级）, owner: 经用户确认的执行体, lifecycle: %s, trigger: 对应门控启用（用户在差异清单确认时）, read_when: 目标项目运行该脚本时, sync_on: 无（包基线同源演化须登记差异）, depends_on: [assessment, discipline, project], generated_from: %s, platform: neutral, update_policy: 禁止覆盖（人工漂移走 reconcile，检出即停报告）}\n" "$idbase" "$base" "$lc" "$p"
-  done
+  done < "$tmp_copied"
   IFS=$oldifs
   printf 'install: 登记提醒: 每复制件按登记建议块同步登记 artifacts.yaml 条目（生成件登记并入条目单本账，见包内拆三规则模板）；建议块仅为可粘贴建议值。\n'
 fi

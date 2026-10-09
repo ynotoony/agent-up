@@ -61,6 +61,7 @@ dp_load_rules() {
   _dp_prefix=$2
   _dp_file="$1/delivery.rules"
   [ -f "$_dp_file" ] || return 0
+  # shellcheck disable=SC2034  # DP 引擎统一解析产出字段（五副本同构契约；本脚本未消费≠冗余，禁删——调研报告禁改面）
   DP_PRESENT=1
   _dp_stream=$(mktemp "${TMPDIR:-/tmp}/dprules.XXXXXX") || return 2
   _dp_rc=0
@@ -189,7 +190,7 @@ if [ "$dry_run" -ne 1 ]; then
   _ep_gcd=$(git rev-parse --git-common-dir 2>/dev/null) || die2 '目标不是 Git 工作区'
   case $_ep_gcd in
     /*) ;;
-    *) _ep_gcd=$(CDPATH= cd "$(git rev-parse --show-toplevel)/$_ep_gcd" && pwd) ;;
+    *) _ep_gcd=$(CDPATH='' cd "$(git rev-parse --show-toplevel)/$_ep_gcd" && pwd) ;;
   esac
   if [ "$_ep_gd" != "$_ep_gcd" ]; then
     printf '%s: FAIL: 主检出门禁：当前在链接 worktree（git-dir %s ≠ common-dir %s）。真跑推送属 main-only 动作（R-DP-036）：未合并分支不得上公开仓，请在主检出（main）运行；--dry-run 不受限。\n' "$prog" "${_ep_gd}" "${_ep_gcd}" >&2
@@ -197,9 +198,9 @@ if [ "$dry_run" -ne 1 ]; then
   fi
 fi
 
-script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 if [ -z "$repo_root" ]; then
-  repo_root=$(CDPATH= cd "$script_dir/../.." && pwd) || die2 '仓库根推导失败（脚本位置异常），请显式传 repo-root'
+  repo_root=$(CDPATH='' cd "$script_dir/../.." && pwd) || die2 '仓库根推导失败（脚本位置异常），请显式传 repo-root'
 fi
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
@@ -247,6 +248,7 @@ printf '%s: 导出头 H=%s\n' "$prog" "$H"
 _t_dir=${TMPDIR:-/tmp}
 tmp_tree=$(mktemp -d "${_t_dir%/}/export-payload-tree.XXXXXX")
 tmp_diff=$(mktemp "${_t_dir%/}/export-payload-diff.XXXXXX")
+# shellcheck disable=SC2329  # trap 引用的清理函数——shellcheck 单文件视野误报（dp_cleanup 由 trap 回调）
 dp_cleanup() { rm -rf "$tmp_tree"; rm -f "$tmp_diff"; }
 trap dp_cleanup EXIT HUP INT TERM
 
@@ -277,6 +279,7 @@ printf '%s: 步骤 4/6 ff 断言（远端 %s target=%s）\n' "$prog" "$DP_REMOTE
 R=$(git -C "$repo_root" ls-remote "$DP_REMOTE" "refs/heads/$DP_TARGET" 2>/dev/null | LC_ALL=C awk '{print $1; exit}') || R=''
 if [ -n "$R" ]; then
   if ! git -C "$repo_root" merge-base --is-ancestor "$R" "$H"; then
+    # shellcheck disable=SC2016  # printf 格式串含字面反引号文案（刻意单引号；shellcheck 对格式串反引号字面量的长尾误报）
     printf '%s: FAIL: ff 断言不过——远端 `%s/%s` 头 `%s` 不是新导出头 `%s` 的祖先。远端分支含导出管线之外的历史（疑似他人直推、回滚或覆盖污染）。已停手，未推送。本命令永不 --force；如确认远端需恢复或覆盖，须用户明确授权并另票执行（先例：票 68 载荷边界恢复）。\n' \
       "$prog" "$DP_REMOTE" "$DP_TARGET" "$R" "$H" >&2
     exit 1
