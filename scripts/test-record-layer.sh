@@ -1919,11 +1919,11 @@ suite_stale_claims() {
   if [ "$rc" -eq 0 ] \
     && grep -q 'SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
     && grep -q 'SKIP: S2 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
-    && grep -q '登记表 4 条全部核对' "$D/p1.out" \
+    && grep -q '登记表 5 条全部核对' "$D/p1.out" \
     && ! grep -q '^STALE' "$D/p1.out"; then
-    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 4（通用条数 S3/S4/S5/S6，票 94）'
+    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 5（通用条数 S3/S4/S5/S6/S7，票 127）'
   else
-    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 4（通用条数 S3/S4/S5/S6，票 94）' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
+    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 5（通用条数 S3/S4/S5/S6/S7，票 127）' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
   fi
 
   # 正例 P2：点亮（dp_stale_lit S1＋S2，无 payload 节）→ 无 SKIP 行、S1/S2 断言逻辑执行
@@ -1943,10 +1943,10 @@ EOF
     && ! grep -q '^SKIP: S1' "$D/p2.out" \
     && ! grep -q '^SKIP: S2' "$D/p2.out" \
     && grep -q '^STALE: README.md' "$D/p2.out" \
-    && grep -q '登记表共 6 条' "$D/p2.out"; then
-    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 6（点亮数＋通用条数 S3/S4/S5/S6，票 94）'
+    && grep -q '登记表共 7 条' "$D/p2.out"; then
+    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 7（点亮数＋通用条数 S3/S4/S5/S6/S7，票 127）'
   else
-    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 6（点亮数＋通用条数 S3/S4/S5/S6，票 94）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
+    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 7（点亮数＋通用条数 S3/S4/S5/S6/S7，票 127）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
   fi
 
   # 负例 N1：delivery.rules 解析破坏（未知指令）→ exit 2 fail-closed 指名
@@ -1973,10 +1973,10 @@ EOF
   rc=$?
   if [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/p3.out" \
-    && grep -q '登记表 4 条全部核对' "$D/p3.out"; then
-    ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 4 条'
+    && grep -q '登记表 5 条全部核对' "$D/p3.out"; then
+    ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 5 条'
   else
-    bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 4 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
+    bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 5 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
   fi
 
   # 负例 N2（票 85）：S5 新增面负例——新增扫描面文档结论行缺标注（列表标记变体）
@@ -2105,6 +2105,90 @@ EOF
     ok '正例 P6 S6 非终态流转（ready→in_progress）→ exit 0 零误报'
   else
     bad '正例 P6 S6 非终态流转（ready→in_progress）→ exit 0 零误报' "exit=$rc $(tail -n 2 "$D/p6.out" | tr '\n' '|')"
+  fi
+
+  # S7 替代标记正负例四（票 127，R-DP-039 替代标记面配套）——索引单变量隔离：
+  # P7 有效标记（superseded_by 指向索引内 done 票）→ exit 0 零 S7 输出；
+  # N6 悬挂标记（指向票不在索引）→ exit 1 STALE 指名双方 id；
+  # P8 缺字段（存量票零回扫语义）→ exit 0 零 S7 输出；
+  # N7 非终态指向（替代票尚未收口）→ WARN 提醒不拦截（先标后收合法）。
+  sc_s7_write() {
+    # $1=夹具仓根 $2=91 status $3=91 superseded_by（空串=缺字段） $4=92 status
+    # 同步覆写 README 锚点行（S4 数量相等：2 条目↔2 锚点）与投影行（S3 最小比对），
+    # S7 断言单变量隔离。
+    if [ -n "$3" ]; then
+      printf '{"id": "91-s7", "status": "%s", "superseded_by": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T10:00"}\n{"id": "92-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T11:00"}\n' "$2" "$3" "$4" > "$1/facts/requirements/tickets/index.json"
+    else
+      printf '{"id": "91-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T10:00"}\n{"id": "92-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T11:00"}\n' "$2" "$4" > "$1/facts/requirements/tickets/index.json"
+    fi
+    printf '# issues\n\n任务票 1；\n任务票 2；\n' > "$1/facts/requirements/tickets/README.md"
+    printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 91-s7 | %s | - | 2026-10-09T10:00 |\n| 92-s7 | %s | - | 2026-10-09T11:00 |\n' "$2" "$4" > "$1/facts/requirements/tickets/progress-current.md"
+  }
+
+  # 正例 P7（票 127）：S7 有效标记——superseded 票指向索引内 done 票 → exit 0、无 S7 行
+  sc_build_fixture "$D/p7"
+  mkdir -p "$D/p7/eng"
+  cp "$SC" "$D/p7/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/p7/repo"
+  sc_s7_write "$D/p7/repo" superseded 92-s7 done
+  sc_run "$D/p7" > "$D/p7.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && ! grep -q 'S7 替代标记' "$D/p7.out" \
+    && ! grep -q 'S7 收口顺序' "$D/p7.out"; then
+    ok '正例 P7 S7 有效标记（superseded→done 在索引）→ exit 0 零 S7 输出'
+  else
+    bad '正例 P7 S7 有效标记（superseded→done 在索引）→ exit 0 零 S7 输出' "exit=$rc $(tail -n 2 "$D/p7.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N6（票 127）：S7 悬挂标记——superseded_by 指向不在索引的票 → exit 1 且
+  # STALE 指名双方 id（存在性硬断言）
+  sc_build_fixture "$D/n6"
+  mkdir -p "$D/n6/eng"
+  cp "$SC" "$D/n6/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/n6/repo"
+  sc_s7_write "$D/n6/repo" superseded 99-none done
+  sc_run "$D/n6" > "$D/n6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '^STALE: facts/requirements/tickets/index.json:91-s7' "$D/n6.out" \
+    && grep -q 'S7 替代标记断言：票 91-s7 的 superseded_by 指向 99-none，但该票不在索引中' "$D/n6.out"; then
+    ok '负例 N6 S7 悬挂标记 → exit 1 STALE 指名 91-s7 与 99-none'
+  else
+    bad '负例 N6 S7 悬挂标记 → exit 1 STALE 指名 91-s7 与 99-none' "exit=$rc $(tail -n 2 "$D/n6.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P8（票 127）：S7 缺字段零回扫——索引无任何 superseded_by 字段（存量票形态）
+  # → exit 0、无 S7 行（可选字段语义，缺字段零命中零报）
+  sc_build_fixture "$D/p8"
+  mkdir -p "$D/p8/eng"
+  cp "$SC" "$D/p8/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/p8/repo"
+  sc_s7_write "$D/p8/repo" superseded '' done
+  sc_run "$D/p8" > "$D/p8.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && ! grep -q 'S7 替代标记' "$D/p8.out" \
+    && ! grep -q 'S7 收口顺序' "$D/p8.out"; then
+    ok '正例 P8 S7 缺字段零回扫（存量形态无标记）→ exit 0 零 S7 输出'
+  else
+    bad '正例 P8 S7 缺字段零回扫（存量形态无标记）→ exit 0 零 S7 输出' "exit=$rc $(tail -n 2 "$D/p8.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N7（票 127）：S7 非终态指向——替代票尚未收口（in_progress）→ WARN 提醒
+  # 不拦截（无 S7 STALE；先标后收合法顺序，对照 P7 终态指向零输出）
+  sc_build_fixture "$D/n7"
+  mkdir -p "$D/n7/eng"
+  cp "$SC" "$D/n7/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/n7/repo"
+  sc_s7_write "$D/n7/repo" superseded 92-s7 in_progress
+  sc_run "$D/n7" > "$D/n7.out" 2>&1
+  rc=$?
+  if ! grep -q 'S7 替代标记' "$D/n7.out" \
+    && grep -q 'S7 收口顺序提醒：票 91-s7 的 superseded_by 指向 92-s7，替代票尚未收口（状态 in_progress）' "$D/n7.out"; then
+    ok '负例 N7 S7 非终态指向 → WARN 提醒先标后收、零 S7 STALE'
+  else
+    bad '负例 N7 S7 非终态指向 → WARN 提醒先标后收、零 S7 STALE' "exit=$rc $(tail -n 2 "$D/n7.out" | tr '\n' '|')"
   fi
 
   suite_summary 'stale-claims'

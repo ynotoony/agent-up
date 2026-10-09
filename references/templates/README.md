@@ -42,14 +42,14 @@
 | --- | --- | --- | --- | --- | --- |
 | `README.md` | 目录索引 | 本 README | 目录创建 | 无 | 模板 manifest 与短码登记。 |
 | `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：先读什么、快速规则、工作类型路由、停止条件与三层定位层模型声明。 |
-| `assessment.md.tmpl` | Seed | `rules/assessment.md` | always | `DP` | 生成评估规则（流程权威拆三·评估面）：需求大小判定（C0~C3）与工作分类接手、分级交付道三车道准入、拆票与方案调研前置。 |
+| `assessment.md.tmpl` | Seed | `rules/assessment.md` | always | `DP` | 生成评估规则（流程权威拆三·评估面）：需求大小判定（C0~C3）与工作分类接手、分级交付道三车道准入、拆票与方案调研前置、开票类别声明槽位（R-DP-039 类别保留面）。 |
 | `discipline.md.tmpl` | Seed | `rules/implementation/discipline.md` | always | `DP` | 生成实现纪律（流程权威拆三·执行纪律面）：两层协作与三道门禁、委派合同固定模板、上下文与 token 卫生、检查点纪律、开发节点、Git/worktree 纪律、实现纪律与编程思想五问、验证与记录。 |
-| `project.md.tmpl` | Seed | `rules/project.md` | always | `DP` | 生成项目规则（流程权威拆三·项目协议面）：读取阶梯与权威层级、仓库与目录边界、产物生命周期协议（五类、触发矩阵、登记、同步门槛、状态机、Artifact Plan）、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、生成件登记并入 artifacts.yaml 单本账 + reconcile、checkpoint 管线、证据链登记）、状态陈述与输出瘦身纪律、项目自有条款槽位（随生长追加）。 |
+| `project.md.tmpl` | Seed | `rules/project.md` | always | `DP` | 生成项目规则（流程权威拆三·项目协议面）：读取阶梯与权威层级、仓库与目录边界、产物生命周期协议（五类、触发矩阵、登记、同步门槛、状态机、Artifact Plan、历史票权威剥离 R-DP-039——类别保留/读取面纪律/替代标记/收口搬运/清洗五面）、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、生成件登记并入 artifacts.yaml 单本账 + reconcile、checkpoint 管线、证据链登记）、状态陈述与输出瘦身纪律、项目自有条款槽位（随生长追加）。 |
 | `requests-README.md.tmpl` | Seed | `facts/requirements/requests/README.md` | always | `RQ` | 生成 REQ 队列规则：请求状态机、Intake/Triage 边界、Intake/Delivery 并行规则与写入所有权矩阵。 |
 | `artifacts-yaml.tmpl` | Seed | `facts/project/artifacts.yaml` | always | 无 | 生成产物机器索引：十三字段说明与 seed 八件初始登记。 |
 | `dir-README.md.tmpl` | Seed（兼条件性） | `<目录>/README.md` | rules/ 与 facts/ 目录：always；其他受 Git 管理目录：新建目录时 | 无 | 生成目录 README 与直接成员登记。 |
 | `CONTEXT.md.tmpl` | Conditional | `facts/project/CONTEXT.md` | 确认了项目特有术语、角色或状态 | 无 | 生成结构化词条 + 自然语言定义的领域上下文。 |
-| `issues-README.md.tmpl` | Conditional | `facts/requirements/tickets/README.md` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 | 无 | 生成任务票目录规则与票模板。 |
+| `issues-README.md.tmpl` | Conditional | `facts/requirements/tickets/README.md` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 | 无 | 生成任务票目录规则与票模板（含 category 类别声明与 superseded_by 替代标记注记，R-DP-039）。 |
 | `specs-README.md.tmpl` | Conditional | `facts/requirements/specs/README.md` | 修改公共行为或接口；多条验收路径；跨会话交付；C2/C3 任务合同不足；用户要求 | 无 | 生成规格目录规则与规格模板。 |
 | `research-README.md.tmpl` | Conditional | `facts/requirements/research/README.md` | 需要外部调研、方案对比或 spike | 无 | 生成调研目录归档规则与报告模板。 |
 | `scripts-README.md.tmpl` | Conditional | `scripts/README.md` | 可重复验证需要沉淀为共享 harness；采用任务票体系（随 ticket-ops/generate-progress 落位） | 无 | 生成共享验证 harness 目录索引与登记约定（含落位工具逐件登记：道脚本、ticket-ops、generate-progress、module-map——逐件登记口径）。 |

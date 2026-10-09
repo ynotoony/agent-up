@@ -310,6 +310,12 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      WARN 跳过；索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过，对齐
 #      S1/S5）。对账分层：一致性对账
 #      （投影↔索引，S3）之外，终态语义由 S6 承载（development-process §5.1）。
+# S7 替代标记存在性 | facts/requirements/tickets/index.json（票状态真相源，一条目一行）
+#    | machine：superseded_by 替代标记存在性断言（R-DP-039 替代标记面配套）——索引条目
+#      含非空 superseded_by 时，指向的票 id 必须真实存在于本索引（缺失即 STALE 指名
+#      双方 id）；指向票自身带 superseded_by（替代链环）即 STALE；指向票状态非终态
+#      （替代票尚未收口）即 WARN 提醒不拦截（收口顺序合法：先标后收）。字段缺失＝
+#      零命中零报（可选字段语义，存量票零回扫）；不按时间自动打标。
 
 readme_rel='README.md'
 # S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，
@@ -821,10 +827,104 @@ S6_NOW_INNER
   return 0
 }
 
+# ---- S7 替代标记存在性（R-DP-039 替代标记面配套）---------------------------
+#
+# superseded_by 存在性断言：索引条目含非空 superseded_by 时——
+#   ① 指向的票 id 必须真实存在于本索引（缺失即 STALE 指名双方 id）；
+#   ② 指向票自身带 superseded_by（替代链环）即 STALE（A 替代 B、B 又被替代的环语义
+#      无法裁决现行依据，登记时拆环）；
+#   ③ 指向票状态非终态（替代票尚未收口）仅 WARN 不拦截（先标后收为合法顺序）。
+# 字段缺失＝零命中零报（可选字段语义，存量票零回扫，R-DP-039 明文不按时间自动打标）。
+# 与 S6 同款单文件行式提取口径（一条目一行；id 与 superseded_by 同行提取，状态值从
+# id 邻接提取——生成器与 S6 的提取形态不受本断言新增字段影响，已实测夹具）。
+
+check_s7() {
+  _idx="$repo_root/$issues_index_rel"
+  if [ ! -f "$_idx" ]; then
+    emit_warn "$issues_index_rel" 'S7 替代标记断言跳过：索引文件不存在（票状态真相源缺失），对齐 S3/S6 缺失退化语义'
+    return 0
+  fi
+  # 提取面：全部条目行的 id（存在性比对基准）与带标记行的 id|superseded_by。
+  # grep -o 的锚定面收窄到 "id": "<id>" 与 "superseded_by": "<id>" 两个最小 token 再逐行
+  # 配对不可行（token 无行号关联）——改用 awk 行内提取（与 S3 jval 同款口径），键序无关。
+  _s7_all=$(LC_ALL=C grep -o '"id": "[^"]*"' "$_idx" 2>/dev/null | sed 's/"id": "//;s/"$//') || _s7_all=''
+  [ -n "$_s7_all" ] || return 0
+  _s7_marked=$(awk '
+    function jval(line, key,    i, rest, j) {
+      i = index(line, "\"" key "\": \"")
+      if (i == 0) return ""
+      rest = substr(line, i + length(key) + 5)
+      j = index(rest, "\"")
+      if (j == 0) return ""
+      return substr(rest, 1, j - 1)
+    }
+    index($0, "\"superseded_by\": \"") > 0 {
+      id = jval($0, "id"); dst = jval($0, "superseded_by")
+      if (id != "" && dst != "") print id "|" dst
+    }
+  ' "$_idx" 2>/dev/null) || _s7_marked=''
+  [ -n "$_s7_marked" ] || return 0
+  # 指向票状态图（id|status，供 ③ 收口顺序提醒；键序无关同款 awk 提取）
+  _s7_st_map=$(awk '
+    function jval(line, key,    i, rest, j) {
+      i = index(line, "\"" key "\": \"")
+      if (i == 0) return ""
+      rest = substr(line, i + length(key) + 5)
+      j = index(rest, "\"")
+      if (j == 0) return ""
+      return substr(rest, 1, j - 1)
+    }
+    index($0, "\"id\": \"") > 0 {
+      id = jval($0, "id"); st = jval($0, "status")
+      if (id != "" && st != "") print id "|" st
+    }
+  ' "$_idx" 2>/dev/null) || _s7_st_map=''
+  while IFS='|' read -r _s7_src _s7_dst; do
+    [ -n "${_s7_src:-}" ] && [ -n "${_s7_dst:-}" ] || continue
+    # ① 存在性：指向票必须在索引内
+    if ! printf '%s\n' "$_s7_all" | LC_ALL=C grep -qxF "${_s7_dst}"; then
+      emit_stale "${issues_index_rel}:${_s7_src}" "S7 替代标记断言：票 ${_s7_src} 的 superseded_by 指向 ${_s7_dst}，但该票不在索引中——替代标记指向的票必须真实存在（R-DP-039），修标或先开替代票"
+      continue
+    fi
+    # ② 链环：指向票自身又指向他人即环（含自指）——环检测看指向票自身是否也带
+    #    superseded_by（不论指向谁），链式二度替代一律拆环直指最终替代票。
+    #    （只对每个环上的"被二度替代票"报一次：src 去重后emit，避免 91→92 与
+    #    92 自身两轮循环对同一票重复计数。）
+    case ${_s7_dst} in
+      *_s7_ring_reported)
+        : ;;
+      *)
+        if printf '%s\n' "$_s7_marked" | awk -F'|' -v d="${_s7_dst}" '$1==d && $2!="" {found=1} END{exit !found}' \
+          && ! printf '%s\n' "${_s7_ring_reported:-}" | LC_ALL=C grep -qxF "${_s7_dst}"; then
+          emit_stale "${issues_index_rel}:${_s7_dst}" "S7 替代标记断言：票 ${_s7_dst} 自身亦带 superseded_by 替代标记——替代链出现二度替代（环语义无法裁决现行依据），登记时拆环只指最终替代票（R-DP-039）"
+          _s7_ring_reported="${_s7_ring_reported:-}${_s7_dst}
+"
+          continue
+        fi
+        ;;
+    esac
+    # ③ 收口顺序：指向票非终态仅 WARN（先标后收合法）
+    #    （消息内变量一律 ${} 花括号引用——bash 3.2 set -u 下 $var 后紧跟多字节字符
+    #    会把 UTF-8 字节并入变量名解析，实测 _s7_dst_st）触发 unbound，dash 无此问题，
+    #    统一花括号跨 sh 兼容。）
+    _s7_dst_st=$(printf '%s\n' "$_s7_st_map" | awk -F'|' -v d="${_s7_dst}" '$1==d {print $2; exit}')
+    case ${_s7_dst_st} in
+      done | superseded) : ;;
+      '')
+        emit_warn "${issues_index_rel}:${_s7_src}" "S7 收口顺序提醒：票 ${_s7_src} 的 superseded_by 指向 ${_s7_dst}，指向票状态不可读（词表外或排版漂移），人工核对" ;;
+      *)
+        emit_warn "${issues_index_rel}:${_s7_src}" "S7 收口顺序提醒：票 ${_s7_src} 的 superseded_by 指向 ${_s7_dst}，替代票尚未收口（状态 ${_s7_dst_st}）——先标后收为合法顺序，收口后本提醒自然消除" ;;
+    esac
+  done <<S7_MARKED_INNER
+$_s7_marked
+S7_MARKED_INNER
+  return 0
+}
+
 # ---- 执行 ------------------------------------------------------------------
 # S1/S2 配置点亮（票 72）：未点亮（delivery.rules 缺失或 calibration 节无 dp_stale_lit
 # 登记）→ 打印 SKIP 行，不计过期断言不拦票；点亮＝现行断言逻辑原样执行。
-# S3/S4/S5/S6 为通用面（协议），无点亮位恒执行。
+# S3/S4/S5/S6/S7 为通用面（协议），无点亮位恒执行。
 
 if [ "$s1_lit" -eq 1 ]; then
   check_s1
@@ -841,11 +941,12 @@ s4_parse_exempts
 check_s4
 check_s5
 check_s6
+check_s7
 
 _pn=$(prog_name)
-# 登记总数动态化（票 72 设计 §4③）：点亮数（S1/S2）＋通用条数（S3/S4/S5/S6 恒 4）；
-# 全点亮语境渲染「登记表共 6 条」（票 94 起 5→6）。
-_total_entries=$((4 + s1_lit + s2_lit))
+# 登记总数动态化（票 72 设计 §4③）：点亮数（S1/S2）＋通用条数（S3/S4/S5/S6/S7 恒 5）；
+# 全点亮语境渲染「登记表共 7 条」（票 127 起 6→7）。
+_total_entries=$((5 + s1_lit + s2_lit))
 if [ "$mode" = "session" ]; then
   printf '%s: 会话启动模式（不拦截）：过期断言 %s 处，提醒 %s 条，请人工核对上方输出\n' "$_pn" "$stale_count" "$warn_count"
   exit 0

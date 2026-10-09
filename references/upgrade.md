@@ -59,7 +59,8 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
 ## 5. 验证与收尾
 
 - 全套验证：包自检 `sh <pkg-dir>/scripts/check-package.sh`；仓侧 gate（落位的 check-artifacts/check-stale-claims/check-gates 族）；`upgrade-check.sh` 复跑确认残余差距清零或仅剩用户裁决保留项。
-- 收尾报告按 `SKILL.md` 步骤 9，额外列：更新件清单（旧→新）、漂移件裁决结果、登记面同步情况（artifacts.yaml 条目 `generated_from`/update_policy 括注随更新件刷新）。
+- **历史票清洗扫描**（升级专属步骤，R-DP-039 清洗面）：升级时对存量票面做一次清洗扫描，专找"看着像现行规定、实际已与权威层对不上"的危险内容——票面说明与 rules 三件/specs 冲突、`superseded` 票的说明仍被现行票引用、与新版模板条款相抵的旧口径句。输出危险票名单（票 id＋冲突点＋建议处置），**交用户逐票裁决**：名单本身零改写，裁决后走收口搬运（说明提炼进规则/事实层，R-DP-039 第 4 面）或替代标记（索引登记 `superseded_by`）。不升级时不主动扫描（翻到谁处理谁）。
+- 收尾报告按 `SKILL.md` 步骤 9，额外列：更新件清单（旧→新）、漂移件裁决结果、登记面同步情况（artifacts.yaml 条目 `generated_from`/update_policy 括注随更新件刷新）、清洗扫描结果（名单与用户裁决，未执行写 `N/A + reason`）。
 
 ## 6. 包基线获取
 

@@ -46,6 +46,11 @@
       "minLength": 1,
       "description": "优先级理由（task 必备）：为何此时开此票/此顺位的陈述（判断面最小化波次新立，落盘自证）；只断言非空，内容质量判断留人；ticket-ops open 时点机械强制，存量票零回扫零改写。"
     },
+    "category": {
+      "type": "string",
+      "enum": ["decision", "procedural", "temporal"],
+      "description": "可选。票记录类别（R-DP-039 类别保留政策，开票时声明；缺省视同 procedural）：decision 决定类——记录『为什么这么做』的决策依据与理由，永久保留；procedural 过程类——记录『怎么做的』过程与操作，收口归档后冻结保留；temporal 时效类——特定时点的状态快照，事件闭合即视为过期，不作执行依据。存量票零回扫：缺字段不补不改。"
+    },
     "estimated_time": {
       "type": "string",
       "minLength": 1,

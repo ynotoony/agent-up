@@ -24,6 +24,8 @@
 
 任务票用 `Type`（`feature` / `bug` / `refactor` / `docs`）和 `Priority`（`P0` 正在中断 / `P1` 核心路径或阻塞链 / `P2` 普通交付 / `P3` 文档治理）分类。进度必须覆盖：当前状态（`ready / in_progress / blocked / done`）、最后检查点、已修改范围、验证结果（失败也记录）、已知阻塞、下一步。明细写任务票 Checkpoint 区，现役状态每票一行由生成器投影至 `facts/requirements/tickets/progress-current.md`，只留状态和证据指针。
 
+开票同时声明记录类别 `category`（R-DP-039 类别保留面；`decision` 决定类 / `procedural` 过程类 / `temporal` 时效类，缺省视同 procedural；本体 schema 可选字段，存量票零回扫不补填）——类别决定该票说明类内容的保留政策与读取纪律，不改变任何票的生命周期与状态流转。
+
 ### Session 开始（接手门禁）
 
 1. 读 `AGENTS.md` 判定工作类型；只有功能、修复或重构才需要领取任务。

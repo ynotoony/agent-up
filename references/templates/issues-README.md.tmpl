@@ -10,7 +10,7 @@
 - 一张票一个文件：新开任务票为 `<NN>-<slug>.json`，按依赖顺序编号（blocker 在前），过 `references/schemas/ticket-record.schema.json` 结构化校验（required＝`id`/`kind`/`title`/`created_at`，task 另必备 `complexity`/`profile`/`blocked_by`），本体无 `status` 字段——票状态真相源＝本目录 `index.json`。
 - 票是 **agent 的任务**，只活在文件里；GitHub Issues 等人向追踪器若启用，只承接人向工作项（bug 报告、外部请求、协作讨论），两边不互为副本、不双写状态。
 - 票由 Triage 从已确认需求拆出：Intake 只能在 `../requests/` 新建 `REQ` 文件，不改其他任何治理文件；Triage 负责推进请求状态并产出规格与本目录任务票。
-- 领取规则：**blocker 全部 `done` 的票才可领取**（frontier）；状态流转 `ready / in_progress / blocked / review_ready / review_pass / review_fail / done` 记录在票内与 `../index.json`（票内状态行与清单状态列为人工登记投影），阻塞带原因（如 `blocked: scope-change`）；`superseded` 标签仅用于状态索引登记历史票据（保留原文用于历史追溯、不再领取），不属于状态机流转取值。
+- 领取规则：**blocker 全部 `done` 的票才可领取**（frontier）；状态流转 `ready / in_progress / blocked / review_ready / review_pass / review_fail / done` 记录在票内与 `../index.json`（票内状态行与清单状态列为人工登记投影），阻塞带原因（如 `blocked: scope-change`）；`superseded` 标签仅用于状态索引登记历史票据（保留原文用于历史追溯、不再领取），不属于状态机流转取值。历史票（done/superseded）只能作历史证据引用，不得当现行指令执行（R-DP-039 读取面纪律）；被推翻的票经 `superseded_by` 回链跳转替代票。
 
 ## 切片与依赖规则
 
@@ -29,6 +29,7 @@
   "kind": "task",
   "title": "<标题>",
   "created_at": "<YYYY-MM-DD>",
+  "category": "decision|procedural|temporal",
   "complexity": "C0|C1|C2|C3",
   "profile": "D:...,B:...,I:...,U:...,S:...,M:...,O:...",
   "blocked_by": [],
@@ -44,6 +45,7 @@
 - `id`＝文件名去 `.json` 扩展名；`goal` 从用户视角写端到端行为，不是逐层实现清单。
 - `blocked_by` 只列真正门禁这张票的票 id，无依赖为空数组。
 - 本体无 `status` 字段——票状态真相源＝本目录 `index.json`（见上方架构节）。
+- `category` 可选（R-DP-039 类别保留面）：`decision` 决定类（为什么这么做，永久保留）/ `procedural` 过程类（怎么做的，收口归档冻结）/ `temporal` 时效类（时点快照，事件闭合即过期不作依据）；缺省视同 `procedural`，存量票零回扫。票被推翻时其索引条目登记 `superseded_by: <替代票 id>`（替代标记，存在性经 check-stale-claims.sh S7 硬断言）。
 - `goal`/`scope`/`acceptance`/`verification` 等合同散文要素以 JSON 字符串承载，换行以 `\n` 转义。
 
 不写具体文件路径和代码片段（它们过期最快；原型片段例外规则见 [`../specs/README.md`](../specs/README.md)）。票内 Checkpoint 区追加记录：最后检查点、已修改范围、验证命令与结果（失败也记录）、下一步。
