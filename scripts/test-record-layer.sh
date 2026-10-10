@@ -947,6 +947,61 @@ EOF
     bad '正例 N-100g ledger 缺省根语境（rules/implementation/scripts/ 落位形态）→ exit 0 账本收录（票 100）' "exit=$rc $(head -n 2 "$D/lg3.log" | tr '\n' '|')"
   fi
 
+  # 票 133 lesson 分数键五例——九键全过/六键兼容/非整数拒/超界拒/键序错拒
+  to_ledger() {
+    # $1=夹具仓根 $2=ledger-line（合法或非法形状，被测脚本自判）
+    sh "$SCRIPT_DIR/ticket-ops.sh" "$1" ledger --ledger-line "$2" > "$1.log" 2>&1
+  }
+  uc_build_ticket_ops_fixture() {
+    rm -rf "$1"
+    mkdir -p "$1/facts/project"
+    : > "$1/facts/project/changes.jsonl"
+  }
+  uc_build_ticket_ops_fixture "$D/ls1"
+  to_ledger "$D/ls1" '{"date": "2026-10-10", "kind": "lesson", "scope": "s", "decision": "nine-key", "evidence_ref": "x", "promoted_to": "rules", "score_contract": 90, "score_predicate": 100, "score_rework": 0}'
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"score_contract": 90' "$D/ls1/facts/project/changes.jsonl"; then
+    ok '正例 lesson 九键（三分数键 0-100 整数）→ exit 0 账本收录（票 133）'
+  else
+    bad '正例 lesson 九键（三分数键 0-100 整数）→ exit 0 账本收录（票 133）' "exit=$rc $(tail -n 1 "$D/ls1.log" | head -c 120)"
+  fi
+
+  uc_build_ticket_ops_fixture "$D/ls2"
+  to_ledger "$D/ls2" '{"date": "2026-10-10", "kind": "lesson", "scope": "s", "decision": "six-key", "evidence_ref": "x", "promoted_to": "none"}'
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(wc -l < "$D/ls2/facts/project/changes.jsonl")" -eq 1 ]; then
+    ok '正例 lesson 六键（不带分数）向后兼容 → exit 0 账本收录（票 133）'
+  else
+    bad '正例 lesson 六键（不带分数）向后兼容 → exit 0 账本收录（票 133）' "exit=$rc $(tail -n 1 "$D/ls2.log" | head -c 120)"
+  fi
+
+  uc_build_ticket_ops_fixture "$D/ls3"
+  to_ledger "$D/ls3" '{"date": "2026-10-10", "kind": "lesson", "scope": "s", "decision": "non-integer", "evidence_ref": "x", "promoted_to": "rules", "score_contract": 90.5, "score_predicate": 100, "score_rework": 0}'
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'lesson 行分数键须为' "$D/ls3.log" && [ ! -s "$D/ls3/facts/project/changes.jsonl" ]; then
+    ok '负例 lesson 分数非整数（90.5）→ exit 1 指名行型规则零写入（票 133）'
+  else
+    bad '负例 lesson 分数非整数（90.5）→ exit 1 指名行型规则零写入（票 133）' "exit=$rc $(tail -n 1 "$D/ls3.log" | head -c 120)"
+  fi
+
+  uc_build_ticket_ops_fixture "$D/ls4"
+  to_ledger "$D/ls4" '{"date": "2026-10-10", "kind": "lesson", "scope": "s", "decision": "over-range", "evidence_ref": "x", "promoted_to": "rules", "score_contract": 101, "score_predicate": 100, "score_rework": 0}'
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'lesson 行分数键须为' "$D/ls4.log"; then
+    ok '负例 lesson 分数超界（101）→ exit 1 指名值域（票 133）'
+  else
+    bad '负例 lesson 分数超界（101）→ exit 1 指名值域（票 133）' "exit=$rc $(tail -n 1 "$D/ls4.log" | head -c 120)"
+  fi
+
+  uc_build_ticket_ops_fixture "$D/ls5"
+  to_ledger "$D/ls5" '{"date": "2026-10-10", "kind": "lesson", "scope": "s", "decision": "wrong-order", "evidence_ref": "x", "promoted_to": "rules", "score_predicate": 100, "score_contract": 90, "score_rework": 0}'
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'lesson 行分数键须为' "$D/ls5.log"; then
+    ok '负例 lesson 分数键序错（predicate 在前）→ exit 1 指名固定键序（票 133）'
+  else
+    bad '负例 lesson 分数键序错（predicate 在前）→ exit 1 指名固定键序（票 133）' "exit=$rc $(tail -n 1 "$D/ls5.log" | head -c 120)"
+  fi
+
   suite_summary 'ticket-ops'
 }
 

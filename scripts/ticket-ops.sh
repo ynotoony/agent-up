@@ -172,11 +172,13 @@ case ${ledger_line} in
   *"${NL}"*|*"${TAB}"*) die1 '账本行含裸换行或制表符（一行一事实，禁裸换行）' ;;
 esac
 # 账本行形状校验（票 81 行型扩展，仅向前生效）：五键必备＋按 kind 条件键＋promoted_to
-# 枚举。非 lesson/replan 维持恰五键收口（既有合法面不放宽不收窄）；lesson 恰六键——第六键
+# 枚举。非 lesson/replan 维持恰五键收口（既有合法面不放宽不收窄）；lesson 六键（既有）或九键（可选追加三分数键 score_contract/score_predicate/score_rework：0-100 整数或 -1=N/A，键序固定，票 133）——第六键
 # promoted_to 枚举＝新票/rules/sop/validator/test/none（填 none 亦算显式拍板，防教训悬空；
 # 越枚举不静默收编）；replan 恰八键——三条件键须为布尔字面量 true/false。条件键一律紧跟
 # evidence_ref 之后按固定次序排布（键序稳定，键序破坏形态同拒）。
 if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"(新票|rules|sop|validator|test|none)"\}$'; then
+  :
+elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"(新票|rules|sop|validator|test|none)", ?"score_contract": ?([0-9]|[1-9][0-9]|100|-1), ?"score_predicate": ?([0-9]|[1-9][0-9]|100|-1), ?"score_rework": ?([0-9]|[1-9][0-9]|100|-1)\}$'; then
   :
 elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?(true|false), ?"replan_replacement": ?(true|false), ?"replan_undone": ?(true|false)\}$'; then
   :
@@ -189,6 +191,9 @@ elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-
   esac
 else
   # 形状不符：可定位行型条件键形态的指名报因，否则通用报因（fail-closed 口径不放宽）
+  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"[^"\\]*", ?"score_[a-z_]+": ?[^}]*\}$'; then
+    die1 'lesson 行分数键须为 score_contract→score_predicate→score_rework 固定键序三键齐、值域 0-100 整数或 -1（N/A），带分数则恰九键（票 133）'
+  fi
   if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"[^"\\]*"\}$'; then
     promoted_to_val=$(printf '%s' "${ledger_line}" | sed -n 's/.*"promoted_to": \{0,1\}"\([^"\\]*\)".*/\1/p')
     die1 "lesson 行 promoted_to 越枚举（枚举＝新票/rules/sop/validator/test/none，不静默收编——票 81）: ${promoted_to_val}"
