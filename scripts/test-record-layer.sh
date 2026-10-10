@@ -83,7 +83,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -2320,6 +2320,89 @@ EOF
 }
 
 # ============================================================
+# suite: absorption-trigger（票 135 块级核对三断言——3 连高 PROMOTE/2 连低 FORBID/
+# 混合不触发/数据不足 NOTE/空账本零输出；夹具＝最小账本九键 lesson 行）
+# ============================================================
+
+at_build_fixture() {
+  # $1=夹具目录：repo/facts/project/changes.jsonl（脚本缺省根推导 ../..）
+  rm -rf "$1"
+  mkdir -p "$1/repo/facts/project" "$1/repo/rules/implementation/scripts"
+  cp "$SCRIPT_DIR/absorption-trigger.sh" "$1/repo/rules/implementation/scripts/"
+}
+
+at_run() {
+  # $1=夹具目录；脚本落位形态缺省根推导（rules/implementation/scripts/../.. = repo）
+  ( cd "$1/repo" && sh rules/implementation/scripts/absorption-trigger.sh )
+}
+
+suite_absorption() {
+  CUR_SUITE='absorption'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/at
+  mkdir -p "$D"
+
+  # 正例 P1：3 连高 → PROMOTE 候选行（含 scope 与分数序列）
+  at_build_fixture "$D/p1"
+  printf '{"date": "2026-10-10", "kind": "lesson", "scope": "t1", "decision": "a", "evidence_ref": "x", "promoted_to": "none", "score_contract": 90, "score_predicate": 100, "score_rework": 0}\n{"date": "2026-10-10", "kind": "lesson", "scope": "t1", "decision": "b", "evidence_ref": "x", "promoted_to": "none", "score_contract": 85, "score_predicate": 100, "score_rework": 0}\n{"date": "2026-10-10", "kind": "lesson", "scope": "t1", "decision": "c", "evidence_ref": "x", "promoted_to": "none", "score_contract": 95, "score_predicate": 100, "score_rework": 0}\n' > "$D/p1/repo/facts/project/changes.jsonl"
+  at_run "$D/p1" > "$D/p1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'PROMOTE 候选: scope=t1' "$D/p1.out" && grep -q '90,85,95' "$D/p1.out"; then
+    ok '正例 P1 3 连高 → PROMOTE 候选行含 scope 与分数序列'
+  else
+    bad '正例 P1 3 连高 → PROMOTE 候选行含 scope 与分数序列' "exit=$rc $(head -c 150 "$D/p1.out")"
+  fi
+
+  # 正例 P2：2 连低 → FORBID 候选行
+  at_build_fixture "$D/p2"
+  printf '{"date": "2026-10-10", "kind": "lesson", "scope": "t2", "decision": "a", "evidence_ref": "x", "promoted_to": "none", "score_contract": 30, "score_predicate": 50, "score_rework": 3}\n{"date": "2026-10-10", "kind": "lesson", "scope": "t2", "decision": "b", "evidence_ref": "x", "promoted_to": "none", "score_contract": 20, "score_predicate": 50, "score_rework": 2}\n' > "$D/p2/repo/facts/project/changes.jsonl"
+  at_run "$D/p2" > "$D/p2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'FORBID 候选: scope=t2' "$D/p2.out" && grep -q '30,20' "$D/p2.out"; then
+    ok '正例 P2 2 连低 → FORBID 候选行含 scope 与分数序列'
+  else
+    bad '正例 P2 2 连低 → FORBID 候选行含 scope 与分数序列' "exit=$rc $(head -c 150 "$D/p2.out")"
+  fi
+
+  # 正例 P3：混合序列（高低高）→ 零提示零 NOTE
+  at_build_fixture "$D/p3"
+  printf '{"date": "2026-10-10", "kind": "lesson", "scope": "t3", "decision": "a", "evidence_ref": "x", "promoted_to": "none", "score_contract": 90, "score_predicate": 100, "score_rework": 0}\n{"date": "2026-10-10", "kind": "lesson", "scope": "t3", "decision": "b", "evidence_ref": "x", "promoted_to": "none", "score_contract": 50, "score_predicate": 100, "score_rework": 1}\n{"date": "2026-10-10", "kind": "lesson", "scope": "t3", "decision": "c", "evidence_ref": "x", "promoted_to": "none", "score_contract": 90, "score_predicate": 100, "score_rework": 0}\n' > "$D/p3/repo/facts/project/changes.jsonl"
+  at_run "$D/p3" > "$D/p3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/p3.out" ]; then
+    ok '正例 P3 混合序列 → 零提示零 NOTE（不触发）'
+  else
+    bad '正例 P3 混合序列 → 零提示零 NOTE（不触发）' "exit=$rc $(head -c 150 "$D/p3.out")"
+  fi
+
+  # 正例 P4：数据不足（1 条）→ NOTE
+  at_build_fixture "$D/p4"
+  printf '{"date": "2026-10-10", "kind": "lesson", "scope": "t4", "decision": "a", "evidence_ref": "x", "promoted_to": "none", "score_contract": 90, "score_predicate": 100, "score_rework": 0}\n' > "$D/p4/repo/facts/project/changes.jsonl"
+  at_run "$D/p4" > "$D/p4.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'NOTE: 带分数 lesson 行共 1 条' "$D/p4.out"; then
+    ok '正例 P4 数据不足 → NOTE 行'
+  else
+    bad '正例 P4 数据不足 → NOTE 行' "exit=$rc $(head -c 150 "$D/p4.out")"
+  fi
+
+  # 正例 P5：空账本 → 零输出
+  at_build_fixture "$D/p5"
+  : > "$D/p5/repo/facts/project/changes.jsonl"
+  at_run "$D/p5" > "$D/p5.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/p5.out" ]; then
+    ok '正例 P5 空账本 → 零输出'
+  else
+    bad '正例 P5 空账本 → 零输出' "exit=$rc $(head -c 150 "$D/p5.out")"
+  fi
+
+  suite_summary 'absorption'
+}
+
+
+# ============================================================
 # suite: lane-commit（票 100 场景沉淀：微账本 actual 键——合同 actual 行落第七键、
 # 不带 actual 行的既有六键行向后兼容（actual 落空串）；两段式全链经 git 夹具承载；
 # 票 108 增补：.json 票体 user-review 全链正负例——t_stem 剥 .json、checkpoint 落独立
@@ -2870,6 +2953,7 @@ case $SUITE in
 
   worktree) suite_worktree ;;
   upgrade-check) suite_upgrade_check ;;
+  absorption) suite_absorption ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -2881,6 +2965,7 @@ case $SUITE in
     suite_lane_commit
     suite_worktree
     suite_upgrade_check
+    suite_absorption
     self_check_injection
     ;;
 esac

@@ -34,4 +34,5 @@ ip_file agent-up/scripts/generate-progress.sh Conditional fast-lane '现役状�
 ip_file agent-up/scripts/ticket-ops.sh Conditional ticket-ops '票务运维单入口（open/take/flip，记录层标配）'
 ip_file agent-up/scripts/run-record.sh Conditional ticket-ops 'run record 生成器（new/seal/stats，记录层标配；本仓交付后存量清算入包采纳）'
 ip_file agent-up/scripts/ticket-grade.sh Conditional ticket-ops '票定级建议器（建议不裁决，记录层标配；本仓交付后存量清算入包采纳）'
+ip_file agent-up/scripts/absorption-trigger.sh Conditional ticket-ops '吸收触发器（R-DP-041 吸收面：分数聚合出固化/禁区候选提示，提示不裁决；行型地基＝教训账本分数键）'
 ip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops '回退依赖：票务收尾投影再生依赖同目录生成器（PATH 回退），目标项目未落位时一并复制'

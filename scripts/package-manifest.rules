@@ -102,6 +102,7 @@ pm_script scripts/upgrade-check.sh script '落地面升级对账器（已治理�
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
+pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
 
