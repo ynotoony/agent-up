@@ -323,7 +323,8 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      锚点丢失＝STALE 指名行号与指针（沉淀被删或指针写错）；promoted_to ∈
 #      {新票, none} 不在扫描面（新票由票务系统管、none 无沉淀义务）；指针不可 grep
 #      形态＝NOTE 退化说明不计失败（锚点语义漂移归独立 Review，append-only 校正由
-#      人落新行，S8 只报警不代写）。
+#      人落新行，S8 只报警不代写）。已知限制：同一行多指针只核首个命中（漏报面，
+#      指针写法应一行动一处）；锚点 grep -F 定字面；紧凑 JSON（键后无空格）同受扫描。
 
 readme_rel='README.md'
 # S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，
@@ -942,9 +943,9 @@ check_s8() {
   _s8_ln=0
   while IFS= read -r _s8_line; do
     _s8_ln=$((_s8_ln + 1))
-    printf '%s\n' "$_s8_line" | LC_ALL=C grep -q '"kind": "lesson"' || continue
-    printf '%s\n' "$_s8_line" | LC_ALL=C grep -q '"promoted_to": "rules"\|"promoted_to": "validator"\|"promoted_to": "test"' || continue
-    _s8_ptr=$(printf '%s\n' "$_s8_line" | LC_ALL=C grep -oE '(rules|scripts)/[A-Za-z0-9._/-]+(\.[a-z]+)?(#[^"]*)?' | LC_ALL=C sed -n '1p')
+    printf '%s\n' "$_s8_line" | LC_ALL=C grep -Eq '"kind": ?"lesson"' || continue
+    printf '%s\n' "$_s8_line" | LC_ALL=C grep -Eq '"promoted_to": ?"(rules|validator|test)"' || continue
+    _s8_ptr=$(printf '%s\n' "$_s8_line" | LC_ALL=C awk '{if(match($0, /[^A-Za-z0-9._\/-](rules|scripts)\/[A-Za-z0-9._\/-]+(#[^" ]*)?/)){r=substr($0, RSTART+1, RLENGTH-1); print r; exit}}')
     if [ -z "${_s8_ptr:-}" ]; then
       continue
     fi
@@ -952,15 +953,23 @@ check_s8() {
     _s8_file=${_s8_ptr%%#*}
     _s8_anchor=''
     case ${_s8_ptr} in
-      *'#'*) _s8_anchor=${_s8_ptr#*#} ;;
+      *'#'*)
+        # 锚点收窄：截到首个空白前，再去尾随标点/引号（decision 散文锚点后常带
+        # 句点、空格、尾随文字）——awk 单遍处理，POSIX 安全（票 134 Review P1-3）
+        _s8_anchor=$(printf '%s\n' "${_s8_ptr#*#}" | LC_ALL=C awk '{r=$0; n=index(r, " "); if(n>1) r=substr(r,1,n-1); gsub(/[。.,，;；:：)）!！?？"]+$/, "", r); print r}')
+        ;;
     esac
     if [ ! -f "$repo_root/$_s8_file" ]; then
       emit_stale "$_ledger:$_s8_ln" "S8 复盘沉淀指针：lesson 行沉淀指针 ${_s8_ptr} 指向的文件不存在——沉淀被删或指针写错（R-DP-041 检查面），修指针或重沉淀"
       continue
     fi
     if [ -n "${_s8_anchor}" ]; then
-      if ! LC_ALL=C grep -q "${_s8_anchor}" "$repo_root/$_s8_file" 2>/dev/null; then
+      _s8_arc_rc=0
+      LC_ALL=C grep -qF "${_s8_anchor}" "$repo_root/$_s8_file" 2>/dev/null || _s8_arc_rc=$?
+      if [ "$_s8_arc_rc" -eq 1 ]; then
         emit_stale "$_ledger:$_s8_ln" "S8 复盘沉淀指针：lesson 行沉淀指针 ${_s8_ptr} 的锚点在目标文件中不存在——文件已演进或指针写错（R-DP-041 检查面），修指针或落新 lesson 行校正（append-only）"
+      elif [ "$_s8_arc_rc" -ge 2 ]; then
+        emit_warn "$_ledger:$_s8_ln" "S8 锚点核对异常（目标文件不可读或 grep 错误）：${_s8_ptr}——人工核对"
       fi
     fi
   done <<S8_LEDGER_INNER

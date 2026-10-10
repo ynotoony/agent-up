@@ -2029,9 +2029,9 @@ EOF
   if [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/p3.out" \
     && grep -q '登记表 6 条全部核对' "$D/p3.out"; then
-    ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 5 条'
+    ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 6 条'
   else
-    bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 5 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
+    bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 6 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
   fi
 
   # 负例 N2（票 85）：S5 新增面负例——新增扫描面文档结论行缺标注（列表标记变体）
