@@ -1143,18 +1143,18 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（17 个文件）
+PASS: 8 脚本必需件存在（18 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 7 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 8 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（17 件，kind 数据驱动）
+PASS: 19 scripts 节 mode 断言（18 件，kind 数据驱动）
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
@@ -1176,7 +1176,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（17 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（18 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -1210,7 +1210,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（17 个文件）
+PASS: 8 脚本必需件存在（18 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :119 登记与数据不一致：缺少 pi
@@ -1516,7 +1516,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（17 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（18 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
