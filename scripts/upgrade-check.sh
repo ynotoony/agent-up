@@ -37,8 +37,8 @@ usage() {
             一致＝同步；存在但不一致＝漂移。
   配置面    仓根 delivery.rules main-only 节锚点行与包内 delivery-rules.tmpl 对照
             （锚点行存在性：节在＝同步、节缺或文件缺＝落后；条目差异不判）。
-  模板生成件  rules/ 规则三件与包内拆三模板的对应关系列出（只提示不判漂移），
-            指路 references/upgrade.md 人工核对。
+  模板生成件  rules/ 规则三件规则块集核对（实例缺块=落后逐块列 ID；
+            实例多余块=登记分歧候选只提示），指路 references/upgrade.md §2/§3。
 退出码: 0 全同步；1 有差距（落后/漂移行见输出）；2 用法或环境错误。
 USAGE
 }

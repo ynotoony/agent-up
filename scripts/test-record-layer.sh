@@ -2662,8 +2662,6 @@ uc_build_fixture() {
   rm -rf "$1"
   mkdir -p "$1/pkg/references/templates" "$1/pkg/scripts" "$1/repo/rules/implementation"
   cp "$SCRIPT_DIR/upgrade-check.sh" "$1/pkg/scripts/upgrade-check.sh"
-  mkdir -p "$1/pkg/scripts"
-  cp "$SCRIPT_DIR/upgrade-check.sh" "$1/pkg/scripts/upgrade-check.sh"
   printf "# minimal install-policy for fixture\nip_gate test-gate test-flag 'fixture gate'\nip_file agent-up/scripts/upgrade-check.sh script test-gate 'fixture entry'\n" > "$1/pkg/scripts/install-policy.rules"
   printf '# minimal delivery template\n' > "$1/pkg/references/templates/delivery-rules.tmpl"
   # 包模板：两块 R-DP-001/R-DP-002
