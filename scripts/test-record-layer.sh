@@ -419,6 +419,15 @@ suite_module_map() {
     bad '负例 N3 非 Git 目录 → exit 2' "exit=$rc"
   fi
 
+  # 票 137 schema 融合断言三例（grep 形态零依赖）
+  if grep -q '"constraints"' "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" \
+    && grep -q '"dispatch_mode"' "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" \
+    && grep -q '"oneOf"' "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json"; then
+    ok 'schema 融合三件在位（constraints/dispatch_mode/verification oneOf）'
+  else
+    bad 'schema 融合三件在位（constraints/dispatch_mode/verification oneOf）'
+  fi
+
   suite_summary 'module-map'
 }
 
