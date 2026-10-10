@@ -325,6 +325,8 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      形态＝NOTE 退化说明不计失败（锚点语义漂移归独立 Review，append-only 校正由
 #      人落新行，S8 只报警不代写）。已知限制：同一行多指针只核首个命中（漏报面，
 #      指针写法应一行动一处）；锚点 grep -F 定字面；紧凑 JSON（键后无空格）同受扫描。
+#      NOTE 零命中行仅当账本内无任何可 grep 指针的 lesson 行时打一条（混合账本下
+#      不可 grep 行零提示归本限制注记，不另打行）。
 
 readme_rel='README.md'
 # S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，

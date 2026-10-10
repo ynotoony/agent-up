@@ -2282,8 +2282,8 @@ EOF
   sc_s8_write "$D/n8b/repo" '沉淀到 rules/gone.md' rules 0
   sc_run "$D/n8b" > "$D/n8b.out" 2>&1
   rc=$?
-  if grep -q 'S8 复盘沉淀指针：lesson 行沉淀指针 rules/gone.md 指向的文件不存在' "$D/n8b.out"; then
-    ok '负例 N8 S8 文件被删 → STALE 指名 rules/gone.md 不存在'
+  if [ "$rc" -eq 1 ] && grep -q 'S8 复盘沉淀指针：lesson 行沉淀指针 rules/gone.md 指向的文件不存在' "$D/n8b.out"; then
+    ok '负例 N8 S8 文件被删 → exit 1 STALE 指名 rules/gone.md 不存在'
   else
     bad '负例 N8 S8 文件被删 → STALE 指名 rules/gone.md 不存在' "exit=$rc $(grep 'S8' "$D/n8b.out" | head -1)"
   fi
@@ -2296,8 +2296,8 @@ EOF
   sc_s8_write "$D/n9/repo" '沉淀到 rules/x.md#锚点已不在' rules 1
   sc_run "$D/n9" > "$D/n9.out" 2>&1
   rc=$?
-  if grep -q 'S8 复盘沉淀指针：lesson 行沉淀指针 rules/x.md#锚点已不在 的锚点在目标文件中不存在' "$D/n9.out"; then
-    ok '负例 N9 S8 锚点丢失 → STALE 指名锚点不存在'
+  if [ "$rc" -eq 1 ] && grep -q 'S8 复盘沉淀指针：lesson 行沉淀指针 rules/x.md#锚点已不在 的锚点在目标文件中不存在' "$D/n9.out"; then
+    ok '负例 N9 S8 锚点丢失 → exit 1 STALE 指名锚点不存在'
   else
     bad '负例 N9 S8 锚点丢失 → STALE 指名锚点不存在' "exit=$rc $(grep 'S8' "$D/n9.out" | head -1)"
   fi
@@ -2310,8 +2310,8 @@ EOF
   sc_s8_write "$D/p10/repo" '教训无沉淀指针' none 0
   sc_run "$D/p10" > "$D/p10.out" 2>&1
   rc=$?
-  if ! grep -q 'S8 复盘沉淀指针' "$D/p10.out" && grep -q 'S8 扫描面零命中' "$D/p10.out"; then
-    ok '正例 P10 S8 none 行跳过 → 零 S8 输出＋NOTE 零命中'
+  if [ "$rc" -eq 0 ] && ! grep -q 'S8 复盘沉淀指针' "$D/p10.out" && grep -q 'S8 扫描面零命中' "$D/p10.out"; then
+    ok '正例 P10 S8 none 行跳过 → exit 0 零 S8 输出＋NOTE 零命中'
   else
     bad '正例 P10 S8 none 行跳过 → 零 S8 输出＋NOTE 零命中' "exit=$rc $(grep 'S8' "$D/p10.out" | head -1)"
   fi
