@@ -15,8 +15,17 @@ prog=absorption-trigger
 
 repo_root=${1:-}
 if [ -z "$repo_root" ]; then
-  # 缺省根推导：脚本落位 rules/implementation/scripts/（三层），上三级到仓库根
-  repo_root=$(CDPATH='' cd "$(dirname "$0")/../../.." && pwd)
+  # 缺省根推导：逐级向上找 facts/project/changes.jsonl（兼容两落位形态：
+  # rules/implementation/scripts/ 三层与 scripts/ 一层；找不到＝无从对账，退出）
+  _d=$(dirname "$0")
+  repo_root=''
+  for _i in 1 2 3 4; do
+    _d=$(CDPATH='' cd "$_d/.." && pwd)
+    [ -f "$_d/facts/project/changes.jsonl" ] && { repo_root=$_d; break; }
+  done
+  if [ -z "$repo_root" ]; then
+    exit 0
+  fi
 fi
 _ledger="$repo_root/facts/project/changes.jsonl"
 if [ ! -f "$_ledger" ]; then
@@ -56,11 +65,18 @@ LC_ALL=C grep -E '"kind": ?"lesson"' "$_ledger" | LC_ALL=C grep -E '"score_contr
     c = jnum($0, "score_contract")
     p = jnum($0, "score_predicate")
     r = jnum($0, "score_rework")
-    if (sc != "" && c != "") print sc "|" c "|" p "|" r
+    if (sc ~ /[ |]/) { print "UNSAFE|" sc; next }
+    if (sc != "" && c != "" && c != "-1") print sc "|" c "|" p "|" r
   }
 ' > "$_tmp"
 
 # 按 scope 分组（保持首次出现序），组内检查最近 3 连高 / 2 连低
+_unsafe=$(LC_ALL=C grep -c '^UNSAFE|' "$_tmp" 2>/dev/null) || _unsafe=0
+if [ "${_unsafe:-0}" -gt 0 ]; then
+  printf 'WARN: %s 条 lesson 行 scope 含竖线或空格（聚合不安全），已排除出吸收面——scope 命名请避开这两字符\n' "$_unsafe" >&2
+  LC_ALL=C grep -v '^UNSAFE|' "$_tmp" > "${_tmp}.clean" || true
+  mv "${_tmp}.clean" "$_tmp"
+fi
 _scope_list=$(LC_ALL=C cut -d'|' -f1 "$_tmp" | LC_ALL=C awk '!seen[$0]++')
 for _sc in $_scope_list; do
   _seq=$(LC_ALL=C grep -E "^${_sc}\\|" "$_tmp" | LC_ALL=C cut -d'|' -f2 | tail -3 | tr '\n' ' ')

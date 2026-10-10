@@ -176,6 +176,7 @@ pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden
 pm_mirror generate-progress.sh
 pm_mirror ticket-ops.sh
 pm_mirror check-stale-claims.sh
+pm_mirror absorption-trigger.sh
 pm_mirror run-record.sh
 pm_mirror ticket-grade.sh
 pm_mirror lane-commit.sh
