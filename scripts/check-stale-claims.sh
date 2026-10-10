@@ -316,6 +316,14 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      双方 id）；指向票自身带 superseded_by（替代链环）即 STALE；指向票状态非终态
 #      （替代票尚未收口）即 WARN 提醒不拦截（收口顺序合法：先标后收）。字段缺失＝
 #      零命中零报（可选字段语义，存量票零回扫）；不按时间自动打标。
+# S8 复盘沉淀指针 | facts/project/changes.jsonl（教训账本，kind=lesson 行）
+#    | machine：沉淀指针核对（R-DP-041 检查面配套）——lesson 行 promoted_to ∈
+#      {rules, validator, test} 且 decision/evidence_ref 含可 grep 文件指针（rules/ 或
+#      scripts/ 路径，可带 #锚点后缀）时，核对指针文件仍存在且锚点在场：文件缺失或
+#      锚点丢失＝STALE 指名行号与指针（沉淀被删或指针写错）；promoted_to ∈
+#      {新票, none} 不在扫描面（新票由票务系统管、none 无沉淀义务）；指针不可 grep
+#      形态＝NOTE 退化说明不计失败（锚点语义漂移归独立 Review，append-only 校正由
+#      人落新行，S8 只报警不代写）。
 
 readme_rel='README.md'
 # S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，
@@ -915,10 +923,59 @@ S7_MARKED_INNER
   return 0
 }
 
+# ---- S8 复盘沉淀指针（R-DP-041 检查面配套）---------------------------------
+#
+# lesson 行沉淀指针核对：changes.jsonl 的 kind=lesson 行，promoted_to ∈ {rules,
+# validator, test} 且 decision/evidence_ref 含可 grep 文件指针（rules/ 或 scripts/
+# 开头路径，可带 #锚点后缀）时——①指针文件存在于仓库根；②带 #锚点时锚点文本在
+# 文件中可 grep。文件缺失或锚点丢失＝STALE 指名行号与指针（沉淀被删或指针写错）。
+# promoted_to ∈ {新票, none} 跳过（新票由票务系统管、none 无沉淀义务）；指针不可
+# grep 形态（无 rules/ 或 scripts/ 路径）＝NOTE 退化说明不计失败。零 lesson 行零报。
+# 变量引用一律 ${} 花括号（bash 3.2 set -u 多字节变量名解析事故，票 127 教训）。
+
+check_s8() {
+  _ledger="$repo_root/facts/project/changes.jsonl"
+  if [ ! -f "$_ledger" ]; then
+    return 0
+  fi
+  _s8_hit=0
+  _s8_ln=0
+  while IFS= read -r _s8_line; do
+    _s8_ln=$((_s8_ln + 1))
+    printf '%s\n' "$_s8_line" | LC_ALL=C grep -q '"kind": "lesson"' || continue
+    printf '%s\n' "$_s8_line" | LC_ALL=C grep -q '"promoted_to": "rules"\|"promoted_to": "validator"\|"promoted_to": "test"' || continue
+    _s8_ptr=$(printf '%s\n' "$_s8_line" | LC_ALL=C grep -oE '(rules|scripts)/[A-Za-z0-9._/-]+(\.[a-z]+)?(#[^"]*)?' | LC_ALL=C sed -n '1p')
+    if [ -z "${_s8_ptr:-}" ]; then
+      continue
+    fi
+    _s8_hit=$((_s8_hit + 1))
+    _s8_file=${_s8_ptr%%#*}
+    _s8_anchor=''
+    case ${_s8_ptr} in
+      *'#'*) _s8_anchor=${_s8_ptr#*#} ;;
+    esac
+    if [ ! -f "$repo_root/$_s8_file" ]; then
+      emit_stale "$_ledger:$_s8_ln" "S8 复盘沉淀指针：lesson 行沉淀指针 ${_s8_ptr} 指向的文件不存在——沉淀被删或指针写错（R-DP-041 检查面），修指针或重沉淀"
+      continue
+    fi
+    if [ -n "${_s8_anchor}" ]; then
+      if ! LC_ALL=C grep -q "${_s8_anchor}" "$repo_root/$_s8_file" 2>/dev/null; then
+        emit_stale "$_ledger:$_s8_ln" "S8 复盘沉淀指针：lesson 行沉淀指针 ${_s8_ptr} 的锚点在目标文件中不存在——文件已演进或指针写错（R-DP-041 检查面），修指针或落新 lesson 行校正（append-only）"
+      fi
+    fi
+  done <<S8_LEDGER_INNER
+$(LC_ALL=C cat "$_ledger")
+S8_LEDGER_INNER
+  if [ "$_s8_hit" -eq 0 ]; then
+    printf 'NOTE: facts/project/changes.jsonl — 无可 grep 沉淀指针的 lesson 行（S8 扫描面零命中，promoted_to 新票/none 或指针不可 grep 形态不在面）\n'
+  fi
+  return 0
+}
+
 # ---- 执行 ------------------------------------------------------------------
 # S1/S2 配置点亮（票 72）：未点亮（delivery.rules 缺失或 calibration 节无 dp_stale_lit
 # 登记）→ 打印 SKIP 行，不计过期断言不拦票；点亮＝现行断言逻辑原样执行。
-# S3/S4/S5/S6/S7 为通用面（协议），无点亮位恒执行。
+# S3/S4/S5/S6/S7/S8 为通用面（协议），无点亮位恒执行。
 
 if [ "$s1_lit" -eq 1 ]; then
   check_s1
@@ -936,11 +993,12 @@ check_s4
 check_s5
 check_s6
 check_s7
+check_s8
 
 _pn=$(prog_name)
-# 登记总数动态化（票 72 设计 §4③）：点亮数（S1/S2）＋通用条数（S3/S4/S5/S6/S7 恒 5）；
-# 全点亮语境渲染「登记表共 7 条」（票 127 起 6→7）。
-_total_entries=$((5 + s1_lit + s2_lit))
+# 登记总数动态化（票 72 设计 §4③）：点亮数（S1/S2）＋通用条数（S3/S4/S5/S6/S7/S8 恒 6）；
+# 全点亮语境渲染「登记表共 8 条」（票 134 起 7→8）。
+_total_entries=$((6 + s1_lit + s2_lit))
 if [ "$mode" = "session" ]; then
   printf '%s: 会话启动模式（不拦截）：过期断言 %s 处，提醒 %s 条，请人工核对上方输出\n' "$_pn" "$stale_count" "$warn_count"
   exit 0

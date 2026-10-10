@@ -12,7 +12,7 @@
 | `check-package.sh` | 包完整性检查 | 按十九项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004；检查 1/5/8 清单自 `package-manifest.rules` 数据读取，检查 9/10/11 以数据为比对基准；检查 12 规则块体模糊措辞扫描、检查 13 镜像脚本与仓根同名件 cmp；检查 14 能力映射一致性；检查 15 模板规则索引与规则块全集全等、检查 16 索引机制列受控词表、检查 17 机械行点名出处存在、检查 19 scripts 节 mode 断言）；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
 | `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（承接「Record 行级保护」候选口径）：`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`docs/progress.md`（未迁移仓）及其迁移后继 `docs/archive/progress.md` 冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（不硬猜基线先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
 | `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`docs/agent/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed；`--fix` 修复形态（反向未登记 → 十三字段登记条目骨架，dry-run 缺省零写入、`--apply` 显式落盘且与预览逐字一致、与检测共用判定代码；正向缺失不修）。详见下文专节。 |
-| `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010；S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口；S4 计数漂移哨兵：README 锚点行数↔index 条目数相等断言＋「N～M 共」「共 N 量词」计数模式扫描；S5 方案结论标注句：结论行 file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面；S6 终态哨兵：索引 id 曾达 done/superseded 被改回非终态即 STALE 指名票 id 与跃迁方向，终态史取 Git 基线，对账分层＝一致性对账之外终态语义由 S6 承载；S7 替代标记存在性：索引条目 superseded_by 指向票必须真实存在（R-DP-039 替代标记面，悬挂/链环 STALE、非终态指向 WARN））；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
+| `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010；S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口；S4 计数漂移哨兵：README 锚点行数↔index 条目数相等断言＋「N～M 共」「共 N 量词」计数模式扫描；S5 方案结论标注句：结论行 file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面；S6 终态哨兵：索引 id 曾达 done/superseded 被改回非终态即 STALE 指名票 id 与跃迁方向，终态史取 Git 基线，对账分层＝一致性对账之外终态语义由 S6 承载；S7 替代标记存在性：索引条目 superseded_by 指向票必须真实存在（R-DP-039 替代标记面，悬挂/链环 STALE、非终态指向 WARN）；S8 复盘沉淀指针：lesson 行 promoted_to∈{rules,validator,test} 且指针可 grep 时核对文件存在＋锚点在场，缺失/丢失＝STALE（R-DP-041 检查面））；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
 | `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的只读门禁核对（REQ-20260904-011）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；POSIX sh、严格只读、零外部依赖。详见下文专节。 |
 | `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011；单写机制改造；微道预检两断言）：门禁 → 白名单产品提交 → 索引单写（`docs/issues/index.json` 票状态真相源）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 追加或微账本（`docs/agent/micro.jsonl`）落行 → 生成器投影再生并 `--check` 核对 → 记录提交（两段式，R-RC-003）；micro 道预检两断言（白名单 ≤3 条目、改动集零新建（??）零删除（D），违者 exit 1，user-review 道不受限）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
 | `generate-progress.sh` | 现役状态投影生成器 | 自 `docs/issues/index.json`（票状态真相源，一条目一行）生成 `docs/progress-current.md` 现役状态投影（Derived，生成器独占写）；`--check` 为 dry-run 一致性核对；快道收尾由 `lane-commit.sh` 在索引单写后调用；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
@@ -149,7 +149,7 @@ sh scripts/check-stale-claims.sh [repo-root] [gate|session]
 
 ### 登记表结构
 
-登记表内置于脚本，条目结构为 `{断言模式, 权威位置, 校验方式}`，只登记高流转状态句。现役七条（S1～S3 为首批，S4 计数漂移增补，S5 方案结论标注增补，S6 终态哨兵增补，S7 替代标记存在性增补；权威位置为现行文档真实路径）；S1/S2 为配置点亮条目——是否点亮＝仓根 `delivery.rules` calibration 节 `dp_stale_lit` 登记（`S1`/`S2` 枚举，解析破坏 exit 2 fail-closed），未点亮打印 `SKIP: Sx — delivery.rules 未点亮（dp_stale_lit 缺登记）` 不计过期断言不拦票；点亮则现行断言逻辑原样执行，其中 remote 名（S1-1c/S2）、包前缀（S2 次级权威位置）与本地导出分支名（S1-1b）自 payload 节读取（未声明 payload 节＝不可知，退化 WARN 跳过不硬猜）；宣称锚点句属协议面留引擎（设计票 §2 分界判据）；S3/S4/S5/S6/S7 为通用面无点亮位恒执行。
+登记表内置于脚本，条目结构为 `{断言模式, 权威位置, 校验方式}`，只登记高流转状态句。现役八条（S1～S3 为首批，S4 计数漂移增补，S5 方案结论标注增补，S6 终态哨兵增补，S7 替代标记存在性增补，S8 复盘沉淀指针增补；权威位置为现行文档真实路径）；S1/S2 为配置点亮条目——是否点亮＝仓根 `delivery.rules` calibration 节 `dp_stale_lit` 登记（`S1`/`S2` 枚举，解析破坏 exit 2 fail-closed），未点亮打印 `SKIP: Sx — delivery.rules 未点亮（dp_stale_lit 缺登记）` 不计过期断言不拦票；点亮则现行断言逻辑原样执行，其中 remote 名（S1-1c/S2）、包前缀（S2 次级权威位置）与本地导出分支名（S1-1b）自 payload 节读取（未声明 payload 节＝不可知，退化 WARN 跳过不硬猜）；宣称锚点句属协议面留引擎（设计票 §2 分界判据）；S3/S4/S5/S6/S7/S8 为通用面无点亮位恒执行。
 
 | 编号 | 断言模式 | 权威位置 | 校验方式 |
 | --- | --- | --- | --- |
@@ -160,6 +160,7 @@ sh scripts/check-stale-claims.sh [repo-root] [gate|session]
 | S5 | 方案结论标注句 | 扫描面 glob 清单登记的方案类文档（`s5_load_globs` 数据节，现行唯一条目 `facts/requirements/research/*.md`（源仓实例迁移后）；扩面须同步修订 R-DP-033 条文与数据节） | machine：R-DP-033 加固配套格式断言（详见下文 S5 小节）——结论行（行首「结论：」形态）逐行核对证据出处（`file:`）与适用轨（`轨:` 受控两值 本仓自用/agent-up）；只查格式不判语义；向前生效只查工作区新增/修改面（`git status --porcelain`），存量不回溯；非 Git 工作区 WARN 退化跳过。 |
 | S6 | 终态哨兵 | `docs/issues/index.json`（票状态真相源，一条目一行）＋该索引的 Git 现行提交历史（基线锚） | machine：终态哨兵（详见下文 S6 小节）——索引内 id 曾达终态（done/superseded）而当前 status 回到非终态（ready/in_progress/blocked/review_ready/review_pass/review_fail）即 STALE 指名票 id 与跃迁方向；非 Git 工作区 WARN 退化跳过，索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过；对账分层＝一致性对账（S3 投影↔索引）之外终态语义由 S6 承载。 |
 | S7 | 替代标记存在性 | `facts/requirements/tickets/index.json`（票状态真相源，一条目一行） | machine：superseded_by 存在性断言（R-DP-039 替代标记面配套）——索引条目含非空 superseded_by 时，指向的票 id 必须真实存在于本索引（缺失即 STALE 指名双方 id）；指向票自身亦带标记（替代链环/自指）即 STALE；指向票状态非终态（替代票尚未收口）仅 WARN 不拦截（先标后收合法顺序）；字段缺失＝零命中零报（可选字段语义，存量票零回扫），不按时间自动打标。 |
+| S8 | 复盘沉淀指针 | `facts/project/changes.jsonl`（教训账本，kind=lesson 行） | machine：沉淀指针核对（R-DP-041 检查面配套）——lesson 行 promoted_to ∈ {rules, validator, test} 且 decision/evidence_ref 含可 grep 文件指针（rules/ 或 scripts/ 路径，可带 #锚点后缀）时，核对指针文件仍存在且锚点在场：文件缺失或锚点丢失＝STALE 指名行号与指针（沉淀被删或指针写错）；promoted_to ∈ {新票, none} 不在扫描面；指针不可 grep 形态＝NOTE 退化不计失败；append-only 校正由人落新行，S8 只报警不代写。 |
 
 机器可校验项直接对现实核验；不可机器校验项输出存在时长提醒（WARN，阈值【待定】，定稿后同步本登记）。
 
@@ -173,7 +174,7 @@ STALE-prone: <路径:行号> — 计数模式命中（S4-②，计入过期断�
 SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）    # 点亮语义：未点亮条目不计数
 STALE: docs/issues/index.json:<票id> — S6 终态哨兵：票 <票id> 曾达终态，当前 status 被改回非终态 <状态>——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记
 STALE: docs/issues/index.json:<票id> — S7 替代标记断言：票 <票id> 的 superseded_by 指向 <票id>，但该票不在索引中——替代标记指向的票必须真实存在（R-DP-039），修标或先开替代票
-check-stale-claims: PASS（登记表 N 条全部核对，提醒 N 条）    # gate 模式清洁；N＝点亮数＋通用条数（动态化，全点亮语境渲染 7）
+check-stale-claims: PASS（登记表 N 条全部核对，提醒 N 条）    # gate 模式清洁；N＝点亮数＋通用条数（动态化，全点亮语境渲染 8）
 check-stale-claims: FAIL（N 处过期断言，登记表共 N 条）       # gate 模式存在过期断言；N 同上
 check-stale-claims: 会话启动模式（不拦截）：过期断言 N 处，提醒 N 条，请人工核对上方输出
 ```

@@ -1974,11 +1974,11 @@ suite_stale_claims() {
   if [ "$rc" -eq 0 ] \
     && grep -q 'SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
     && grep -q 'SKIP: S2 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
-    && grep -q '登记表 5 条全部核对' "$D/p1.out" \
+    && grep -q '登记表 6 条全部核对' "$D/p1.out" \
     && ! grep -q '^STALE' "$D/p1.out"; then
-    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 5（通用条数 S3/S4/S5/S6/S7，票 127）'
+    ok '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 6（通用条数 S3/S4/S5/S6/S7/S8，票 134）'
   else
-    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 5（通用条数 S3/S4/S5/S6/S7，票 127）' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
+    bad '正例 P1 未点亮 → S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 6（通用条数 S3/S4/S5/S6/S7/S8，票 134）' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
   fi
 
   # 正例 P2：点亮（dp_stale_lit S1＋S2，无 payload 节）→ 无 SKIP 行、S1/S2 断言逻辑执行
@@ -1998,10 +1998,10 @@ EOF
     && ! grep -q '^SKIP: S1' "$D/p2.out" \
     && ! grep -q '^SKIP: S2' "$D/p2.out" \
     && grep -q '^STALE: README.md' "$D/p2.out" \
-    && grep -q '登记表共 7 条' "$D/p2.out"; then
-    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 7（点亮数＋通用条数 S3/S4/S5/S6/S7，票 127）'
+    && grep -q '登记表共 8 条' "$D/p2.out"; then
+    ok '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 8（点亮数＋通用条数 S3/S4/S5/S6/S7/S8，票 134）'
   else
-    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 7（点亮数＋通用条数 S3/S4/S5/S6/S7，票 127）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
+    bad '正例 P2 点亮 → S1/S2 断言逻辑执行（无 SKIP、STALE 行证明断言在跑）、汇总登记数 8（点亮数＋通用条数 S3/S4/S5/S6/S7/S8，票 134）' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
   fi
 
   # 负例 N1：delivery.rules 解析破坏（未知指令）→ exit 2 fail-closed 指名
@@ -2028,7 +2028,7 @@ EOF
   rc=$?
   if [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/p3.out" \
-    && grep -q '登记表 5 条全部核对' "$D/p3.out"; then
+    && grep -q '登记表 6 条全部核对' "$D/p3.out"; then
     ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 5 条'
   else
     bad '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 5 条' "exit=$rc $(tail -n 2 "$D/p3.out" | tr '\n' '|')"
@@ -2244,6 +2244,76 @@ EOF
     ok '负例 N7 S7 非终态指向 → WARN 提醒先标后收、零 S7 STALE'
   else
     bad '负例 N7 S7 非终态指向 → WARN 提醒先标后收、零 S7 STALE' "exit=$rc $(tail -n 2 "$D/n7.out" | tr '\n' '|')"
+  fi
+
+  # S8 复盘沉淀指针正负例四（票 134，R-DP-041 检查面配套）——changes.jsonl 单变量隔离：
+  # P9 指针在位（promoted_to=rules＋rules/x.md#锚点 文件与锚点均在）→ 零 S8 STALE；
+  # N8 文件被删（指针指向 rules/gone.md）→ STALE 指名文件不存在；
+  # N9 锚点丢失（锚点文本不在目标文件中）→ STALE 指名锚点不存在；
+  # P10 none 行跳过（promoted_to=none）→ 零 S8 输出、NOTE 扫描面零命中。
+  sc_s8_write() {
+    # $1=夹具仓根 $2=decision（含指针） $3=promoted_to $4=建 rules/x.md（1=建含锚点/0=不建）
+    mkdir -p "$1/facts/project" "$1/repo/../repo" 2>/dev/null
+    mkdir -p "$1/rules"
+    [ "$4" = "1" ] && printf '锚点文本在这里\n' > "$1/rules/x.md"
+    printf '{"date": "2026-10-10", "kind": "lesson", "scope": "s8", "decision": "%s", "evidence_ref": "x", "promoted_to": "%s", "score_contract": 90, "score_predicate": 100, "score_rework": 0}\n' "$2" "$3" > "$1/facts/project/changes.jsonl"
+    return 0
+  }
+
+  # 正例 P9（票 134）：S8 指针在位 → 无 S8 STALE
+  sc_build_fixture "$D/p9"
+  mkdir -p "$D/p9/eng"
+  cp "$SC" "$D/p9/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/p9/repo"
+  sc_s8_write "$D/p9/repo" '沉淀到 rules/x.md#锚点文本在这里' rules 1
+  sc_run "$D/p9" > "$D/p9.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q 'S8 复盘沉淀指针' "$D/p9.out"; then
+    ok '正例 P9 S8 指针在位（文件＋锚点均在）→ exit 0 零 S8 STALE'
+  else
+    bad '正例 P9 S8 指针在位（文件＋锚点均在）→ exit 0 零 S8 STALE' "exit=$rc $(grep 'S8' "$D/p9.out" | head -1)"
+  fi
+
+  # 负例 N8（票 134）：S8 文件被删 → STALE 指名文件不存在
+  sc_build_fixture "$D/n8b"
+  mkdir -p "$D/n8b/eng"
+  cp "$SC" "$D/n8b/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/n8b/repo"
+  sc_s8_write "$D/n8b/repo" '沉淀到 rules/gone.md' rules 0
+  sc_run "$D/n8b" > "$D/n8b.out" 2>&1
+  rc=$?
+  if grep -q 'S8 复盘沉淀指针：lesson 行沉淀指针 rules/gone.md 指向的文件不存在' "$D/n8b.out"; then
+    ok '负例 N8 S8 文件被删 → STALE 指名 rules/gone.md 不存在'
+  else
+    bad '负例 N8 S8 文件被删 → STALE 指名 rules/gone.md 不存在' "exit=$rc $(grep 'S8' "$D/n8b.out" | head -1)"
+  fi
+
+  # 负例 N9（票 134）：S8 锚点丢失 → STALE 指名锚点不存在
+  sc_build_fixture "$D/n9"
+  mkdir -p "$D/n9/eng"
+  cp "$SC" "$D/n9/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/n9/repo"
+  sc_s8_write "$D/n9/repo" '沉淀到 rules/x.md#锚点已不在' rules 1
+  sc_run "$D/n9" > "$D/n9.out" 2>&1
+  rc=$?
+  if grep -q 'S8 复盘沉淀指针：lesson 行沉淀指针 rules/x.md#锚点已不在 的锚点在目标文件中不存在' "$D/n9.out"; then
+    ok '负例 N9 S8 锚点丢失 → STALE 指名锚点不存在'
+  else
+    bad '负例 N9 S8 锚点丢失 → STALE 指名锚点不存在' "exit=$rc $(grep 'S8' "$D/n9.out" | head -1)"
+  fi
+
+  # 正例 P10（票 134）：S8 none 行跳过 → 零 S8 STALE、NOTE 扫描面零命中
+  sc_build_fixture "$D/p10"
+  mkdir -p "$D/p10/eng"
+  cp "$SC" "$D/p10/eng/check-stale-claims.sh"
+  sc_git_baseline "$D/p10/repo"
+  sc_s8_write "$D/p10/repo" '教训无沉淀指针' none 0
+  sc_run "$D/p10" > "$D/p10.out" 2>&1
+  rc=$?
+  if ! grep -q 'S8 复盘沉淀指针' "$D/p10.out" && grep -q 'S8 扫描面零命中' "$D/p10.out"; then
+    ok '正例 P10 S8 none 行跳过 → 零 S8 输出＋NOTE 零命中'
+  else
+    bad '正例 P10 S8 none 行跳过 → 零 S8 输出＋NOTE 零命中' "exit=$rc $(grep 'S8' "$D/p10.out" | head -1)"
   fi
 
   suite_summary 'stale-claims'
