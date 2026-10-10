@@ -64,7 +64,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | worktree | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | worktree | upgrade-check | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
@@ -83,7 +83,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -2651,6 +2651,88 @@ dp_mainonly deploy
   suite_summary 'worktree'
 }
 
+# ============================================================
+# suite: upgrade-check（票 131 块级核对三断言——缺块=落后、多余块=分歧候选不误报、全同步样张；
+# 夹具＝最小包（含一个 .tmpl 带 R-DP 测试块）＋最小实例仓 rules/assessment.md）
+# ============================================================
+
+uc_build_fixture() {
+  # $1=夹具目录：包侧 pkg/（含 references/templates/t.tmpl＋scripts/upgrade-check.sh 拷贝）
+  #                实例侧 repo/（含 rules/assessment.md）
+  rm -rf "$1"
+  mkdir -p "$1/pkg/references/templates" "$1/pkg/scripts" "$1/repo/rules/implementation"
+  cp "$SCRIPT_DIR/upgrade-check.sh" "$1/pkg/scripts/upgrade-check.sh"
+  mkdir -p "$1/pkg/scripts"
+  cp "$SCRIPT_DIR/upgrade-check.sh" "$1/pkg/scripts/upgrade-check.sh"
+  printf "# minimal install-policy for fixture\nip_gate test-gate test-flag 'fixture gate'\nip_file agent-up/scripts/upgrade-check.sh script test-gate 'fixture entry'\n" > "$1/pkg/scripts/install-policy.rules"
+  printf '# minimal delivery template\n' > "$1/pkg/references/templates/delivery-rules.tmpl"
+  # 包模板：两块 R-DP-001/R-DP-002
+  printf '#### R-DP-001 Alpha\nbody\n#### R-DP-002 Beta\nbody\n' > "$1/pkg/references/templates/assessment.md.tmpl"
+}
+
+suite_upgrade_check() {
+  CUR_SUITE='upgrade-check'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/uc
+  mkdir -p "$D"
+  UC="$SCRIPT_DIR/upgrade-check.sh"
+
+  # 正例 P1 全同步：三件模板/实例块集一致＋落位脚本在位＋锚点在位 → exit 0、零落后
+  uc_build_fixture "$D/p1"
+  printf '#### R-DP-001 Alpha\nbody\n#### R-DP-002 Beta\nbody\n' > "$D/p1/repo/rules/assessment.md"
+  printf '# empty block set\n' > "$D/p1/pkg/references/templates/discipline.md.tmpl"
+  printf '# empty block set\n' > "$D/p1/pkg/references/templates/project.md.tmpl"
+  printf '# empty block set\n' > "$D/p1/repo/rules/implementation/discipline.md"
+  printf '# empty block set\n' > "$D/p1/repo/rules/project.md"
+  mkdir -p "$D/p1/repo/rules/implementation/scripts"
+  cp "$SCRIPT_DIR/upgrade-check.sh" "$D/p1/repo/rules/implementation/scripts/upgrade-check.sh"
+  printf '# ==== main-only：worktree 排除清单（worktree-add.sh 读）====\n' > "$D/p1/repo/delivery.rules"
+  sh "$UC" "$D/p1/pkg" "$D/p1/repo" > "$D/p1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '同步  rules/assessment.md（规则块集与包内' "$D/p1.out" \
+    && ! grep -q '^upgrade-check:   落后' "$D/p1.out"; then
+    ok '正例 P1 全同步（块集一致）→ exit 0 同步行'
+  else
+    bad '正例 P1 全同步（块集一致）→ exit 0 同步行' "exit=$rc $(tail -n 2 "$D/p1.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N8 缺块：实例缺 R-DP-002 → exit 1、落后行列块 ID
+  uc_build_fixture "$D/n8"
+  printf '#### R-DP-001 Alpha\nbody\n' > "$D/n8/repo/rules/assessment.md"
+  sh "$UC" "$D/n8/pkg" "$D/n8/repo" > "$D/n8.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '落后  rules/assessment.md 缺规则块: R-DP-002' "$D/n8.out"; then
+    ok '负例 N8 实例缺块 → exit 1 落后行列块 ID R-DP-002'
+  else
+    bad '负例 N8 实例缺块 → exit 1 落后行列块 ID R-DP-002' "exit=$rc $(tail -n 2 "$D/n8.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P2 分歧候选：实例多 R-DP-099（模板无）→ exit 0（不 FAIL）、分歧候选行、零落后
+  uc_build_fixture "$D/p2"
+  printf '#### R-DP-001 Alpha\nbody\n#### R-DP-002 Beta\nbody\n#### R-DP-099 Extra\nbody\n' > "$D/p2/repo/rules/assessment.md"
+  printf '# empty block set\n' > "$D/p2/pkg/references/templates/discipline.md.tmpl"
+  printf '# empty block set\n' > "$D/p2/pkg/references/templates/project.md.tmpl"
+  printf '# empty block set\n' > "$D/p2/repo/rules/implementation/discipline.md"
+  printf '# empty block set\n' > "$D/p2/repo/rules/project.md"
+  mkdir -p "$D/p2/repo/rules/implementation/scripts"
+  cp "$SCRIPT_DIR/upgrade-check.sh" "$D/p2/repo/rules/implementation/scripts/upgrade-check.sh"
+  printf '# ==== main-only：worktree 排除清单（worktree-add.sh 读）====\n' > "$D/p2/repo/delivery.rules"
+  sh "$UC" "$D/p2/pkg" "$D/p2/repo" > "$D/p2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '分歧候选  rules/assessment.md 有包模板没有的规则块: R-DP-099' "$D/p2.out" \
+    && ! grep -q '^upgrade-check:   落后' "$D/p2.out"; then
+    ok '正例 P2 实例多余块 → exit 0 分歧候选行不误报'
+  else
+    bad '正例 P2 实例多余块 → exit 0 分歧候选行不误报' "exit=$rc $(tail -n 2 "$D/p2.out" | tr '\n' '|')"
+  fi
+
+  suite_summary 'upgrade-check'
+}
+
 case $SUITE in
   module-map) suite_module_map ;;
   ticket-ops) suite_ticket_ops ;;
@@ -2660,7 +2742,11 @@ case $SUITE in
   check-artifacts) suite_check_artifacts ;;
   stale-claims) suite_stale_claims ;;
   lane-commit) suite_lane_commit ;;
+
+
+
   worktree) suite_worktree ;;
+  upgrade-check) suite_upgrade_check ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -2671,6 +2757,7 @@ case $SUITE in
     suite_stale_claims
     suite_lane_commit
     suite_worktree
+    suite_upgrade_check
     self_check_injection
     ;;
 esac

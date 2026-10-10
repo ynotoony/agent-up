@@ -7,8 +7,8 @@
 #         两形态皆缺失＝落后（未安装）；字节一致＝同步；存在但不一致＝漂移（可能人工改过）。
 #         配置面：仓根 delivery.rules 的 main-only 节锚点行与包内 delivery-rules.tmpl 对照
 #         （只对照锚点行存在性——节在＝同步，节缺＝落后；条目差异＝项目事实不判）。
-#         模板生成件（rules/ 规则三件等）：只列落后清单（generated_from 对应包内 .tmpl，
-#         仓内缺件或包内模板比仓内件新不可证——只提示存在对应关系），不判漂移，
+#         模板生成件（rules/ 规则三件等）：规则块 ID 集核对（#### R-XX-NNN 标题抽取，实例缺块=落后列块 ID，
+#         实例多余块=登记分歧候选不误报——块级语义差异归独立 Review），不判漂移，
 #         附 references/upgrade.md 指路。逐件行＋汇总行；退出码 0 全同步／1 有差距／
 #         2 用法或环境错误（参数数量不合、pkg-dir 或 repo-root 不存在、install-policy.rules
 #         或 delivery-rules.tmpl 缺失）。
@@ -123,24 +123,49 @@ else
   uc_behind=$((uc_behind + 1))
 fi
 
-# ---- 模板生成件对应关系（只提示不判漂移；规则三件→拆三模板）----
-printf '%s: 模板生成件对应（只提示，处置见 references/upgrade.md §2）:\n' "$prog"
+# ---- 模板生成件对应＋规则块集核对（缺块=落后；多余块=登记分歧候选不误报）----
+printf '%s: 模板生成件对应（规则块集核对：缺块=落后，多余块=登记分歧候选；处置见 references/upgrade.md §2）:\n' "$prog"
 for _pair in 'rules/assessment.md:references/templates/assessment.md.tmpl' \
              'rules/implementation/discipline.md:references/templates/discipline.md.tmpl' \
              'rules/project.md:references/templates/project.md.tmpl'; do
   _tgt=${_pair%%:*}
   _src=${_pair#*:}
-  if [ -f "$repo_root/$_tgt" ]; then
-    printf '%s:   提示  %s ← 包内 %s（项目可能合法改写过；是否采纳新版条款由用户逐件决定）\n' "$prog" "$_tgt" "$_src"
-  else
+  if [ ! -f "$repo_root/$_tgt" ]; then
     printf '%s:   落后  %s 缺失（对应包内 %s）\n' "$prog" "$_tgt" "$_src"
     uc_behind=$((uc_behind + 1))
+    continue
+  fi
+  # 规则块 ID 集合抽取：模板面（#### R-XX-NNN 标题）vs 实例面同款正则；块 ID 全集比对
+  _tmpl_ids=$(LC_ALL=C grep -oE '^#### R-[A-Z]{2}-[0-9]{3}' "$pkg_dir/$_src" 2>/dev/null | sed 's/^#### //' | LC_ALL=C sort -u) || _tmpl_ids=''
+  _inst_ids=$(LC_ALL=C grep -oE '^#### R-[A-Z]{2}-[0-9]{3}' "$repo_root/$_tgt" 2>/dev/null | sed 's/^#### //' | LC_ALL=C sort -u) || _inst_ids=''
+  _missing=''
+  if [ -n "$_tmpl_ids" ]; then
+    for _bid in $_tmpl_ids; do
+      printf '%s\n' "$_inst_ids" | LC_ALL=C grep -qxF "$_bid" || _missing="$_missing $_bid"
+    done
+  fi
+  _extra=''
+  if [ -n "$_inst_ids" ]; then
+    for _bid in $_inst_ids; do
+      printf '%s\n' "$_tmpl_ids" | LC_ALL=C grep -qxF "$_bid" || _extra="$_extra $_bid"
+    done
+  fi
+  if [ -n "$_missing" ]; then
+    printf '%s:   落后  %s 缺规则块:%s（包内 %s 有而实例无——吸收或登记分歧，见 references/upgrade.md §3）\n' "$prog" "$_tgt" "$_missing" "$_src"
+    uc_behind=$((uc_behind + 1))
+  fi
+  if [ -n "$_extra" ]; then
+    printf '%s:   分歧候选  %s 有包模板没有的规则块:%s（对照实例分歧登记核认；不判漂移不 FAIL）\n' "$prog" "$_tgt" "$_extra"
+  fi
+  if [ -z "$_missing" ] && [ -z "$_extra" ]; then
+    printf '%s:   同步  %s（规则块集与包内 %s 一致）\n' "$prog" "$_tgt" "$_src"
+    uc_sync=$((uc_sync + 1))
   fi
 done
 
 printf '%s: 汇总: 同步 %d，落后 %d，漂移 %d\n' "$prog" "$uc_sync" "$uc_behind" "$uc_drift"
 if [ "$uc_drift" -gt 0 ] || [ "$uc_behind" -gt 0 ]; then
-  printf '%s: 有差距（升级流程入口: 包内 references/upgrade.md）\n' "$prog"
+  printf '%s: 有差距（升级流程入口: 包内 references/upgrade.md；差异面按〔同步/落后/漂移/分歧候选〕分列裁决）\n' "$prog"
   exit 1
 fi
 printf '%s: 全同步（落地面与包基线一致）\n' "$prog"
