@@ -103,8 +103,17 @@ else
 fi
 
 printf '\n=== 对账 ===\n'
-if [ -n "$pkg_dir" ] && [ -d "$pkg_dir" ] && [ -f "$_script_dir/upgrade-check.sh" ]; then
-  sh "$_script_dir/upgrade-check.sh" "$pkg_dir" "$repo_root" 2>/dev/null | LC_ALL=C grep '汇总:' | sed 's/^/  /' || printf '  （对账器无输出）\n'
+if [ -n "$pkg_dir" ] && [ -d "$pkg_dir" ]; then
+  if [ -f "$_script_dir/upgrade-check.sh" ]; then
+    _uc_out=$(sh "$_script_dir/upgrade-check.sh" "$pkg_dir" "$repo_root" 2>/dev/null | LC_ALL=C grep '汇总:')
+    if [ -n "${_uc_out:-}" ]; then
+      printf '  %s\n' "$_uc_out"
+    else
+      printf '  （对账器无输出）\n'
+    fi
+  else
+    printf '  （upgrade-check.sh 不可用）\n'
+  fi
 else
   printf '（未提供包基线——传第二参数启用对账区）\n'
 fi
