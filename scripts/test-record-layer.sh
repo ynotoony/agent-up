@@ -83,7 +83,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -2410,6 +2410,80 @@ suite_absorption() {
   suite_summary 'absorption'
 }
 
+# ============================================================
+# suite: health（票 139 仪表盘四分区——打分趋势/候选调用/报警计数/对账降级；
+# 夹具＝最小仓＋九键 lesson 行＋同目录 absorption/check-stale-claims 单件）
+# ============================================================
+
+hs_build_fixture() {
+  # $1=夹具目录：repo/facts/project/changes.jsonl ＋ rules/implementation/scripts/ 三件单件
+  rm -rf "$1"
+  mkdir -p "$1/repo/facts/project" "$1/repo/rules/implementation/scripts"
+  cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$1/repo/rules/implementation/scripts/"
+}
+
+hs_run() {
+  ( cd "$1/repo" && sh rules/implementation/scripts/health-summary.sh ${2:+$2} )
+}
+
+suite_health() {
+  CUR_SUITE='health'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/hs
+  mkdir -p "$D"
+
+  # 正例 P1：有打分＋有候选＋无报警 → 四分区齐全、打分区含分数序列
+  hs_build_fixture "$D/p1"
+  printf '{"date": "2026-10-11", "kind": "lesson", "scope": "t1", "decision": "a", "evidence_ref": "x", "promoted_to": "none", "score_contract": 90, "score_predicate": 100, "score_rework": 0}\n{"date": "2026-10-11", "kind": "lesson", "scope": "t1", "decision": "b", "evidence_ref": "x", "promoted_to": "none", "score_contract": 88, "score_predicate": 100, "score_rework": 0}\n{"date": "2026-10-11", "kind": "lesson", "scope": "t1", "decision": "c", "evidence_ref": "x", "promoted_to": "none", "score_contract": 85, "score_predicate": 100, "score_rework": 0}\n' > "$D/p1/repo/facts/project/changes.jsonl"
+  hs_run "$D/p1" > "$D/p1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '=== 打分 ===' "$D/p1.out" \
+    && grep -q 't1: 最近分数' "$D/p1.out" \
+    && grep -q 'PROMOTE 候选: scope=t1' "$D/p1.out" \
+    && grep -q '=== 总结 ===' "$D/p1.out"; then
+    ok '正例 P1 四分区齐全（打分序列＋PROMOTE 候选）'
+  else
+    bad '正例 P1 四分区齐全（打分序列＋PROMOTE 候选）' "exit=$rc $(head -c 150 "$D/p1.out")"
+  fi
+
+  # 正例 P2：空账本 → 各区显示（无）
+  hs_build_fixture "$D/p2"
+  : > "$D/p2/repo/facts/project/changes.jsonl"
+  hs_run "$D/p2" > "$D/p2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '（无打分记录' "$D/p2.out"; then
+    ok '正例 P2 空账本 → 打分区（无）不虚构'
+  else
+    bad '正例 P2 空账本 → 各区（无）不虚构' "exit=$rc $(head -c 150 "$D/p2.out")"
+  fi
+
+  # 负例 N10：有 STALE（账本行缺文件指针沉淀被删形态）→ 报警区出 STALE 计数
+  hs_build_fixture "$D/n10"
+  printf '{"date": "2026-10-11", "kind": "lesson", "scope": "x", "decision": "沉淀到 rules/gone.md", "evidence_ref": "x", "promoted_to": "rules", "score_contract": 50, "score_predicate": 50, "score_rework": 1}\n' > "$D/n10/repo/facts/project/changes.jsonl"
+  hs_run "$D/n10" > "$D/n10.out" 2>&1
+  rc=$?
+  if grep -q '易腐断言过期' "$D/n10.out" && grep -q 'rules/gone.md' "$D/n10.out"; then
+    ok '负例 N10 S8 STALE → 报警区出计数与指针'
+  else
+    bad '负例 N10 S8 STALE → 报警区出计数与指针' "exit=$rc $(head -c 150 "$D/n10.out")"
+  fi
+
+  # 正例 P5：零写入复核（夹具跑前后 find 全等）
+  _hs_before=$(cd "$D/p1/repo" && find . | LC_ALL=C sort)
+  hs_run "$D/p1" > /dev/null 2>&1
+  _hs_after=$(cd "$D/p1/repo" && find . | LC_ALL=C sort)
+  if [ "$_hs_before" = "$_hs_after" ]; then
+    ok '正例 P5 零写入复核（夹具前后 find 全等）'
+  else
+    bad '正例 P5 零写入复核（夹具前后 find 全等）'
+  fi
+
+  suite_summary 'health'
+}
+
+
 
 # ============================================================
 # suite: lane-commit（票 100 场景沉淀：微账本 actual 键——合同 actual 行落第七键、
@@ -2963,6 +3037,7 @@ case $SUITE in
   worktree) suite_worktree ;;
   upgrade-check) suite_upgrade_check ;;
   absorption) suite_absorption ;;
+  health) suite_health ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -2975,6 +3050,7 @@ case $SUITE in
     suite_worktree
     suite_upgrade_check
     suite_absorption
+    suite_health
     self_check_injection
     ;;
 esac

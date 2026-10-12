@@ -103,6 +103,7 @@ pm_script scripts/module-map.rules rules '模块地图语言规则表（generate
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
+pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
 
@@ -177,6 +178,7 @@ pm_mirror generate-progress.sh
 pm_mirror ticket-ops.sh
 pm_mirror check-stale-claims.sh
 pm_mirror absorption-trigger.sh
+pm_mirror health-summary.sh
 pm_mirror run-record.sh
 pm_mirror ticket-grade.sh
 pm_mirror lane-commit.sh
