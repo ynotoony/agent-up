@@ -1,5 +1,6 @@
 #!/bin/sh
 # Input: facts/requirements/tickets/index.json（票状态索引真相源，单文件一条目一行，票 33 终裁 T2）
+# projection-version: 1（投影列形态；机制版本注记）
 #        与可选参数：--check 开关、仓库根目录（缺省取脚本所在目录的上一级）。
 # Output: facts/requirements/tickets/progress-current.md 现役状态投影——Derived 四标注头部（generated_from、
 #         生成时间、覆盖范围、失效条件）＋每票一行 `| id | status | checkpoint_ref | updated_at |`

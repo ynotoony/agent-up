@@ -17,6 +17,7 @@
 #      （票 94，done/superseded 被改回非终态即 STALE/FAIL——复盘缺口④幽灵态机器报警）；
 #      POSIX sh、零外部依赖、全程只读（除打印外无写操作，Git 仅使用只读子命令）。
 # dp-parser: 2
+# stale-claims-version: 8（断言组 S1-S8；机制版本注记，dp-parser 先例）
 #      （解析器版本注记：本文件内嵌 dp_load_rules 的版本号；落地拷贝遇未知锚点/指令时
 #      报错引用此值，版本落后包内现版即升级指引信号——同步方式见 references/old-project.md
 #      §3 dp_load_rules 引擎件行。四件同族脚本注记须一致。）

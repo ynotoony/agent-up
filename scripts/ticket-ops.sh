@@ -26,6 +26,7 @@
 #      再生调用 generate-progress.sh 不在此限）。
 
 # 用法、数据契约与退出码见同目录 README.md。
+# ledger-rowtype-version: 3（五键/lesson 六键九键/replan 八键；机制版本注记，票 133 行型）
 
 # ---- 路径常量区（票 113 波④：值翻 rules/facts 新形态，映射见 rules-facts-layout-spec §2 R11/R13/R15/R19）----
 issues_index_rel='facts/requirements/tickets/index.json'

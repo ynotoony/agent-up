@@ -9,6 +9,7 @@
 #      出候选提示，不改任何文件不自动执行；阈值 80/40 为初值（运营期可调，调整经
 #      用户拍板）；POSIX sh、零外部依赖、全程只读。
 # 用法: sh absorption-trigger.sh [repo-root]
+# trigger-version: 1（窗口 3 连高/2 连低，阈值 80/40；机制版本注记，阈值可调）
 # 退出码: 0 正常（含有提示）；1 用法或环境错误（账本缺失不视为错误＝零输出）。
 
 prog=absorption-trigger
