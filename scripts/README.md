@@ -715,7 +715,7 @@ sh scripts/upgrade-check.sh <pkg-dir> <repo-root>
 | 落后 | 落位脚本＋配置面＋模板生成件 | 登记件两形态皆缺失（未安装）；delivery.rules 缺失或无 main-only 锚点；模板生成件（rules/ 三件）缺失；实例规则块集缺包内模板已有的块（逐块列 ID）。 |
 | 漂移 | 落位脚本 | 存在但与包内同名件不一致（人工改过或本地演化）——停，报告用户裁决（沿用/跟包/登记分歧），不静默覆盖。 |
 
-模板生成件（rules/ 三件 ↔ 拆三模板）做规则块集核对：实例缺包内模板已有的块＝落后（逐块列 ID），实例有模板没有的块＝登记分歧候选（只提示不判漂移不 FAIL——登记过的实例口径如按项目裁剪启用面正落此列）；块内语义差异归独立 Review，是否采纳新版条款由用户逐件决定（`../references/upgrade.md` §2）。cmp 面自同目录 `install-policy.rules` 数据读取（引擎零落位路径硬编码，先例 install.sh 同款加载）。
+模板生成件（rules/ 三件 ↔ 拆三模板）做规则块集核对；另有**机制版本核对**——四件带机制版本注记的脚本（check-stale-claims［stale-claims-version: 8］/ticket-ops［ledger-rowtype-version: 3］/absorption-trigger［trigger-version: 1］/generate-progress［projection-version: 1］，dp-parser 先例形态）由落位 cmp 面自然覆盖（注记不一致即 cmp 不一致＝漂移），版本号语义＝对应机制面（断言组数/行型集/触发窗口/投影列）的变更计数：实例缺包内模板已有的块＝落后（逐块列 ID），实例有模板没有的块＝登记分歧候选（只提示不判漂移不 FAIL——登记过的实例口径如按项目裁剪启用面正落此列）；块内语义差异归独立 Review，是否采纳新版条款由用户逐件决定（`../references/upgrade.md` §2）。cmp 面自同目录 `install-policy.rules` 数据读取（引擎零落位路径硬编码，先例 install.sh 同款加载）。
 
 ### 退出码
 
