@@ -52,6 +52,8 @@
 
 ## 工作类型路由
 
+用户以需求动作发话时按「需求工作三道」分流（细则见 `rules/assessment.md` §4「需求工作三道」）：新增需求＝对话出方案、用户拍板后存卡即止（存卡不开工，实施以用户明确发令为准）；整理需求＝只做梳理、总结与实施建议，只读不开卡；完成需求＝按已确认卡面直接执行。
+
 - **回答、解释、只读审查或诊断**：只读检查，不领取任务、不修改进度、不实施修复。
 - **治理或文档维护**：按 [`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md)、[`rules/project.md`](./rules/project.md) 执行；改变项目事实时写入对应规格或 `facts/project/changes.jsonl`。
 - **功能、修复或重构**：先读上下文、规格、任务票与进度，领取 blocker 已完成的任务，再按流程执行。
