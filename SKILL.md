@@ -40,7 +40,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 2. **模式判定**：全新（空目录或没有工作规则文件）/ 已有代码（先读 `references/old-project.md`）/ 部分治理（只补缺）/ **已治理（升级）**（仓内已有初始化装上的文件且用户要求升级、同步包新版或拉新模板——先读 `references/upgrade.md`，把已装的部分经确认对齐到包新版；既有事实与记录类产物不动）。目标目录不是 Git 仓库时，是否 `git init` 由用户确认决定，不自行初始化。
 3. **访谈与待定**：新项目先把定位、角色、核心对象、状态与合法转换、主要流程、范围边界、技术栈与验证方式问清（一次一个问题，附推荐答案；能从仓库查到的事实自己查）；项目特有术语敲定后按 `CONTEXT.md.tmpl` 的词条格式写入领域上下文；没问到的一律 `【待定：...】`，不编造。
 4. **差异清单确认**：任何写入之前，先给用户差异清单并等待确认，确认前一个字都不写；清单含现状与目标，按四类分组——将新建 / 将修改 / 登记不动 / 冲突待决。四类分组之外给**执行形态与预估**：先过两问闸——改动面能否逐条列全且每条有机械验收谓词（唯一匹配/期望输出/可跑检查）？两问全过默认亲写用完即弃脚本执行（R-DP-038 脚本通道）；需执行体判断力时派发走 agent 且两问回答写进委派合同（逐条清单随 Scope、谓词随 Verification，谓词条数＝清单条数才可派发，合同随票 Checkpoint 落盘）；执行形态三选项仍对探索类任务标注——亲写脚本 / 单 agent / 全三阶段管线——并给预估与保证差（亲写脚本最快但只承载机械面、无独立 Review 保证，适合一次性批量变换与机械可验改动；单 agent 承担常规单上下文任务；全三阶段管线含独立 Review，保证最强、成本最高）；C2 及以上任务逐项给三形状对比行。每张任务票评估 Complexity 与 Requirement Profile 并写入任务合同；分级、拆票与委派合同规则的权威在生成的规则三件（`rules/assessment.md`＋`rules/implementation/discipline.md`＋`rules/project.md`；何时拆票、委派合同、三道门禁各节），本文件不复制其表格。取信按优先级排序：既有事实 > 用户确认 > 模板 > 自动推断，未知只登记不推断；确认时同时与用户选定能力档位（minimum/full）并落盘能力清单——逐项标 enabled/excluded/pending，排除与待定附原因。
-5. **安装/补缺**：按 `references/templates/README.md` 的清单生成初始八件套（seed）、命中的条件产物与三阶段角色合同（生成到 `rules/implementation/roles/`），初始化产物按以下目标形态安放：
+5. **安装/补缺**：按 `references/templates/README.md` 的清单生成初始七件套（seed）、命中的条件产物与三阶段角色合同（生成到 `rules/implementation/roles/`），初始化产物按以下目标形态安放：
 
    ```
    my-project/
@@ -82,7 +82,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 | `references/protocol/complexity-profile.md` | 规划、拆票或写任务票前：评估任务大小与需求画像、判定 C2/C3 触发矩阵命中、拆票策略或声明分级快道（两快道准入判据）时 |
 | `references/old-project.md` | 已有代码或部分治理项目的盘点、补缺与交付 |
 | `references/upgrade.md` | 已治理项目升级（同步包新版）：模式判定命中升级态、盘点已装部分、逐件对比与对齐更新全程 |
-| `references/templates/README.md` | 生成工作规则骨架前：模板清单、初始八件套（seed）映射、条件产物触发矩阵与角色合同模板 |
+| `references/templates/README.md` | 生成工作规则骨架前：模板清单、初始七件套（seed）映射、条件产物触发矩阵与角色合同模板 |
 | `references/adapters/`（成员见其目录 README） | 判定宿主能力、处理 `required_capabilities` 冲突、无独立执行体降级，或在宿主生成角色运行时入口时 |
 | `references/schemas/`（成员见其目录 README） | 会话恢复填写 run record 或校验其字段时 |
 
