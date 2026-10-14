@@ -16,7 +16,7 @@
 | `issue-index.schema.json` | 票状态索引机器 schema（定稿基线；语义权威＝方案 C 终裁 T1/T2/T5/T6） | `docs/issues/index.json` 票状态索引 JSON Schema（draft-07）：票状态机唯一真相源，单文件 JSON 一条目一行；条目字段 id/status/lane/complexity/blocked_by/checkpoint_ref/last_verified/updated_at＋可选 superseded_by（R-DP-039 替代标记：被推翻票的回链，指向票存在性由 check-stale-claims.sh S7 硬断言；lane 枚举 `full`/`user-review`/`micro`；`status` 取 Task 状态机；frontmatter `status` 退役后 `checkpoint_ref`/`last_verified` 语义不变）。 |
 | `ticket-record.schema.json` | 票/REQ 本体机器 schema（定稿基线；语义权威＝终裁 T9 改判与 SPEC-02 §5.1） | 新开任务票/新 REQ JSON 本体 JSON Schema（draft-07）：文件命名 task `<NN>-<slug>.json`、request `<REQ-id>.json`；required id/kind/title/created_at，kind 枚举 task/request，task 另必备 complexity/profile/blocked_by（allOf if/then），可选 category（R-DP-039 类别保留：decision/procedural/temporal，缺省视同 procedural，存量零回扫）；合同散文以 JSON 字符串承载（`\n` 转义），scope 为 Scope 树字符串数组；无 `status` 字段——票状态真相源＝`docs/issues/index.json`（正文 Status 行为投影打印件）；存量 Markdown 票与既有 REQ 冻结零改写。 |
 | `ticket-record.example.json` | 标注样例 | `x-sample: true` 的 task 结构样例，字段值全部为占位，不含真实票面数据；用于 schema 结构核对（request 侧可选字段 origin/decision/depends_on 见 schema description）。 |
-| `request-index.schema.json` | 退役（2026-10-14 票 141，仅为存量项目保留读法校验；新项目不再生成需求登记册） | `docs/requests/index.json` REQ 状态索引 JSON Schema（draft-07）：REQ 状态唯一真相源，与票账本（issue-index）分账——id 形态 `REQ-YYYYMMDD-NNN`、Request 状态机取值（proposed/triaged/accepted/specified/ready＋旁支 rejected/deferred/needs-user-decision，旁支允许冒号后缀原因）、可选 title/depends_on；单文件一条目一行，机制与 issue-index 同款。 |
+| `request-index.schema.json` | 退役（2026-10-14，仅为存量项目保留读法校验；新项目不再生成需求登记册） | `docs/requests/index.json` REQ 状态索引 JSON Schema（draft-07）：REQ 状态唯一真相源，与票账本（issue-index）分账——id 形态 `REQ-YYYYMMDD-NNN`、Request 状态机取值（proposed/triaged/accepted/specified/ready＋旁支 rejected/deferred/needs-user-decision，旁支允许冒号后缀原因）、可选 title/depends_on；单文件一条目一行，机制与 issue-index 同款。 |
 
 ## 契约头例外登记
 
@@ -24,4 +24,4 @@
 - run record 的生成条件与字段语义在目标项目 `development-process.md` §12.4（模板：`../templates/development-process.md.tmpl`）；本目录只承载机器格式，不承载流程规则。
 - 票状态索引的落点、写入机制与状态冲突裁决语义在 SPEC-02 §8 / R-02-014 与目标项目 `development-process.md` §5.2 触发矩阵、§12.5 道脚本承载注记（方案 C 终裁 T1/T2/T4/T10）；本目录只承载机器格式，不承载流程规则。
 - 票/REQ 本体的开票形态、文件命名与状态真相源语义在 SPEC-02 §5.1（R-02-013/R-02-014）与目标项目 `development-process.md` §5.2 开票形态注记（定稿，2026-09-18）；本目录只承载机器格式，不承载流程规则。
-- REQ 状态索引自票 141 起退役（2026-10-14）：新项目不再生成需求登记册，新需求走卡片（任务票）；本 schema 仅为存量项目旧登记的读法校验保留，冻结只读。
+- REQ 状态索引自退役（2026-10-14）：新项目不再生成需求登记册，新需求走卡片（任务票）；本 schema 仅为存量项目旧登记的读法校验保留，冻结只读。

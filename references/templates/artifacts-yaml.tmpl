@@ -122,7 +122,7 @@ artifacts:
     update_policy: 状态机更新；产物登记同步；漂移标 stale 并报告
 
   # 条件产物登记样例（命中触发矩阵才创建；按实际产物仿照登记，不预建）：
-  # （需求请求 REQ 样例条目已退役，2026-10-14 票 141——需求登记册不再生成，新需求走卡片：
+  # （需求请求 REQ 样例条目已退役，2026-10-14——需求登记册不再生成，新需求走卡片：
   #   卡片登记见任务票目录 issues-README；存量项目旧 REQ 登记冻结只读，登记条目保留原样）
   #
   # - id: project-map
@@ -153,10 +153,10 @@ artifacts:
   #   platform: neutral
   #   update_policy: 状态机更新；一条目一行整行替换
   #
-  # - id: request-index（退役条件模板 2026-10-14 票 141：需求登记册不再生成，存量项目旧登记冻结只读；仅存量项目补缺登记时参考）
+  # - id: request-index（退役条件模板 2026-10-14：需求登记册不再生成，存量项目旧登记冻结只读；仅存量项目补缺登记时参考）
   #   path: facts/requirements/requests/index.json
   #   kind: index
-  #   authority: 权威层级第 2 级（事实记录：REQ 状态登记；Request 状态机取值权威＝facts/requirements/requests/README.md R-RQ-002 与 rules/project.md 三套状态机）
+  #   authority: 权威层级第 2 级（事实记录：REQ 状态登记；Request 状态机取值权威＝facts/requirements/requests/README.md（请求状态流转归属规则）与 rules/project.md 状态机节）
   #   owner: Triage 执行体（状态流转单写）；协调记录 owner（快照建立）
   #   lifecycle: Conditional
   #   trigger: facts/requirements/requests/ 目录创建且首个 REQ 落盘（REQ 状态分账；存量 REQ 由此只读提取建立快照）
