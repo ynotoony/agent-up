@@ -133,5 +133,5 @@ platform 取值描述产物或文件的平台绑定面：`neutral` 表示平台�
 - 本文件位于 adapters/，承载能力契约与档位语义的包内登记；能力语义的规格上游是 SPEC-05，档位加载范围的精确清单权威是 `read-policy.md` §2.4——两者都不是本文件的派生物；核心流程权威（development-process、SPEC-04）不依赖本文件。
 - 宿主映射文件（`zcode.md` 等）单向依赖本文件；本文件不引用任何宿主映射的工具对照内容。
 - 能力表未列 read 的蕴含说明（SPEC-05 §7）：Implementation 的 edit/write/inspect、Review 的 inspect 已蕴含所需读取面；角色合同显式声明 read 是把蕴含面写明，不改变 §2.2 阶段表基线。
-- 宿主本地适配层实例（如目标项目内 `.zcode/agents/` 目录）由宿主映射文件约定生成；其与 `docs/agent/roles/` 角色合同冲突时以合同为准（SPEC-05 R-05-003）。
+- 宿主本地适配层实例（如目标项目内 `.zcode/agents/` 目录）由宿主映射文件约定生成；其与 `<role-contract-dir>/` 角色合同冲突时以合同为准（SPEC-05 R-05-003）。
 - 本文件与宿主映射文件按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）；`CC`/`ZC` 短码登记于 `../README.md`，governance-format §2.1 手册短码表的补记归后续包结构任务。

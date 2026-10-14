@@ -49,7 +49,7 @@
 | `issues-README.md.tmpl` | Conditional | `facts/requirements/tickets/README.md` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 | 无 | 生成任务票目录规则与票模板（含 category 类别声明与 superseded_by 替代标记注记，R-DP-039）。 |
 | `specs-README.md.tmpl` | Conditional | `facts/requirements/specs/README.md` | 修改公共行为或接口；多条验收路径；跨会话交付；C2/C3 任务合同不足；用户要求 | 无 | 生成规格目录规则与规格模板。 |
 | `research-README.md.tmpl` | Conditional | `facts/requirements/research/README.md` | 需要外部调研、方案对比或 spike | 无 | 生成调研目录归档规则与报告模板。 |
-| `scripts-README.md.tmpl` | Conditional | `scripts/README.md` | 可重复验证需要沉淀为共享 harness；采用任务票体系（随 ticket-ops/generate-progress 落位） | 无 | 生成共享验证 harness 目录索引与登记约定（含落位工具逐件登记：道脚本、ticket-ops、generate-progress、module-map——逐件登记口径）。 |
+| `scripts-README.md.tmpl` | Conditional | `rules/implementation/scripts/README.md` | 可重复验证需要沉淀为共享 harness；采用任务票体系（随 ticket-ops/generate-progress 落位） | 无 | 生成新布局共享验证 harness 目录索引与登记约定；旧项目已有 `scripts/README.md` 作为兼容面保留并登记，不自动搬迁。 |
 | `delivery-rules.tmpl` | Conditional | `delivery.rules` | 用户确认启用分级交付道快道（--fast-lane 语境；生成到目标项目仓库根） | 无 | 生成仓根 delivery 配置骨架：四节锚点（与包内四脚本 `dp_load_rules` BEGIN 段 `an[1..4]` 逐字一致——锚点逐字匹配，写错即解析失败）＋每节 dp_ 指令注释形态示例与占位说明；main-only 节裸锚点＋注释条目＝空排除清单（栅栏已声明，`worktree-add.sh` 不再因缺失/未声明拒跑），用户取消注释前排除为空属预期；头部 `#` 形态契约头（解析器跳 `#` 行，check-package 检查 6 按此豁免）。 |
 | `agents-implementation.md.tmpl` | Roles | `rules/implementation/roles/implementation.md` | 所有项目初始化生成三阶段角色合同 | `RI` | 生成 Implementation 阶段平台无关角色合同（七节 + required_capabilities 能力基元声明 + 规则块 R-RI-001～003）。 |
 | `agents-review.md.tmpl` | Roles | `rules/implementation/roles/review.md` | 所有项目初始化生成三阶段角色合同 | `RR` | 生成 Review 阶段平台无关角色合同（七节 + 只读能力声明 + 降级记录规则块 R-RR-001～003）。 |
@@ -57,10 +57,10 @@
 
 ## 取舍与过渡登记
 
-- `scripts-README.md.tmpl` 纳入为条件性模板：`scripts/` 是触发矩阵中的条件性产物，其目录 README 必须随脚本目录一起生成才符合"受 Git 管理的目录必须有 README"约定；正文复制自外部源并同步 `development-process` 模板的验证章节指向，故按条件性模板登记。
+- `scripts-README.md.tmpl` 纳入为条件性模板：新项目脚本目录是 `rules/implementation/scripts/`，其 README 必须随脚本目录一起生成才符合"受 Git 管理的目录必须有 README"约定；旧项目已有 `scripts/` 目录不迁移，按兼容模式登记。正文复制自外部源并同步三件流程模板的验证章节指向，故按条件性模板登记。
 - 单一权威：流程细节只在 `assessment.md.tmpl`／`discipline.md.tmpl`／`project.md.tmpl` 三件事实源（唯一流程事实源拆三，节号沿用拆分前统一编号、三件共享编号空间互指）；`AGENTS.md.tmpl` 只路由加快速规则，`artifacts` 模板只承载登记格式（需求登记册 requests 模板已退役，2026-10-14；存量项目旧登记冻结只读），不复制其余流程细节。
 - run record 机器 schema 不以模板承载：定稿落公开包 `../schemas/run-record.schema.json`（含样例 `run-record.example.json`，定稿；生成条件与字段语义在 `project.md.tmpl` §12.4），无 `run-record-yaml.tmpl`。
-- 角色模板（`agents-*.tmpl`）平台绑定已剥离（I-04，2026-09-03）：宿主 frontmatter（name/color/tools 与描述内工具列举）移至 `../adapters/zcode.md` 运行时映射；模板改为治理格式九字段元数据 + SPEC-05 §4 角色合同七节，`required_capabilities` 只用能力基元；Emits 路径定稿为 `docs/agent/roles/`（platform: neutral，收敛未决项⑤），宿主运行时入口由适配层生成（见 `../adapters/zcode.md`）。
+- 角色模板（`agents-*.tmpl`）平台绑定已剥离（I-04，2026-09-03）：宿主 frontmatter（name/color/tools 与描述内工具列举）移至 `../adapters/zcode.md` 运行时映射；模板改为治理格式九字段元数据 + SPEC-05 §4 角色合同七节，`required_capabilities` 只用能力基元；历史记录曾以 `docs/agent/roles/` 作为 Emits 路径，当前 manifest 以 `rules/implementation/roles/` 为准，旧项目兼容面由 `<role-contract-dir>` 登记变量承接。
 - 模板目录形态定稿（I-05，2026-09-03）：以扁平目录 + manifest 类别列（Seed/Conditional/Roles）承载 SPEC-06 §2 的分组语义，不建 `seed/`、`conditional/`、`roles/` 子目录——早期定稿已把票面子目录方案收敛为扁平直改（消除双轨漂移），本组无独立文件组，建目录违反懒创建（R-06-001）；该次定稿零移动零增删，模板清单未变，旧模板正文改写由后续模板重写承担。
 - `CONTEXT/dir-README/issues/specs/research/scripts` 模板保留为条件性模板（触发矩阵命中才使用）；收窄执行（2026-09-03）：该批模板正文维持已验收的结构化短文形态，不改写为规则块——其生成物是面向人的目录索引，规则权威在 development-process；各模板补 `read_when` 元数据注记行（对齐 `CONTEXT.md.tmpl` 先例，只做导航），语义未变。
 - `artifacts-yaml.tmpl` 契约头以 YAML `#` 注释承载（文件第 1～3 行 `# Input:` / `# Output:` / `# Pos:`）：生成物 `docs/agent/artifacts.yaml` 是 YAML，顶部 HTML 注释会破坏解析，故不采用 `<!-- -->` 形态；包完整性检查对该模板的 `^<!-- Input:` 扫描按 `../schemas/README.md` 登记的 JSON 例外同口径豁免（2026-09-03）。

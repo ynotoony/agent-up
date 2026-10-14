@@ -12,15 +12,15 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 
 <!-- Input: adapter-capability-contract.md 能力契约、adapter-template.md 结构基线、dsh 官方文档（deepseek-ai/deepseek-harness 仓库 docs/，取阅 2026-09-06）与 docs/research/2026-09-agent-host-adapters.md §3.4。 -->
 <!-- Output: dsh 宿主运行时映射：能力→宿主工具对照、三角色承载形态、独立执行体声明与降级路径（subagent seam 依 profile/provider 配置）。 -->
-<!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 docs/agent/roles/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
+<!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 <role-contract-dir>/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # dsh 宿主适配层映射（运行时入口）
 
-本文件是平台适配层：把 capability-contract 的能力基元映射为 dsh（DeepSeek Harness CLI）宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `docs/agent/roles/` 的平台无关角色合同。官方事实依据与取阅日期登记于 `docs/research/2026-09-agent-host-adapters.md` §3.4（公开包外记录）。
+本文件是平台适配层：把 capability-contract 的能力基元映射为 dsh（DeepSeek Harness CLI）宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。官方事实依据与取阅日期登记于 `docs/research/2026-09-agent-host-adapters.md` §3.4（公开包外记录）。
 
 ## 1. 快速摘要
 
-- 事实源：`docs/agent/roles/implementation.md`、`review.md`、`commit.md`（平台无关角色合同，七节）。
+- 事实源：`<role-contract-dir>/implementation.md`、`review.md`、`commit.md`（平台无关角色合同，七节）。
 - 本文件承载：能力→宿主工具对照（§2.2）、三角色承载形态（§2.3）、独立执行体声明与降级路径（§2.4）。
 - platform 枚举值：`dsh`；三类接入面归属：插件扩展第二代表（官方架构文档："Every part of the product is a plugin"，Cordis 框架；插件为导出 `apply(ctx)` 的 TypeScript 模块，经 cordis.yml 注册，可逆卸载）；shell hooks 面未在取阅页出现；rules files 面未完整核验【待定】。
 - 独立执行体：官方 subagent 文档登记 subagent 为可选 capability seam（`ctx.subagents`，多 provider 并存：spawn-in-process / fork-in-process / acp / codex / claude-code / dsh-sdk）；`sdk-minimal` 明确排除 subagents——声明区分 profile（§2.4）。
@@ -38,7 +38,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 #### R-DS-001 映射不是事实源 `MUST`
 
 - **When**：创建、修改或评估 dsh 平台适配文件时。
-- **Action**：适配层只承载运行时映射（插件注册形态、profile 口径、工具调用方式）；事实源是 `docs/agent/roles/` 角色合同与核心协议；本文件按宿主方言变化同步。
+- **Action**：适配层只承载运行时映射（插件注册形态、profile 口径、工具调用方式）；事实源是 `<role-contract-dir>/` 角色合同与核心协议；本文件按宿主方言变化同步。
 - **Forbidden**：把适配层当事实源；在适配层新增流程规则或门禁；核心协议或角色合同反向引用本文件内容作为规则依据。
 - **Stop if**：适配器与角色合同冲突 → 以合同为准，修正本文件并报告，不改合同。
 - **Evidence**：冲突核查以合同为基准通过；本文件无七节合同、门禁等流程规则内容。
@@ -71,14 +71,14 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 
 ### 2.3 三角色承载形态
 
-dsh 无 agent Markdown frontmatter 方言（官方文档登记的扩展形态为 TypeScript `apply(ctx)` 模块 + cordis.yml 注册）；角色承载按"角色说明落 skills/插件资源、工具面随 profile"的组合表达，description 承载派发摘要，规则权威在角色合同：
+dsh 无 agent Markdown frontmatter 方言（官方文档登记的扩展形态为 TypeScript `apply(ctx)` 模块 + cordis.yml 注册）；角色承载按"角色说明落 skills/插件资源、工具面随 profile"的组合表达，description 承载派发摘要，规则权威在角色合同。示例中的 `<role-contract-dir>` 必须按目标项目登记值展开；新项目默认 `rules/implementation/roles/`，旧项目使用登记的兼容目录（通常是 `docs/agent/roles/`）：
 
 ```text
 # cordis.yml（目标项目宿主部署位）
 plugins:
   - path: ./adapters/roles-implementation   # 导出 apply(ctx) 的 TS 模块：
     # name: implementation
-    # description: "Implementation 阶段执行体运行时入口；合同、Scope 与输出以 docs/agent/roles/implementation.md 为准"
+    # description: "Implementation 阶段执行体运行时入口；合同、Scope 与输出以 <role-contract-dir>/implementation.md 为准"
   - path: ./adapters/roles-review           # name: review；只读独立审查描述
   - path: ./adapters/roles-commit           # name: commit；白名单提交描述
 ```
@@ -87,9 +87,9 @@ plugins:
 
 | 角色合同 | required_capabilities | 工具口径 |
 | --- | --- | --- |
-| docs/agent/roles/implementation.md | inspect, search, read, edit, write, execute | bash + str_replace_editor |
-| docs/agent/roles/review.md | inspect, search, read, readonly-execute | bash（只读命令） |
-| docs/agent/roles/commit.md | inspect, vcs-read, vcs-write | bash（git 命令） |
+| <role-contract-dir>/implementation.md | inspect, search, read, edit, write, execute | bash + str_replace_editor |
+| <role-contract-dir>/review.md | inspect, search, read, readonly-execute | bash（只读命令） |
+| <role-contract-dir>/commit.md | inspect, vcs-read, vcs-write | bash（git 命令） |
 
 ### 2.4 独立执行体声明与降级路径
 
@@ -109,6 +109,6 @@ plugins:
 - 官方架构文档登记 guard 与审批感知的工具执行管线、sandbox 与 approval policy seam：属宿主强制能力登记面，可用于宿主侧护栏，但不取代角色合同与阶段门禁的规则权威。
 - 官方 SAFETY 自述未经安全审计、不适合生产；本映射不声明任何隔离或安全能力，隔离责任在宿主环境部署。
 - Experimental Agent Teams（opt-in 协调 seam）为官方实验面登记：不作为独立执行体默认形态。
-- 宿主本地适配层实例（目标项目内 cordis.yml 与插件目录）由本映射生成；其与 `docs/agent/roles/` 合同冲突时以合同为准，并报告差异。
+- 宿主本地适配层实例（目标项目内 cordis.yml 与插件目录）由本映射生成；其与 `<role-contract-dir>/` 合同冲突时以合同为准，并报告差异。
 - capability profile 档位、platform 枚举扩展规则见 `capability-contract.md`；本文件不复述，避免第二权威。
 - 本文件与 capability-contract 按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。

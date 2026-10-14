@@ -1,7 +1,7 @@
 ---
 id: adapter-zcode
 kind: protocol
-authority: 权威层级第 4 级（流程规则：宿主适配层映射）；能力语义上游为 adapter-capability-contract 与 SPEC-05，冲突以平台无关角色合同（docs/agent/roles/）与 SPEC-05 为准
+authority: 权威层级第 4 级（流程规则：宿主适配层映射）；能力语义上游为 adapter-capability-contract 与 SPEC-05，冲突以平台无关角色合同（<role-contract-dir>/）与 SPEC-05 为准
 lifecycle: Live
 read_when: 在宿主生成或维护运行时入口（frontmatter 方言、工具对照）时；评估宿主能力满足度时
 trigger: 宿主 frontmatter 方言、能力→工具对照或运行时入口形态变化
@@ -9,17 +9,17 @@ owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commi
 update_policy: 本文件只是运行时映射，不是事实源；与角色合同冲突时以合同为准并修正本文件；宿主方言变化须同步 capability-contract 登记面
 depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-003 适配层地位）；被目标项目宿主适配层实例依赖
 ---
-<!-- Input: adapter-capability-contract.md 能力契约、原宿主 frontmatter 形态（name/color/description/tools）与目标项目角色合同路径约定（docs/agent/roles/）。 -->
+<!-- Input: adapter-capability-contract.md 能力契约、原宿主 frontmatter 形态（name/color/description/tools）与目标项目角色合同路径约定（<role-contract-dir>/）。 -->
 <!-- Output: 宿主运行时映射手册：能力→宿主工具对照、三角色 frontmatter 方言模板、独立执行体声明与降级路径、适配层地位边界。 -->
-<!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 docs/agent/roles/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
+<!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 <role-contract-dir>/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 
 # 宿主适配层映射（运行时入口）
 
-本文件是平台适配层：把 capability-contract 的能力基元映射为宿主运行时形态（frontmatter 方言与工具对照），并承载原宿主绑定 frontmatter 的迁移形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `docs/agent/roles/` 的平台无关角色合同。
+本文件是平台适配层：把 capability-contract 的能力基元映射为宿主运行时形态（frontmatter 方言与工具对照），并承载原宿主绑定 frontmatter 的迁移形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。
 
 ## 1. 快速摘要
 
-- 事实源：`docs/agent/roles/implementation.md`、`review.md`、`commit.md`（平台无关角色合同，七节）。
+- 事实源：`<role-contract-dir>/implementation.md`、`review.md`、`commit.md`（平台无关角色合同，七节）。
 - 本文件承载：能力→宿主工具对照（§2.2）、三角色 frontmatter 方言模板（§2.3）、独立执行体声明与降级路径（§2.4）。
 - 原宿主 frontmatter（name/color/tools 与描述内工具列举）自角色模板移入本文件（SPEC-06 §3 R-06-002 平台绑定出模板）。
 - 适配层与角色合同冲突 → 以合同为准，修正本文件并报告（SPEC-05 R-05-003）。
@@ -37,7 +37,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 #### R-ZC-001 映射不是事实源 `MUST`
 
 - **When**：创建、修改或评估任何平台适配文件时。
-- **Action**：适配层只承载运行时映射（入口名、frontmatter 方言、工具调用方式）；事实源是 `docs/agent/roles/` 角色合同与核心协议；本文件按宿主方言变化同步。
+- **Action**：适配层只承载运行时映射（入口名、frontmatter 方言、工具调用方式）；事实源是 `<role-contract-dir>/` 角色合同与核心协议；本文件按宿主方言变化同步。
 - **Forbidden**：把适配层当事实源；在适配层新增流程规则或门禁；核心协议或角色合同反向引用本文件内容作为规则依据。
 - **Stop if**：适配器与角色合同冲突 → 以合同为准，修正本文件并报告，不改合同。
 - **Evidence**：冲突核查以合同为基准通过；本文件无七节合同、门禁等流程规则内容。
@@ -70,12 +70,12 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 
 ### 2.3 三角色 frontmatter 方言模板
 
-入口文件按角色合同生成，frontmatter 形态固定如下（description 承载派发摘要，规则权威在角色合同）：
+入口文件按角色合同生成，frontmatter 形态固定如下（description 承载派发摘要，规则权威在角色合同）。示例中的 `<role-contract-dir>` 必须按目标项目登记值展开；新项目默认 `rules/implementation/roles/`，旧项目使用登记的兼容目录（通常是 `docs/agent/roles/`）：
 
 ```text
 ---
 name: implementation
-description: "Implementation 阶段执行体运行时入口；合同、Scope 与输出以 docs/agent/roles/implementation.md 为准"
+description: "Implementation 阶段执行体运行时入口；合同、Scope 与输出以 <role-contract-dir>/implementation.md 为准"
 color: blue
 tools: [Read, Grep, Glob, Edit, Write, Bash]
 ---
@@ -84,7 +84,7 @@ tools: [Read, Grep, Glob, Edit, Write, Bash]
 ```text
 ---
 name: review
-description: "Review 阶段执行体运行时入口；只读独立审查，规则以 docs/agent/roles/review.md 为准"
+description: "Review 阶段执行体运行时入口；只读独立审查，规则以 <role-contract-dir>/review.md 为准"
 color: orange
 tools: [Read, Grep, Glob, Bash]
 ---
@@ -93,7 +93,7 @@ tools: [Read, Grep, Glob, Bash]
 ```text
 ---
 name: commit
-description: "Commit 阶段执行体运行时入口；白名单提交，规则以 docs/agent/roles/commit.md 为准"
+description: "Commit 阶段执行体运行时入口；白名单提交，规则以 <role-contract-dir>/commit.md 为准"
 color: green
 tools: [Read, Grep, Glob, Bash]
 ---
@@ -103,9 +103,9 @@ tools: [Read, Grep, Glob, Bash]
 
 | 角色合同 | required_capabilities | tools |
 | --- | --- | --- |
-| docs/agent/roles/implementation.md | inspect, search, read, edit, write, execute | [Read, Grep, Glob, Edit, Write, Bash] |
-| docs/agent/roles/review.md | inspect, search, read, readonly-execute | [Read, Grep, Glob, Bash] |
-| docs/agent/roles/commit.md | inspect, vcs-read, vcs-write | [Read, Grep, Glob, Bash] |
+| <role-contract-dir>/implementation.md | inspect, search, read, edit, write, execute | [Read, Grep, Glob, Edit, Write, Bash] |
+| <role-contract-dir>/review.md | inspect, search, read, readonly-execute | [Read, Grep, Glob, Bash] |
+| <role-contract-dir>/commit.md | inspect, vcs-read, vcs-write | [Read, Grep, Glob, Bash] |
 
 ### 2.4 独立执行体声明与降级路径
 
@@ -122,6 +122,6 @@ tools: [Read, Grep, Glob, Bash]
 ## 3. 解释与例外
 
 - inspect 映射为 Glob + Read 的组合：目录结构盘点用 Glob，现状内容核对用 Read；单能力对应多工具时按任务需要选用。
-- 宿主本地适配层实例（目标项目内 `.zcode/agents/` 等目录）由本映射生成；其与 `docs/agent/roles/` 合同冲突时以合同为准，并报告差异。
+- 宿主本地适配层实例（目标项目内 `.zcode/agents/` 等目录）由本映射生成；其与 `<role-contract-dir>/` 合同冲突时以合同为准，并报告差异。
 - capability profile 档位与 platform 枚举扩展规则见 `capability-contract.md`；降级路径语义权威在其 §2.3（本文件 §2.4 只承载本宿主的执行体声明与衔接），不复述避免第二权威。
 - 本文件与 capability-contract 按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。

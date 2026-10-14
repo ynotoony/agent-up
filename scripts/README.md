@@ -4,32 +4,34 @@
 
 # 脚本
 
-本目录承载公开包的可执行检查工具。成员清单与本目录实际文件一致，增删成员必须在此登记，不静默增删。本目录同时是道脚本与票务运维脚本的安装源：安装政策（哪些脚本在什么门控下落位、每件复制基线路径与登记 lifecycle 值）以数据文件 `install-policy.rules` 为唯一承载点（外置数据、引擎零专名，先例 `module-map.rules`），复制动作经 `install.sh` 执行——目标项目用户确认启用分级交付道快道时以 `--fast-lane` 启用，采用任务票体系（`docs/issues/` 目录创建）时以 `--ticket-ops` 启用（两套独立门控，启用判定是用户决策，脚本只承接已确认的复制动作），落位与登记口径见 `../SKILL.md` 主流程步骤 5 与 `../references/templates/development-process.md.tmpl` §12.5，脚本用法/退出码/数据格式见下文专节。复制不改变参数语义——`[repo-root]` 缺省仍取当前目录所在 Git 仓库顶层（`generate-progress.sh` 缺省取脚本所在目录的上一级），与落位后用法一致。`generate-progress.sh` 与本仓根 `scripts/generate-progress.sh`（e29090f 基线）cmp 一致，两处同源演化须互为镜像并登记差异。`ticket-ops.sh` 包内文件与本仓根 `scripts/ticket-ops.sh` 基线 cmp 零差异（入包采纳核对）；`run-record.sh` 与 `ticket-grade.sh` 包内文件与本仓根同名件基线 cmp 零差异（存量清算入包采纳——先包后仓，包自此为基准、仓侧为镜像，零语义迁移）。`lane-commit.sh` 与 `check-gates.sh` 包内文件与本仓根同名件 cmp 零差异落位（check-gates 为仓根镜像新增对——先包后仓）。镜像对数以 `package-manifest.rules` mirrors 节登记行为准，同源演化互为镜像并登记差异——镜像一致性由 `check-package.sh` 检查 13 常驻机械核对（比对对＝mirrors 节登记的包侧/仓根同名件，选定 manifest 新节承载而非引擎内注记；仓根无 `scripts/` 或无同名件静默跳过，消费项目语义）。包内落位基线脚本不运行：`ticket-ops.sh` 缺省 repo-root 取脚本所在目录的上一级，包内位置（`agent-up/scripts/`）误运行会错根，落位到目标项目 `scripts/` 后语义才正确；`install.sh` 为包侧安装器、只在包内语境运行（不落本仓 `scripts/` 镜像），自带包内误运行守卫（精确化：拦自写自毁三场景——目标含裸 `SKILL.md`（即包根本体）、目标＝本脚本所在目录、目标落位目录＝本脚本所在目录（`cd -P` 物理解析，symlink 绕不过）；仓根含包副本但落位目的地与基线不同目录＝合法源仓落位，不拦）即拒绝（exit 1）；`check-append-only.sh` 为包侧分发工具，落位消费项目后对其记录层文件运行（本仓 worktree 实跑亦合法，见专节）。
+本目录承载公开包的可执行检查工具。成员清单与本目录实际文件一致，增删成员必须在此登记，不静默增删。本目录同时是道脚本与票务运维脚本的安装源：安装政策（哪些脚本在什么门控下落位、每件复制基线路径与登记 lifecycle 值）以数据文件 `install-policy.rules` 为唯一承载点（外置数据、引擎零专名，先例 `module-map.rules`），复制动作经 `install.sh` 执行——目标项目用户确认启用分级交付道快道时以 `--fast-lane` 启用，采用任务票体系（`facts/requirements/tickets/` 目录创建）时以 `--ticket-ops` 启用（两套独立门控，启用判定是用户决策，脚本只承接已确认的复制动作），落位与登记口径见 `../SKILL.md` 主流程步骤 5 与 `../references/templates/development-process.md.tmpl` §12.5，脚本用法/退出码/数据格式见下文专节。复制不改变参数语义——`[repo-root]` 缺省仍取当前目录所在 Git 仓库顶层（`generate-progress.sh` 缺省取脚本所在目录的上一级），与落位后用法一致。`generate-progress.sh` 与本仓根 `scripts/generate-progress.sh`（e29090f 基线）cmp 一致，两处同源演化须互为镜像并登记差异。`ticket-ops.sh` 包内文件与本仓根 `scripts/ticket-ops.sh` 基线 cmp 零差异（入包采纳核对）；`run-record.sh` 与 `ticket-grade.sh` 包内文件与本仓根同名件基线 cmp 零差异（存量清算入包采纳——先包后仓，包自此为基准、仓侧为镜像，零语义迁移）。`lane-commit.sh` 与 `check-gates.sh` 包内文件与本仓根同名件 cmp 零差异落位（check-gates 为仓根镜像新增对——先包后仓）。镜像对数以 `package-manifest.rules` mirrors 节登记行为准，同源演化互为镜像并登记差异——镜像一致性由 `check-package.sh` 检查 13 常驻机械核对（比对对＝mirrors 节登记的包侧/仓根同名件，选定 manifest 新节承载而非引擎内注记；仓根无 `scripts/` 或无同名件静默跳过，消费项目语义）。包内落位基线脚本不运行：`ticket-ops.sh` 缺省 repo-root 取脚本所在目录的上一级，包内位置（`agent-up/scripts/`）误运行会错根，落位到目标项目后按落位形态取根——旧布局 `scripts/` 落位缺省即仓库根，新布局 `rules/implementation/scripts/` 落位须显式传 repo-root；`install.sh` 为包侧安装器、只在包内语境运行（不落本仓 `scripts/` 镜像），自带包内误运行守卫（精确化：拦自写自毁三场景——目标含裸 `SKILL.md`（即包根本体）、目标＝本脚本所在目录、目标落位目录＝本脚本所在目录（`cd -P` 物理解析，symlink 绕不过）；仓根含包副本但落位目的地与基线不同目录＝合法源仓落位，不拦）即拒绝（exit 1）；`check-append-only.sh` 为包侧分发工具，落位消费项目后对其记录层文件运行（本仓 worktree 实跑亦合法，见专节）。
 
 | 名字 | 地位 | 功能 |
 | --- | --- | --- |
 | `README.md` | 目录索引 | 说明脚本用途、用法、十九项检查、包清单数据表格式、输出格式、退出码与维护联动规则。 |
 | `check-package.sh` | 包完整性检查 | 按十九项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004；检查 1/5/8 清单自 `package-manifest.rules` 数据读取，检查 9/10/11 以数据为比对基准；检查 12 规则块体模糊措辞扫描、检查 13 镜像脚本与仓根同名件 cmp；检查 14 能力映射一致性；检查 15 模板规则索引与规则块全集全等、检查 16 索引机制列受控词表、检查 17 机械行点名出处存在、检查 19 scripts 节 mode 断言）；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
-| `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（承接「Record 行级保护」候选口径）：`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`docs/progress.md`（未迁移仓）及其迁移后继 `docs/archive/progress.md` 冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（不硬猜基线先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
-| `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`docs/agent/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed；`--fix` 修复形态（反向未登记 → 十三字段登记条目骨架，dry-run 缺省零写入、`--apply` 显式落盘且与预览逐字一致、与检测共用判定代码；正向缺失不修）。详见下文专节。 |
+| `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（承接「Record 行级保护」候选口径）：`facts/project/changes.jsonl` 与 `facts/project/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`facts/project/archive/progress.md` 与 `facts/project/archive/changes.md` 冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（不硬猜基线先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
+| `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`facts/project/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed；`--fix` 修复形态（反向未登记 → 十三字段登记条目骨架，dry-run 缺省零写入、`--apply` 显式落盘且与预览逐字一致、与检测共用判定代码；正向缺失不修）。详见下文专节。 |
 | `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010；S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口；S4 计数漂移哨兵：README 锚点行数↔index 条目数相等断言＋「N～M 共」「共 N 量词」计数模式扫描；S5 方案结论标注句：结论行 file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面；S6 终态哨兵：索引 id 曾达 done/superseded 被改回非终态即 STALE 指名票 id 与跃迁方向，终态史取 Git 基线，对账分层＝一致性对账之外终态语义由 S6 承载；S7 替代标记存在性：索引条目 superseded_by 指向票必须真实存在（R-DP-039 替代标记面，悬挂/链环 STALE、非终态指向 WARN）；S8 复盘沉淀指针：lesson 行 promoted_to∈{rules,validator,test} 且指针可 grep 时核对文件存在＋锚点在场，缺失/丢失＝STALE（R-DP-041 检查面））；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
 | `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的只读门禁核对（REQ-20260904-011）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；POSIX sh、严格只读、零外部依赖。详见下文专节。 |
-| `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011；单写机制改造；微道预检两断言）：门禁 → 白名单产品提交 → 索引单写（`docs/issues/index.json` 票状态真相源）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 追加或微账本（`docs/agent/micro.jsonl`）落行 → 生成器投影再生并 `--check` 核对 → 记录提交（两段式，R-RC-003）；micro 道预检两断言（白名单 ≤3 条目、改动集零新建（??）零删除（D），违者 exit 1，user-review 道不受限）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
-| `generate-progress.sh` | 现役状态投影生成器 | 自 `docs/issues/index.json`（票状态真相源，一条目一行）生成 `docs/progress-current.md` 现役状态投影（Derived，生成器独占写）；`--check` 为 dry-run 一致性核对；快道收尾由 `lane-commit.sh` 在索引单写后调用；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
-| `generate-module-map.sh` | 模块地图生成器 | 静态导入行提取生成 `<root>/docs/architecture/module-map.json` 检索索引（方案 A 静态导入行提取拍板；Rust 扩展、表驱动化、七语言批量扩展迭代）：Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌（R-DP-015 算法，输入排除本图自身）；repo-root 参数化（缺省 git toplevel）；引擎为通用规则解释器（加载规则表→发现源码→匹配捕获→策略产边→存在性过滤→组装 JSON），语言知识外置 `module-map.rules`（每语言一行，引擎零语言专名，加语言＝加规则行零引擎改动）；POSIX sh、无 jq/python（stat 与 SHA-256 工具依赖声明见专节）、fail-closed。详见下文专节。 |
+| `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011；单写机制改造；微道预检两断言）：门禁 → 白名单产品提交 → 索引单写（`facts/requirements/tickets/index.json` 票状态真相源）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 追加或微账本（`facts/project/micro.jsonl`）落行 → 生成器投影再生并 `--check` 核对 → 记录提交（两段式，R-RC-003）；micro 道预检两断言（白名单 ≤3 条目、改动集零新建（??）零删除（D），违者 exit 1，user-review 道不受限）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
+| `generate-progress.sh` | 现役状态投影生成器 | 自 `facts/requirements/tickets/index.json`（票状态真相源，一条目一行）生成 `facts/requirements/tickets/progress-current.md` 现役状态投影（Derived，生成器独占写）；`--check` 为 dry-run 一致性核对；快道收尾由 `lane-commit.sh` 在索引单写后调用；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
+| `generate-module-map.sh` | 模块地图生成器 | 静态导入行提取生成 `<root>/facts/project/architecture/module-map.json` 检索索引（方案 A 静态导入行提取拍板；Rust 扩展、表驱动化、七语言批量扩展迭代）：Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌（R-DP-015 算法，输入排除本图自身）；repo-root 参数化（缺省 git toplevel）；引擎为通用规则解释器（加载规则表→发现源码→匹配捕获→策略产边→存在性过滤→组装 JSON），语言知识外置 `module-map.rules`（每语言一行，引擎零语言专名，加语言＝加规则行零引擎改动）；POSIX sh、无 jq/python（stat 与 SHA-256 工具依赖声明见专节）、fail-closed。详见下文专节。 |
 | `module-map.rules` | 模块地图语言规则表 | `generate-module-map.sh` 的语言提取规则唯一承载点（表驱动化定稿）：每语言一行 `mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>`；strategy 枚举 extension-map（扩展名 glob 语言绑定）/unresolved-node（未解析节点引用直出）/module-path（模块路径文本直出）/direct-file（声明文件候选边＋存在性过滤）；编码语义见本表头部注释与下文专节；规则表缺失或不合预期时引擎 exit 2（fail-closed）。 |
 | `install-policy.rules` | 安装政策数据表 | 安装政策映射唯一承载点（单源化定稿；先例 `module-map.rules`：外置数据＋引擎零专名）：门控定义行 `ip_gate <gate> <flag> <说明>` 与每文件×每门控行 `ip_file <pkg-rel-path> <lifecycle> <gate> <说明>`（包内复制基线路径、登记 lifecycle 值、所属门控与角色说明；同一文件属多门控逐门控各一行，引擎按文件路径去重选取）；`install.sh` 加载时结构校验（字段数、token/flag/lifecycle/路径形态、(文件,门控) 唯一、同文件 lifecycle 一致、未定义门控引用、零文件门控），任一不合预期 exit 2（fail-closed）。 |
 | `package-manifest.rules` | 包清单数据表 | 包结构清单唯一承载点（单源化定稿；逐次扩节；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）：十节行式数据——必需入口文件（`pm_entry`）、脚本必需件（`pm_script`，kind 区分普通脚本/规则表/test-harness）、.tmpl 模板清单（`pm_template`）、规则块短码登记（`pm_shortcode`）、platform 枚举（`pm_platform`）、模糊措辞词表（`pm_vague_word`）与行级豁免（`pm_vague_exempt`，理由必填）、镜像脚本（`pm_mirror`）、能力基元名单与检查目标（`pm_capability`/`pm_capability_authority`/`pm_capability_target`）、规则索引执行机制受控词表与外定义标记词（`pm_mechanism`/`pm_mechanism_marker`）；`check-package.sh` 加载时结构校验（字段数、路径/kind/短码/platform/词/行号/文件名形态、各节内跨行不重复），任一不合预期 exit 2（fail-closed）；检查 1/5/8 清单与计数、检查 9/10/11/12/13/14/15/16/17 比对基准全部自本表读取，引擎零文件名零短码零枚举值零词表零基元名清单零机制词表。维护规则与行格式见下文专节。 |
-| `ticket-ops.sh` | 票务运维脚本 | 协调层票务面单入口（本仓交付后入包采纳）：`open`（开票：索引新增条目 status=ready＋issues-README 目录清单追加行＋账本追加行；NN 段查重——同 NN 异 slug 与畸形 id 拒开；open 本体 schema 校验＋定级/优先级理由非空断言）／`take`（领取：status=in_progress）／`flip`（状态翻转：状态机任意合法值；task 票收口硬拦——票 JSON 本体 actual_time 须已填且非空，缺项 exit 1 指名票 id 与缺项，request 不校验）／`ledger`（无票账本行入口：不依赖 docs/issues/index.json 条目 id，账本行形状校验先于写入，仅账本落行不触索引/README/投影——C0 修正类免建票收口经此落行）四子命令，索引与 README 锚点整行/单 token 机械改写，收尾调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对；校验先于写入、fail-closed（索引一条目一行排版破坏、锚点不唯一、账本行不合键序或行型条件键缺失即停止不写）；POSIX sh、无 jq（open 本体 schema 校验与 flip actual_time 校验另用 python3 标准库）。详见下文专节。 |
+| `ticket-ops.sh` | 票务运维脚本 | 协调层票务面单入口（本仓交付后入包采纳）：`open`（开票：索引新增条目 status=ready＋issues-README 目录清单追加行＋账本追加行；NN 段查重——同 NN 异 slug 与畸形 id 拒开；open 本体 schema 校验＋定级/优先级理由非空断言）／`take`（领取：status=in_progress）／`flip`（状态翻转：状态机任意合法值；task 票收口硬拦——票 JSON 本体 actual_time 须已填且非空，缺项 exit 1 指名票 id 与缺项，request 不校验）／`ledger`（无票账本行入口：不依赖 `facts/requirements/tickets/index.json` 条目 id，账本行形状校验先于写入，仅账本落行不触索引/README/投影——C0 修正类免建票收口经此落行）四子命令，索引与 README 锚点整行/单 token 机械改写，收尾调用 `generate-progress.sh` 再生 `facts/requirements/tickets/progress-current.md` 并 `--check` 核对；校验先于写入、fail-closed（索引一条目一行排版破坏、锚点不唯一、账本行不合键序或行型条件键缺失即停止不写）；POSIX sh、无 jq（open 本体 schema 校验与 flip actual_time 校验另用 python3 标准库）。详见下文专节。 |
 | `run-record.sh` | run record 生成器 | run record 生成与封存单入口（本仓交付后存量清算入包采纳）：`new` 生成十三字段骨架并自动填机械字段、内容字段留【待填：…】由执行体填，`seal` 完整性校验（usage 五子字段必备，缺项 fail-closed）全过后按当前仓库状态刷新机械字段，`stats` 只读聚合 usage 用量报表；`seal`/`stats` 依赖 python3 标准库（不引第三方），SHA-256 与 stat 工具按序探测、缺失即 exit 2；fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/退出码见脚本 `-h` 与头部注释。 |
 | `ticket-grade.sh` | 定级建议器 | 票定级建议器（本仓交付后存量清算入包采纳）：读任务票 JSON 机械计算可数判据（承重验收条数、行为/契约件模块数、高风险面关键词、公共接口证据与微道承重可数面），输出各 C 级命中条件、C0-C3 建议、微道资格预审与逐票分歧账；建议不裁决（输出只写「建议/命中/预审」，不写「必须/定级为」，分歧以 Triage 为准）；python3 标准库内嵌、全程只读零写入、fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/判据口径见脚本 `-h` 与头部注释。 |
 | `absorption-trigger.sh` | 吸收触发器 | R-DP-041 吸收面机械承载：读账本九键 lesson 行按 scope 聚合分数——同 scope 最近 3 连合同质量高分（≥80）出 PROMOTE 候选（固化为例句）、2 连低（≤40）出 FORBID 候选（进 Forbidden），提示不裁决（对齐 ticket-grade 先例）裁决归用户；数据不足 NOTE；阈值 80/40 为初值可调；POSIX sh、全程只读零写入、零外部依赖。详见下文专节。 |
 | `health-summary.sh` | 体系仪表盘 | 四分区只读汇总：打分趋势（lesson 九键行按 scope 最近分数）｜吸收候选（调用同目录 absorption-trigger.sh，口径单一承载）｜扫描报警（check-stale-claims gate STALE 计数含 S8）｜对账状态（提供包基线时出汇总行）；空源显示（无）不虚构；POSIX sh、全程只读零写入、零外部依赖。详见下文专节。 |
-| `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
+| `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/rules/implementation/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `rules/implementation/scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
-| `upgrade-check.sh` | 落地面升级对账器 | 已治理仓对包新基线的逐件三态对账（升级一等流程②）：cmp 面＝install-policy.rules 登记件在目标仓两落位形态（rules/implementation/scripts/ 新布局／scripts/ 旧布局）逐件对照包内同名件（一致＝同步、存在但不一致＝漂移、皆缺失＝落后）＋仓根 delivery.rules main-only 节锚点在位性（节在＝同步，条目为项目事实不判）＋模板生成件规则块集核对（`#### R-XX-NNN` 标题 ID 集合与包内模板比对：实例缺块＝落后逐块列 ID、实例多余块＝登记分歧候选只提示不拦截，块内语义差异归独立 Review）；全程只读 fail-closed、退出码 0 全同步/1 有差距/2 用法环境；cmp 面自 install-policy.rules 数据读取、引擎零落位路径硬编码；升级流程规则权威＝references/upgrade.md 与目标项目 rules/project.md，本件只对账不出修复动作。详见下文专节。 |
+| `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控与 delivery.rules 显示 N/A；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
+
+旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
 ## 用途与用法
 
@@ -56,8 +58,8 @@ sh scripts/check-package.sh [package-root]
 | 4 | 无绝对路径与根治理引用 | `grep -rn` 扫描用户主目录绝对路径前缀（/Users 或 /home，带尾斜杠匹配）与根治理相对引用字面量（`../` 后接 docs 或 .zcode）。按例外登记结论，模板内 `../specs/` 等兄弟路径属目标项目生成语义，不在本项口径。 |
 | 5 | 模板清单一致（数据↔磁盘↔manifest 双向；数据驱动） | `references/templates/` 下实际 `.tmpl` 与清单 `templates` 节集合一致（数量相等、互不缺多），且数据每件在 `templates/README.md` manifest 目录清单节有登记行、manifest 登记的每个 `.tmpl` 都在数据内——manifest 表＝人读投影，数据＝机器真相，双向漂移即 FAIL。 |
 | 6 | 文本契约头齐全 | `*.md` 与 `*.tmpl` 在检测窗口内含 `Input:`/`Output:`/`Pos:` 三行：无 frontmatter 的文件取前 5 行，首行为 `---` 的文件取 frontmatter 结束后的 5 行（frontmatter 未闭合判失败）。例外：`artifacts-yaml.tmpl` 以 YAML `#` 注释承载（前 5 行含 `# Input:`/`# Output:`/`# Pos:`，登记见 `templates/README.md`）；`LICENSE` 与 `schemas/*.json` 不属扫描范围（JSON 以 `$id`/`title`/`description` 承载导航元数据，例外登记见 `schemas/README.md`）。 |
-| 7 | 根治理文件不在包内 | 包根不存在 `AGENTS.md`（文件）、`docs/`（目录）、`.zcode/`（目录）。 |
-| 8 | 脚本必需件存在（扩清单历次联动；升级对账器入册后 17 件） | 清单 `scripts` 节逐行 `test -f`（现 17 件：`scripts/` 下十四 `.sh`（check-gates、lane-commit、check-stale-claims、generate-progress、generate-module-map、ticket-ops、run-record、ticket-grade——后两件存量清算入包采纳；install、check-append-only、check-artifacts、export-payload、worktree-add、upgrade-check）、两规则表（`module-map.rules`、`install-policy.rules`）、`test-record-layer.sh`——口径差定谳定为必需件，kind 标 `test-harness`）；任一缺失即 FAIL 并逐件指名缺失件（fail-closed，不因部分存在而放宽）。增删包内脚本成员须同步数据表 `scripts` 节。 |
+| 7 | 根治理文件不在包内 | 包根不存在 `AGENTS.md`（文件）与 `docs/`、`rules/`、`facts/`、`.zcode/`（目录）。 |
+| 8 | 脚本必需件存在（扩清单历次联动；件数以数据表现值为准） | 清单 `scripts` 节逐行 `test -f`——件数与逐件名单以 `package-manifest.rules` `scripts` 节为机器真相，本行不手抄计数与名单（旧手抄计数已漏更即腐烂实证；mutable 计数归权威数据面承载，引用不腐烂）；`kind` 枚举三值：`script`（普通脚本）/`rules`（规则表）/`test-harness`（回归 harness——口径差定谳：`test-record-layer.sh` 定为必需件，kind 标 `test-harness`）；任一缺失即 FAIL 并逐件指名缺失件（fail-closed，不因部分存在而放宽）。增删包内脚本成员＝先同步数据表 `scripts` 节与成员表（检查 9 双向核对），再实跑本检查核对。 |
 | 9 | scripts/README.md 成员表与数据 scripts 节一致 | 双向口径：①清单 `scripts` 节每件都在成员表登记（表＝人读投影不得漏登必需件）；②成员表登记的每件都是 `scripts/` 下实际文件（表与实物不漂移）。成员表提取锚点＝首列 `名字/地位/功能` 表头行。 |
 | 10 | 规则块短码使用均在登记内 | 扫描包内全部 `*.md` 与 `*.tmpl`（同检查 6 文件面）提取规则块 ID `R-<短码>-<三位序号>` 的两字母前缀，与清单 `shortcodes` 节比对：使用⊆登记；SPEC 规格号（`R-02-001` 形态，数字段）不落入提取模式。短码全集以 grep 实测为准（现 16 个），新增短码先登记数据表再使用。 |
 | 11 | platform 枚举登记与数据一致（逐处全等） | 各登记处值集合与清单 `platform-enum` 节逐处全等（任一处缺值/多值/改值即不一致，FAIL 行按行号指名漂移处）：`references/templates/artifacts-yaml.tmpl` platform 字段注释区（锚点＝`当前已知集合：` 标记）、`references/adapters/capability-contract.md` 内每个「已知集合」句（frontmatter 与 §2.5 各一处，各自单独比对，不并集）；提取锚点为登记标记文本，值集合以数据为权威。 |
@@ -138,7 +140,7 @@ mechanism-vocab 词表与规则索引维护：受控三值与外定义标记词�
 sh scripts/check-stale-claims.sh [repo-root] [gate|session]
 ```
 
-- 无参数：以脚本所在目录向上两级为仓库根（脚本位于 `agent-up/scripts/`；在本仓库内运行时，检的就是本仓库），模式默认 `gate`。
+- 无参数：以脚本所在目录向上两级为仓库根——仅包内 `agent-up/scripts/` 落位时该缺省即仓库根（在本仓库内运行时，检的就是本仓库）；旧布局 `scripts/` 落位时向上两级解析为仓库父目录、新布局 `rules/implementation/scripts/` 落位时解析为 `rules/`，均非仓库根，须显式传参指定 repo-root，模式默认 `gate`。
 - 带参数：第一参数为仓库根，第二参数为模式；模式也可用环境变量 `STALE_CLAIMS_MODE` 指定（第二参数优先）。
 - `-h` / `--help`：打印用法。
 
@@ -155,12 +157,12 @@ sh scripts/check-stale-claims.sh [repo-root] [gate|session]
 
 | 编号 | 断言模式 | 权威位置 | 校验方式 |
 | --- | --- | --- | --- |
-| S1 | Git 状态句 | `docs/archive/progress.md` 的「Git 恢复基线」块（2026-09-23 迁址自 docs/progress.md） | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、唯一 remote 与宣称地址一致、本地 main 未被远端跟踪分支包含）；非 Git 工作区按流程退化语义输出提醒跳过。（修订：移除"工作区存在未提交改动"子项核对——该陈述为历史时点快照，`docs/progress.md` 现为冻结历史档案（零写入），清洁工作区属稳态，逐字核对构成恒触发误报（S1-1e 已知缺口）；基线块原文按"不改历史"保留。） |
+| S1 | Git 状态句 | `facts/project/archive/progress.md` 的「Git 恢复基线」块（2026-09-23 自 docs/progress.md 迁址） | machine：Git 只读子命令逐项核对基线块宣称（首个提交存在、本地导出分支存在、唯一 remote 与宣称地址一致、本地 main 未被远端跟踪分支包含）；非 Git 工作区按流程退化语义输出提醒跳过。（修订：移除"工作区存在未提交改动"子项核对——该陈述为历史时点快照，`facts/project/archive/progress.md` 现为冻结历史档案（零写入），清洁工作区属稳态，逐字核对构成恒触发误报（S1-1e 已知缺口）；基线块原文按"不改历史"保留。） |
 | S2 | 发布状态句 | 根 `README.md`「公开包已发布」宣称行 + 包内 README 安装行（包前缀自 `delivery.rules` dp_payload_root 派生） | machine：文档宣称的仓库地址与实际 remote 配置归一化比对（remote 名自 dp_payload_remote 读取）、包内安装行同源核对；远端可达性/可见性本地不核验（不出网）→ reminder。 |
-| S3 | frontier 句 | `docs/issues/index.json`（票状态真相源）+ `docs/progress-current.md`（现役状态投影） | machine：投影 vs 索引比对——优先调用 `generate-progress.sh --check`（exit 0 一致；exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明（不计入失败）。（修订：原"`docs/issues/README.md` 表行逐票对照票面状态"实现退役——README 状态列已定位为人工登记投影，与索引冲突时以索引为准。） |
-| S4 | 计数漂移句 | `docs/issues/README.md` 目录清单锚点行（「任务票 NN；」）+ `docs/issues/index.json` 任务条目；`docs/` 树 md + `docs/agent/artifacts.yaml` 现行面计数措辞 | machine：两断言（详见下文 S4 小节）——①数量相等：README「任务票 NN；」锚点行数与 index「`"id": "NN-…"`」条目数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：「N～M 共」「共 N 量词」命中输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；扫描面排除与豁免表见下文 S4 小节。 |
+| S3 | frontier 句 | `facts/requirements/tickets/index.json`（票状态真相源）+ `facts/requirements/tickets/progress-current.md`（现役状态投影） | machine：投影 vs 索引比对——优先调用 `generate-progress.sh --check`（exit 0 一致；exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明（不计入失败）。（修订：原"`docs/issues/README.md`（现 `facts/requirements/tickets/README.md`）表行逐票对照票面状态"实现退役——README 状态列已定位为人工登记投影，与索引冲突时以索引为准。） |
+| S4 | 计数漂移句 | `facts/requirements/tickets/README.md` 目录清单锚点行（「任务票 NN；」）+ `facts/requirements/tickets/index.json` 任务条目；`facts/` 树 md + `facts/project/artifacts.yaml` 现行面计数措辞 | machine：两断言（详见下文 S4 小节）——①数量相等：README「任务票 NN；」锚点行数与 index「`"id": "NN-…"`」条目数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：「N～M 共」「共 N 量词」命中输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；扫描面排除与豁免表见下文 S4 小节。 |
 | S5 | 方案结论标注句 | 扫描面 glob 清单登记的方案类文档（`s5_load_globs` 数据节，现行唯一条目 `facts/requirements/research/*.md`（源仓实例迁移后）；扩面须同步修订 R-DP-033 条文与数据节） | machine：R-DP-033 加固配套格式断言（详见下文 S5 小节）——结论行（行首「结论：」形态）逐行核对证据出处（`file:`）与适用轨（`轨:` 受控两值 本仓自用/agent-up）；只查格式不判语义；向前生效只查工作区新增/修改面（`git status --porcelain`），存量不回溯；非 Git 工作区 WARN 退化跳过。 |
-| S6 | 终态哨兵 | `docs/issues/index.json`（票状态真相源，一条目一行）＋该索引的 Git 现行提交历史（基线锚） | machine：终态哨兵（详见下文 S6 小节）——索引内 id 曾达终态（done/superseded）而当前 status 回到非终态（ready/in_progress/blocked/review_ready/review_pass/review_fail）即 STALE 指名票 id 与跃迁方向；非 Git 工作区 WARN 退化跳过，索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过；对账分层＝一致性对账（S3 投影↔索引）之外终态语义由 S6 承载。 |
+| S6 | 终态哨兵 | `facts/requirements/tickets/index.json`（票状态真相源，一条目一行）＋该索引的 Git 现行提交历史（基线锚） | machine：终态哨兵（详见下文 S6 小节）——索引内 id 曾达终态（done/superseded）而当前 status 回到非终态（ready/in_progress/blocked/review_ready/review_pass/review_fail）即 STALE 指名票 id 与跃迁方向；非 Git 工作区 WARN 退化跳过，索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过；对账分层＝一致性对账（S3 投影↔索引）之外终态语义由 S6 承载。 |
 | S7 | 替代标记存在性 | `facts/requirements/tickets/index.json`（票状态真相源，一条目一行） | machine：superseded_by 存在性断言（R-DP-039 替代标记面配套）——索引条目含非空 superseded_by 时，指向的票 id 必须真实存在于本索引（缺失即 STALE 指名双方 id）；指向票自身亦带标记（替代链环/自指）即 STALE；指向票状态非终态（替代票尚未收口）仅 WARN 不拦截（先标后收合法顺序）；字段缺失＝零命中零报（可选字段语义，存量票零回扫），不按时间自动打标。 |
 | S8 | 复盘沉淀指针 | `facts/project/changes.jsonl`（教训账本，kind=lesson 行） | machine：沉淀指针核对（R-DP-041 检查面配套）——lesson 行 promoted_to ∈ {rules, validator, test} 且 decision/evidence_ref 含可 grep 文件指针（rules/ 或 scripts/ 路径，可带 #锚点后缀）时，核对指针文件仍存在且锚点在场：文件缺失或锚点丢失＝STALE 指名行号与指针（沉淀被删或指针写错）；promoted_to ∈ {新票, none} 不在扫描面；指针不可 grep 形态＝NOTE 退化不计失败；append-only 校正由人落新行，S8 只报警不代写。 |
 
@@ -174,15 +176,15 @@ WARN: <路径:行号> — <提醒内容（含登记日期与【待定】阈值�
 NOTE: <路径> — <比对机制退化说明（生成器不可用时退化为内建最小比对；不计入失败）>
 STALE-prone: <路径:行号> — 计数模式命中（S4-②，计入过期断言计数）：改写为计数无关措辞或按登记表注记理由豁免
 SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）    # 点亮语义：未点亮条目不计数
-STALE: docs/issues/index.json:<票id> — S6 终态哨兵：票 <票id> 曾达终态，当前 status 被改回非终态 <状态>——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记
-STALE: docs/issues/index.json:<票id> — S7 替代标记断言：票 <票id> 的 superseded_by 指向 <票id>，但该票不在索引中——替代标记指向的票必须真实存在（R-DP-039），修标或先开替代票
+STALE: facts/requirements/tickets/index.json:<票id> — S6 终态哨兵：票 <票id> 曾达终态，当前 status 被改回非终态 <状态>——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记
+STALE: facts/requirements/tickets/index.json:<票id> — S7 替代标记断言：票 <票id> 的 superseded_by 指向 <票id>，但该票不在索引中——替代标记指向的票必须真实存在（R-DP-039），修标或先开替代票
 check-stale-claims: PASS（登记表 N 条全部核对，提醒 N 条）    # gate 模式清洁；N＝点亮数＋通用条数（动态化，全点亮语境渲染 8）
 check-stale-claims: FAIL（N 处过期断言，登记表共 N 条）       # gate 模式存在过期断言；N 同上
 check-stale-claims: 会话启动模式（不拦截）：过期断言 N 处，提醒 N 条，请人工核对上方输出
 ```
 
 - STALE 行含 `路径:行号` 定位与差异说明；WARN 行为提醒（非失败）；NOTE 行为 S3 比对机制退化说明（非失败）；STALE-prone 行为 S4-② 计数模式易腐命中（计入过期断言计数，与 STALE 同口径参与 gate 拦截 / session 警告）；结尾汇总行给出计数与结论。
-- S3 生成器定位顺序：本脚本同目录（包内自含）→ 仓库根 `scripts/`（落位安装形态）；两处均不可用才退化内建最小比对。两模式对生成器退出码的语义映射一致：差异与异常均计 STALE，gate 拦截 / session 警告。
+- S3 生成器定位顺序：本脚本同目录（包内自含）→ `<repo-root>/rules/implementation/scripts/`（新布局落位安装形态）；两处均不可用才退化内建最小比对。两模式对生成器退出码的语义映射一致：差异与异常均计 STALE，gate 拦截 / session 警告。
 
 ### 退出码
 
@@ -196,10 +198,10 @@ check-stale-claims: 会话启动模式（不拦截）：过期断言 N 处，提
 
 推数字免费化哨兵（先例实证：数字会腐烂、计数无关措辞不会；真发现源头＝artifacts.yaml 注记 16→60 计数漂移穿透既有门禁）。两断言语义：
 
-- S4-① 数量相等：`docs/issues/README.md` 目录清单「任务票 <NN>；」锚点行数（ticket-ops 写入锚）与 `docs/issues/index.json` 任务条目数（`"id": "<NN>-…"` 形态）机械相等，不等即 STALE 指名两侧计数（ticket-ops 双写锁定面的漂移检测，手工删行/加行即报）；README/索引缺失或锚点零命中 WARN 跳过不硬猜（随既有退化语义）。
-- S4-② 计数模式扫描：扫描面＝`docs/` 树 `*.md` ＋ `docs/agent/artifacts.yaml`，出现「<数字>～<数字> 共」或「共 <数字> <量词>（张/条/项/件/个）」即输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；模式为 ERE、全程 LC_ALL=C 字节语义。
+- S4-① 数量相等：`facts/requirements/tickets/README.md` 目录清单「任务票 <NN>；」锚点行数（ticket-ops 写入锚）与 `facts/requirements/tickets/index.json` 任务条目数（`"id": "<NN>-…"` 形态）机械相等，不等即 STALE 指名两侧计数（ticket-ops 双写锁定面的漂移检测，手工删行/加行即报）；README/索引缺失或锚点零命中 WARN 跳过不硬猜（随既有退化语义）。
+- S4-② 计数模式扫描：扫描面＝`facts/` 树 `*.md` ＋ `facts/project/artifacts.yaml`，出现「<数字>～<数字> 共」或「共 <数字> <量词>（张/条/项/件/个）」即输出 STALE-prone 指名 file:line、计入过期断言计数（gate exit 1 / session 只警告）；模式为 ERE、全程 LC_ALL=C 字节语义。
 
-扫描面排除（历史真陈述/机器生成面非现行声明，命中不报；2026-09-21 协调层裁决 O3 收窄）：`docs/issues/*.md`（票面历史文件——历史票文不改写原则）、`docs/agent/runs/`（run record 投影）、`docs/architecture/generated/`（机器生成投影面）、`docs/archive/progress.md`（冻结历史档案——指针注记后零写入；2026-09-23 迁址）、`docs/archive/changes.md`（只追加账本冻结件——历史条目不可改写；2026-09-23 迁址）、`docs/progress-current.md`（现役状态投影——Derived 生成器独占写）。
+扫描面排除（历史真陈述/机器生成面非现行声明，命中不报；2026-09-21 协调层裁决 O3 收窄）：`facts/requirements/tickets/*.md`（票面历史文件——历史票文不改写原则）、`facts/requirements/runs/`（run record 投影）、`facts/project/architecture/generated/`（机器生成投影面）、`facts/project/archive/progress.md`（冻结历史档案——指针注记后零写入；2026-09-23 自 docs/ 迁址）、`facts/project/archive/changes.md`（只追加账本冻结件——历史条目不可改写；同批迁址）、`facts/requirements/tickets/progress-current.md`（现役状态投影——Derived 生成器独占写）。
 
 豁免表（脚本内 `s4_load_exempts` 数据节，唯一承载点）：每条一行 `s4_exempt <仓库根相对路径> <行号> <理由>`，理由必填、显式登记、无静默豁免；命中行增删致行号漂移时须复核更新或删除登记（对齐 `package-manifest.rules` vague-exemptions 维护口径）。当前空表交付（裁决定谳）＝现行面全数字免费，本表为未来正当例外预留。
 
@@ -214,10 +216,10 @@ R-DP-033 加固（2026-09-23 复盘产出）配套格式断言：调研/对比�
 
 ### S6 终态哨兵
 
-终态哨兵（2026-09-24 链执行复盘缺口④配套，R3/R8 合并票）：`docs/issues/index.json` 内 id 曾达终态（`done`/`superseded`）而当前 status 回到非终态（`ready`/`in_progress`/`blocked`/`review_ready`/`review_pass`/`review_fail`）即 STALE 指名票 id 与跃迁方向、计入过期断言计数（gate exit 1 / session 只警告）。防的病＝幽灵态静默（重放/误操作把 done 票打回 in_progress 时，投影↔索引一致性对账照绿——一致性对账不查状态语义合法性；对账分层：一致性对账之外，终态语义由 S6 承载）。
+终态哨兵（2026-09-24 链执行复盘缺口④配套，R3/R8 合并票）：`facts/requirements/tickets/index.json` 内 id 曾达终态（`done`/`superseded`）而当前 status 回到非终态（`ready`/`in_progress`/`blocked`/`review_ready`/`review_pass`/`review_fail`）即 STALE 指名票 id 与跃迁方向、计入过期断言计数（gate exit 1 / session 只警告）。防的病＝幽灵态静默（重放/误操作把 done 票打回 in_progress 时，投影↔索引一致性对账照绿——一致性对账不查状态语义合法性；对账分层：一致性对账之外，终态语义由 S6 承载）。
 
 - 状态词表（受控，与 `ticket-ops.sh flip --status` 状态机八值一致）：终态 `done | superseded`；非终态 `ready | in_progress | blocked | review_ready | review_pass | review_fail`；词表外的 status 值不越哨兵面零报（排版/词表破坏归 S3 `--check` exit 2 语义）。
-- 基线锚＝该索引的 Git 现行提交历史：`git log -p --format= -- docs/issues/index.json` 提取历次 + 行的 `id`/`status` 对（缩进宽容），曾见终态即入哨兵集；当前行（工作区现状）同款提取后与哨兵集求交，仅「曾终态→现非终态」报。选型理由：零新增数据源——终态史已由仓库历史承载，夹具/快照清单反而成为第二本可漂移的账；真实历史全量回放零误报（合法流转 done→superseded 等均为终态间迁移不触发）。
+- 基线锚＝该索引的 Git 现行提交历史：`git log -p --format= -- facts/requirements/tickets/index.json` 提取历次 + 行的 `id`/`status` 对（缩进宽容），曾见终态即入哨兵集；当前行（工作区现状）同款提取后与哨兵集求交，仅「曾终态→现非终态」报。选型理由：零新增数据源——终态史已由仓库历史承载，夹具/快照清单反而成为第二本可漂移的账；真实历史全量回放零误报（合法流转 done→superseded 等均为终态间迁移不触发）。
 - 合法复开路径＝改 id（新票承载重开，旧票显式 superseded 登记）或 `ticket-ops.sh flip` 至合法状态机值；重开终态票属非法跃迁，机器喊。
 - 退化语义：非 Git 工作区 → WARN 跳过；索引尚无基线提交**且**当前行无可提取条目（无可比历史）→ WARN 跳过不硬猜（对齐 S1/S5）；索引文件缺失 WARN 跳过（对齐 S3 缺失语义）。已知限制：基线提取走 `git log -p`，merge commit 默认不出 patch——仅经合并冲突引入索引的终态史不入哨兵集（现行流程翻转均经普通提交）；单文件一条目一行排版为提取口径（与 S3 同款），条目跨行排版不受理。
 
@@ -271,7 +273,7 @@ check-gates: FAIL（N 项未通过）
 
 ## lane-commit.sh（快道收尾脚本）
 
-分级交付道快道的合同驱动收尾脚本（REQ-20260904-011；单写机制改造）：门禁核对 → 白名单产品提交 → 记录写入（索引单写 → 票正文 Status 投影打印件回写（`.md` 票；`.json` 票体无 `**Status:**` 行，跳过回写并打印说明行）→ User Review Checkpoint 追加（`.md` 票追加票尾；`.json` 票体零追加，落独立 `docs/issues/<id>-review-checkpoint.md`，`<id>` 为票文件去 `.md`/`.json` 后缀）或微账本落行 → 生成器投影再生并 `--check` 核对）→ 记录提交，两段式（先产品提交后纯记录提交，R-RC-003）。行为基线 = development-process 模板 §12.5 道脚本承载注记（单写索引 → 生成正文 Status 行 → 生成投影）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖、零网络依赖、fail-closed（门禁不过、合同格式不合预期、索引或生成器缺失即停止报告；预检先于产品提交，停止时零提交零写入，不 best-effort 修补）。脚本权限边界 = 提交合同白名单，不执行白名单外任何写入；`docs/issues/README.md` 与 `docs/progress.md` 状态行不属本脚本写入面（README 状态列为人工登记投影）。
+分级交付道快道的合同驱动收尾脚本（REQ-20260904-011；单写机制改造）：门禁核对 → 白名单产品提交 → 记录写入（索引单写 → 票正文 Status 投影打印件回写（`.md` 票；`.json` 票体无 `**Status:**` 行，跳过回写并打印说明行）→ User Review Checkpoint 追加（`.md` 票追加票尾；`.json` 票体零追加，落独立 `facts/requirements/tickets/<id>-review-checkpoint.md`，`<id>` 为票文件去 `.md`/`.json` 后缀）或微账本落行 → 生成器投影再生并 `--check` 核对）→ 记录提交，两段式（先产品提交后纯记录提交，R-RC-003）。行为基线 = development-process 模板 §12.5 道脚本承载注记（单写索引 → 生成正文 Status 行 → 生成投影）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖、零网络依赖、fail-closed（门禁不过、合同格式不合预期、索引或生成器缺失即停止报告；预检先于产品提交，停止时零提交零写入，不 best-effort 修补）。脚本权限边界 = 提交合同白名单，不执行白名单外任何写入；`facts/requirements/tickets/README.md` 与 `facts/project/archive/progress.md` 状态行不属本脚本写入面（README 状态列为人工登记投影）。
 
 ### 用法
 
@@ -290,7 +292,7 @@ sh scripts/lane-commit.sh [repo-root] <contract-file>
 | 行格式 | 说明 |
 | --- | --- |
 | `lane: user-review` 或 `lane: micro` | 必需，恰一行；取值仅 `user-review` 或 `micro`。micro 道预检两断言：白名单 ≤3 条目、改动集零新建（??）零删除（D）——违者 exit 1；user-review 道不受限。 |
-| `ticket: <仓库根相对路径>` | user-review 道必填（票文件须存在）；micro 道不得出现。票体 `.md` 或 `.json`——Checkpoint 承载形态随票体分派（`.md` 票追加票尾；`.json` 票落独立 `docs/issues/<id>-review-checkpoint.md`，票体零追加）。 |
+| `ticket: <仓库根相对路径>` | user-review 道必填（票文件须存在）；micro 道不得出现。票体 `.md` 或 `.json`——Checkpoint 承载形态随票体分派（`.md` 票追加票尾；`.json` 票落独立 `facts/requirements/tickets/<id>-review-checkpoint.md`，票体零追加）。 |
 | `whitelist: <逗号分隔相对路径>` | 必填，一行可多项；口径同 check-gates.sh（须为仓库根相对文件路径）。 |
 | `message: <产品提交说明>` | 必填，恰一行。 |
 | `verify: <验证命令>` | 一行一条，可多行；交由 check-gates.sh 重跑并记录退出码。 |
@@ -298,12 +300,12 @@ sh scripts/lane-commit.sh [repo-root] <contract-file>
 | `verdict_at: <裁决时间>` | user-review 道必填；micro 道不得出现。 |
 | `actual: <净工时>` | micro 道可选（至多一行）：本次微收口净工时文本（净工时口径：会话段累计减中断段），落微账本 `actual` 键；缺省空串——既有六键行向后兼容（合同不带 `actual:` 行照旧落行，actual 记空串）；user-review 道不得出现（其实际用时落票本体 `actual_time` 字段，ticket-ops flip 收口硬拦）。 |
 | `flips: <file>:<field>:<value>` | 行翻转：一行一条，可多行；`field` 不得为 `status`（已退役）或 `index`（索引专用段名）。 |
-| `flips: docs/issues/index.json:index:<id>:<status>:<updated_at>` | 索引条目翻转：user-review 道专用，至多一条；`id` 须与 `ticket` 票文件名去 `.md`/`.json` 后缀一致；`status` 为状态机裸值（ready / in_progress / blocked / review_ready / review_pass / review_fail / done / superseded，不带冒号后缀）；`updated_at` 形如 `YYYY-MM-DDTHH:MM[:SS]`（允许冒号，取行尾余段）。 |
+| `flips: facts/requirements/tickets/index.json:index:<id>:<status>:<updated_at>` | 索引条目翻转：user-review 道专用，至多一条；`id` 须与 `ticket` 票文件名去 `.md`/`.json` 后缀一致；`status` 为状态机裸值（ready / in_progress / blocked / review_ready / review_pass / review_fail / done / superseded，不带冒号后缀）；`updated_at` 形如 `YYYY-MM-DDTHH:MM[:SS]`（允许冒号，取行尾余段）。 |
 | `# 注释` / 空行 | 行首 `#` 与空行忽略；无法识别的行、重复行判合同格式错误（exit 1）。 |
 
 flips 语义（单写机制）：
 
-- 索引条目翻转（单写机制）：单写 `docs/issues/index.json`——`"id": "<id>"` 锚点整行替换，仅改该行 `status` 与 `updated_at` 两值，`complexity`/`blocked_by`/`checkpoint_ref` 等其余字段原样保留；依赖一条目一行排版，条目行不含同行 `status`/`updated_at` 字段或锚点命中数 ≠1 即预检停止。随后机械回写 `ticket` 票正文 `**Status:**` 行为反引号包裹的 `status`（投影打印件，过渡期口径；正文 Status 行须恰命中一行；`.json` 票体无 `**Status:**` 行，跳过回写并打印说明行，状态唯一真相源＝索引），再调用 `generate-progress.sh` 再生 `docs/progress-current.md` 并 `--check` 核对（两步任一非 0 即停止，输出指路）。生成器定位：本脚本同目录优先，PATH 回退（手动迭代 PATH 逐目录探测可读的 `generate-progress.sh`；不用 `command -v`——落位脚本不要求可执行位、恒经 sh 调用，`command -v` 对不可执行文件不报告，措辞对齐实现 lane-commit.sh 生成器定位段）；索引或生成器缺失属预检条件，先于产品提交停止。
+- 索引条目翻转（单写机制）：单写 `facts/requirements/tickets/index.json`——`"id": "<id>"` 锚点整行替换，仅改该行 `status` 与 `updated_at` 两值，`complexity`/`blocked_by`/`checkpoint_ref` 等其余字段原样保留；依赖一条目一行排版，条目行不含同行 `status`/`updated_at` 字段或锚点命中数 ≠1 即预检停止。随后机械回写 `ticket` 票正文 `**Status:**` 行为反引号包裹的 `status`（投影打印件，过渡期口径；正文 Status 行须恰命中一行；`.json` 票体无 `**Status:**` 行，跳过回写并打印说明行，状态唯一真相源＝索引），再调用 `generate-progress.sh` 再生 `facts/requirements/tickets/progress-current.md` 并 `--check` 核对（两步任一非 0 即停止，输出指路）。生成器定位：本脚本同目录优先，PATH 回退（手动迭代 PATH 逐目录探测可读的 `generate-progress.sh`；不用 `command -v`——落位脚本不要求可执行位、恒经 sh 调用，`command -v` 对不可执行文件不报告，措辞对齐实现 lane-commit.sh 生成器定位段）；索引或生成器缺失属预检条件，先于产品提交停止。
 - 行翻转：锚点为字面子串，须恰命中一行，整行换成 `value`。
 - `field: status` 已退役（frontmatter status 退役、票状态经索引单写机制承载）：合同携带即停止并指路索引条目口径。锚点不合规在写入前停止（exit 1）。
 
@@ -315,19 +317,19 @@ flips 语义（单写机制）：
 2. 翻转目标与预检（只扫描不写入）：翻转目标存在性、索引一条目一行排版与 id 锚点唯一命中、正文 Status 行唯一命中、行翻转锚点唯一命中、生成器可用性（同目录 → PATH）；全部通过才继续。
 3. 门禁核对（内部调用同目录 check-gates.sh，只读）；任一不符 exit 1。
 4. 产品提交：按白名单逐项 `git add`，防御性核对暂存内容不越出白名单，按合同 `message` 创建提交。
-5. 记录写入：索引单写 → 票正文 Status 投影打印件回写（`.json` 票跳过并打印说明行）→ 行翻转 → user-review 道落 User Review Checkpoint（裁决原文、裁决时间、产品提交 ID 与说明、diff 摘要；`.md` 票追加票尾，`.json` 票落独立 `docs/issues/<id>-review-checkpoint.md`——不存在则创建带一级标题、已存在则追加记录块，票体零追加）/ micro 道向 `docs/agent/micro.jsonl` 落一行 JSON → 生成器投影再生并 `--check` 核对。
+5. 记录写入：索引单写 → 票正文 Status 投影打印件回写（`.json` 票跳过并打印说明行）→ 行翻转 → user-review 道落 User Review Checkpoint（裁决原文、裁决时间、产品提交 ID 与说明、diff 摘要；`.md` 票追加票尾，`.json` 票落独立 `facts/requirements/tickets/<id>-review-checkpoint.md`——不存在则创建带一级标题、已存在则追加记录块，票体零追加）/ micro 道向 `facts/project/micro.jsonl` 落一行 JSON → 生成器投影再生并 `--check` 核对。
 6. 记录提交：索引、票文件、投影、微账本等记录内容统一入第二段提交（`chore(lane): 记录翻转 — <message>`）。
 
 ```text
 lane-commit: 生成器定位: 同目录 <路径>|PATH <路径>
-lane-commit: 索引单写: docs/issues/index.json（<id> → <status>，updated_at <时间>）
+lane-commit: 索引单写: facts/requirements/tickets/index.json（<id> → <status>，updated_at <时间>）
 lane-commit: 正文 Status 回写（投影打印件）: <ticket> → **Status:** `<status>`
 lane-commit: 跳过正文 Status 回写: <ticket>（.json 票体无 **Status:** 行，状态唯一真相源＝索引）
 lane-commit: 翻转: <file>:<field>:<value>
 lane-commit: User Review Checkpoint 已追加: <ticket>
-lane-commit: User Review Checkpoint 已追加: docs/issues/<id>-review-checkpoint.md（.json 票体零追加，独立 checkpoint md 承载）
-lane-commit: 微账本已落行: docs/agent/micro.jsonl
-lane-commit: 投影已再生并核对: docs/progress-current.md
+lane-commit: User Review Checkpoint 已追加: facts/requirements/tickets/<id>-review-checkpoint.md（.json 票体零追加，独立 checkpoint md 承载）
+lane-commit: 微账本已落行: facts/project/micro.jsonl
+lane-commit: 投影已再生并核对: facts/requirements/tickets/progress-current.md
 lane-commit: 产品提交 <提交 ID>
 lane-commit: 产品文件: <逗号分隔清单>
 lane-commit: 记录提交 <提交 ID>
@@ -347,14 +349,14 @@ lane-commit: PASS（两段式完成：门禁 PASS、索引单写 N 处、翻转 
 
 ### 微账本与维护联动
 
-- 微账本 `docs/agent/micro.jsonl`（替代竖线格式 `micro.md`；无存量迁移负担）与 user-review 道 User Review Checkpoint 由本脚本独占写：微账本懒创建（空文件起步，JSONL 不承载注释行），一行一操作，agent 不手写、其他流程不得代写。JSON 行字段与键序固定：`date`（`YYYY-MM-DD`）、`lane`（`micro`）、`whitelist`（逗号分隔白名单，JSON 转义 `"` 与 `\`）、`gates`（`PASS`）、`verify`（重跑验证命令条数）、`commit`（产品提交 ID）、`actual`（净工时文本——微道提交合同 `actual:` 行承载，JSON 转义同 whitelist，缺省空串；既有六键行向后兼容，合同不带 `actual:` 行即落空串）；每行均可被 `json.loads` 解析，禁裸换行。
-- 白名单与 flips 目标均须为仓库根相对文件路径；索引条目翻转锚点依赖 `docs/issues/index.json` 一条目一行排版与条目行内 `"status"`/`"updated_at"` 字段同行（排版破坏即预检停止），排版口径见 `../references/schemas/issue-index.schema.json`；正文 Status 回写锚点依赖票面 `**Status:**` 行格式（`.json` 票体不承载 Status 行，无此锚点依赖），格式变化须同步脚本锚点语义与本 README。
-- 生成器 `generate-progress.sh` 与本脚本同目录落位（生成项目 `scripts/` 由 SKILL 步骤 5 一并复制）；仅 PATH 回退形态运行时，投影再生依赖 PATH 上的同名脚本。索引或生成器缺失的停止属 fail-closed（对齐 development-process R-DP-031 兜底），不存在"缺失就跳过继续"路径。
+- 微账本 `facts/project/micro.jsonl`（替代竖线格式 `micro.md`；无存量迁移负担）与 user-review 道 User Review Checkpoint 由本脚本独占写：微账本懒创建（空文件起步，JSONL 不承载注释行），一行一操作，agent 不手写、其他流程不得代写。JSON 行字段与键序固定：`date`（`YYYY-MM-DD`）、`lane`（`micro`）、`whitelist`（逗号分隔白名单，JSON 转义 `"` 与 `\`）、`gates`（`PASS`）、`verify`（重跑验证命令条数）、`commit`（产品提交 ID）、`actual`（净工时文本——微道提交合同 `actual:` 行承载，JSON 转义同 whitelist，缺省空串；既有六键行向后兼容，合同不带 `actual:` 行即落空串）；每行均可被 `json.loads` 解析，禁裸换行。
+- 白名单与 flips 目标均须为仓库根相对文件路径；索引条目翻转锚点依赖 `facts/requirements/tickets/index.json` 一条目一行排版与条目行内 `"status"`/`"updated_at"` 字段同行（排版破坏即预检停止），排版口径见 `../references/schemas/issue-index.schema.json`；正文 Status 回写锚点依赖票面 `**Status:**` 行格式（`.json` 票体不承载 Status 行，无此锚点依赖），格式变化须同步脚本锚点语义与本 README。
+- 生成器 `generate-progress.sh` 与本脚本同目录落位（生成项目随道脚本由 SKILL 步骤 5 一并复制到 `rules/implementation/scripts/`；旧布局 `scripts/` 兼容副本保留、不自动迁移）；仅 PATH 回退形态运行时，投影再生依赖 PATH 上的同名脚本。索引或生成器缺失的停止属 fail-closed（对齐 development-process R-DP-031 兜底），不存在"缺失就跳过继续"路径。
 - 本脚本用法、合同行格式或退出码变化须同步脚本 usage 文本与本 README 专节；门禁清单格式口径以 check-gates.sh 专节为准。
 
 ## generate-progress.sh（现役状态投影生成器）
 
-投影生成器（生成规则草案 §5.1.4）：自 `docs/issues/index.json`（票状态机器真相源，单文件一条目一行）生成 `docs/progress-current.md` 现役状态投影——Derived 四标注头部（generated_from、生成时间、覆盖范围、失效条件）＋每票一行 `| id | status | checkpoint_ref | updated_at |` 状态表，按 id 升序。生成器独占写 `docs/progress-current.md`（development-process 模板 §12.5 派生载体独占写），agent 不手写该投影；投影与索引不一致时以索引为准。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖（无 jq/python）、fail-closed——索引缺失、不可读或条目行不合预期即停止报告，不写投影。包内版本与本仓根 `scripts/generate-progress.sh`（e29090f 基线）cmp 一致（入包核对）；快道收尾由 `lane-commit.sh` 在索引单写后自动调用，生成项目由 SKILL 步骤 5 随道脚本一并复制落位 `scripts/`。
+投影生成器（生成规则草案 §5.1.4）：自 `facts/requirements/tickets/index.json`（票状态机器真相源，单文件一条目一行）生成 `facts/requirements/tickets/progress-current.md` 现役状态投影——Derived 四标注头部（generated_from、生成时间、覆盖范围、失效条件）＋每票一行 `| id | status | checkpoint_ref | updated_at |` 状态表，按 id 升序。生成器独占写 `facts/requirements/tickets/progress-current.md`（development-process 模板 §12.5 派生载体独占写），agent 不手写该投影；投影与索引不一致时以索引为准。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖（无 jq/python）、fail-closed——索引缺失、不可读或条目行不合预期即停止报告，不写投影。包内版本与本仓根 `scripts/generate-progress.sh`（e29090f 基线）cmp 一致（入包核对）；快道收尾由 `lane-commit.sh` 在索引单写后自动调用，生成项目由 SKILL 步骤 5 随道脚本一并复制落位 `rules/implementation/scripts/`（旧布局 `scripts/` 兼容副本保留，不自动迁移）。
 
 ### 用法
 
@@ -362,9 +364,9 @@ lane-commit: PASS（两段式完成：门禁 PASS、索引单写 N 处、翻转 
 sh scripts/generate-progress.sh [--check] [repo-root]
 ```
 
-- 无参数：repo-root 缺省取脚本所在目录的上一级（落位形态 `scripts/` 即仓库根）。
+- 无参数：repo-root 缺省取脚本所在目录的上一级——旧布局 `scripts/` 落位（脚本位于仓库根直接子目录）时该缺省即仓库根；新布局 `rules/implementation/scripts/` 落位时缺省解析为 `rules/implementation/`、非仓库根，须显式传 repo-root。
 - 带参数：以第一参数为仓库根（对临时目录副本或非默认落位复跑时使用）。
-- `--check`：dry-run 一致性核对——生成结果与既有 `docs/progress-current.md` 各自规范化 `generated_at` 行（该行随生成时间漂移，不参与判定）后逐字节比对，一致 exit 0，不一致 exit 1，不写任何文件。
+- `--check`：dry-run 一致性核对——生成结果与既有 `facts/requirements/tickets/progress-current.md` 各自规范化 `generated_at` 行（该行随生成时间漂移，不参与判定）后逐字节比对，一致 exit 0，不一致 exit 1，不写任何文件。
 - `-h` / `--help`：打印用法。
 
 ### 输出格式
@@ -386,12 +388,12 @@ generate-progress: FAIL: <原因>                                   # fail-close
 
 ### 维护联动
 
-- 生成规则或投影格式变化须同步重跑生成器刷新投影，并登记 `docs/agent/artifacts.yaml` 对应条目；条目行锚点为 `"id": "<数字开头 id>"`，索引排版变化须同步本脚本、`lane-commit.sh` 索引单写锚点与 check-stale-claims.sh S3 比对三处。
+- 生成规则或投影格式变化须同步重跑生成器刷新投影，并登记 `facts/project/artifacts.yaml` 对应条目；条目行锚点为 `"id": "<数字开头 id>"`，索引排版变化须同步本脚本、`lane-commit.sh` 索引单写锚点与 check-stale-claims.sh S3 比对三处。
 - 包内版本与本仓根 `scripts/` 基线互为镜像：任一侧变化须同步另一侧并 cmp 核对或登记差异。
 
 ## generate-module-map.sh（模块地图生成器）
 
-模块地图生成器（调研拍板：落点＝方案 A agent-up 公开包脚本、查询形态＝JSON 直读唯一查询面（`--affected` 不采纳）、更新时机＝双通道；扩 Rust 为四语言、引擎表驱动化、七语言批量扩展（十一语言）迭代）：从仓库源码文件的静态导入语句提取文件/模块级依赖边，生成 `<root>/docs/architecture/module-map.json`——Derived 四标注头部（`generated_from`/`generated_at`/`coverage`/`invalidation`，R-DP-004）＋`workspace_fingerprint`（fp-v1，R-DP-015 算法；指纹输入排除本图自身，避免自引用漂移）＋`nodes`（已扫描源码文件，仓库根相对路径）＋`edges`（`from`=仓库根相对路径、`to`=导入语句文本中的模块引用原串（未做路径解析）、`label`=导入语句类别）。此后引擎为通用规则解释器（加载规则表→按扩展名发现源码→逐行匹配捕获→按策略产边→direct-file 候选边存在性过滤→组装 JSON），语言知识外置于同目录 `module-map.rules`（每语言一行，引擎零语言专名；加语言＝加规则行＋fixture、零引擎改动）；规则表随脚本同目录落位（复制落位形态 `scripts/` 下两件同迁）。本图是项目地图条件产物的承载视图（development-process §5.2 触发矩阵行"项目地图"），只当检索索引不当 Scope 权威，不作为白名单或 watch 依据；Derived 自动生成，agent 不手写。输出为 `python3` `json.loads` 可解析的机器可读 JSON（R-GF-005）。
+模块地图生成器（调研拍板：落点＝方案 A agent-up 公开包脚本、查询形态＝JSON 直读唯一查询面（`--affected` 不采纳）、更新时机＝双通道；扩 Rust 为四语言、引擎表驱动化、七语言批量扩展（十一语言）迭代）：从仓库源码文件的静态导入语句提取文件/模块级依赖边，生成 `<root>/facts/project/architecture/module-map.json`——Derived 四标注头部（`generated_from`/`generated_at`/`coverage`/`invalidation`，R-DP-004）＋`workspace_fingerprint`（fp-v1，R-DP-015 算法；指纹输入排除本图自身，避免自引用漂移）＋`nodes`（已扫描源码文件，仓库根相对路径）＋`edges`（`from`=仓库根相对路径、`to`=导入语句文本中的模块引用原串（未做路径解析）、`label`=导入语句类别）。此后引擎为通用规则解释器（加载规则表→按扩展名发现源码→逐行匹配捕获→按策略产边→direct-file 候选边存在性过滤→组装 JSON），语言知识外置于同目录 `module-map.rules`（每语言一行，引擎零语言专名；加语言＝加规则行＋fixture、零引擎改动）；规则表随脚本同目录落位（新布局 `rules/implementation/scripts/` 下两件同迁）。本图是项目地图条件产物的承载视图（development-process §5.2 触发矩阵行"项目地图"），只当检索索引不当 Scope 权威，不作为白名单或 watch 依据；Derived 自动生成，agent 不手写。输出为 `python3` `json.loads` 可解析的机器可读 JSON（R-GF-005）。
 
 ### 用法
 
@@ -402,7 +404,7 @@ sh scripts/generate-module-map.sh [repo-root]
 - 无参数：repo-root 缺省取当前目录所在 Git 仓库顶层（check-gates.sh :20 先例）。
 - 带参数：以第一参数为仓库根（对临时 fixture 仓或非默认落位复跑时使用）。
 - `-h` / `--help`：打印用法。
-- 输出落 `<root>/docs/architecture/module-map.json`（目录缺失时随生成懒创建）；生成动作对仓库零额外写入（临时文件全部落 TMPDIR）。
+- 输出落 `<root>/facts/project/architecture/module-map.json`（目录缺失时随生成懒创建）；生成动作对仓库零额外写入（临时文件全部落 TMPDIR）。
 
 ### 语言规则表（module-map.rules，十一语言）
 
@@ -426,7 +428,7 @@ sh scripts/generate-module-map.sh [repo-root]
 
 ### 更新时机（双通道）
 
-1. 登记驱动：目标项目将本图按 development-process §5.3 登记 `docs/agent/artifacts.yaml`（lifecycle: Derived，generated_from 必填），`sync_on` 对齐拓扑变化行（文件新增/删除/移动/重命名即重新生成）；登记动作归目标项目 init/补缺流程（见 `../references/old-project.md` §3 项目地图行）。
+1. 登记驱动：目标项目将本图按 development-process §5.3 登记 `facts/project/artifacts.yaml`（lifecycle: Derived，generated_from 必填），`sync_on` 对齐拓扑变化行（文件新增/删除/移动/重命名即重新生成）；登记动作归目标项目 init/补缺流程（见 `../references/old-project.md` §3 项目地图行）。
 2. 指纹比对：生成时将 fp-v1 工作区指纹内嵌 `workspace_fingerprint`，使用时按 R-DP-015 算法重算比对，不一致即按 R-DP-009 判 stale，不得当可信导航。已知局限（保守方向安全，设计声明④）：fp-v1 为全工作区粒度，文档改动也判过期；精确化归后续演进。
 
 ### 依赖声明（零外部依赖的边界）
@@ -459,35 +461,36 @@ JSON 顶层键：`generated_from`、`generated_at`（UTC）、`coverage`（`lang
 
 ## ticket-ops.sh（票务运维脚本）
 
-协调层票务面写入单入口（本仓交付后入包采纳；行为基线＝development-process 模板 §12.5 票务脚本承载注记与 §6 零写入三段式第二段）：开票、领取与收口状态翻转、无票账本行落行、`docs/issues/index.json` 单写、issues-README 状态列登记、`docs/changes.jsonl` 账本落行、`docs/progress-current.md` 投影再生，写入面逐项经本脚本承载。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、无 jq（仅 POSIX 标准工具与内建；open 本体 schema 校验与 flip actual_time 收口校验另用 python3 标准库）、fail-closed——校验先于写入，NN 段查重（同 NN 异 slug／畸形 id）、open 本体 schema 校验与定级/优先级理由非空断言、flip 的 task 票 actual_time 收口硬拦（本体字段须已填且非空，缺项 exit 1 指名票 id 与缺项；request 不校验）、索引一条目一行排版破坏、README 行缺失或锚点不唯一、账本行不合键序或行型条件键缺失即停止不写；收尾投影再生缺失或 `--check` 不过即整体失败，已写部分如实报告。
+协调层票务面写入单入口（行为基线＝development-process 模板 §12.5 票务脚本承载注记与 §6 零写入三段式第二段）：当前脚本写入新布局的 `facts/requirements/tickets/index.json`、`facts/requirements/tickets/README.md`、`facts/project/changes.jsonl` 与 `facts/requirements/tickets/progress-current.md`，写入面逐项经本脚本承载。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、无 jq（仅 POSIX 标准工具与内建；open 本体 schema 校验与 flip actual_time 收口校验另用 python3 标准库）、fail-closed——校验先于写入，NN 段查重（同 NN 异 slug／畸形 id）、open 本体 schema 校验与定级/优先级理由非空断言、flip 的 task 票 actual_time 收口硬拦（本体字段须已填且非空，缺项 exit 1 指名票 id 与缺项；request 不校验）、索引一条目一行排版破坏、README 行缺失或锚点不唯一、账本行不合键序或行型条件键缺失即停止不写；收尾投影再生缺失或 `--check` 不过即整体失败，已写部分如实报告。
 
 ### 用法
 
 ```text
-sh scripts/ticket-ops.sh [repo-root] <command> [options]
+sh rules/implementation/scripts/ticket-ops.sh [repo-root] <command> [options]
 ```
 
-- 无参数：repo-root 缺省取脚本所在目录的上一级（落位形态 `scripts/` 即仓库根）。
+- 无参数：repo-root 缺省取脚本所在目录的上一级——旧布局 `scripts/` 落位时该缺省即仓库根；新布局 `rules/implementation/scripts/` 落位时缺省解析为 `rules/implementation/`、非仓库根，须显式传 repo-root（索引与账本均按 `<repo-root>/facts/…` 解析，解析不到即 fail-closed）。
 - 带参数：以第一参数为 repo-root（对临时 fixture 仓或非默认落位复跑时使用）。
 - `-h` / `--help`：打印用法。
 - 四子命令选项：`open` 必选 `--id <NN-slug> --complexity <C0-C3> --title <text> --ledger-line <json>`（可选 `--blocked-by <id,id>`）；`take` 必选 `--id --status --ledger-line`（status 须为 in_progress）；`flip` 必选 `--id --status --ledger-line`（status 为状态机任意合法值；task 票另须票本体 actual_time 已填非空）；`ledger` 必选 `--ledger-line <json>`（不得携带 --id/--status/--complexity/--title/--blocked-by）。
-- 数据载体与退出码：索引 `docs/issues/index.json`（票状态真相源，一条目一行）、issues-README 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，人工登记投影）、账本 `docs/changes.jsonl`（键序 date,kind,scope,decision,evidence_ref 五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to（枚举 新票/rules/sop/validator/test/none）、replan 必带 replan_original/replan_replacement/replan_undone（布尔）；一行一事实，禁裸换行）；退出码 0 全部完成、1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告）、2 用法或环境错误。
+- 数据载体与退出码：索引 `facts/requirements/tickets/index.json`（票状态真相源，一条目一行）、`facts/requirements/tickets/README.md` 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，人工登记投影）、账本 `facts/project/changes.jsonl`（键序 date,kind,scope,decision,evidence_ref 五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to（枚举 新票/rules/sop/validator/test/none）、replan 必带 replan_original/replan_replacement/replan_undone（布尔）；一行一事实，禁裸换行）；退出码 0 全部完成、1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告）、2 用法或环境错误。
 - 收尾投影再生：`open`/`take`/`flip` 定位同目录 `generate-progress.sh`（PATH 回退），缺失即预检停止（fail-closed）——生成项目落位 `ticket-ops.sh` 时须一并落位生成器；`ledger` 无票面写入不触投影，不要求生成器在位。
-- `ledger` 无票账本行入口（C0 修正类免建票收口承载）：不依赖 `docs/issues/index.json` 条目 id——只校验账本行形状（键序五键必备＋按 kind 条件键，同 `--ledger-line` 口径），通过后向 `docs/changes.jsonl` 追加该行；不触索引、issues-README、票文件与投影，故不做投影再生与 `--check`；校验先于写入，形状不合即 exit 1 零写入。
+- `ledger` 无票账本行入口（C0 修正类免建票收口承载）：不依赖 `facts/requirements/tickets/index.json` 条目 id——只校验账本行形状（键序五键必备＋按 kind 条件键，同 `--ledger-line` 口径），通过后向 `facts/project/changes.jsonl` 追加该行；不触索引、README、票文件与投影，故不做投影再生与 `--check`；校验先于写入，形状不合即 exit 1 零写入。
 
 ### 落位口径（与道脚本的关键差异）
 
-- 票务运维是记录层标配，非快道专属：目标项目采用任务票体系（`docs/issues/` 目录创建）时随初始化/补缺复制落位目标项目 `scripts/` 并逐件登记 `docs/agent/artifacts.yaml` 条目（kind: script、lifecycle: Conditional、generated_from: agent-up/scripts/ticket-ops.sh；生成件六要素随条目单本账承载，登记口径以包内 development-process §5.3.1 为准）；不门控于快道启用，未采用任务票体系不复制。三处口径同源：`../SKILL.md` 主流程步骤 5、本专节、`../references/old-project.md` §3 补缺行。
-- 包内不运行：本包内 `agent-up/scripts/ticket-ops.sh` 是复制基线（生成源），缺省 repo-root 取所在目录的上一级，包内位置误运行会错根；仅落位到目标项目 `scripts/` 后按缺省语境运行。
-- 包内文件与本仓根 `scripts/ticket-ops.sh` 基线 cmp 零差异（入包采纳核对）；采纳后两份副本同源演化，任一侧变化须同步另一侧并 cmp 核对或逐条登记差异。
+- 票务运维是记录层标配，非快道专属：目标项目采用新布局任务票体系时，安装到 `rules/implementation/scripts/`，逐件登记 `facts/project/artifacts.yaml` 条目（kind: script、lifecycle: Conditional、generated_from: agent-up/scripts/ticket-ops.sh）。既有 `docs/issues/`、`docs/changes.jsonl`、`docs/progress-current.md` 等旧路径是兼容/历史数据，本脚本不会读取或写入这些路径；启用本脚本前需确认新布局记录面已作为当前真相源，不能把两套路径混作同一状态源。未采用任务票体系不复制。
+- 包内不运行：本包内 `agent-up/scripts/ticket-ops.sh` 是复制基线（生成源），缺省 repo-root 取所在目录的上一级；新布局安装位置为 `rules/implementation/scripts/`。兼容项目已有 `scripts/` 副本可保留，但它不会改变脚本使用 `facts/` 路径常量的行为。
+- 包内文件是复制基线，安装后位于目标项目 `rules/implementation/scripts/ticket-ops.sh`；旧 `scripts/ticket-ops.sh` 副本作为兼容面保留，不因此改变脚本的数据路径常量。升级时由 `upgrade-check.sh` 对新旧落位分别与包基线 cmp。
 
 ### 与 lane-commit.sh 职责边界
 
-`ticket-ops.sh` 只做票务面写入（open/take/flip/ledger），不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（投影再生调用 `generate-progress.sh` 不在此限）；快道收尾（白名单核对、验证重跑、提交、记录翻转）仍归道脚本两件。非快道票（C1+ 全三阶段）的状态翻转由 `ticket-ops.sh` 承载——lane-commit 只覆盖快道，两者在 `docs/issues/index.json` 单写机制上同锚点语义（id 锚点整行替换，仅改 status/updated_at 两值）。
+`ticket-ops.sh` 只做票务面写入（open/take/flip/ledger），不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（投影再生调用 `generate-progress.sh` 不在此限）；快道收尾（白名单核对、验证重跑、提交、记录翻转）仍归道脚本两件。非快道票（C1+ 全三阶段）的状态翻转由 `ticket-ops.sh` 承载——lane-commit 只覆盖快道，两者在 `facts/requirements/tickets/index.json` 单写机制上同锚点语义（id 锚点整行替换，仅改 status/updated_at 两值）。
 
 ## install.sh（安装脚本）
 
-安装政策单源化的执行引擎（先例 `generate-module-map.sh` 表驱动化：外置数据＋引擎零专名＋结构校验 fail-closed）：按启用门控自查同目录 `install-policy.rules` 得复制集合（引擎零脚本名零门控专名，加门控＝加规则行零引擎改动），逐件 `cp` 自包 `scripts/` 至 `<target>/scripts/` 并 `cmp` 核验字节一致。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）、fail-closed：规则表缺失或结构校验不过 exit 2 不写任何文件；预检（源存在、目标可写、同名件冲突）先于复制，停止零半套；包内误运行守卫（精确化：拦自写自毁三场景——目标含裸 `SKILL.md` 即包根本体、目标＝本脚本所在目录、目标落位目录＝本脚本所在目录（`cd -P` 物理解析，symlink 绕不过）；仓根含包副本但落位目的地与复制基线不同目录＝合法源仓落位，不拦）exit 1；已存在且字节一致的同名件幂等跳过，与基线不一致即停报告（reconcile 纪律：人工漂移不覆盖，检出即停报告而非覆盖）。脚本只承接已确认的复制动作——门控启用判定是用户决策（`../SKILL.md` 主流程步骤 5），不代做访谈；不代写目标治理文件（`docs/agent/artifacts.yaml`、`scripts/README.md` 均归执行体）。包侧工具：只在包内语境运行，不落本仓 `scripts/` 镜像（out_of_scope 口径登记）。
+安装政策单源化的执行引擎（先例 `generate-module-map.sh` 表驱动化：外置数据＋引擎零专名＋结构校验 fail-closed）：按启用门控自查同目录 `install-policy.rules` 得复制集合（引擎零脚本名零门控专名，加门控＝加规则行零引擎改动），逐件 `cp` 自包 `scripts/` 至 `<target>/rules/implementation/scripts/` 并 `cmp` 核验字节一致。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）、fail-closed：规则表缺失或结构校验不过 exit 2 不写任何文件；预检（源存在、目标可写、同名件冲突）先于复制，停止零半套；包内误运行守卫（精确化：拦自写自毁三场景——目标含裸 `SKILL.md` 即包根本体、目标＝本脚本所在目录、目标落位目录＝本脚本所在目录（`cd -P` 物理解析，symlink 绕不过）；仓根含包副本但落位目的地与复制基线不同目录＝合法源仓落位，不拦）exit 1；已存在且字节一致的同名件幂等跳过，与基线不一致即停报告（reconcile 纪律：人工漂移不覆盖，检出即停报告而非覆盖）。脚本只承接已确认的复制动作——门控启用判定是用户决策（`../SKILL.md` 主流程步骤 5），不代做访谈；不代写目标治理文件（`facts/project/artifacts.yaml`、`scripts/README.md` 均归执行体）。包侧工具：只在包内语境运行，不落本仓 `scripts/` 镜像（out_of_scope 口径登记）。
+旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
 ### 用法
 
@@ -495,7 +498,7 @@ sh scripts/ticket-ops.sh [repo-root] <command> [options]
 sh agent-up/scripts/install.sh --target <dir> [--fast-lane] [--ticket-ops]
 ```
 
-- `--target <dir>`：目标项目根目录（须已存在）；落位 `<dir>/scripts/`。
+- `--target <dir>`：目标项目根目录（须已存在）；新布局落位 `<dir>/rules/implementation/scripts/`。
 - `--fast-lane` / `--ticket-ops`：门控启用 flag（登记于 install-policy.rules 的 `ip_gate` 行；至少给出一个，零 flag 即用法错误）。
 - `-h` / `--help`：打印用法。
 
@@ -535,7 +538,7 @@ install: <用法或环境错误说明>   # stderr，exit 2
 
 ## check-append-only.sh（Record 只追加守卫）
 
-Record 只追加守卫（承接「Record 行级保护」候选口径）：对仓库记录层两类写入语义做只读核对——`docs/changes.jsonl` 与 `docs/agent/micro.jsonl` 为只追加账本（Record 类，一行一事实，懒创建）：工作树内容相对 HEAD 旧 blob 必须为尾部追加（旧 blob 内容为新内容前缀），中间插入/改写历史行/截断/删除即违规，FAIL 指名文件与首个违规行号（新文件行号）；`docs/progress.md`（未迁移仓）及其迁移后继 `docs/archive/progress.md`（2026-09-23 迁址）为冻结历史档案（指针注记后零写入，development-process §11）：任何 diff 即违规，迁移窗口（HEAD 尚无后继路径）以后继工作树内容与 HEAD 旧路径逐字节一致为承继通过。核对基线＝工作树 vs HEAD（`git diff` 同口径；未跟踪且 HEAD 无同名的新文件按懒创建全追加语义放行）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令 rev-parse/cat-file/show，不含任何 Git 写操作）、fail-closed。可作 verify 命令加入门禁清单（如快道合同 `verify:` 行）。
+Record 只追加守卫（承接「Record 行级保护」候选口径）：对仓库记录层两类写入语义做只读核对——`facts/project/changes.jsonl` 与 `facts/project/micro.jsonl` 为只追加账本（Record 类，一行一事实，懒创建）：工作树内容相对 HEAD 旧 blob 必须为尾部追加（旧 blob 内容为新内容前缀），中间插入/改写历史行/截断/删除即违规，FAIL 指名文件与首个违规行号（新文件行号）；`facts/project/archive/progress.md` 与 `facts/project/archive/changes.md`（R14 并列冻结对，同名平移零改写；2026-09-23 自 docs/ 时代迁址）为冻结历史档案（指针注记后零写入，development-process §11）：任何 diff 即违规，迁移窗口（HEAD 尚无后继路径）以后继工作树内容与 HEAD 旧路径逐字节一致为承继通过（旧路径＝docs/ 兼容布局同名件，仅作迁移承继候选，非现行守卫对象）。核对基线＝工作树 vs HEAD（`git diff` 同口径；未跟踪且 HEAD 无同名的新文件按懒创建全追加语义放行）。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令 rev-parse/cat-file/show，不含任何 Git 写操作）、fail-closed。可作 verify 命令加入门禁清单（如快道合同 `verify:` 行）。
 
 ### 用法
 
@@ -572,13 +575,13 @@ check-append-only: PASS
 
 ### 维护规则
 
-- 守卫对象集合（两账本＋progress.md）变化须同步脚本 `check_append_file`/`check_frozen_file` 调用段、usage 文本与本专节；三类 Record 语义（只追加/冻结/懒创建）不放宽。
+- 守卫对象集合（两账本＋两冻结档案）变化须同步脚本 `check_append_file`/`check_frozen_file` 调用段、usage 文本与本专节；三类 Record 语义（只追加/冻结/懒创建）不放宽。
 - 前缀判定为字节级（旧 blob 内容为新内容前缀），首个违规行号为新文件行号（行级差异定位）；仅尾行悬挂换行差异按截断报告字节口径。
 - 行为语义变化经 Review 门禁并同步 harness append-only 套件（正负例随动，红灯不隔票）。
 
 ## check-artifacts.sh（治理产物对账器）
 
-治理产物登记与实物双向对账器（兑现 R-DP-007「治理产物逐件登记」的机械核对面）：正向＝`<repo-root>/docs/agent/artifacts.yaml` 每条登记条目的 path 目标（剥离全角括注后的路径/聚合 glob/目录）必须存在，缺失 FAIL 指名条目；反向＝数据块受管口径内文件必须被登记（精确相等/case glob/目录聚合前缀三类覆盖）或命中豁免规则，未登记 FAIL 指名路径，豁免命中不报。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具，无 Git 依赖）、fail-closed——登记解析破坏（缺 artifacts: 顶层键、零条目、条目缺 path、多行 path、path 值空/含空白、未知形态行）即 exit 2 不产生部分结论；退出码口径同 ticket-ops.sh（0 完成 / 1 缺口 / 2 用法环境）。
+治理产物登记与实物双向对账器（兑现 R-DP-007「治理产物逐件登记」的机械核对面）：正向＝`<repo-root>/facts/project/artifacts.yaml` 每条登记条目的 path 目标（剥离全角括注后的路径/聚合 glob/目录）必须存在，缺失 FAIL 指名条目；反向＝数据块受管口径内文件必须被登记（精确相等/case glob/目录聚合前缀三类覆盖）或命中豁免规则，未登记 FAIL 指名路径，豁免命中不报。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具，无 Git 依赖）、fail-closed——登记解析破坏（缺 artifacts: 顶层键、零条目、条目缺 path、多行 path、path 值空/含空白、未知形态行）即 exit 2 不产生部分结论；退出码口径同 ticket-ops.sh（0 完成 / 1 缺口 / 2 用法环境）。
 
 ### 用法
 
@@ -603,7 +606,7 @@ sh scripts/check-artifacts.sh [--fix [--apply]] <repo-root>
 | `ca_exempt <路径>` | 反向豁免：精确路径；尾斜杠＝目录整支豁免；理由随行注记。 |
 | `ca_lazy <路径>` | 正向暂缺许可：登记目标允许尚不存在（懒创建面），命中输出 SKIP 不计缺口。 |
 
-本仓基线定谳（校准豁免迁入 delivery.rules）：受管＝根 `AGENTS.md`＋`docs/` 树内 md/json/jsonl/yaml＋`scripts/` 单层 sh/rules；豁免分两面——协议豁免（数据块，记录层通用语义＝协议面）：`docs/agent/runs/`（运行记录投影）、`docs/progress-current.md`（生成投影）、`docs/issues/index.json`（状态真相源单写面）、`docs/changes.jsonl`（追加面）、`docs/agent/micro.jsonl`（道账本）；校准豁免（仓根 `delivery.rules` calibration 节 `dp_artifact_exempt`，逐仓不同的校准＝项目约定，自数据块迁入）：`docs/architecture/generated/`（生成投影面，理由注记随行）——文件缺失或无该行＝豁免消失，生成面文件按未登记 FAIL 暴露（fail-closed 方向），解析破坏 exit 2。懒创建许可＝`docs/agent/micro.jsonl`（道脚本首次收尾懒创建）。目标项目落位后按自身 artifacts.yaml 现状校准数据块（增删 `ca_*` 行）与 delivery.rules calibration 节，不改动引擎。
+本仓基线定谳（校准豁免迁入 delivery.rules）：受管＝根 `AGENTS.md`＋`rules/` 树内 md/json/jsonl/yaml/sh/rules＋`facts/` 树内 md/json/jsonl/yaml；豁免分两面——协议豁免（数据块，记录层通用语义＝协议面）：`facts/requirements/runs/`（运行记录投影）、`facts/requirements/tickets/progress-current.md`（生成投影）、`facts/requirements/tickets/index.json`（状态真相源单写面）、`facts/project/changes.jsonl`（追加面）、`facts/project/micro.jsonl`（道账本）；校准豁免（仓根 `delivery.rules` calibration 节 `dp_artifact_exempt`，逐仓不同的校准＝项目约定，自数据块迁入）：`facts/project/architecture/generated/`（生成投影面，理由注记随行）——文件缺失或无该行＝豁免消失，生成面文件按未登记 FAIL 暴露（fail-closed 方向），解析破坏 exit 2。懒创建许可＝`facts/project/micro.jsonl`（道脚本首次收尾懒创建）。目标项目落位后按自身 artifacts.yaml 现状校准数据块（增删 `ca_*` 行）与 delivery.rules calibration 节，不改动引擎。
 
 ### 输出格式
 
@@ -628,7 +631,7 @@ check-artifacts: PASS
 
 ### 维护规则
 
-- 产物增删/移动＝同步登记 `docs/agent/artifacts.yaml`（数据先行），实跑本脚本核对；登记聚合条目（glob/目录）覆盖语义见上文反向口径。
+- 产物增删/移动＝同步登记 `facts/project/artifacts.yaml`（数据先行），实跑本脚本核对；登记聚合条目（glob/目录）覆盖语义见上文反向口径。
 - 受管口径或豁免变更＝改数据块 `ca_*` 行（理由随行注记）＋实跑盘点＋同步本专节基线定谳表；豁免扩大的裁决归用户（投影/追加面/生成面类），不得为消缺口静默扩豁免。
 - 行为语义变化经 Review 门禁并同步 harness check-artifacts 套件（正负例随动，红灯不隔票）。
 
@@ -696,7 +699,7 @@ sh scripts/worktree-add.sh [--force] <path> <branch>
 
 ## upgrade-check.sh（落地面升级对账器）
 
-已治理仓对包新基线的逐件三态对账器（升级一等流程②；升级流程规则权威＝`../references/upgrade.md` 与目标项目 `rules/project.md`，本件只对账不出修复动作——与 check 系 --fix 准则的配对条件留后续票评估）。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖、全程只读（除打印外无写操作）、fail-closed。
+已治理仓对包新基线的逐件三态对账器（升级一等流程②；升级流程规则权威＝`../references/upgrade.md` 与目标项目 `rules/project.md`，本件只对账不出修复动作——与 check 系 --fix 准则的配对条件留后续票评估）。固定 Conditional README Emits 从 `templates/README.md` manifest 读取；仅当对应目录已存在时才要求 README，未生成目录输出 N/A；动态 `<目录>/README.md` Emits 无固定目标，明确输出人工盘点项；旧布局同时检查已存在的 docs/兼容目录。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖、全程只读（除打印外无写操作）、fail-closed。
 
 ### 用法
 
@@ -712,17 +715,17 @@ sh scripts/upgrade-check.sh <pkg-dir> <repo-root>
 
 | 态 | cmp 面 | 判定 |
 | --- | --- | --- |
-| 同步 | 落位脚本＋配置面 | install-policy.rules 登记件在目标仓两落位形态（`rules/implementation/scripts/` 新布局／`scripts/` 旧布局）下与包内同名件 cmp 一致；delivery.rules main-only 节锚点在位（条目为项目事实不判）。 |
-| 落后 | 落位脚本＋配置面＋模板生成件 | 登记件两形态皆缺失（未安装）；delivery.rules 缺失或无 main-only 锚点；模板生成件（rules/ 三件）缺失；实例规则块集缺包内模板已有的块（逐块列 ID）。 |
-| 漂移 | 落位脚本 | 存在但与包内同名件不一致（人工改过或本地演化）——停，报告用户裁决（沿用/跟包/登记分歧），不静默覆盖。 |
+| 自动同步 | 机械检查面 | 已启用门控的每份脚本分别与包基线 cmp 一致；规则块 ID 集一致；delivery.rules 仅在快道有证据时检查锚点。双布局即使两份相同也报告冲突。 |
+| 落后 | 条件/模板面 | 已启用门控对应的两种脚本落位均缺失；快道有证据但 delivery.rules 缺失/缺锚点；所需规则文件或规则块 ID 缺失；模板 manifest 声明的 Conditional README 对应目录存在但 README 缺失。 |
+| 漂移/冲突 | 脚本与布局面 | 任一已安装脚本副本不同于包基线；新旧布局同时存在必报冲突并逐份比较。工具不选择或修复副本。 |
 
-模板生成件（rules/ 三件 ↔ 拆三模板）做规则块集核对；另有**机制版本核对**——四件带机制版本注记的脚本（check-stale-claims［stale-claims-version: 8］/ticket-ops［ledger-rowtype-version: 3］/absorption-trigger［trigger-version: 1］/generate-progress［projection-version: 1］，dp-parser 先例形态）由落位 cmp 面自然覆盖（注记不一致即 cmp 不一致＝漂移），版本号语义＝对应机制面（断言组数/行型集/触发窗口/投影列）的变更计数：实例缺包内模板已有的块＝落后（逐块列 ID），实例有模板没有的块＝登记分歧候选（只提示不判漂移不 FAIL——登记过的实例口径如按项目裁剪启用面正落此列）；块内语义差异归独立 Review，是否采纳新版条款由用户逐件决定（`../references/upgrade.md` §2）。cmp 面自同目录 `install-policy.rules` 数据读取（引擎零落位路径硬编码，先例 install.sh 同款加载）。
+规则块核对覆盖 AGENTS.md、现代 rules 三件与新布局三份角色合同，只比较规则块 ID 集，不比较块内语义。旧式 docs 角色合同按登记兼容面检查存在性。固定 Conditional README Emits 自模板 manifest 提取；目录不存在时 N/A，目录存在但 README 缺失时报落后；旧布局会映射检查 `docs/issues/`、`docs/specs/`、`docs/research/` 和 `scripts/` 中已存在的兼容目录。`<目录>/README.md` 动态 Emits 与 README/artifacts.yaml 等项目定制内容输出人工核对，不据此宣称内容同步；Derived 新鲜度由升级手册单独回访。
 
 ### 退出码
 
 | 退出码 | 语义 |
 | --- | --- |
-| 0 | 全同步（落地面与包基线一致）。 |
+| 0 | 自动检查面无差距；仍可能有人工核对和 Derived 回访待完成。 |
 | 1 | 有差距（落后/漂移行见输出；升级流程入口＝`../references/upgrade.md`）。 |
 | 2 | 用法或环境错误（参数数量不合、pkg-dir/repo-root 不存在、install-policy.rules 或 delivery-rules.tmpl 或本件在包基线缺失）。 |
 
@@ -755,7 +758,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `lane-commit` |  | lane-commit.sh 微账本 actual 键正负例（git 夹具承载两段式全链）：micro 合同带 actual 行 → exit 0 且微账本第七键 actual 落值；合同不带 actual 行 → exit 0 且 actual 落空串（既有六键行向后兼容，键序不变）；actual 行重复 → exit 1 零提交零写入；user-review 道携带 actual 行 → exit 1（用时落票本体 actual_time）；actual 行含制表符 → exit 1（JSON 行安全） |  |
 | `append-only` |  | check-append-only.sh 正负例：changes.jsonl 尾部追加 exit 0（OK 行含追加计数）、micro.jsonl 同口径追加＋progress.md 零 diff exit 0、中间插入 exit 1 指名文件与首个违规行号、改写历史行／截断／工作树删除 exit 1、progress.md 篡改 exit 1、micro.jsonl 中间插入 exit 1（同口径）、无 Git 基线 WARN 退出 0、懒创建（新建账本 OK＋缺失 SKIP）exit 0、用法负例（无参数／多参数／非 Git 目录 exit 2）、迁移承继三例：迁移窗口 exit 0 双 OK（已迁移＋迁移承继）、迁移落位稳态 exit 0（后继 OK＋旧路径 SKIP）、承继不一致 exit 1 双 FAIL（后继新内容＋旧路径缺失） |  |
 | `worktree` |  | worktree-add.sh 栅栏化创建正负例（主检出语境）：正常创建→exit 0＋排除路径物理不在场；链接 worktree 内运行→exit 1 自拒；分支名不合 ticket 形态→exit 1；main-only 节缺失→exit 2 |  |
-| `upgrade-check` |  | upgrade-check.sh 块级核对三断言：全同步（三件块集一致＋落位件在位＋锚点在位）→ exit 0 同步行；实例缺块（模板有 R-DP-002 实例无）→ exit 1 落后行列块 ID；实例多余块（R-DP-099 模板无）→ exit 0 分歧候选行不误报不拦截 |  |
+| `upgrade-check` |  | modern 全布局；规则块缺失报具体 ID、多余块提示分歧候选；manifest Conditional README 已生成时存在性核对、目录未生成时 N/A、目录已生成而 README 缺失时报落后；delivery.rules 未启用 N/A、启用缺失报落后；旧布局脚本与 docs 条件 README 兼容；双布局冲突且逐份 cmp；单路径歧义 fail-closed；新旧治理面 mixed 明示 | 10 |
 | （仅 all）注入自检 |  | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 
 断言计数随维护增减（suite 汇总行按实际计数输出；stale-claims/ticket-ops/append-only 行计数删格——数字以 `--suite` 实跑输出为唯一真相源）。
