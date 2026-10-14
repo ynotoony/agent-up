@@ -8,6 +8,13 @@
 
 已按本体系初始化的项目要跟上新版：跑 `sh <包目录>/scripts/upgrade-check.sh <包目录> <你的项目根>` 看你仓里已装部分与包新版的差距，按 `references/upgrade.md` 走升级流程。
 
+## 2026-10-14（三种运行模式契约对齐：手册说什么，脚本就做什么）
+
+- **模式路径全对齐**：新项目初始化、旧项目补缺、已治理项目升级三种模式的落位路径与判定口径对齐到脚本实际行为——`scripts/` 手册里 ticket-ops、lane-commit、check-stale-claims 等随道脚本的数据面路径、安装落位（新布局 `rules/implementation/scripts/`）、缺省仓库根推导（各脚本实际是向上一级还是两级）逐一对齐；旧项目的 `docs/` 布局仍是兼容目标，不删不改。
+- **适配器角色合同路径变量化**：五份宿主适配器的角色合同示例改为按 `<role-contract-dir>` 变量展开——新项目默认 `rules/implementation/roles/`，旧项目按登记兼容目录展开，照抄示例不再指向不存在的文件。
+- **升级对账补盲区**：`upgrade-check.sh` 现在把模板清单里条件生成的 README（specs、research 等）纳入对账——目录存在就核内容、不存在报 N/A 而非漏报；旧布局目录自动映射到 `docs/` 兼容路径；动态生成的文件明确标人工盘点，不再虚报"全同步"。
+- **要不要跟**：老仓升级后对账器会把 `scripts/README.md`、`references/adapters/`、`references/old-project.md`、`references/upgrade.md` 标"落后"属预期；未启用快道的项目升级时 `delivery.rules` 报 N/A 不是问题。
+
 ## 2026-10-14（需求登记册退役：卡片是需求的唯一去处）
 
 - **需求登记册（REQ 队列）退出**：新项目初始化不再生成 `facts/requirements/requests/` 目录——初始件从八件变七件；需求一律走上一波的卡片（任务票），不再有第二本需求账。状态机从三套（Session/Task/Request）变两套（Session/Task），规则书里所有指路登记册的引用同步清掉。
