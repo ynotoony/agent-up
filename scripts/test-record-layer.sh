@@ -1130,10 +1130,10 @@ EOF
 # 块与 §15.3 节，预期串检查 15 行 52→51 独立重建（三处）；票 102 合并 R-DP-025 入
 # R-DP-007（索引行删一＋R-DP-007 行改写），预期串检查 15 行 51→50 独立重建（三处）；
 # 票 103 镜像清单 4→6 对，正例预期串与负例 N7 夹具同步；票 113 波④包翻值后金样串独立
-# 重建：检查 5 计数 13→15（三模板拆分入册）、检查 15 三件索引并集 50 行、检查 7 治理面
+# 重建：检查 5 计数 13→15（三模板拆分入册；票 141 后 16→15 requests 退役）、检查 15 三件索引并集 50 行、检查 7 治理面
 # 扩五项（AGENTS.md/docs//rules//facts//.zcode/）；负例 N12/N13/N14/N15/N16/N17 注入目标
 # 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）；
-# delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户
+# delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户；票 141 requests 模板退役 16→15）
 # 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）
 # ============================================================
 
@@ -1145,11 +1145,11 @@ suite_check_package() {
   mkdir -p "$D"
 
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（16 个文件）
+PASS: 1 必需入口存在（15 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 16 个且全部登记
+PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 PASS: 8 脚本必需件存在（19 个文件）
@@ -1178,11 +1178,11 @@ EOF
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
   cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（16 个文件）
+PASS: 1 必需入口存在（15 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 16 个且全部登记
+PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 FAIL: 8 脚本必需件存在（19 个文件） —   - scripts/generate-progress.sh
@@ -1212,11 +1212,11 @@ EOF
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（16 个文件）
+PASS: 1 必需入口存在（15 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 16 个且全部登记
+PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 PASS: 8 脚本必需件存在（19 个文件）
@@ -1364,14 +1364,14 @@ EOF
     bad '负例 N11 删除一基元名出角色声明行 → exit 1 且 FAIL: 14 指名文件' "exit=$rc"
   fi
 
-  # 票 60 检查 15 负例 N12：索引删一行（删 R-RQ-003 行）→ exit 1 且 FAIL: 15 指名缺行。
-  # 票 113 波④：流程权威拆三后索引宿主为三件模板，R-RQ-003 索引行在 assessment.md.tmpl。
+  # 票 60 检查 15 负例 N12：索引删一行（删 R-DP-037 行）→ exit 1 且 FAIL: 15 指名缺行。
+  # 票 113 波④：流程权威拆三后索引宿主为三件模板，R-DP-037 索引行在 assessment.md.tmpl。
   cp -R "$PKG_ROOT" "$D/pkgcopy9"
-  grep -v '^| R-RQ-003 ' "$D/pkgcopy9/references/templates/assessment.md.tmpl" > "$D/tmpl9.tmp" \
+  grep -v '^| R-DP-037 ' "$D/pkgcopy9/references/templates/assessment.md.tmpl" > "$D/tmpl9.tmp" \
     && mv "$D/tmpl9.tmp" "$D/pkgcopy9/references/templates/assessment.md.tmpl"
   sh "$D/pkgcopy9/scripts/check-package.sh" "$D/pkgcopy9" >"$D/act.n12" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 15 模板规则索引与规则块全集全等' "$D/act.n12" && grep -q '全集 ID 缺索引行: R-RQ-003' "$D/act.n12"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 15 模板规则索引与规则块全集全等' "$D/act.n12" && grep -q '全集 ID 缺索引行: R-DP-037' "$D/act.n12"; then
     ok '负例 N12 索引删一行 → exit 1 且 FAIL: 15 指名缺行（索引变更先改表再动规则块的拦截面）'
   else
     bad '负例 N12 索引删一行 → exit 1 且 FAIL: 15 指名缺行（索引变更先改表再动规则块的拦截面）' "exit=$rc"

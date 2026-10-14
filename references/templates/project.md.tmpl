@@ -1,5 +1,5 @@
 <!-- Input: 目标项目盘点确认的目录边界与产物清单、恢复与治理生成协议事实、项目自有条款。 -->
-<!-- Output: 读取阶梯与权威层级、仓库与目录边界、产物生命周期协议（五类、触发矩阵、登记、同步门槛、状态机、Artifact Plan）、会话恢复协议（三套状态机、恢复顺序、run record、写入所有权、故障处理、破坏性恢复禁令、六条不变量）、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、生成件登记并入 artifacts.yaml 单本账 + reconcile、checkpoint 管线、证据链登记）、状态陈述与输出瘦身纪律、项目自有条款槽位（随生长追加），及本件规则索引。 -->
+<!-- Output: 读取阶梯与权威层级、仓库与目录边界、产物生命周期协议（五类、触发矩阵、登记、同步门槛、状态机、Artifact Plan）、会话恢复协议（两套状态机、恢复顺序、run record、写入所有权、故障处理、破坏性恢复禁令、六条不变量）、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、生成件登记并入 artifacts.yaml 单本账 + reconcile、checkpoint 管线、证据链登记）、状态陈述与输出瘦身纪律、项目自有条款槽位（随生长追加），及本件规则索引。 -->
 <!-- Pos: 项目规则（rules/project.md，流程权威拆三之一）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 项目规则
@@ -17,7 +17,7 @@
 - 初始化与产物增删自动评估 Artifact Plan（Required/Recommended/Deferred + 理由）；治理产物逐件登记 `facts/project/artifacts.yaml`（十三字段）。
 - 任务状态经 `facts/requirements/tickets/index.json` 单写、生成器投影至 `facts/requirements/tickets/progress-current.md`（每票一行）；`facts/project/archive/progress.md` 为冻结历史档案，零写入；明细写任务票 Checkpoint 区；检查点必须可验证，不写"xx 开发中"。
 - 中断恢复只从事实出发：Session 置 `recovering` 后按八步固定顺序（AGENTS.md → progress → 任务票/Checkpoint → run record → 实际文件/Git → 重跑验证 → 判定 resume/blocked/conflict → Review 补审规则）得出结论；事实优先级四层（实际文件/测试/Git > Checkpoint/run record > progress > 聊天记录）；禁止用破坏性操作"恢复干净"。
-- 三套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）、Request（proposed/triaged/accepted/specified/ready + rejected/deferred/needs-user-decision）；写入所有权按五角色矩阵执行。
+- 两套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）；写入所有权按五角色矩阵执行（需求登记册已退役，Request 状态机随之退出——存量项目旧登记冻结只读）。
 - C2/C3、跨会话、中断、无 Git 基线或归属不明时生成 run record（`facts/requirements/runs/<run-id>.json`，十三字段，机器 schema 见公开包 `references/schemas/run-record.schema.json`）；C0/C1 写任务票 Checkpoint；六条不变量是阶段出口硬门禁。
 - run record 收口必带用量遥测：seal 对缺 usage 或缺任一子字段的收口卡 fail-closed；两段式落齐（执行体自报 duration_seconds/source/at，协调层回填 tokens_total/requests）须在 seal 前完成（R-DP-034），存量无 usage 卡冻结零改写。
 - 生成类动作按六项收敛模式治理（§13）：盘点先于生成（Discovery Record，来源/冲突/未知登记）；取信按 既有事实 > 用户确认 > 模板 > 自动推断；capability manifest 按 minimum/full 档位标 enabled/excluded/pending；生成件登记并入 artifacts.yaml 单本账并 reconcile（六要素条目内可定位、幂等、漂移即停、备份可逆，字段映射见 §5.3.1）；检查点按 discovery → confirm → generate → verify → handoff 管线落盘；外部引用登记规范标识、许可证核验与侧通道文档化关闭开关。
@@ -178,7 +178,7 @@
 | `facts/project/micro.jsonl`（微账本） | 微任务道首次收尾：道脚本懒创建并按行落账（Record 类，一行一操作；道脚本独占写，agent 不手写，见 §12.5 道脚本承载注记） |
 | `rules/implementation/scripts/check-gates.sh`、`rules/implementation/scripts/lane-commit.sh`（道脚本） | 用户确认启用分级交付道快道（差异清单确认时）；复制落位与登记见 §12.5 道脚本承载注记 |
 
-开票形态注记（2026-09-18）：新开任务票与请求（REQ）以过 schema 的 JSON 文件承载本体——文件命名 task 为 `<NN>-<slug>.json`、request 为 `<REQ-id>.json`；schema 权威＝Agent Up 包内 `references/schemas/ticket-record.schema.json`（目标项目已登记等价 schema 时以其为准）；本体无 `status` 字段，票状态唯一真相源＝`facts/requirements/tickets/index.json`（单写，一条目一行），票正文 Status 行为投影打印件、目录清单状态列为人工登记投影，状态冲突以索引为准；存量 Markdown 票与既有 REQ 冻结只读（frontmatter 为历史形态，零改写），开票登记惯例见 `facts/requirements/tickets/README.md`。
+开票形态注记（2026-09-18）：新开任务票（卡片）以过 schema 的 JSON 文件承载本体——文件命名为 `<NN>-<slug>.json`；schema 权威＝Agent Up 包内 `references/schemas/ticket-record.schema.json`（目标项目已登记等价 schema 时以其为准）；本体无 `status` 字段，票状态唯一真相源＝`facts/requirements/tickets/index.json`（单写，一条目一行），票正文 Status 行为投影打印件、目录清单状态列为人工登记投影，状态冲突以索引为准；存量 Markdown 票与既有 REQ 冻结只读（frontmatter 为历史形态，零改写；需求登记册已退役，存量 REQ 只读保留，新需求走卡片），开票登记惯例见 `facts/requirements/tickets/README.md`。
 
 #### R-DP-006 默认不创建 `MUST`
 
@@ -296,20 +296,19 @@ absent ──用户拒绝──> deferred（记录原因）
 
 Session（agent_session）是单次会话的易失上下文，随时可能中断或消失；project_network 是仓库内持久事实——文件、Git 状态、`facts/project/artifacts.yaml`、progress、Checkpoint、run record——跨会话存续。任何需要跨会话存续的状态、结论或进度一律落盘到 project_network；恢复只从事实出发，不从聊天记忆出发。§4 Session 开始的接手门禁是本节恢复流程的快速形态；条文冲突以本节为准。
 
-### 12.1 三套状态机（取值固定）
+### 12.1 两套状态机（取值固定）
 
 | 状态机 | 取值 | 说明 |
 | --- | --- | --- |
 | Session | `active` / `interrupted` / `unknown` / `recovering` / `closed` | `unknown` 指会话状态无法确证（如宿主崩溃后）；`recovering` 指正在执行本节恢复流程 |
 | Task | `ready` / `in_progress` / `blocked` / `review_ready` / `review_pass` / `review_fail` / `done` | 阻塞带原因（如 `blocked: scope-change`） |
-| Request | `proposed` / `triaged` / `accepted` / `specified` / `ready`；旁支 `rejected` / `deferred` / `needs-user-decision` | 流转由 Triage 写入；队列规则见 `facts/requirements/requests/README.md` |
 
 票据生命周期另有 `superseded` 标签（语义权威＝`facts/requirements/tickets/README.md`），仅用于状态索引登记历史票据，不属于 Task 状态机流转取值。
 
 #### R-DP-012 状态机取值固定 `MUST`
 
-- **When**：记录或推断 Session、Task、Request 状态时。
-- **Action**：只使用上表取值；状态变更落盘到 `facts/requirements/tickets/index.json` 状态条目、`facts/requirements/requests/index.json` 状态条目或 run record；票正文 Status 行为索引投影回写，`facts/requirements/tickets/progress-current.md` 投影行允许记录 Task 子集，完整取值以索引、任务票与 run record 为准。
+- **When**：记录或推断 Session、Task 状态时。
+- **Action**：只使用上表取值；状态变更落盘到 `facts/requirements/tickets/index.json` 状态条目或 run record；票正文 Status 行为索引投影回写，`facts/requirements/tickets/progress-current.md` 投影行允许记录 Task 子集，完整取值以索引、任务票与 run record 为准。
 - **Forbidden**：自造状态名（如"基本完成"）；状态只存在于聊天中。
 - **Stop if**：实际情况不属于任何取值 → 停止并报告用户补充语义。
 - **Evidence**：状态字段可被静态检索且取值在允许集合内。
@@ -350,7 +349,7 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 7. Session 置 `recovering`，判定结论：`resume` / `blocked` / `conflict`；
 8. IF 中断发生在交付完成前 THEN 完整交付后重新独立 Review ELSE 按既有 Review 证据继续。
 
-恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。Intake Session（用户说"加需求"）只执行 `facts/requirements/requests/README.md` 的 Intake 规则，不进入本流程。后台链接棒默认重开（CreateWorkflow 新 run）；Resume/Amend 续跑仅当票单与进度完全已知且需保序——换模型/换参数视为接棒即重开。升级质询的裁决必须同票 Checkpoint 落账（含 question-id 与裁决内容）——裁决不落盘即未裁决。
+恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。Intake Session（用户说"加需求"）只做需求接收与方案对话（需求工作三道，见 `rules/assessment.md` §4），不进入本流程。后台链接棒默认重开（CreateWorkflow 新 run）；Resume/Amend 续跑仅当票单与进度完全已知且需保序——换模型/换参数视为接棒即重开。升级质询的裁决必须同票 Checkpoint 落账（含 question-id 与裁决内容）——裁决不落盘即未裁决。
 
 #### R-DP-014 恢复顺序固定 `MUST`
 
@@ -410,13 +409,13 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 
 | 会话/角色 | 允许写入 | 禁止 |
 | --- | --- | --- |
-| Intake | 仅新 REQ 文件 | 当前任务、progress、规格、票 |
-| Triage | Request 状态流转、规格、任务票 | 产品实现文件、Implementation Checkpoint |
+| Intake | 新卡片文件（需求接收与方案对话产物） | 当前任务、progress、规格、票 |
+| Triage | 卡片定级与拆分、规格、任务票 | 产品实现文件、Implementation Checkpoint |
 | Delivery（Implementation） | 任务 Scope 内文件 + Implementation Checkpoint | Review 记录、Commit 操作 |
 | Review | 审查记录（任务票 Independent Review Checkpoint） | 修改被审内容 |
 | Commit | 暂存与提交记录 | 扩大范围、push、deploy |
 
-run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`independent_review` 指针回填同 owner。禁止两个 session 同时写 `facts/requirements/tickets/index.json` 与 `facts/requirements/tickets/progress-current.md`（现役状态投影由生成器独占写，索引条目按写入机制单写）；`facts/requirements/requests/` 是 Intake 与 Delivery 的唯一目录交集（Intake 写新 REQ，Delivery 不写）。Intake 与 Delivery 并行规则的队列侧表述见 `facts/requirements/requests/README.md`，与本矩阵一致；冲突以更严格者为准。
+run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`independent_review` 指针回填同 owner。禁止两个 session 同时写 `facts/requirements/tickets/index.json` 与 `facts/requirements/tickets/progress-current.md`（现役状态投影由生成器独占写，索引条目按写入机制单写）。Intake 只写新卡片（需求接收），Delivery 推进存量卡（实施），两者写入目标不相交；冲突以更严格者为准。
 
 道脚本承载注记（分级交付道，R-DP-031）：快道收尾强制——白名单核对、验证重跑、提交、记录翻转、账本落行——由零依赖 POSIX sh 道脚本承载：`rules/implementation/scripts/check-gates.sh`（只读门禁核对：工作区改动 ⊆ 提交合同白名单、按合同重跑验证命令并记录退出码）与 `rules/implementation/scripts/lane-commit.sh`（读行式合同文件（临时输入，不落仓库）→ 门禁 → 白名单提交 → User Review Checkpoint 追加或微账本落行 → 状态翻转（单写 `facts/requirements/tickets/index.json` 状态条目 → 机械生成受影响票正文 Status 行 → 机械生成 `facts/requirements/tickets/progress-current.md` 现役状态投影等派生面）→ 记录翻转提交）。脚本权限边界 = 提交合同白名单：脚本不执行白名单外任何写入，门禁不过即停（fail-closed）。派生载体独占写：`facts/requirements/tickets/index.json` 是票状态唯一真相源（单写：快道由道脚本、非快道任务由对应阶段执行体）；`facts/requirements/tickets/progress-current.md` 现役状态投影由生成器独占写（generated_from＝`facts/requirements/tickets/index.json`＋生成器）；issues-README 状态列＝人工登记投影（agent 按索引登记，与索引冲突以索引为准；非道脚本写入面）；票正文 Status 行由脚本自索引生成（展示投影，stale 比对兜底、可重建）；状态冲突以索引为准。微账本 `facts/project/micro.jsonl`（Record 类，一行一操作）由道脚本懒创建，agent 不代写。道脚本安装路径：`rules/implementation/scripts/check-gates.sh`、`rules/implementation/scripts/lane-commit.sh` 与 `rules/implementation/scripts/generate-progress.sh` 由初始化/补缺按 §5.2 触发矩阵行复制落位目标项目 `rules/implementation/scripts/`（来源 agent-up 公开包 `scripts/`，逐件登记，可经包内 `scripts/install.sh` 执行），脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；快道未启用则不复制，道脚本不可用的停止条件按 R-DP-031 兜底（fail-closed 不变）。
 
@@ -578,9 +577,8 @@ run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`in
 - 首次为既有项目补 seed 时，Record 类既有文件按 R-DP-003 保护，只补缺失件；既有文档、代码布局、命名和规则一律视为项目事实，只登记、只补缺。
 - rules/ 流程规则三件与根 `AGENTS.md`、目录 README、任务票等文件冲突时，以 rules/ 流程规则为准修正引用；条文与三阶段执行体定义冲突时以更严格者为准。
 - 模板中【按项目填写】处由初始化访谈与盘点结果填写；没问到的写【待定：...】，不编造领域事实。
-- 需求请求的队列规则（Intake 边界、Triage 边界、请求状态机）见 `facts/requirements/requests/README.md`；rules/ 三件只承载任务执行流程，不重复队列细节。
 - 目标项目当前不是 Git 仓库时：恢复流程第 5 步退化为实际文件对照，`baseline.vcs_ref` 记 `N/A + reason`，`workspace_fingerprint` 照常计算；该状态由 Git 化任务结束。
-- `needs-user-decision` 不同于 `blocked`：前者是 Request 等用户裁决，后者是 Task 停止推进。
+- `blocked` 带 `scope-change` 原因不同于普通阻塞：需求本身待用户重新拍板（回「新增需求」道，R-DP-042），其余 `blocked` 是执行前置未满足。
 - 三阶段执行体文件的位置由宿主适配层决定；本文声明能力与阶段职责，不绑定任何宿主平台名或专有工具名。
 
 ## 15. 状态陈述与输出瘦身纪律
@@ -645,7 +643,7 @@ run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`in
 | R-DP-008 | 仅契约、拓扑、行为、派生四类语义变化触发级联同步 | 约定 |
 | R-DP-009 | 条件产物按状态机流转，stale 恢复前不当可信导航 | 约定 |
 | R-DP-010 | 初始化与产物增删自动评估 Artifact Plan 并落盘呈现 | 门禁 |
-| R-DP-012 | Session、Task、Request 三套状态机取值固定，不自造状态名 | 机械（ticket-ops.sh、lane-commit.sh） |
+| R-DP-012 | Session、Task 两套状态机取值固定，不自造状态名 | 机械（ticket-ops.sh、lane-commit.sh） |
 | R-DP-013 | 冲突按四层事实优先级取信并修正低层记录 | 约定 |
 | R-DP-014 | 恢复按八步固定顺序执行并落盘结论 | 约定 |
 | R-DP-015 | 命中条件生成并维护 run record 十三字段，禁编造 baseline | 约定 |

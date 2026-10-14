@@ -54,8 +54,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
    │   └── project.md               项目规则：项目自有条款（随生长追加）
    ├── facts/                   事实面："实际怎样"，只追加不改写
    │   ├── requirements/            需求 facts
-   │   │   ├── requests/              录入队列
-   │   │   ├── tickets/               票本体＋状态索引＋当前状态一览
+   │   │   ├── tickets/               卡片（＝任务票：需求方案存卡、状态索引、当前状态一览）
    │   │   ├── specs/                 规格（每需求的任务书）
    │   │   └── runs/                  大需求运行记录
    │   └── project/                 项目 facts

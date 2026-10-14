@@ -107,19 +107,6 @@ artifacts:
     generated_from: agent-up/references/templates/project.md.tmpl
     platform: neutral
     update_policy: 语义变化经用户确认后修改；正文为规范本体
-  - id: requests-readme
-    path: facts/requirements/requests/README.md
-    kind: governance
-    authority: 权威层级第 4 级（流程规则：REQ 队列规则）
-    owner: 协调记录 owner（变更经用户确认）
-    lifecycle: Seed
-    trigger: always
-    read_when: 接收、推进或追溯需求请求时
-    sync_on: 契约、行为（队列规则或状态机语义变化）
-    depends_on: [project]
-    generated_from: agent-up/references/templates/requests-README.md.tmpl
-    platform: neutral
-    update_policy: 队列规则变化经用户确认后修改
   - id: artifacts-yaml
     path: facts/project/artifacts.yaml
     kind: index
@@ -134,20 +121,9 @@ artifacts:
     platform: neutral
     update_policy: 状态机更新；产物登记同步；漂移标 stale 并报告
 
-  # 条件产物登记样例（命中触发矩阵/Intake 才创建；按实际产物仿照登记，不预建）：
-  # - id: req-YYYYMMDD-NNN
-  #   path: facts/requirements/requests/REQ-YYYYMMDD-NNN.json
-  #   kind: request
-  #   authority: 权威层级第 2 级（事实记录：需求请求）
-  #   owner: Intake 会话执行体（新建）；Triage 执行体（状态流转）
-  #   lifecycle: Record
-  #   trigger: Intake 接收新需求并落盘
-  #   read_when: 处理对应需求、Triage 或追溯决策来源时
-  #   sync_on: 无（状态流转按状态机更新，不级联）
-  #   depends_on: [requests-readme]
-  #   generated_from: 访谈或对话原文
-  #   platform: neutral
-  #   update_policy: 状态机更新；正文只追加不改写
+  # 条件产物登记样例（命中触发矩阵才创建；按实际产物仿照登记，不预建）：
+  # （需求请求 REQ 样例条目已退役，2026-10-14 票 141——需求登记册不再生成，新需求走卡片：
+  #   卡片登记见任务票目录 issues-README；存量项目旧 REQ 登记冻结只读，登记条目保留原样）
   #
   # - id: project-map
   #   path: facts/project/project-map.json（落位为 R24 同域类比：映射表未单列本行，与 facts/project/architecture/ 同域；定值以变更票裁决为准）
@@ -177,7 +153,7 @@ artifacts:
   #   platform: neutral
   #   update_policy: 状态机更新；一条目一行整行替换
   #
-  # - id: request-index
+  # - id: request-index（退役条件模板 2026-10-14 票 141：需求登记册不再生成，存量项目旧登记冻结只读；仅存量项目补缺登记时参考）
   #   path: facts/requirements/requests/index.json
   #   kind: index
   #   authority: 权威层级第 2 级（事实记录：REQ 状态登记；Request 状态机取值权威＝facts/requirements/requests/README.md R-RQ-002 与 rules/project.md 三套状态机）

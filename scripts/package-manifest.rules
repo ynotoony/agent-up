@@ -119,7 +119,6 @@ pm_template discipline.md.tmpl
 pm_template dir-README.md.tmpl
 pm_template issues-README.md.tmpl
 pm_template project.md.tmpl
-pm_template requests-README.md.tmpl
 pm_template research-README.md.tmpl
 pm_template scripts-README.md.tmpl
 pm_template specs-README.md.tmpl
@@ -130,7 +129,6 @@ pm_shortcode AG references/templates/AGENTS.md.tmpl
 pm_shortcode DP references/templates/assessment.md.tmpl
 pm_shortcode DP references/templates/discipline.md.tmpl
 pm_shortcode DP references/templates/project.md.tmpl
-pm_shortcode RQ references/templates/requests-README.md.tmpl
 pm_shortcode RI references/templates/agents-implementation.md.tmpl
 pm_shortcode RR references/templates/agents-review.md.tmpl
 pm_shortcode RC references/templates/agents-commit.md.tmpl
