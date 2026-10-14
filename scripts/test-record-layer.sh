@@ -1145,7 +1145,7 @@ suite_check_package() {
   mkdir -p "$D"
 
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（15 个文件）
+PASS: 1 必需入口存在（16 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -1178,7 +1178,7 @@ EOF
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
   cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（15 个文件）
+PASS: 1 必需入口存在（16 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -1212,7 +1212,7 @@ EOF
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（15 个文件）
+PASS: 1 必需入口存在（16 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
