@@ -28,7 +28,7 @@
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，逐件 cp 自包 `scripts/` 至 `<target>/rules/implementation/scripts/` 并 cmp 核验字节一致；预检先于复制（源缺失/目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标 `rules/implementation/scripts/` 缺失时创建并输出 README 生成提示行（README 生成归执行体）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
-| `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控与 delivery.rules 显示 N/A；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
+| `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控显示 N/A；快道证据两源＝delivery.rules 在场或快道专属脚本已装，多门控共享脚本（如 generate-progress.sh）不构成快道证据——未启用快道时 delivery.rules 恒 N/A，快道脚本已装而缺配置才报落后；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
 
 旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
@@ -715,8 +715,8 @@ sh scripts/upgrade-check.sh <pkg-dir> <repo-root>
 
 | 态 | cmp 面 | 判定 |
 | --- | --- | --- |
-| 自动同步 | 机械检查面 | 已启用门控的每份脚本分别与包基线 cmp 一致；规则块 ID 集一致；delivery.rules 仅在快道有证据时检查锚点。双布局即使两份相同也报告冲突。 |
-| 落后 | 条件/模板面 | 已启用门控对应的两种脚本落位均缺失；快道有证据但 delivery.rules 缺失/缺锚点；所需规则文件或规则块 ID 缺失；模板 manifest 声明的 Conditional README 对应目录存在但 README 缺失。 |
+| 自动同步 | 机械检查面 | 已启用门控的每份脚本分别与包基线 cmp 一致；规则块 ID 集一致；delivery.rules 仅在快道有证据时检查锚点（证据两源＝delivery.rules 在场或快道专属脚本已装；多门控共享脚本不构成快道证据）。双布局即使两份相同也报告冲突。 |
+| 落后 | 条件/模板面 | 已启用门控对应的两种脚本落位均缺失；快道脚本已装而 delivery.rules 缺失，或配置在场而缺锚点；所需规则文件或规则块 ID 缺失；模板 manifest 声明的 Conditional README 对应目录存在但 README 缺失。 |
 | 漂移/冲突 | 脚本与布局面 | 任一已安装脚本副本不同于包基线；新旧布局同时存在必报冲突并逐份比较。工具不选择或修复副本。 |
 
 规则块核对覆盖 AGENTS.md、现代 rules 三件与新布局三份角色合同，只比较规则块 ID 集，不比较块内语义。旧式 docs 角色合同按登记兼容面检查存在性。固定 Conditional README Emits 自模板 manifest 提取；目录不存在时 N/A，目录存在但 README 缺失时报落后；旧布局会映射检查 `docs/issues/`、`docs/specs/`、`docs/research/` 和 `scripts/` 中已存在的兼容目录。`<目录>/README.md` 动态 Emits 与 README/artifacts.yaml 等项目定制内容输出人工核对，不据此宣称内容同步；Derived 新鲜度由升级手册单独回访。
@@ -758,7 +758,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `lane-commit` |  | lane-commit.sh 微账本 actual 键正负例（git 夹具承载两段式全链）：micro 合同带 actual 行 → exit 0 且微账本第七键 actual 落值；合同不带 actual 行 → exit 0 且 actual 落空串（既有六键行向后兼容，键序不变）；actual 行重复 → exit 1 零提交零写入；user-review 道携带 actual 行 → exit 1（用时落票本体 actual_time）；actual 行含制表符 → exit 1（JSON 行安全） |  |
 | `append-only` |  | check-append-only.sh 正负例：changes.jsonl 尾部追加 exit 0（OK 行含追加计数）、micro.jsonl 同口径追加＋progress.md 零 diff exit 0、中间插入 exit 1 指名文件与首个违规行号、改写历史行／截断／工作树删除 exit 1、progress.md 篡改 exit 1、micro.jsonl 中间插入 exit 1（同口径）、无 Git 基线 WARN 退出 0、懒创建（新建账本 OK＋缺失 SKIP）exit 0、用法负例（无参数／多参数／非 Git 目录 exit 2）、迁移承继三例：迁移窗口 exit 0 双 OK（已迁移＋迁移承继）、迁移落位稳态 exit 0（后继 OK＋旧路径 SKIP）、承继不一致 exit 1 双 FAIL（后继新内容＋旧路径缺失） |  |
 | `worktree` |  | worktree-add.sh 栅栏化创建正负例（主检出语境）：正常创建→exit 0＋排除路径物理不在场；链接 worktree 内运行→exit 1 自拒；分支名不合 ticket 形态→exit 1；main-only 节缺失→exit 2 |  |
-| `upgrade-check` |  | modern 全布局；规则块缺失报具体 ID、多余块提示分歧候选；manifest Conditional README 已生成时存在性核对、目录未生成时 N/A、目录已生成而 README 缺失时报落后；delivery.rules 未启用 N/A、启用缺失报落后；旧布局脚本与 docs 条件 README 兼容；双布局冲突且逐份 cmp；单路径歧义 fail-closed；新旧治理面 mixed 明示 | 10 |
+| `upgrade-check` |  | modern 全布局；规则块缺失报具体 ID、多余块提示分歧候选；manifest Conditional README 已生成时存在性核对、目录未生成时 N/A、目录已生成而 README 缺失时报落后；delivery.rules 未启用 N/A、快道专属脚本已装而配置缺失报落后、票务道共享脚本不点亮快道（P6/N6）；旧布局脚本与 docs 条件 README 兼容；双布局冲突且逐份 cmp；单路径歧义 fail-closed；新旧治理面 mixed 明示 | 12 |
 | （仅 all）注入自检 |  | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 
 断言计数随维护增减（suite 汇总行按实际计数输出；stale-claims/ticket-ops/append-only 行计数删格——数字以 `--suite` 实跑输出为唯一真相源）。

@@ -43,7 +43,10 @@
 #        STALE 指名票 id 与跃迁方向，终态史取 Git 基线）：套件登记数期望随动（未点亮
 #        3→4、全点亮 5→6）＋S6 正负例四（终态索引照旧→exit 0；done→in_progress→
 #        STALE 指名票 id 与跃迁方向；superseded→ready 同款；非终态流转零误报，终态史
-#        经 git init 基线提交承载）。
+#        经 git init 基线提交承载）；票 146（升级对账条件产物两源证据：快道证据＝
+#        delivery.rules 在场或快道专属脚本已装，多门控共享脚本不点亮快道——P6 票务道
+#        共享脚本安装不点亮→N/A exit 0；N6 快道专属脚本已装缺配置→落后 exit 1；夹具
+#        install-policy 补 ticket-ops 门控与 generate-progress.sh 双门控行）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -2952,7 +2955,8 @@ uc_build_fixture() {
   rm -rf "$1"
   mkdir -p "$1/pkg/references/templates" "$1/pkg/scripts" "$1/repo"
   cp "$SCRIPT_DIR/upgrade-check.sh" "$1/pkg/scripts/upgrade-check.sh"
-  printf "ip_gate fast-lane --fast-lane 'fixture fast lane'\nip_file agent-up/scripts/upgrade-check.sh Conditional fast-lane 'fixture checker'\n" > "$1/pkg/scripts/install-policy.rules"
+  cp "$PKG_ROOT/scripts/generate-progress.sh" "$1/pkg/scripts/generate-progress.sh"
+  printf "ip_gate fast-lane --fast-lane 'fixture fast lane'\nip_gate ticket-ops --ticket-ops 'fixture ticket ops'\nip_file agent-up/scripts/upgrade-check.sh Conditional fast-lane 'fixture checker'\nip_file agent-up/scripts/generate-progress.sh Conditional fast-lane 'fixture shared script'\nip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops 'fallback dependency'\n" > "$1/pkg/scripts/install-policy.rules"
   printf '# ==== payload：导出形态（export-payload.sh 读）====\n# ==== boundary：禁入名单（pre-push 安检读）====\n# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n# ==== main-only：worktree 排除清单（worktree-add.sh 读）====\n' > "$1/pkg/references/templates/delivery-rules.tmpl"
   printf '#### R-AG-001 Agent\nbody\n' > "$1/pkg/references/templates/AGENTS.md.tmpl"
   printf '#### R-DP-001 Alpha\nbody\n#### R-DP-002 Beta\nbody\n' > "$1/pkg/references/templates/assessment.md.tmpl"
@@ -2996,6 +3000,7 @@ suite_upgrade_check() {
   mkdir -p "$D/p1/repo/rules/implementation/scripts"
   mkdir -p "$D/p1/repo/facts/requirements/specs" "$D/p1/repo/facts/requirements/research"
   cp "$D/p1/pkg/scripts/upgrade-check.sh" "$D/p1/repo/rules/implementation/scripts/upgrade-check.sh"
+  cp "$D/p1/pkg/scripts/generate-progress.sh" "$D/p1/repo/rules/implementation/scripts/generate-progress.sh"
   printf '# scripts README\n' > "$D/p1/repo/rules/implementation/scripts/README.md"
   printf '# specs README\n' > "$D/p1/repo/facts/requirements/specs/README.md"
   printf '# research README\n' > "$D/p1/repo/facts/requirements/research/README.md"
@@ -3059,7 +3064,7 @@ suite_upgrade_check() {
   cp "$D/n2/pkg/scripts/upgrade-check.sh" "$D/n2/repo/rules/implementation/scripts/upgrade-check.sh"
   printf '# scripts README\n' > "$D/n2/repo/rules/implementation/scripts/README.md"
   sh "$UC" "$D/n2/pkg" "$D/n2/repo" > "$D/n2.out" 2>&1; rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '落后  delivery.rules 缺失（已有快道启用证据）' "$D/n2.out"; then
+  if [ "$rc" -eq 1 ] && grep -q '落后  delivery.rules 缺失（快道脚本已装，配置缺失）' "$D/n2.out"; then
     ok '负例 N2 快道已启用但缺配置 → 落后'
   else
     bad '负例 N2 快道已启用但缺配置 → 落后' "exit=$rc $(tail -n 2 "$D/n2.out" | tr '\n' '|')"
@@ -3096,6 +3101,7 @@ suite_upgrade_check() {
   printf '# legacy specs README\n' > "$D/p4/repo/docs/specs/README.md"
   printf '# legacy research README\n' > "$D/p4/repo/docs/research/README.md"
   cp "$D/p4/pkg/scripts/upgrade-check.sh" "$D/p4/repo/scripts/upgrade-check.sh"
+  cp "$D/p4/pkg/scripts/generate-progress.sh" "$D/p4/repo/scripts/generate-progress.sh"
   cp "$D/p4/pkg/references/templates/delivery-rules.tmpl" "$D/p4/repo/delivery.rules"
   sh "$UC" "$D/p4/pkg" "$D/p4/repo" > "$D/p4.out" 2>&1; rc=$?
   if [ "$rc" -eq 0 ] && grep -q '布局: legacy' "$D/p4.out" \
@@ -3135,6 +3141,33 @@ suite_upgrade_check() {
     ok '正例 P5 新旧治理面并存 → 标记 mixed 并分别检查'
   else
     bad '正例 P5 新旧治理面并存 → 标记 mixed 并分别检查' "exit=$rc $(tail -n 3 "$D/p5.out" | tr '\n' '|')"
+  fi
+
+  # Shared multi-gate script (generate-progress.sh: fast-lane + ticket-ops rows) must not
+  # light the fast lane. P6: ticket-ops-only install without delivery.rules stays N/A and
+  # exits 0; N6: an installed fast-lane-exclusive script without the config is behind (exit 1).
+  uc_modern "$D/p6"
+  mkdir -p "$D/p6/repo/rules/implementation/scripts"
+  cp "$D/p6/pkg/scripts/generate-progress.sh" "$D/p6/repo/rules/implementation/scripts/generate-progress.sh"
+  printf '# scripts README\n' > "$D/p6/repo/rules/implementation/scripts/README.md"
+  sh "$UC" "$D/p6/pkg" "$D/p6/repo" > "$D/p6.out" 2>&1; rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'N/A delivery.rules（未启用快道）' "$D/p6.out" \
+    && grep -q '同步  rules/implementation/scripts/generate-progress.sh' "$D/p6.out" \
+    && ! grep -q '配置面（delivery.rules 条件产物）' "$D/p6.out"; then
+    ok '正例 P6 票务道安装共享脚本不点亮快道 → delivery.rules N/A 且 exit 0'
+  else
+    bad '正例 P6 票务道安装共享脚本不点亮快道 → delivery.rules N/A 且 exit 0' "exit=$rc $(tail -n 3 "$D/p6.out" | tr '\n' '|')"
+  fi
+
+  uc_modern "$D/n6"
+  mkdir -p "$D/n6/repo/rules/implementation/scripts"
+  cp "$D/n6/pkg/scripts/upgrade-check.sh" "$D/n6/repo/rules/implementation/scripts/upgrade-check.sh"
+  printf '# scripts README\n' > "$D/n6/repo/rules/implementation/scripts/README.md"
+  sh "$UC" "$D/n6/pkg" "$D/n6/repo" > "$D/n6.out" 2>&1; rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '落后  delivery.rules 缺失（快道脚本已装，配置缺失）' "$D/n6.out"; then
+    ok '负例 N6 快道专属脚本已装但缺 delivery.rules → 落后 exit 1'
+  else
+    bad '负例 N6 快道专属脚本已装但缺 delivery.rules → 落后 exit 1' "exit=$rc $(tail -n 2 "$D/n6.out" | tr '\n' '|')"
   fi
 
   suite_summary 'upgrade-check'
