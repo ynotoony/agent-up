@@ -16,7 +16,9 @@
 #      fail-closed（门禁不过、合同格式不合预期、索引/生成器缺失即停止报告，不写不补；
 #      预检先于产品提交，停止时零提交零写入）。脚本权限边界 = 提交合同白名单，不执行
 #      白名单外任何写入；facts/requirements/tickets/README.md 与 facts/project/archive/progress.md
-#      状态行不属本脚本写入面（README 状态列为人工登记投影，票 35/37 口径）。
+#      状态行不属本脚本写入面（README 状态列为人工登记投影，票 35/37 口径）。写入面路径
+#      边界（票 144）：whitelist 条目、flips 目标与 ticket 票文件须为仓库根内普通相对文件，
+#      ..、绝对路径、symlink 与 realpath 越出仓库根一律在写入前 fail-closed 拒绝。
 
 # 用法、合同行格式与输出格式见同目录 README.md。
 
@@ -89,6 +91,55 @@ die1() {
 die2() {
   printf 'lane-commit: %s\n' "$1" >&2
   exit 2
+}
+
+# ---- 写入面路径边界（票 144）----
+# lc_in_repo <repo-root> <仓库根相对路径> <路径角色名>
+# 校验通过静默返回 0；违规向 stderr 报因并返回 1。三道检查均在任何写入前执行：
+# ① 文本层：拒绝 ..（路径段）、绝对路径（/ 开头）与 ./ 前缀——仓库根相对普通文件路径
+#    不得携带向上跳段或前缀点缀（文本层先行，防 realpath 前路径拼写歧义）；
+# ② realpath containment：目标物理 realpath 须位于仓库根物理 realpath 之下——symlink
+#    指向仓外（含 /tmp 夹具）、深层 .. 越界、大小写/规格化歧义一律在此拦出；
+# ③ 形态层：symlink 自身拒绝（-h）、仅普通文件（-f && ! -L）——目录不属写入面。
+# POSIX 依赖仅 realpath（POSIX 2018 标准外部命令）与 test 探针；macOS/BSD/GNU 通用。
+lc_in_repo() {
+  _lir_root=$1
+  _lir_path=$2
+  _lir_what=$3
+  case ${_lir_path} in
+    ..|../*|*/..|*/../*|./*|*.|*/./*)
+      printf 'lane-commit: FAIL: %s 不得含 .. 或 ./ 路径段: %s\n' "${_lir_what}" "${_lir_path}" >&2
+      return 1
+      ;;
+    /*)
+      printf 'lane-commit: FAIL: %s 须为仓库根相对路径，不得为绝对路径: %s\n' "${_lir_what}" "${_lir_path}" >&2
+      return 1
+      ;;
+  esac
+  _lir_probe=$(CDPATH='' cd -- "${_lir_root}" 2>/dev/null && pwd -P) || {
+    printf 'lane-commit: FAIL: 仓库根不可解析为物理路径: %s\n' "${_lir_root}" >&2
+    return 1
+  }
+  _lir_real=$(realpath "${_lir_root}/${_lir_path}" 2>/dev/null) || {
+    printf 'lane-commit: FAIL: %s realpath 解析失败（目标不存在或中途断链）: %s\n' "${_lir_what}" "${_lir_path}" >&2
+    return 1
+  }
+  case ${_lir_real} in
+    "${_lir_probe}"/*) : ;;
+    *)
+      printf 'lane-commit: FAIL: %s 越出仓库根（realpath containment 失败）: %s → %s\n' "${_lir_what}" "${_lir_path}" "${_lir_real}" >&2
+      return 1
+      ;;
+  esac
+  [ ! -h "${_lir_root}/${_lir_path}" ] || {
+    printf 'lane-commit: FAIL: %s 不得为 symlink: %s\n' "${_lir_what}" "${_lir_path}" >&2
+    return 1
+  }
+  [ -f "${_lir_root}/${_lir_path}" ] || {
+    printf 'lane-commit: FAIL: %s 须为仓库根内普通文件: %s\n' "${_lir_what}" "${_lir_path}" >&2
+    return 1
+  }
+  return 0
 }
 
 tmp_gate=''
@@ -277,6 +328,7 @@ case ${lane} in
     { [ "${va_seen}" -eq 1 ] && [ -n "${verdict_at}" ]; } || die1 'user-review 道缺少 verdict_at 行'
     [ "${actual_seen}" -eq 0 ] || die1 'user-review 道不得携带 actual 行（user-review 道实际用时落票本体 actual_time 字段，ticket-ops flip 收口硬拦——票 100）'
     [ -f "${repo_root}/${ticket}" ] || die1 "user-review 道票文件不存在: ${ticket}"
+    lc_in_repo "${repo_root}" "${ticket}" 'ticket 票文件' || die1 'ticket 票文件路径边界校验未通过（票 144：须为仓库根内普通相对文件，写入前拒绝）'
     ;;
   micro)
     [ "${ticket_seen}" -eq 0 ] || die1 'micro 道免票，不得携带 ticket 行'
@@ -312,6 +364,22 @@ if [ "${n_index_flip}" -gt 0 ]; then
   [ "${lane}" = 'user-review' ] || die1 '索引条目翻转仅限 user-review 道（micro 道免票，无票状态可翻）'
   [ "${n_index_flip}" -eq 1 ] || die1 '索引条目翻转至多一条（单写口径，票 37）'
 fi
+
+# ---- 写入面路径边界预检（票 144：任何写入前完成；fail-closed 停止时零提交零写入）----
+# whitelist 条目与 flips 目标逐一过 lc_in_repo：仓库根内普通相对文件（拒 ..、绝对路径、
+# symlink、realpath 越出仓库根）。位置在车道语义校验之后、微道预检与全部写入之前；
+# ticket 票文件已在 user-review 语义块内过同款校验。
+
+for wpath in ${whitelist}; do
+  lc_in_repo "${repo_root}" "${wpath}" 'whitelist 条目' || \
+    die1 "whitelist 条目路径边界校验未通过: ${wpath}（票 144：须为仓库根内普通相对文件）"
+done
+
+for flip in ${flips}; do
+  f_file=${flip%%"${TAB}"*}
+  lc_in_repo "${repo_root}" "${f_file}" 'flips 目标' || \
+    die1 "flips 目标路径边界校验未通过: ${f_file}（票 144：须为仓库根内普通相对文件）"
+done
 
 # ---- 微道预检（票 58：微道只修不建不删；user-review 道不受此限，行为零变化）----
 # 两断言：①白名单条目 ≤3（超出属非微任务，改走 user-review 道开票收尾）；
