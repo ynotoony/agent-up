@@ -43,7 +43,12 @@
 #        STALE 指名票 id 与跃迁方向，终态史取 Git 基线）：套件登记数期望随动（未点亮
 #        3→4、全点亮 5→6）＋S6 正负例四（终态索引照旧→exit 0；done→in_progress→
 #        STALE 指名票 id 与跃迁方向；superseded→ready 同款；非终态流转零误报，终态史
-#        经 git init 基线提交承载）。
+#        经 git init 基线提交承载）；票 152 open 本体 schema 全量校验（type/pattern/enum/
+#        oneOf/additionalProperties/条件 required 依 schema 执行）：ticket-ops 套件九例
+#        随动——正例二（最小 task 本体／request 本体各 exit 0 索引落条目，合法面零回归）
+#        ＋负例七（id 越 pattern／complexity 越枚举／profile 越七维 pattern／blocked_by
+#        条目越 pattern／额外字段／task 缺条件 required／verification oneOf 零命中，均
+#        exit 1 零写入且报文指名字段路径）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -1009,6 +1014,121 @@ EOF
     ok '负例 lesson 分数键序错（predicate 在前）→ exit 1 指名固定键序（票 133）'
   else
     bad '负例 lesson 分数键序错（predicate 在前）→ exit 1 指名固定键序（票 133）' "exit=$rc $(tail -n 1 "$D/ls5.log" | head -c 120)"
+  fi
+
+  # ---- 票 152 断言：open 本体 schema 全量校验（type/pattern/enum/oneOf/
+  # additionalProperties/条件 required）----
+  # 独立夹具 fix152（免受前段状态影响）：最小 task 本体照（tix_body 形态）重建后逐字段
+  # 破坏，各负例 exit 1、零写入（tix_state 指纹）且报文指名字段路径；正例 task/request
+  # 本体照旧 exit 0 全链落地（合法面零回归）；oneOf 零命中（verification 非 string 非
+  # array）一并拒。风险注记（票 152 risks）：python3 依赖已由套件环境门承载（缺 python3
+  # exit 2）；存量 JSON 兼容性＝校验只 open 时点生效、存量票零回扫（open 后本体不再校验，
+  # 夹具 30 票 open 通过后前段断言照旧）。
+  tix_build_fixture "$D/fix152"
+  F152=$D/fix152
+  TIX152="$F152/rules/implementation/scripts/ticket-ops.sh"
+  TIX152_OK_BODY="$F152/facts/requirements/tickets/30-gamma-third.json"
+  tix_body "$TIX152_OK_BODY" 30-gamma-third
+  TIX152_LEDGER='{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture 152", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
+
+  # 正例 P152：最小 task 本体原样 open → exit 0 且索引落条目（全量校验合法面零回归）
+  sh "$TIX152" "$F152" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$TIX152_LEDGER" >"$D/v152p.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "30-gamma-third"' "$F152/facts/requirements/tickets/index.json"; then
+    ok '正例 P152 最小 task 本体 open → exit 0 且索引落条目（schema 全量校验合法面零回归，票 152）'
+  else
+    bad '正例 P152 最小 task 本体 open → exit 0 且索引落条目（schema 全量校验合法面零回归，票 152）' "exit=$rc $(head -n 2 "$D/v152p.log" | tr '\n' '|')"
+  fi
+
+  S152=$(tix_state "$F152")
+
+  # N-152id：本体 id 不合 schema pattern（大写）→ exit 1 零写入且报文指名 id（本体 id
+  # 与 --id 不一致断言亦并列报出——id pattern 门与一致性门同作用）
+  sed 's/"id": "30-gamma-third"/"id": "50-Epsilon-Fifth"/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152id.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q '50-Epsilon-Fifth' "$D/v152id.log"; then
+    ok '负例 N-152id 本体 id 越 pattern（大写）→ exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152id 本体 id 越 pattern（大写）→ exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152id.log" | tr '\n' '|')"
+  fi
+
+  # N-152c：complexity 越枚举 → exit 1 零写入且报文指名枚举
+  sed 's/"complexity": "C1"/"complexity": "C9"/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152c.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q "'C9'" "$D/v152c.log"; then
+    ok '负例 N-152c 本体 complexity 越枚举（C9）→ exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152c 本体 complexity 越枚举（C9）→ exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152c.log" | tr '\n' '|')"
+  fi
+
+  # N-152p：profile 越七维 pattern（维值 C9）→ exit 1 零写入且报文指名 profile
+  sed 's/D:Required/D:C9/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152p2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'profile' "$D/v152p2.log"; then
+    ok '负例 N-152p 本体 profile 越七维 pattern → exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152p 本体 profile 越七维 pattern → exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152p2.log" | tr '\n' '|')"
+  fi
+
+  # N-152b：blocked_by 含不合 id pattern 条目 → exit 1 零写入且报文指名路径 blocked_by[0]
+  sed 's/"blocked_by": \[\]/"blocked_by": ["Bad-Ref"]/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152b.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'blocked_by\[0\]' "$D/v152b.log"; then
+    ok '负例 N-152b blocked_by 条目越 pattern → exit 1 零写入且报文指名路径（票 152 AC1）'
+  else
+    bad '负例 N-152b blocked_by 条目越 pattern → exit 1 零写入且报文指名路径（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152b.log" | tr '\n' '|')"
+  fi
+
+  # N-152extra：additionalProperties（本体加 schema 未定义字段）→ exit 1 零写入且报文指名字段
+  sed 's/"priority_reason"/"extra_field": "额外字段", "priority_reason"/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152x.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'extra_field' "$D/v152x.log"; then
+    ok '负例 N-152extra 本体含未定义字段 → exit 1 零写入且报文指名（票 152 AC1 additionalProperties）'
+  else
+    bad '负例 N-152extra 本体含未定义字段 → exit 1 零写入且报文指名（票 152 AC1 additionalProperties）' "exit=$rc $(head -n 2 "$D/v152x.log" | tr '\n' '|')"
+  fi
+
+  # N-152task：task 票缺条件 required（profile 字段删除）→ exit 1 零写入且报文指名 task profile
+  sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' -e '/"profile"/d' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152t.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q '缺少 profile' "$D/v152t.log"; then
+    ok '负例 N-152task task 缺条件 required profile → exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152task task 缺条件 required profile → exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152t.log" | tr '\n' '|')"
+  fi
+
+  # N-152oneof：oneOf 零命中（verification 为数字，非 string 非 array）→ exit 1 零写入
+  # 且报文指名 oneOf（verification 的 oneOf 两分支＝string｜array，数字两不命中）
+  sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' -e 's/"priority_reason": "fixture 优先级理由（正例，非空）"/"priority_reason": "fixture 优先级理由（正例，非空）", "verification": 42/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152o.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'oneOf' "$D/v152o.log"; then
+    ok '负例 N-152oneof verification oneOf 零命中（数字形态）→ exit 1 零写入（票 152 AC1）'
+  else
+    bad '负例 N-152oneof verification oneOf 零命中（数字形态）→ exit 1 零写入（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152o.log" | tr '\n' '|')"
+  fi
+
+  # 正例 P152r：request 本体（无 task 条件字段）open 照旧 exit 0（kind 分支合法面零回归）
+  cat > "$F152/facts/requirements/tickets/51-zeta-sixth.json" <<'EOF'
+{
+  "id": "51-zeta-sixth",
+  "kind": "request",
+  "title": "fixture request（schema 全量校验正例）",
+  "created_at": "2026-09-19"
+}
+EOF
+  sh "$TIX152" "$F152" open --id 51-zeta-sixth --complexity C1 --title z --ledger-line "$TIX152_LEDGER" >"$D/v152r.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "51-zeta-sixth"' "$F152/facts/requirements/tickets/index.json"; then
+    ok '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）'
+  else
+    bad '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）' "exit=$rc $(head -n 2 "$D/v152r.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'

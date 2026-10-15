@@ -6,8 +6,10 @@
 #        date,kind,scope,decision,evidence_ref，五键必备＋按 kind 条件键：lesson 必带
 #        第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone
 #        ——票 81，一行一事实，禁裸换行）。
-# Output: 协调层票务面写入——open＝新票本体 schema 校验＋理由非空断言（票 79，只 open
-#         时点生效，存量零回扫）＋校验＋索引新增条目（status=ready）＋README 追加目录
+# Output: 协调层票务面写入——open＝新票本体 ticket-record.schema.json 全量校验
+#         （type/pattern/enum/oneOf/additionalProperties/条件 required 依 schema 文件
+#         执行，票 152）＋理由非空断言（票 79，只 open 时点生效，存量零回扫）＋校验＋
+#         索引新增条目（status=ready）＋README 追加目录
 #         清单行＋账本追加行；take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
 #         状态 token 替换＋账本追加行，flip 另做 task 票 actual_time 收口硬拦（票 100：
 #         票 JSON 本体 actual_time 须已填且非空，缺项即 exit 1 指名票 id 与缺项，request
@@ -50,8 +52,10 @@ usage() {
   repo-root      仓库根目录；缺省取脚本所在目录的上一级。
 命令:
   open           开票：先过新票本体校验（facts/requirements/tickets/<id>.json 须已落位并过
-                 ticket-record.schema.json 校验＋定级/优先级理由非空断言，票 79；缺本体
-                 或校验不过即 fail-closed 零写入），再写索引条目（status=ready）＋
+                 ticket-record.schema.json 全量校验——type/pattern/enum/oneOf/
+                 additionalProperties 与条件 required 依 schema 执行（票 152），非空断言
+                 同前，票 79；缺本体或校验不过即 fail-closed 零写入），再写索引条目
+                 （status=ready）＋
                  issues-README 目录清单追加行＋账本追加行，收尾投影再生＋--check。
                  选项（前四必选）:
                    --id <NN-slug>            票 id（^[0-9]{2,}-[a-z0-9-]+$；须不在索引中且 NN 段未被
@@ -432,10 +436,12 @@ readme_token_check() {
 }
 
 ticket_body_check() {
-  # open 专属预检（票 79）：新票 JSON 本体过 ticket-record.schema.json 校验＋理由非空
-  # 断言——required 集（顶层＋allOf if kind=task then）自 schema 文件现场提取，schema 为
-  # 唯一权威；非空＝字符串 strip 后非空（blocked_by 须数组，空数组合法＝无依赖）；另断言
-  # 本体 id 与 --id 一致（防校验错文件）。只读零写入；任何不过即 exit 1（报文指名缺失项）。
+  # open 专属预检（票 79 起）：新票 JSON 本体过 ticket-record.schema.json 校验＋理由非空
+  # 断言——票 152 起全量执行 schema 约束（不再只提取 required）：type/pattern/enum/oneOf/
+  # additionalProperties 与 allOf 条件 required 均自 schema 文件现场执行（校验器＝在用
+  # 约束词的机械执行子集，schema 为唯一权威）；非空＝字符串 strip 后非空（blocked_by 须
+  # 数组，空数组合法＝无依赖）；另断言本体 id 与 --id 一致（防校验错文件）。只读零写入；
+  # 任何不过即 exit 1（报文指名缺失项）。
   command -v python3 >/dev/null 2>&1 || \
     die1 'python3 不可用——open 本体 schema 校验无法执行（fail-closed；票 79 起为本体校验依赖）'
   [ -f "${ticket_file}" ] || \
@@ -446,6 +452,7 @@ ticket_body_check() {
   [ -r "${schema_file}" ] || die1 "schema 文件不可读: ${schema_file}"
   python3 - "${ticket_file}" "${schema_file}" "${id}" <<'PYEOF'
 import json
+import re
 import sys
 
 ticket_path, schema_path, want_id = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -454,6 +461,87 @@ ticket_path, schema_path, want_id = sys.argv[1], sys.argv[2], sys.argv[3]
 def fail(msg):
     sys.stderr.write(f"ticket-ops: FAIL: {msg}\n")
     sys.exit(1)
+
+
+def type_ok(node, t):
+    # bool 是 int 子类，须先排除（JSON Schema boolean 与 integer 互斥）
+    if t == "object":
+        return isinstance(node, dict)
+    if t == "array":
+        return isinstance(node, list)
+    if t == "string":
+        return isinstance(node, str)
+    if t == "integer":
+        return isinstance(node, int) and not isinstance(node, bool)
+    if t == "number":
+        return isinstance(node, (int, float)) and not isinstance(node, bool)
+    if t == "boolean":
+        return isinstance(node, bool)
+    if t == "null":
+        return node is None
+    return True  # 未知类型词不误拒（未知词面不在本仓 schema 内）
+
+
+def validate(node, sch, path):
+    # 返回问题列表；仅执行本仓 schema 词面在用的约束词（票 152 范围），未知词不误拒。
+    problems = []
+    if not isinstance(sch, dict):
+        return problems
+    types = sch.get("type")
+    if types is not None:
+        tl = types if isinstance(types, list) else [types]
+        if not any(type_ok(node, t) for t in tl):
+            problems.append(f"{path or '<root>'}: 类型须为 {'/'.join(tl)}，实为 {type(node).__name__}")
+            return problems
+    if "const" in sch and node != sch["const"]:
+        problems.append(f"{path or '<root>'}: 须为常量 {sch['const']!r}，实为 {node!r}")
+    enum = sch.get("enum")
+    if isinstance(enum, list) and node not in enum:
+        problems.append(f"{path or '<root>'}: 不在枚举 {enum!r} 内: {node!r}")
+    one_of = sch.get("oneOf")
+    if isinstance(one_of, list):
+        # oneOf 对任意节点类型生效（判定须在类型分支之前——否则 string/array 以外
+        # 形态的节点完全跳过 oneOf，verification 非法形态穿透，票 152 负例实证）
+        branches = [sub for sub in one_of if isinstance(sub, dict) and not validate(node, sub, path)]
+        if len(branches) != 1:
+            problems.append(f"{path or '<root>'}: 须恰命中 oneOf 之一（命中 {len(branches)}）")
+    if isinstance(node, str):
+        pat = sch.get("pattern")
+        if isinstance(pat, str) and re.search(pat, node) is None:
+            problems.append(f"{path or '<root>'}: 不合 pattern（{pat}）: {node!r}")
+        if "minLength" in sch and len(node) < sch["minLength"]:
+            problems.append(f"{path or '<root>'}: 长度小于 minLength {sch['minLength']}")
+    if isinstance(node, list):
+        if "minItems" in sch and len(node) < sch["minItems"]:
+            problems.append(f"{path or '<root>'}: 元素数小于 minItems {sch['minItems']}")
+        items = sch.get("items")
+        if isinstance(items, dict):
+            for i, item in enumerate(node):
+                problems.extend(validate(item, items, f"{path}[{i}]" if path else f"[{i}]"))
+    if isinstance(node, dict):
+        props = sch.get("properties") or {}
+        if isinstance(props, dict):
+            for name, sub in props.items():
+                if name in node and isinstance(sub, dict):
+                    problems.extend(validate(node[name], sub, f"{path}.{name}" if path else name))
+        for rname in sch.get("required") or []:
+            if isinstance(rname, str) and rname not in node:
+                problems.append(f"{path or '<root>'}: 缺少必备字段 {rname}")
+        if sch.get("additionalProperties") is False:
+            extra = [k for k in node if k not in props]
+            if extra:
+                problems.append(f"{path or '<root>'}: 含 schema 未定义字段（additionalProperties=false）: " + "、".join(sorted(extra)))
+        for sub in sch.get("allOf") or []:
+            if not isinstance(sub, dict):
+                continue
+            if "if" in sub or "then" in sub:
+                cond = sub.get("if")
+                then = sub.get("then")
+                if isinstance(cond, dict) and isinstance(then, dict) and not validate(node, cond, path):
+                    problems.extend(validate(node, then, path))
+            else:
+                problems.extend(validate(node, sub, path))
+    return problems
 
 
 try:
@@ -517,6 +605,10 @@ for sub in schema.get("allOf") or []:
             task_required.extend(then["required"])
 if body_kind == "task":
     check_required(task_required, "task ")
+
+schema_problems = validate(body, schema, "")
+for p in schema_problems:
+    problems.append(f"schema 约束未过: {p}")
 
 if problems:
     fail("新票本体 schema 校验未过（" + schema_path + "）：" + "；".join(problems))
