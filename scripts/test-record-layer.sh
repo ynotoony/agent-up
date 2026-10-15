@@ -83,7 +83,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -2194,7 +2194,7 @@ EOF
   mkdir -p "$D/p7/eng"
   cp "$SC" "$D/p7/eng/check-stale-claims.sh"
   sc_git_baseline "$D/p7/repo"
-  sc_s7_write "$D/p7/repo" superseded 92-s7 done
+  sc_s7_write "$D/p7/repo" superseded 92-s7 'done'
   sc_run "$D/p7" > "$D/p7.out" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] \
@@ -2211,7 +2211,7 @@ EOF
   mkdir -p "$D/n6/eng"
   cp "$SC" "$D/n6/eng/check-stale-claims.sh"
   sc_git_baseline "$D/n6/repo"
-  sc_s7_write "$D/n6/repo" superseded 99-none done
+  sc_s7_write "$D/n6/repo" superseded 99-none 'done'
   sc_run "$D/n6" > "$D/n6.out" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
@@ -2228,7 +2228,7 @@ EOF
   mkdir -p "$D/p8/eng"
   cp "$SC" "$D/p8/eng/check-stale-claims.sh"
   sc_git_baseline "$D/p8/repo"
-  sc_s7_write "$D/p8/repo" superseded '' done
+  sc_s7_write "$D/p8/repo" superseded '' 'done'
   sc_run "$D/p8" > "$D/p8.out" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] \
@@ -2323,6 +2323,62 @@ EOF
     ok '正例 P10 S8 none 行跳过 → exit 0 零 S8 输出＋NOTE 零命中'
   else
     bad '正例 P10 S8 none 行跳过 → 零 S8 输出＋NOTE 零命中' "exit=$rc $(grep 'S8' "$D/p10.out" | head -1)"
+  fi
+
+  # 裸跑回归断言四（防回潮）：缺省根推导按落位形态（rules/implementation/scripts/
+  # 上三级）——无参裸跑零 STALE 且与显式传参调用逐字节一致；包内落位/未知落位负例。
+  # （夹具引擎目录单件语义：S3 走退化路径，索引↔投影一致面由 sc_s7_write 同款
+  # 覆写控制；断言经夹具内 sh 直接调用，非 sc_run——sc_run 固定显式传参。）
+  sc_bare_run() {
+    # $1=夹具目录 $2=夹具引擎落位相对路径（相对 repo） $3=显式传参对照输出文件 $4=裸跑输出文件
+    mkdir -p "$1/repo/rules/implementation/scripts"
+    mkdir -p "$1/repo/$(dirname "$2")"
+    cp "$SC" "$1/repo/$2"
+    cp "$SC" "$1/repo/eng/check-stale-claims.sh"
+    ( cd "$1/repo" && sh "$2" ) > "$4" 2>&1
+    _bare_rc=$?
+    sh "$1/repo/eng/check-stale-claims.sh" "$1/repo" gate > "$3" 2>&1
+    return $_bare_rc
+  }
+
+  # P11 rules/ 落位裸跑：exit 0 零 STALE，与显式传参输出逐字节一致
+  sc_build_fixture "$D/p11"
+  sc_git_baseline "$D/p11/repo"
+  mkdir -p "$D/p11/repo/eng"
+  sc_bare_run "$D/p11" rules/implementation/scripts/check-stale-claims.sh "$D/p11.explicit" "$D/p11.out"
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p11.out" && cmp -s "$D/p11.out" "$D/p11.explicit"; then
+    ok '正例 P11 rules/ 落位无参裸跑 → exit 0 零 STALE，与显式传参输出逐字节一致'
+  else
+    bad '正例 P11 rules/ 落位无参裸跑 → exit 0 零 STALE，与显式传参输出逐字节一致' "exit=$rc $(tail -n 2 "$D/p11.out" | tr '\n' '|')"
+  fi
+
+  # P12 包内落位裸跑：agent-up/scripts/ 上两级＝仓库根，exit 0 零 STALE
+  sc_build_fixture "$D/p12"
+  sc_git_baseline "$D/p12/repo"
+  mkdir -p "$D/p12/repo/agent-up/scripts" "$D/p12/repo/eng"
+  cp "$SC" "$D/p12/repo/agent-up/scripts/check-stale-claims.sh"
+  cp "$SC" "$D/p12/repo/eng/check-stale-claims.sh"
+  ( cd "$D/p12/repo" && sh agent-up/scripts/check-stale-claims.sh ) > "$D/p12.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p12.out"; then
+    ok '正例 P12 包内落位无参裸跑 → exit 0 零 STALE'
+  else
+    bad '正例 P12 包内落位无参裸跑 → exit 0 零 STALE' "exit=$rc $(tail -n 2 "$D/p12.out" | tr '\n' '|')"
+  fi
+
+  # N12 未知落位裸跑：fail-closed 报错退出 2（不静默错根）
+  sc_build_fixture "$D/n12"
+  sc_git_baseline "$D/n12/repo"
+  mkdir -p "$D/n12/repo/eng" "$D/n12/repo/loose"
+  cp "$SC" "$D/n12/repo/loose/check-stale-claims.sh"
+  cp "$SC" "$D/n12/repo/eng/check-stale-claims.sh"
+  ( cd "$D/n12/repo" && sh loose/check-stale-claims.sh ) > "$D/n12.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '无法从脚本落位推导仓库根' "$D/n12.out"; then
+    ok '负例 N12 未知落位无参裸跑 → exit 2 fail-closed 指名推导失败'
+  else
+    bad '负例 N12 未知落位无参裸跑 → exit 2 fail-closed 指名推导失败' "exit=$rc $(tail -n 2 "$D/n12.out" | tr '\n' '|')"
   fi
 
   suite_summary 'stale-claims'
@@ -2481,6 +2537,83 @@ suite_health() {
   fi
 
   suite_summary 'health'
+}
+
+# ============================================================
+# suite: shellcheck（静态分析门禁面：脚本全量零告警；豁免逐项有证——
+# disable 指令必须同行带理由注释，防无证关检查；环境依赖 shellcheck，
+# 缺失即套件零断言跳过（不制造假绿），由调用方按环境依赖口径处置）
+# ============================================================
+
+suite_shellcheck() {
+  CUR_SUITE='shellcheck'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/shellcheck
+  mkdir -p "$D"
+
+  if ! command -v shellcheck >/dev/null 2>&1; then
+    printf 'test-record-layer: NOTE suite=shellcheck 环境缺 shellcheck——套件零断言跳过（不制造假绿；门禁语义归调用方按环境依赖口径处置）\n'
+    suite_summary 'shellcheck'
+    return 0
+  fi
+
+  # 被测清单：find 枚举（harness 顶层 set -f 禁 shell glob，不能用 *.sh 通配）
+  _sh_list="$D/files.txt"
+  find "$SCRIPT_DIR" -maxdepth 1 -type f -name '*.sh' | LC_ALL=C sort > "$_sh_list"
+  _sh_n=$(wc -l < "$_sh_list" | tr -d ' ')
+  if [ "$_sh_n" -eq 0 ]; then
+    bad '脚本全量 shellcheck 零告警' "被测目录无 .sh 文件: $SCRIPT_DIR"
+    suite_summary 'shellcheck'
+    return 0
+  fi
+
+  _sh_sc_out="$D/all.out"
+  # set -u/-f 语境（无 set -e）：非零退出码显式接住；清单经 xargs 展开（禁裸
+  # $() 词分割——新门禁自身口径）；路径含空白的落位不受支持（家族先例 S4 同款口径）
+  xargs shellcheck > "$_sh_sc_out" 2>&1 < "$_sh_list"
+  _sh_rc=$?
+  if [ "$_sh_rc" -eq 0 ]; then
+    ok "脚本全量 shellcheck 零告警（${_sh_n} 件）"
+  else
+    bad '脚本全量 shellcheck 零告警' "$(head -n 6 "$_sh_sc_out" | tr '\n' '|')"
+  fi
+
+  # 豁免有证断言：disable 指令必须同行带理由注释（防无证关检查——「用关闭检查代替
+  # 逐项判断」禁令的机器化）；形态约定＝'# shellcheck disable=SCxxxx  # 理由'，
+  # 第二个 # 之后剥空白须非空。awk 程序单引号形态必需（$0 等 awk 内建禁 shell 展开），
+  # 模式在 BEGIN 拼接构造（禁字面敏感模式自命中，维护联动同款）；诊断行写独立文件，
+  # stdout 只承载计数汇总行（cut 取数面干净）。
+  _sh_sc_exempt="$D/exempt.out"
+  _sh_sc_diag="$D/exempt-diag.txt"
+  # shellcheck disable=SC2016  # awk 程序必须单引号防 shell 展开 $0，展开即破坏语义——SC2016 为形态必需非缺陷
+  xargs awk -v diag="$_sh_sc_diag" '
+    BEGIN { pat = "# shell" "check disable=" }
+    FNR == 1 { file = FILENAME; sub(/.*\//, "", file) }
+    index($0, pat) > 0 {
+      n++
+      rest = $0
+      head = index(rest, "#")
+      tail = index(substr(rest, head + 1), "#")
+      if (tail > 0) {
+        rest = substr(substr(rest, head + 1), tail + 1)
+        gsub(/^[ \t]+|[ \t]+$/, "", rest)
+      } else {
+        rest = ""
+      }
+      if (rest == "") { printf "无证豁免: %s:%d: %s\n", file, FNR, $0 > diag; bad++ }
+    }
+    END { printf "%d\t%d\n", n + 0, bad + 0 }
+  ' > "$_sh_sc_exempt" < "$_sh_list"
+  _sh_exempt_n=$(cut -f1 "$_sh_sc_exempt")
+  _sh_exempt_bad=$(cut -f2 "$_sh_sc_exempt")
+  if [ "$_sh_exempt_bad" -eq 0 ]; then
+    ok "豁免有证（disable 指令 ${_sh_exempt_n} 处逐项带理由注释）"
+  else
+    bad '豁免有证（disable 指令逐项带理由注释）' "$(head -n 4 "$_sh_sc_diag" | tr '\n' '|')"
+  fi
+
+  suite_summary 'shellcheck'
 }
 
 
@@ -2866,8 +2999,10 @@ RULES
 
   # 负例 N1：分支名不合 ticket/<NN>-<slug> → exit 1
   wt_build_fixture "$D/n1/repo"
-  sh "$WA" "$D/n1/wt2" main >"$D/n1.out" 2>&1
+  cd "$D/n1/repo" || exit 1
+  sh "$WA" ../wt2 main >"$D/n1.out" 2>&1
   rc=$?
+  cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 1 ] && grep -q '分支名不合' "$D/n1.out"; then
     ok '负例 N1 分支名不合形态 → exit 1 指名形态'
   else
@@ -3156,6 +3291,7 @@ case $SUITE in
   upgrade-check) suite_upgrade_check ;;
   absorption) suite_absorption ;;
   health) suite_health ;;
+  shellcheck) suite_shellcheck ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -3169,6 +3305,7 @@ case $SUITE in
     suite_upgrade_check
     suite_absorption
     suite_health
+    suite_shellcheck
     self_check_injection
     ;;
 esac
