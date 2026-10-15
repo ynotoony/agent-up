@@ -1134,7 +1134,7 @@ EOF
 # 扩五项（AGENTS.md/docs//rules//facts//.zcode/）；负例 N12/N13/N14/N15/N16/N17 注入目标
 # 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）；
 # delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户；票 141 requests 模板退役 16→15）
-# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）
+# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）
 # ============================================================
 
 suite_check_package() {
@@ -1164,6 +1164,7 @@ PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 19 scripts 节 mode 断言（19 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 22 项，symlink 0 个）
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
@@ -1173,7 +1174,7 @@ EOF
   else
     bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
   fi
-  assert_eq '正例输出逐行逐一相等（十九项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17、18 票号禁令与 19 mode 断言）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（二十项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17、18 票号禁令与 19 mode 断言、20 闭合性）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -1195,7 +1196,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-check-package: FAIL（3 项未通过，共 19 项）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 21 项，symlink 0 个）
+check-package: FAIL（3 项未通过，共 20 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -1229,7 +1231,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-check-package: FAIL（1 项未通过，共 19 项）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 22 项，symlink 0 个）
+check-package: FAIL（1 项未通过，共 20 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -1418,14 +1421,14 @@ EOF
   fi
 
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
-  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 95 后为 19；注入
-  # 检查 20＝超界一位，随总数同步）。
+  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 149 后为 20；注入
+  # 检查 21＝超界一位，随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 20） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 21） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 19 项）: 检查 20' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 20 项）: 检查 21' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -1533,6 +1536,49 @@ EOF
     ok '负例 N23 git 语境 mode 双向负例（script→644／rules→755）→ exit 1 且双断言同报指名期望 mode'
   else
     bad '负例 N23 git 语境 mode 双向负例（script→644／rules→755）→ exit 1 且双断言同报指名期望 mode' "exit=$rc"
+  fi
+
+  # 票 149 检查 20 负例 N24：scripts/ 一级未登记额外文件（恶意投放面）→ exit 1 且
+  # FAIL: 20 指名条目；隐藏条目（. 开头）同入条目面一并拦截。
+  cp -R "$PKG_ROOT" "$D/pkgcopy21"
+  printf '# harness fixture 未登记额外件\n' > "$D/pkgcopy21/scripts/harness-fixture-extra.sh"
+  printf 'x' > "$D/pkgcopy21/scripts/harness-fixture-extra.txt"
+  printf 'y' > "$D/pkgcopy21/scripts/.harness-fixture-hidden"
+  sh "$D/pkgcopy21/scripts/check-package.sh" "$D/pkgcopy21" >"$D/act.n24" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 20 包闭合性与符号链接防护' "$D/act.n24" \
+    && grep -q '.harness-fixture-hidden、harness-fixture-extra.sh、harness-fixture-extra.txt' "$D/act.n24"; then
+    ok '负例 N24 scripts/ 一级未登记额外件（含隐藏件）→ exit 1 且 FAIL: 20 指名条目'
+  else
+    bad '负例 N24 scripts/ 一级未登记额外件（含隐藏件）→ exit 1 且 FAIL: 20 指名条目' "exit=$rc"
+  fi
+
+  # 票 149 检查 20 负例 N25：symlink 混合面——scripts 下外指 symlink（AC2 面：脚本
+  # symlink 被拒）与 references 下断链外指同夹具，外指面＋别名面双报（readlink 原始
+  # 目标＋词法折叠，不依赖 GNU readlink -f）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy22"
+  ln -sf /etc/passwd "$D/pkgcopy22/scripts/harness-fixture-ro.sh"
+  ln -sf ../../../../../../etc/hosts "$D/pkgcopy22/references/templates/harness-fixture-dead.md"
+  sh "$D/pkgcopy22/scripts/check-package.sh" "$D/pkgcopy22" >"$D/act.n25" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 20 包闭合性与符号链接防护' "$D/act.n25" \
+    && grep -q 'scripts/harness-fixture-ro.sh' "$D/act.n25" \
+    && grep -q 'references/templates/harness-fixture-dead.md' "$D/act.n25" \
+    && grep -q '包内 symlink 指向包根外部' "$D/act.n25"; then
+    ok '负例 N25 symlink 混合面（scripts 外指＋references 断链外指）→ exit 1 且外指/别名双报'
+  else
+    bad '负例 N25 symlink 混合面（scripts 外指＋references 断链外指）→ exit 1 且外指/别名双报' "exit=$rc"
+  fi
+
+  # 票 149 检查 20 负例 N26：非 git 语境（cp 副本，N22 同款）检查 20 照常运行零静默
+  # ——闭合性不依赖 git（find 条目面＋readlink），与检查 19 静默跳过语义相区分。
+  cp -R "$PKG_ROOT" "$D/pkgcopy23"
+  sh "$D/pkgcopy23/scripts/check-package.sh" "$D/pkgcopy23" >"$D/act.n26" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 20 包闭合性与符号链接防护' "$D/act.n26"; then
+    ok '负例 N26 非 git 语境检查 20 照常运行 → exit 0 且 PASS: 20 有输出行'
+  else
+    bad '负例 N26 非 git 语境检查 20 照常运行 → exit 0 且 PASS: 20 有输出行' "exit=$rc"
   fi
 
   suite_summary 'check-package'
