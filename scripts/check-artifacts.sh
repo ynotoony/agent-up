@@ -5,7 +5,8 @@
 #        解析破坏 exit 2 fail-closed；缺该行＝豁免消失，对应文件按未登记 FAIL 暴露）。
 # Output: 登记与实物双向对账的逐项 FAIL/SKIP 行与两方向汇总：正向＝每条登记 path 目标
 #         必须存在（缺失 FAIL 指名条目，数据块懒创建面暂缺 SKIP）；反向＝受管范围内文件
-#         必须被登记或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）。
+#         必须被登记或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；
+#         条目稳定 id 全集唯一（重复行按登记解析破坏 exit 2 处理，票 147 唯一性检查）。
 # Pos: 治理产物对账器（票 59；兑现 R-DP-007 逐件登记核对）：POSIX sh、零外部依赖、
 #      fail-closed（yaml 解析破坏 exit 2 不产生部分结论）；退出码口径同 ticket-ops.sh：
 #      0 全对账 / 1 存在缺口 / 2 用法或环境错误。用法、受管口径与豁免维护规则见同目录
@@ -47,8 +48,10 @@ usage() {
         数据块懒创建面登记暂缺输出 SKIP 不计缺口。
   反向  数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则；
         未登记 FAIL 指名路径。
+  唯一  条目稳定 id 全集唯一；重复 id 按登记解析破坏处理（exit 2，票 147）。
 退出码: 0 全对账；1 存在缺口（FAIL 行见输出）；2 用法或环境错误（参数数量不合、
-        repo-root 不存在、artifacts.yaml 缺失或解析破坏、数据块不合预期）。
+        repo-root 不存在、artifacts.yaml 缺失或解析破坏、条目 id 重复、数据块
+        不合预期）。
 USAGE
 }
 
@@ -318,7 +321,8 @@ fi
 
 # ---- 登记解析（fail-closed：结构破坏 exit 2 不产生部分结论）----
 # 口径：artifacts: 顶层键恰一；条目行＝两空格缩进「- id: 」；path 行＝四空格缩进
-# 「path: 」；每条目恰一 path 行且值非空、不含 ASCII 空白；path 值剥离首个全角左括注
+# 「path: 」；每条目恰一 path 行且值非空、不含 ASCII 空白；条目稳定 id 全集唯一
+# （重复 id＝解析破坏 exit 2，票 147）；path 值剥离首个全角左括注
 # （聚合登记的中文说明尾注）与其后全部内容；其他缩进字段行忽略；未知形态行即解析破坏。
 ca_bad=$(LC_ALL=C awk '
   function bad(msg) { printf "ERR: 第 %d 行: %s\n", FNR, msg; n++ }
@@ -329,6 +333,8 @@ ca_bad=$(LC_ALL=C awk '
     curid = substr($0, 9)
     sub(/[[:space:]]+$/, "", curid)
     if (curid == "") bad("条目 id 为空")
+    else if (curid in seenid) bad("条目 id 重复: " curid "（首见行 " seenid[curid] "）")
+    else seenid[curid] = FNR
     nent++
     curpath = ""
     next
@@ -493,7 +499,9 @@ done < "$ca_managed"
 # ---- --fix 修复形态（票 119；与检测共用同一判定代码——未登记清单即上循环产出）----
 # 登记 id 推导：路径去扩展名取末段、非 [a-z0-9-] 字段折叠为单横线（含前导），前缀
 # artifact-；十三字段骨架中不可机械推断的值写【按项目填写：...】占位，粘贴前由执行体
-# 按实际产物补齐（缺值写 N/A + reason 纪律见 artifacts-yaml.tmpl）。
+# 按实际产物补齐（缺值写 N/A + reason 纪律见 artifacts-yaml.tmpl）；骨架 id 按路径
+# 机械推导、不查既有条目——与既有 id 撞名时由执行体改定后再落（复跑本脚本以
+# 「条目 id 重复」行零命中为准，票 147 唯一性检查）。
 # 单一生成：建议块先写临时文件一次成型，dry-run cat 预览／--apply 追加两用（同一生成
 # 代码，禁双实现——预览与落盘逐字一致由同源保证）。
 if [ "$ca_fix" -eq 1 ]; then
