@@ -1,5 +1,7 @@
 #!/bin/sh
-# Input: 仓库根目录（默认自本脚本位置向上两级推导，第一参数可指定）、本文件登记表内
+# Input: 仓库根目录（缺省按脚本落位自推导——agent-up/scripts/ 上两级、
+#        rules/implementation/scripts/ 上三级，尾径校验失败报错退出 2，第一参数可指定）、
+#        本文件登记表内
 #        的易腐状态句条目，与模式开关（第二参数或 STALE_CLAIMS_MODE 环境变量）；
 #        仓根 delivery.rules（票 72 配置点亮：dp_stale_lit 点亮位、payload 节 remote 名
 #        /包前缀/本地导出分支——S1/S2 配置面唯一承载点，解析破坏 exit 2 fail-closed；
@@ -47,7 +49,8 @@ usage() {
   cat <<'USAGE'
 用法: sh check-stale-claims.sh [repo-root] [gate|session]
 参数:
-  repo-root  待核对的仓库根目录；缺省时取本脚本所在目录向上两级（脚本位于 agent-up/scripts/，仓库治理面在 facts/ 与 rules/implementation/scripts/）。
+  repo-root  待核对的仓库根目录；缺省按脚本落位自推导（agent-up/scripts/ 上两级＝仓库根、
+             rules/implementation/scripts/ 上三级＝仓库根，其余语境报错退出 2 须显式传参）。
   模式        gate  票收口模式（默认）：发现过期断言输出定位并 exit 1，清洁 exit 0。
               session 会话启动模式：同样输出 STALE/WARN 但只作警告，恒 exit 0。
   也可用环境变量 STALE_CLAIMS_MODE=session 指定会话启动模式（第二参数优先）。
@@ -136,7 +139,20 @@ script_dir=$(prog_dir)
 if [ $# -ge 1 ]; then
   repo_root=$1
 else
-  repo_root=$(CDPATH='' cd "$script_dir/../.." && pwd)
+  # 缺省根推导（按脚本落位形态锚定，两落位收口）：
+  #   <root>/agent-up/scripts/ → 上两级（scripts/../.. ＝ root）
+  #   <root>/rules/implementation/scripts/ → 上三级（scripts/../../.. ＝ root）
+  # 非两落位形态 → fail-closed 报错退出 2（不静默错根：rules/ 下报假 STALE 教训）。
+  _up2=$(CDPATH='' cd "$script_dir/../.." 2>/dev/null && pwd) || _up2=''
+  _up3=$(CDPATH='' cd "$script_dir/../../.." 2>/dev/null && pwd) || _up3=''
+  case $script_dir in
+    */agent-up/scripts) repo_root=$_up2 ;;
+    */rules/implementation/scripts) repo_root=$_up3 ;;
+    *)
+      printf 'check-stale-claims: 错误：无法从脚本落位推导仓库根（%s）——两落位形态为 agent-up/scripts/ 与 rules/implementation/scripts/，其余语境请显式传 repo-root 参数\n' "$script_dir" >&2
+      exit 2
+      ;;
+  esac
 fi
 if [ ! -d "$repo_root" ]; then
   printf 'check-stale-claims: 错误：仓库根目录不存在：%s\n' "$repo_root" >&2

@@ -12,8 +12,6 @@
 # trigger-version: 1（窗口 3 连高/2 连低，阈值 80/40；机制版本注记，阈值可调）
 # 退出码: 0 正常（含有提示）；1 用法或环境错误（账本缺失不视为错误＝零输出）。
 
-prog=absorption-trigger
-
 repo_root=${1:-}
 if [ -z "$repo_root" ]; then
   # 缺省根推导：逐级向上找 facts/project/changes.jsonl（兼容两落位形态：

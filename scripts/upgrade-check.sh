@@ -64,6 +64,7 @@ done
 tmp_files=$(mktemp "${TMPDIR:-/tmp}/upchk-files.XXXXXX")
 tmp_anchors=$(mktemp "${TMPDIR:-/tmp}/upchk-anchors.XXXXXX")
 tmp_readmes=$(mktemp "${TMPDIR:-/tmp}/upchk-readmes.XXXXXX")
+# shellcheck disable=SC2329  # shellcheck 0.11.0 伪影：cleanup 经 trap 引用真实生效（运行期逐字节等价），末行无条件 exit 0 与 trap 组合触发误报——最小复现：trap f EXIT 后接无条件 exit 0
 cleanup() { rm -f "$tmp_files" "$tmp_anchors" "$tmp_readmes"; }
 trap cleanup 0 HUP INT TERM
 
