@@ -1,0 +1,98 @@
+workflow:
+  name: implementation
+  description: 实施阶段工作流（三阶段第一阶段：Implementation → Review → Commit）
+  version: "2.0"
+
+inputs:
+  ticket_id:
+    type: string
+    required: true
+    description: 票号（如 165-workflow-schema-v2）
+  working_directory:
+    type: string
+    required: false
+    description: 工作目录（默认为项目根目录）
+    default: "."
+
+outputs:
+  implementation_checkpoint:
+    type: json
+    description: Implementation Checkpoint（包含 completed_at、commit、changed_files、acceptance_status、verification_evidence）
+  branch:
+    type: string
+    description: 工作分支名称（如 ticket/165-workflow-schema-v2）
+  changed_files:
+    type: array
+    description: 改动文件列表
+
+steps:
+  - id: read-ticket
+    type: agent
+    description: 读取票文件，解析 goal、scope、verification
+    agent: .zcode/agents/implementation.md
+    checkpoint_field: checkpoint.implementation.ticket_parsed
+
+  - id: implement-changes
+    type: agent
+    description: 按票面 scope 实施改动
+    agent: .zcode/agents/implementation.md
+    checkpoint_field: checkpoint.implementation.changes_made
+    depends_on:
+      - read-ticket
+
+  - id: verify-acceptance
+    type: verification
+    description: 运行 verification 检查，确认所有 AC 通过
+    checkpoint_field: checkpoint.implementation.verified
+    depends_on:
+      - implement-changes
+    verification:
+      - name: AC1
+        description: Schema 定义完成
+        check: jq '.properties | keys | sort' agent-up/references/schemas/workflow.schema.json
+        expect: '["inputs","outputs","state_machine","steps","workflow"]'
+      - name: AC2
+        description: Steps 支持三种类型
+        check: jq '.properties.steps.items.properties.type.enum | sort' agent-up/references/schemas/workflow.schema.json
+        expect: '["agent","command","verification"]'
+
+  - id: record-checkpoint
+    type: command
+    description: 记录 Implementation Checkpoint 到票文件
+    command: echo "Implementation checkpoint recorded"
+    checkpoint_field: checkpoint.implementation.completed_at
+    depends_on:
+      - verify-acceptance
+
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 待处理（票已开，未开始）
+    - name: in_progress
+      description: 实施中（Implementation agent 正在工作）
+    - name: implementation_done
+      description: 实施完成（所有 AC 通过，checkpoint 已记录）
+    - name: review_ready
+      description: 准备评审（进入 Review 阶段）
+    - name: blocked
+      description: 阻塞（依赖未满足或失败）
+  transitions:
+    - from: pending
+      to: in_progress
+      condition: workflow_started
+      trigger: read-ticket
+    - from: in_progress
+      to: implementation_done
+      condition: all_verifications_pass
+      trigger: verify-acceptance
+    - from: implementation_done
+      to: review_ready
+      condition: checkpoint.implementation.completed_at
+      trigger: record-checkpoint
+    - from: in_progress
+      to: blocked
+      condition: verification_failed
+    - from: blocked
+      to: in_progress
+      condition: manual_retry

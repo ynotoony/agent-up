@@ -1,0 +1,304 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agent-up/references/schemas/workflow.schema.json",
+  "title": "Agent Up Workflow Schema v2",
+  "description": "工作流 DSL schema v2（状态机＋步骤定义）。支持声明式工作流定义——inputs/outputs（参数与产物）、steps（agent/command/verification 三种类型）、state_machine（状态转换规则）、checkpoint_field（步骤级状态存储字段）。机械化执行器读 schema 即可推进，支持中断恢复（checkpoint 原子化），无需理解散文。适配层：执行器在 rules/implementation/scripts/workflow-executor.sh，实例文件在 rules/implementation/workflows/（如 triage.yaml）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workflow",
+    "inputs",
+    "outputs",
+    "steps",
+    "state_machine"
+  ],
+  "properties": {
+    "workflow": {
+      "type": "object",
+      "required": [
+        "name",
+        "description"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "工作流名称（如 triage、implementation、review）"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "工作流用途说明"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+$",
+          "description": "工作流版本（如 2.0），可选"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "description": "工作流输入参数定义（字段名→参数描述对象）",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "type": "object",
+          "required": [
+            "type",
+            "required",
+            "description"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["string", "number", "boolean", "array", "object", "json"],
+              "description": "参数类型"
+            },
+            "required": {
+              "type": "boolean",
+              "description": "是否必填"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "description": "参数说明"
+            },
+            "default": {
+              "description": "默认值（可选）"
+            }
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "description": "工作流输出产物定义（字段名→产物描述对象）",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "type": "object",
+          "required": [
+            "type",
+            "description"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["file", "directory", "json", "string", "boolean", "array"],
+              "description": "产物类型"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "description": "产物说明"
+            },
+            "path": {
+              "type": "string",
+              "description": "产物文件路径（类型为 file/directory 时）"
+            }
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "工作流步骤序列（按执行顺序）",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "步骤标识（kebab-case）"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["agent", "command", "verification"],
+            "description": "步骤类型：agent（调用 agent）、command（执行命令）、verification（验证检查）"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "步骤说明"
+          },
+          "checkpoint_field": {
+            "type": "string",
+            "pattern": "^checkpoint\\.[a-z_]+(\\.[a-z_]+)*$",
+            "description": "Checkpoint 字段路径（如 checkpoint.implementation、checkpoint.implementation.completed_at）——该步骤完成后写入此字段，用于中断恢复"
+          },
+          "agent": {
+            "type": "string",
+            "description": "Agent 路径或名称（type=agent 时必填）"
+          },
+          "command": {
+            "type": "string",
+            "description": "Shell 命令（type=command 时必填）"
+          },
+          "verification": {
+            "type": "array",
+            "description": "验证检查列表（type=verification 时必填）",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "check",
+                "expect"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "验证条件名称（如 AC1）"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "验证条件详细说明"
+                },
+                "check": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "验证命令（Shell 命令）"
+                },
+                "expect": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "期望输出（字符串匹配）"
+                },
+                "fail_msg": {
+                  "type": "string",
+                  "description": "失败时消息（可选）"
+                }
+              }
+            }
+          },
+          "on_failure": {
+            "type": "string",
+            "enum": ["stop", "continue", "retry"],
+            "description": "失败处理策略（可选，默认 stop）"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "依赖的步骤 id 列表（可选）"
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "const": "agent"
+              }
+            },
+            "required": ["agent"]
+          },
+          {
+            "properties": {
+              "type": {
+                "const": "command"
+              }
+            },
+            "required": ["command"]
+          },
+          {
+            "properties": {
+              "type": {
+                "const": "verification"
+              }
+            },
+            "required": ["verification"]
+          }
+        ]
+      }
+    },
+    "state_machine": {
+      "type": "object",
+      "required": [
+        "initial_state",
+        "states",
+        "transitions"
+      ],
+      "additionalProperties": false,
+      "description": "状态机定义（ticket 生命周期状态转换）",
+      "properties": {
+        "initial_state": {
+          "type": "string",
+          "description": "初始状态（如 pending、draft）"
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "description": "所有状态列表",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "description"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z_]+$",
+                "description": "状态名称（snake_case）"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "description": "状态说明"
+              },
+              "terminal": {
+                "type": "boolean",
+                "description": "是否为终态（可选，默认 false）"
+              }
+            }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "minItems": 1,
+          "description": "状态转换规则列表",
+          "items": {
+            "type": "object",
+            "required": [
+              "from",
+              "to",
+              "condition"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string",
+                "description": "源状态名称"
+              },
+              "to": {
+                "type": "string",
+                "description": "目标状态名称"
+              },
+              "condition": {
+                "type": "string",
+                "minLength": 1,
+                "description": "转换条件（机器可判定的表达式，如 'all_verifications_pass'、'checkpoint.implementation.completed'）"
+              },
+              "trigger": {
+                "type": "string",
+                "description": "触发步骤 id（可选）"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
