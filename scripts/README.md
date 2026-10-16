@@ -52,7 +52,7 @@ sh scripts/check-package.sh [package-root]
 
 | # | 检查 | 实现 |
 | --- | --- | --- |
-| 1 | 必需入口存在 | 清单 `entry-files` 节逐行 `test -f`（现 16 件：包根 `SKILL.md`、`README.md`、`LICENSE`；`references/` 下目录 README 与手册、`schemas/` 两 JSON——逐件名单见数据表，不再硬编码于引擎）；任一缺失即 FAIL 并逐件指名（fail-closed）。 |
+| 1 | 必需入口存在 | 清单 `entry-files` 节逐行 `test -f`（件数与逐件名单以 `package-manifest.rules` `entry-files` 节为机器真相，本行不手抄计数与名单——mutable 计数归权威数据面承载，引用不腐烂，:62 同款先例）；任一缺失即 FAIL 并逐件指名（fail-closed）。 |
 | 2 | `SKILL.md` frontmatter 为 `name: agent-up` | 首行 `---` 与闭合 `---` 之间存在 `name: agent-up` 行；frontmatter 缺失或未闭合判失败。 |
 | 3 | 包内无旧标识残留 | `grep -rn` 全包扫描旧 Skill 标识字面量（本包改名前的原 Skill 名），零命中为通过；扫描范围含本目录。 |
 | 4 | 无绝对路径与根治理引用 | `grep -rn` 扫描用户主目录绝对路径前缀（/Users 或 /home，带尾斜杠匹配）与根治理相对引用字面量（`../` 后接 docs 或 .zcode）。按例外登记结论，模板内 `../specs/` 等兄弟路径属目标项目生成语义，不在本项口径。 |
