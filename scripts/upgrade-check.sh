@@ -19,7 +19,8 @@ usage() {
   以完整信号组合识别现代、旧式或混合治理布局；部分/歧义布局 fail-closed。
   install-policy.rules 中已启用脚本分别检查 rules/implementation/scripts/ 与 scripts/；
   双落位逐份 cmp 并报告冲突，不静默选择一份。未启用门控显示 N/A。
-  delivery.rules 仅在快道有证据时要求；规则块只核 ID 集；README、artifacts 与 Derived
+  delivery.rules 仅在快道有证据时要求（证据＝delivery.rules 在场，或快道专属脚本已装；
+  多门控共享脚本不构成快道证据）；规则块只核 ID 集；README、artifacts 与 Derived
   Conditional README emits 从 references/templates/README.md manifest 读取；目录存在时检查，
   未生成目录显示 N/A。旧 docs/ 条件目录只在旧/混合布局下映射检查。artifacts 与 Derived
   只报告存在性或人工回访，不把人工核对说成内容同步。
@@ -135,7 +136,12 @@ uc_conflict=0
 uc_manual=0
 printf '%s: 布局: %s（模式由用户意图确认；布局由完整信号组合识别）\n' "$prog" "$layout"
 
-# Installed copies activate their gate. delivery.rules and ticket indexes are independent evidence.
+# Fast evidence has two independent sources: the delivery.rules file itself (the
+# conditional product is installed = lane active), and an installed fast-lane-exclusive
+# script (a policy row gated only by fast-lane = scripts shipped while the config went
+# missing, a real upgrade gap). Shared files carry multiple gate rows in
+# install-policy.rules — a ticket-ops install of generate-progress.sh must never light
+# the fast lane; with no fast evidence the conditional product stays N/A.
 fast_enabled=0
 ticket_enabled=0
 [ -f "$repo_root/delivery.rules" ] && fast_enabled=1
@@ -145,8 +151,15 @@ while IFS="$tab" read -r _f _gates; do
   _new="$repo_root/rules/implementation/scripts/$_f"
   _old="$repo_root/scripts/$_f"
   if [ -f "$_new" ] || [ -f "$_old" ]; then
-    case " $_gates " in *" fast-lane "*) fast_enabled=1 ;; esac
     case " $_gates " in *" ticket-ops "*) ticket_enabled=1 ;; esac
+    case " $_gates " in
+      *" fast-lane "*)
+        case " $_gates " in
+          *" ticket-ops "*) : ;;
+          *) fast_enabled=1 ;;
+        esac
+        ;;
+    esac
   fi
 done < "$tmp_files"
 
@@ -200,11 +213,11 @@ while IFS="$tab" read -r _f _gates; do
 done < "$tmp_files"
 
 if [ "$fast_enabled" -eq 0 ]; then
-  printf '%s: 配置面: N/A delivery.rules（未启用快道，无配置/脚本证据）\n' "$prog"
+  printf '%s: 配置面: N/A delivery.rules（未启用快道）\n' "$prog"
 else
   printf '%s: 配置面（delivery.rules 条件产物）:\n' "$prog"
   if [ ! -f "$repo_root/delivery.rules" ]; then
-    printf '%s:   落后  delivery.rules 缺失（已有快道启用证据）\n' "$prog"
+    printf '%s:   落后  delivery.rules 缺失（快道脚本已装，配置缺失）\n' "$prog"
     uc_behind=$((uc_behind + 1))
   else
     grep '^# ====' "$pkg_dir/references/templates/delivery-rules.tmpl" > "$tmp_anchors"
