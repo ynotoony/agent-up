@@ -43,19 +43,23 @@
 #        STALE 指名票 id 与跃迁方向，终态史取 Git 基线）：套件登记数期望随动（未点亮
 #        3→4、全点亮 5→6）＋S6 正负例四（终态索引照旧→exit 0；done→in_progress→
 #        STALE 指名票 id 与跃迁方向；superseded→ready 同款；非终态流转零误报，终态史
-#        经 git init 基线提交承载）；票 145（规则表非执行式解析门禁：三引擎
+#        经 git init 基线提交承载）；票 152 open 本体 schema 全量校验（type/pattern/enum/
+#        oneOf/additionalProperties/条件 required 依 schema 执行）：ticket-ops 套件九例
+#        随动——正例二（最小 task 本体／request 本体各 exit 0 索引落条目，合法面零回归）
+#        ＋负例七（id 越 pattern／complexity 越枚举／profile 越七维 pattern／blocked_by
+#        条目越 pattern／额外字段／task 缺条件 required／verification oneOf 零命中，均
+#        exit 1 零写入且报文指名字段路径）；票 145（规则表非执行式解析门禁：三引擎
 #        generate-module-map.sh/check-package.sh/install.sh 去 source 改纯文本解析，
 #        恶意输入——命令替换、反引号、重定向、未知指令、字段污染——统一 fail-closed：
 #        module-map 套件补恶意负例 N4～N6（rc=2 零地图写入），check-package 套件补
 #        N24～N27（rc=2 不产生部分结论），新增 install 套件（正例安装全链＋恶意夹具
-#        N1～N5 rc=2 零写入＋幂等跳过）并在 README 声明。
+#        N1～N5 rc=2 零写入＋幂等跳过）并在 README 声明）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
 #      脚本（check-package.sh 同款路径惯例），--script-dir/--pkg-root 参数化支持复制落位
-#      语境；十三 suite（module-map/ticket-ops/progress/check-package/append-only/
-#      check-artifacts/stale-claims/lane-commit/worktree/upgrade-check/absorption/
-#      health/install）＋完整运行（--suite all）末尾注入自检；POSIX sh 零外部
+#      语境；七 suite（module-map/ticket-ops/progress/check-package/append-only/
+#      check-artifacts/stale-claims）＋完整运行（--suite all）末尾注入自检；POSIX sh 零外部
 #      依赖（夹具 git init/commit 依赖被测脚本自身声明的 Git）。用法、suite 覆盖表、退出码
 #      与维护规则见同目录 README.md 专节。
 
@@ -89,11 +93,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|install|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
-for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh install.sh install-policy.rules; do
+for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh; do
   [ -f "$SCRIPT_DIR/$f" ] || { printf 'test-record-layer: 被测成员缺失: %s/%s\n' "$SCRIPT_DIR" "$f" >&2; exit 2; }
 done
 if [ -z "$PKG_ROOT" ]; then
@@ -1046,6 +1050,121 @@ EOF
     bad '负例 lesson 分数键序错（predicate 在前）→ exit 1 指名固定键序（票 133）' "exit=$rc $(tail -n 1 "$D/ls5.log" | head -c 120)"
   fi
 
+  # ---- 票 152 断言：open 本体 schema 全量校验（type/pattern/enum/oneOf/
+  # additionalProperties/条件 required）----
+  # 独立夹具 fix152（免受前段状态影响）：最小 task 本体照（tix_body 形态）重建后逐字段
+  # 破坏，各负例 exit 1、零写入（tix_state 指纹）且报文指名字段路径；正例 task/request
+  # 本体照旧 exit 0 全链落地（合法面零回归）；oneOf 零命中（verification 非 string 非
+  # array）一并拒。风险注记（票 152 risks）：python3 依赖已由套件环境门承载（缺 python3
+  # exit 2）；存量 JSON 兼容性＝校验只 open 时点生效、存量票零回扫（open 后本体不再校验，
+  # 夹具 30 票 open 通过后前段断言照旧）。
+  tix_build_fixture "$D/fix152"
+  F152=$D/fix152
+  TIX152="$F152/rules/implementation/scripts/ticket-ops.sh"
+  TIX152_OK_BODY="$F152/facts/requirements/tickets/30-gamma-third.json"
+  tix_body "$TIX152_OK_BODY" 30-gamma-third
+  TIX152_LEDGER='{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture 152", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
+
+  # 正例 P152：最小 task 本体原样 open → exit 0 且索引落条目（全量校验合法面零回归）
+  sh "$TIX152" "$F152" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$TIX152_LEDGER" >"$D/v152p.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "30-gamma-third"' "$F152/facts/requirements/tickets/index.json"; then
+    ok '正例 P152 最小 task 本体 open → exit 0 且索引落条目（schema 全量校验合法面零回归，票 152）'
+  else
+    bad '正例 P152 最小 task 本体 open → exit 0 且索引落条目（schema 全量校验合法面零回归，票 152）' "exit=$rc $(head -n 2 "$D/v152p.log" | tr '\n' '|')"
+  fi
+
+  S152=$(tix_state "$F152")
+
+  # N-152id：本体 id 不合 schema pattern（大写）→ exit 1 零写入且报文指名 id（本体 id
+  # 与 --id 不一致断言亦并列报出——id pattern 门与一致性门同作用）
+  sed 's/"id": "30-gamma-third"/"id": "50-Epsilon-Fifth"/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152id.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q '50-Epsilon-Fifth' "$D/v152id.log"; then
+    ok '负例 N-152id 本体 id 越 pattern（大写）→ exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152id 本体 id 越 pattern（大写）→ exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152id.log" | tr '\n' '|')"
+  fi
+
+  # N-152c：complexity 越枚举 → exit 1 零写入且报文指名枚举
+  sed 's/"complexity": "C1"/"complexity": "C9"/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152c.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q "'C9'" "$D/v152c.log"; then
+    ok '负例 N-152c 本体 complexity 越枚举（C9）→ exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152c 本体 complexity 越枚举（C9）→ exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152c.log" | tr '\n' '|')"
+  fi
+
+  # N-152p：profile 越七维 pattern（维值 C9）→ exit 1 零写入且报文指名 profile
+  sed 's/D:Required/D:C9/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152p2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'profile' "$D/v152p2.log"; then
+    ok '负例 N-152p 本体 profile 越七维 pattern → exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152p 本体 profile 越七维 pattern → exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152p2.log" | tr '\n' '|')"
+  fi
+
+  # N-152b：blocked_by 含不合 id pattern 条目 → exit 1 零写入且报文指名路径 blocked_by[0]
+  sed 's/"blocked_by": \[\]/"blocked_by": ["Bad-Ref"]/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152b.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'blocked_by\[0\]' "$D/v152b.log"; then
+    ok '负例 N-152b blocked_by 条目越 pattern → exit 1 零写入且报文指名路径（票 152 AC1）'
+  else
+    bad '负例 N-152b blocked_by 条目越 pattern → exit 1 零写入且报文指名路径（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152b.log" | tr '\n' '|')"
+  fi
+
+  # N-152extra：additionalProperties（本体加 schema 未定义字段）→ exit 1 零写入且报文指名字段
+  sed 's/"priority_reason"/"extra_field": "额外字段", "priority_reason"/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152x.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'extra_field' "$D/v152x.log"; then
+    ok '负例 N-152extra 本体含未定义字段 → exit 1 零写入且报文指名（票 152 AC1 additionalProperties）'
+  else
+    bad '负例 N-152extra 本体含未定义字段 → exit 1 零写入且报文指名（票 152 AC1 additionalProperties）' "exit=$rc $(head -n 2 "$D/v152x.log" | tr '\n' '|')"
+  fi
+
+  # N-152task：task 票缺条件 required（profile 字段删除）→ exit 1 零写入且报文指名 task profile
+  sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' -e '/"profile"/d' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152t.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q '缺少 profile' "$D/v152t.log"; then
+    ok '负例 N-152task task 缺条件 required profile → exit 1 零写入且报文指名（票 152 AC1）'
+  else
+    bad '负例 N-152task task 缺条件 required profile → exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152t.log" | tr '\n' '|')"
+  fi
+
+  # N-152oneof：oneOf 零命中（verification 为数字，非 string 非 array）→ exit 1 零写入
+  # 且报文指名 oneOf（verification 的 oneOf 两分支＝string｜array，数字两不命中）
+  sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' -e 's/"priority_reason": "fixture 优先级理由（正例，非空）"/"priority_reason": "fixture 优先级理由（正例，非空）", "verification": 42/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152o.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'oneOf' "$D/v152o.log"; then
+    ok '负例 N-152oneof verification oneOf 零命中（数字形态）→ exit 1 零写入（票 152 AC1）'
+  else
+    bad '负例 N-152oneof verification oneOf 零命中（数字形态）→ exit 1 零写入（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152o.log" | tr '\n' '|')"
+  fi
+
+  # 正例 P152r：request 本体（无 task 条件字段）open 照旧 exit 0（kind 分支合法面零回归）
+  cat > "$F152/facts/requirements/tickets/51-zeta-sixth.json" <<'EOF'
+{
+  "id": "51-zeta-sixth",
+  "kind": "request",
+  "title": "fixture request（schema 全量校验正例）",
+  "created_at": "2026-09-19"
+}
+EOF
+  sh "$TIX152" "$F152" open --id 51-zeta-sixth --complexity C1 --title z --ledger-line "$TIX152_LEDGER" >"$D/v152r.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "51-zeta-sixth"' "$F152/facts/requirements/tickets/index.json"; then
+    ok '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）'
+  else
+    bad '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）' "exit=$rc $(head -n 2 "$D/v152r.log" | tr '\n' '|')"
+  fi
+
   suite_summary 'ticket-ops'
 }
 
@@ -1169,7 +1288,7 @@ EOF
 # 扩五项（AGENTS.md/docs//rules//facts//.zcode/）；负例 N12/N13/N14/N15/N16/N17 注入目标
 # 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）；
 # delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户；票 141 requests 模板退役 16→15）
-# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）
+# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）
 # ============================================================
 
 suite_check_package() {
@@ -1199,6 +1318,7 @@ PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 19 scripts 节 mode 断言（19 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 22 项，symlink 0 个）
 check-package: PASS
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
@@ -1208,7 +1328,7 @@ EOF
   else
     bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
   fi
-  assert_eq '正例输出逐行逐一相等（十九项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17、18 票号禁令与 19 mode 断言）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（二十项 PASS＋汇总，含检查 9/10/11、12/13、14、15/16/17、18 票号禁令与 19 mode 断言、20 闭合性）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -1230,7 +1350,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-check-package: FAIL（3 项未通过，共 19 项）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 21 项，symlink 0 个）
+check-package: FAIL（3 项未通过，共 20 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -1264,7 +1385,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-check-package: FAIL（1 项未通过，共 19 项）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 22 项，symlink 0 个）
+check-package: FAIL（1 项未通过，共 20 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -1452,15 +1574,38 @@ EOF
     bad '负例 N15 机械行点名不存在脚本 → exit 1 且 FAIL: 17 指名 ID 与脚本' "exit=$rc"
   fi
 
+  # 票 145 恶意输入负例 N24～N27：临时副本 manifest 注入恶意行 → 非执行式解析期
+  # exit 2 fail-closed 不产生部分结论（零 PASS/FAIL 检查行输出）——命令替换、反引号、
+  # 引号外重定向、未知指令四形态；探针文件断言承载零执行（解析期无任何求值面）。
+  for cp_i in 1 2 3 4; do
+    cp -R "$PKG_ROOT" "$D/pkgmal$cp_i"
+    case $cp_i in
+      1) printf "pm_entry SKILL.md\npm_vague_word 'x\$(touch /tmp/trp145cp1)x'\n" >> "$D/pkgmal1/scripts/package-manifest.rules"; cp_desc='负例 N24 manifest 命令替换注入（引号内美元括号）→ exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp1 ;;
+      2) printf "pm_vague_word 'x\`touch /tmp/trp145cp2\`x'\n" >> "$D/pkgmal2/scripts/package-manifest.rules"; cp_desc='负例 N25 manifest 反引号注入 → exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp2 ;;
+      3) printf "pm_entry SKILL.md > /tmp/trp145cp3\n" >> "$D/pkgmal3/scripts/package-manifest.rules"; cp_desc='负例 N26 manifest 引号外重定向注入 → exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp3 ;;
+      4) printf "evil_cmd 'rm' '-rf' '/'\n" >> "$D/pkgmal4/scripts/package-manifest.rules"; cp_desc='负例 N27 manifest 未知指令注入 → exit 2 不产生部分结论'; cp_probe='' ;;
+    esac
+    sh "$D/pkgmal$cp_i/scripts/check-package.sh" "$D/pkgmal$cp_i" >"$D/act.n24_$cp_i" 2>&1
+    rc=$?
+    if [ "$rc" -eq 2 ] && ! grep -q '^PASS' "$D/act.n24_$cp_i" && ! grep -q '^FAIL' "$D/act.n24_$cp_i" \
+      && grep -q '非执行式解析不合预期' "$D/act.n24_$cp_i" \
+      && { [ -z "$cp_probe" ] || [ ! -e "$cp_probe" ]; }; then
+      ok "$cp_desc"
+    else
+      bad "$cp_desc" "exit=$rc head=$(head -n 1 "$D/act.n24_$cp_i")"
+    fi
+  done
+  rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
+
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
-  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 95 后为 19；注入
-  # 检查 20＝超界一位，随总数同步）。
+  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 149 后为 20；注入
+  # 检查 21＝超界一位，随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 20） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 21） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 19 项）: 检查 20' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 20 项）: 检查 21' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -1570,28 +1715,48 @@ EOF
     bad '负例 N23 git 语境 mode 双向负例（script→644／rules→755）→ exit 1 且双断言同报指名期望 mode' "exit=$rc"
   fi
 
-  # 票 145 恶意输入负例 N24～N27：临时副本 manifest 注入恶意行 → 非执行式解析期
-  # exit 2 fail-closed 不产生部分结论（零 PASS/FAIL 检查行输出）——命令替换、反引号、
-  # 引号外重定向、未知指令四形态；探针文件断言承载零执行（解析期无任何求值面）。
-  for cp_i in 1 2 3 4; do
-    cp -R "$PKG_ROOT" "$D/pkgmal$cp_i"
-    case $cp_i in
-      1) printf "pm_entry SKILL.md\npm_vague_word 'x\$(touch /tmp/trp145cp1)x'\n" >> "$D/pkgmal1/scripts/package-manifest.rules"; cp_desc='负例 N24 manifest 命令替换注入（引号内美元括号）→ exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp1 ;;
-      2) printf "pm_vague_word 'x\`touch /tmp/trp145cp2\`x'\n" >> "$D/pkgmal2/scripts/package-manifest.rules"; cp_desc='负例 N25 manifest 反引号注入 → exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp2 ;;
-      3) printf "pm_entry SKILL.md > /tmp/trp145cp3\n" >> "$D/pkgmal3/scripts/package-manifest.rules"; cp_desc='负例 N26 manifest 引号外重定向注入 → exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp3 ;;
-      4) printf "evil_cmd 'rm' '-rf' '/'\n" >> "$D/pkgmal4/scripts/package-manifest.rules"; cp_desc='负例 N27 manifest 未知指令注入 → exit 2 不产生部分结论'; cp_probe='' ;;
-    esac
-    sh "$D/pkgmal$cp_i/scripts/check-package.sh" "$D/pkgmal$cp_i" >"$D/act.n24_$cp_i" 2>&1
-    rc=$?
-    if [ "$rc" -eq 2 ] && ! grep -q '^PASS' "$D/act.n24_$cp_i" && ! grep -q '^FAIL' "$D/act.n24_$cp_i" \
-      && grep -q '非执行式解析不合预期' "$D/act.n24_$cp_i" \
-      && { [ -z "$cp_probe" ] || [ ! -e "$cp_probe" ]; }; then
-      ok "$cp_desc"
-    else
-      bad "$cp_desc" "exit=$rc head=$(head -n 1 "$D/act.n24_$cp_i")"
-    fi
-  done
-  rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
+  # 票 149 检查 20 负例 N24：scripts/ 一级未登记额外文件（恶意投放面）→ exit 1 且
+  # FAIL: 20 指名条目；隐藏条目（. 开头）同入条目面一并拦截。
+  cp -R "$PKG_ROOT" "$D/pkgcopy21"
+  printf '# harness fixture 未登记额外件\n' > "$D/pkgcopy21/scripts/harness-fixture-extra.sh"
+  printf 'x' > "$D/pkgcopy21/scripts/harness-fixture-extra.txt"
+  printf 'y' > "$D/pkgcopy21/scripts/.harness-fixture-hidden"
+  sh "$D/pkgcopy21/scripts/check-package.sh" "$D/pkgcopy21" >"$D/act.n24" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 20 包闭合性与符号链接防护' "$D/act.n24" \
+    && grep -q '.harness-fixture-hidden、harness-fixture-extra.sh、harness-fixture-extra.txt' "$D/act.n24"; then
+    ok '负例 N24 scripts/ 一级未登记额外件（含隐藏件）→ exit 1 且 FAIL: 20 指名条目'
+  else
+    bad '负例 N24 scripts/ 一级未登记额外件（含隐藏件）→ exit 1 且 FAIL: 20 指名条目' "exit=$rc"
+  fi
+
+  # 票 149 检查 20 负例 N25：symlink 混合面——scripts 下外指 symlink（AC2 面：脚本
+  # symlink 被拒）与 references 下断链外指同夹具，外指面＋别名面双报（readlink 原始
+  # 目标＋词法折叠，不依赖 GNU readlink -f）。
+  cp -R "$PKG_ROOT" "$D/pkgcopy22"
+  ln -sf /etc/passwd "$D/pkgcopy22/scripts/harness-fixture-ro.sh"
+  ln -sf ../../../../../../etc/hosts "$D/pkgcopy22/references/templates/harness-fixture-dead.md"
+  sh "$D/pkgcopy22/scripts/check-package.sh" "$D/pkgcopy22" >"$D/act.n25" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 20 包闭合性与符号链接防护' "$D/act.n25" \
+    && grep -q 'scripts/harness-fixture-ro.sh' "$D/act.n25" \
+    && grep -q 'references/templates/harness-fixture-dead.md' "$D/act.n25" \
+    && grep -q '包内 symlink 指向包根外部' "$D/act.n25"; then
+    ok '负例 N25 symlink 混合面（scripts 外指＋references 断链外指）→ exit 1 且外指/别名双报'
+  else
+    bad '负例 N25 symlink 混合面（scripts 外指＋references 断链外指）→ exit 1 且外指/别名双报' "exit=$rc"
+  fi
+
+  # 票 149 检查 20 负例 N26：非 git 语境（cp 副本，N22 同款）检查 20 照常运行零静默
+  # ——闭合性不依赖 git（find 条目面＋readlink），与检查 19 静默跳过语义相区分。
+  cp -R "$PKG_ROOT" "$D/pkgcopy23"
+  sh "$D/pkgcopy23/scripts/check-package.sh" "$D/pkgcopy23" >"$D/act.n26" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 20 包闭合性与符号链接防护' "$D/act.n26"; then
+    ok '负例 N26 非 git 语境检查 20 照常运行 → exit 0 且 PASS: 20 有输出行'
+  else
+    bad '负例 N26 非 git 语境检查 20 照常运行 → exit 0 且 PASS: 20 有输出行' "exit=$rc"
+  fi
 
   suite_summary 'check-package'
 }
@@ -2252,7 +2417,7 @@ EOF
   mkdir -p "$D/p7/eng"
   cp "$SC" "$D/p7/eng/check-stale-claims.sh"
   sc_git_baseline "$D/p7/repo"
-  sc_s7_write "$D/p7/repo" superseded 92-s7 done
+  sc_s7_write "$D/p7/repo" superseded 92-s7 'done'
   sc_run "$D/p7" > "$D/p7.out" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] \
@@ -2269,7 +2434,7 @@ EOF
   mkdir -p "$D/n6/eng"
   cp "$SC" "$D/n6/eng/check-stale-claims.sh"
   sc_git_baseline "$D/n6/repo"
-  sc_s7_write "$D/n6/repo" superseded 99-none done
+  sc_s7_write "$D/n6/repo" superseded 99-none 'done'
   sc_run "$D/n6" > "$D/n6.out" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
@@ -2286,7 +2451,7 @@ EOF
   mkdir -p "$D/p8/eng"
   cp "$SC" "$D/p8/eng/check-stale-claims.sh"
   sc_git_baseline "$D/p8/repo"
-  sc_s7_write "$D/p8/repo" superseded '' done
+  sc_s7_write "$D/p8/repo" superseded '' 'done'
   sc_run "$D/p8" > "$D/p8.out" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] \
@@ -2381,6 +2546,62 @@ EOF
     ok '正例 P10 S8 none 行跳过 → exit 0 零 S8 输出＋NOTE 零命中'
   else
     bad '正例 P10 S8 none 行跳过 → 零 S8 输出＋NOTE 零命中' "exit=$rc $(grep 'S8' "$D/p10.out" | head -1)"
+  fi
+
+  # 裸跑回归断言四（防回潮）：缺省根推导按落位形态（rules/implementation/scripts/
+  # 上三级）——无参裸跑零 STALE 且与显式传参调用逐字节一致；包内落位/未知落位负例。
+  # （夹具引擎目录单件语义：S3 走退化路径，索引↔投影一致面由 sc_s7_write 同款
+  # 覆写控制；断言经夹具内 sh 直接调用，非 sc_run——sc_run 固定显式传参。）
+  sc_bare_run() {
+    # $1=夹具目录 $2=夹具引擎落位相对路径（相对 repo） $3=显式传参对照输出文件 $4=裸跑输出文件
+    mkdir -p "$1/repo/rules/implementation/scripts"
+    mkdir -p "$1/repo/$(dirname "$2")"
+    cp "$SC" "$1/repo/$2"
+    cp "$SC" "$1/repo/eng/check-stale-claims.sh"
+    ( cd "$1/repo" && sh "$2" ) > "$4" 2>&1
+    _bare_rc=$?
+    sh "$1/repo/eng/check-stale-claims.sh" "$1/repo" gate > "$3" 2>&1
+    return $_bare_rc
+  }
+
+  # P11 rules/ 落位裸跑：exit 0 零 STALE，与显式传参输出逐字节一致
+  sc_build_fixture "$D/p11"
+  sc_git_baseline "$D/p11/repo"
+  mkdir -p "$D/p11/repo/eng"
+  sc_bare_run "$D/p11" rules/implementation/scripts/check-stale-claims.sh "$D/p11.explicit" "$D/p11.out"
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p11.out" && cmp -s "$D/p11.out" "$D/p11.explicit"; then
+    ok '正例 P11 rules/ 落位无参裸跑 → exit 0 零 STALE，与显式传参输出逐字节一致'
+  else
+    bad '正例 P11 rules/ 落位无参裸跑 → exit 0 零 STALE，与显式传参输出逐字节一致' "exit=$rc $(tail -n 2 "$D/p11.out" | tr '\n' '|')"
+  fi
+
+  # P12 包内落位裸跑：agent-up/scripts/ 上两级＝仓库根，exit 0 零 STALE
+  sc_build_fixture "$D/p12"
+  sc_git_baseline "$D/p12/repo"
+  mkdir -p "$D/p12/repo/agent-up/scripts" "$D/p12/repo/eng"
+  cp "$SC" "$D/p12/repo/agent-up/scripts/check-stale-claims.sh"
+  cp "$SC" "$D/p12/repo/eng/check-stale-claims.sh"
+  ( cd "$D/p12/repo" && sh agent-up/scripts/check-stale-claims.sh ) > "$D/p12.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p12.out"; then
+    ok '正例 P12 包内落位无参裸跑 → exit 0 零 STALE'
+  else
+    bad '正例 P12 包内落位无参裸跑 → exit 0 零 STALE' "exit=$rc $(tail -n 2 "$D/p12.out" | tr '\n' '|')"
+  fi
+
+  # N12 未知落位裸跑：fail-closed 报错退出 2（不静默错根）
+  sc_build_fixture "$D/n12"
+  sc_git_baseline "$D/n12/repo"
+  mkdir -p "$D/n12/repo/eng" "$D/n12/repo/loose"
+  cp "$SC" "$D/n12/repo/loose/check-stale-claims.sh"
+  cp "$SC" "$D/n12/repo/eng/check-stale-claims.sh"
+  ( cd "$D/n12/repo" && sh loose/check-stale-claims.sh ) > "$D/n12.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '无法从脚本落位推导仓库根' "$D/n12.out"; then
+    ok '负例 N12 未知落位无参裸跑 → exit 2 fail-closed 指名推导失败'
+  else
+    bad '负例 N12 未知落位无参裸跑 → exit 2 fail-closed 指名推导失败' "exit=$rc $(tail -n 2 "$D/n12.out" | tr '\n' '|')"
   fi
 
   suite_summary 'stale-claims'
@@ -2580,6 +2801,83 @@ EOF
   suite_summary 'health'
 }
 
+# ============================================================
+# suite: shellcheck（静态分析门禁面：脚本全量零告警；豁免逐项有证——
+# disable 指令必须同行带理由注释，防无证关检查；环境依赖 shellcheck，
+# 缺失即套件零断言跳过（不制造假绿），由调用方按环境依赖口径处置）
+# ============================================================
+
+suite_shellcheck() {
+  CUR_SUITE='shellcheck'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/shellcheck
+  mkdir -p "$D"
+
+  if ! command -v shellcheck >/dev/null 2>&1; then
+    printf 'test-record-layer: NOTE suite=shellcheck 环境缺 shellcheck——套件零断言跳过（不制造假绿；门禁语义归调用方按环境依赖口径处置）\n'
+    suite_summary 'shellcheck'
+    return 0
+  fi
+
+  # 被测清单：find 枚举（harness 顶层 set -f 禁 shell glob，不能用 *.sh 通配）
+  _sh_list="$D/files.txt"
+  find "$SCRIPT_DIR" -maxdepth 1 -type f -name '*.sh' | LC_ALL=C sort > "$_sh_list"
+  _sh_n=$(wc -l < "$_sh_list" | tr -d ' ')
+  if [ "$_sh_n" -eq 0 ]; then
+    bad '脚本全量 shellcheck 零告警' "被测目录无 .sh 文件: $SCRIPT_DIR"
+    suite_summary 'shellcheck'
+    return 0
+  fi
+
+  _sh_sc_out="$D/all.out"
+  # set -u/-f 语境（无 set -e）：非零退出码显式接住；清单经 xargs 展开（禁裸
+  # $() 词分割——新门禁自身口径）；路径含空白的落位不受支持（家族先例 S4 同款口径）
+  xargs shellcheck > "$_sh_sc_out" 2>&1 < "$_sh_list"
+  _sh_rc=$?
+  if [ "$_sh_rc" -eq 0 ]; then
+    ok "脚本全量 shellcheck 零告警（${_sh_n} 件）"
+  else
+    bad '脚本全量 shellcheck 零告警' "$(head -n 6 "$_sh_sc_out" | tr '\n' '|')"
+  fi
+
+  # 豁免有证断言：disable 指令必须同行带理由注释（防无证关检查——「用关闭检查代替
+  # 逐项判断」禁令的机器化）；形态约定＝'# shellcheck disable=SCxxxx  # 理由'，
+  # 第二个 # 之后剥空白须非空。awk 程序单引号形态必需（$0 等 awk 内建禁 shell 展开），
+  # 模式在 BEGIN 拼接构造（禁字面敏感模式自命中，维护联动同款）；诊断行写独立文件，
+  # stdout 只承载计数汇总行（cut 取数面干净）。
+  _sh_sc_exempt="$D/exempt.out"
+  _sh_sc_diag="$D/exempt-diag.txt"
+  # shellcheck disable=SC2016  # awk 程序必须单引号防 shell 展开 $0，展开即破坏语义——SC2016 为形态必需非缺陷
+  xargs awk -v diag="$_sh_sc_diag" '
+    BEGIN { pat = "# shell" "check disable=" }
+    FNR == 1 { file = FILENAME; sub(/.*\//, "", file) }
+    index($0, pat) > 0 {
+      n++
+      rest = $0
+      head = index(rest, "#")
+      tail = index(substr(rest, head + 1), "#")
+      if (tail > 0) {
+        rest = substr(substr(rest, head + 1), tail + 1)
+        gsub(/^[ \t]+|[ \t]+$/, "", rest)
+      } else {
+        rest = ""
+      }
+      if (rest == "") { printf "无证豁免: %s:%d: %s\n", file, FNR, $0 > diag; bad++ }
+    }
+    END { printf "%d\t%d\n", n + 0, bad + 0 }
+  ' > "$_sh_sc_exempt" < "$_sh_list"
+  _sh_exempt_n=$(cut -f1 "$_sh_sc_exempt")
+  _sh_exempt_bad=$(cut -f2 "$_sh_sc_exempt")
+  if [ "$_sh_exempt_bad" -eq 0 ]; then
+    ok "豁免有证（disable 指令 ${_sh_exempt_n} 处逐项带理由注释）"
+  else
+    bad '豁免有证（disable 指令逐项带理由注释）' "$(head -n 4 "$_sh_sc_diag" | tr '\n' '|')"
+  fi
+
+  suite_summary 'shellcheck'
+}
+
 
 
 # ============================================================
@@ -2587,7 +2885,9 @@ EOF
 # 不带 actual 行的既有六键行向后兼容（actual 落空串）；两段式全链经 git 夹具承载；
 # 票 108 增补：.json 票体 user-review 全链正负例——t_stem 剥 .json、checkpoint 落独立
 # md（创建＋已存在追加两形态）、正文 Status 回写跳过、JSON 票体零追加、flips id 不符
-# fail-closed）
+# fail-closed；票 144 增补：写入面路径边界——whitelist/flips/ticket 的 ..、绝对路径、
+# symlink 指向仓外（realpath containment）、仓内 symlink 自身四类负例写入前 exit 1，
+# 仓外哨兵与仓库工作树指纹负例前后全等（AC3），symlink 在场语境合法相对路径全链零回归）
 # ============================================================
 
 lc_git_commit() {
@@ -2741,6 +3041,141 @@ suite_lane_commit() {
     ok '负例 N3 actual 行含制表符 → exit 1（JSON 行安全）'
   else
     bad '负例 N3 actual 行含制表符 → exit 1（JSON 行安全）' "exit=$rc $(tail -n 2 "$D/n3.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 144 断言：写入面路径边界（whitelist/flips/ticket 须仓库根内普通相对文件）----
+  # 边界矩阵：../ 向上跳段／绝对路径／symlink 指向仓外（realpath containment，macOS
+  # /tmp → /private/tmp 规格化歧义同口径拦出）／仓内 symlink 自身——均写入前 exit 1；
+  # flips 目标与 ticket 票文件走同款 lc_in_repo 校验各一负例；负例统一零提交零写入零
+  # 仓外副作用（夹具外哨兵文件内容＋仓库工作树结构/内容指纹前后不变）；末位合法回归
+  # 正例（symlink 在场语境合法相对路径照旧收口，AC 零回归）。
+  lc_build_fixture "$D/bm"
+  printf 'outside-sentinel\n' > "$D/bm-outside-sentinel.txt"
+  ln -s "$D/bm-outside-sentinel.txt" "$D/bm/outside-link.txt"
+  ln -s 'a.txt' "$D/bm/inside-link.txt"
+  lc_git_commit "$D/bm"
+  printf 'change\n' > "$D/bm/a.txt"
+  bm_n0=$(git -C "$D/bm" rev-list --count HEAD)
+  bm_ls0=$(cd "$D/bm" && find . -name .git -prune -o -print | LC_ALL=C sort | cksum)
+  bm_ck0=$(cd "$D/bm" && find . -name .git -prune -o -type f -print | LC_ALL=C sort | xargs cksum | cksum)
+  bm_sent0=$(cksum "$D/bm-outside-sentinel.txt")
+
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: ../bm-outside-sentinel.txt\n'
+    printf 'message: escape dotdot\n'
+    printf 'verify: true\n'
+  } > "$D/bm-a.contract"
+  sh "$LC" "$D/bm" "$D/bm-a.contract" >"$D/bm-a.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '不得含 .. 或 ./ 路径段' "$D/bm-a.out" \
+    && [ "$(git -C "$D/bm" rev-list --count HEAD)" -eq "$bm_n0" ]; then
+    ok '负例 N-144a whitelist 含 ..（../ 向上跳段）→ exit 1 报文本层违规且零提交（票 144）'
+  else
+    bad '负例 N-144a whitelist 含 ..（../ 向上跳段）→ exit 1 报文本层违规且零提交（票 144）' "exit=$rc $(tail -n 2 "$D/bm-a.out" | tr '\n' '|')"
+  fi
+
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: /tmp/lc144-nonexistent-outside\n'
+    printf 'message: escape absolute\n'
+    printf 'verify: true\n'
+  } > "$D/bm-b.contract"
+  sh "$LC" "$D/bm" "$D/bm-b.contract" >"$D/bm-b.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '不得为绝对路径' "$D/bm-b.out" \
+    && [ "$(git -C "$D/bm" rev-list --count HEAD)" -eq "$bm_n0" ]; then
+    ok '负例 N-144b whitelist 绝对路径 → exit 1 报文本层违规且零提交（票 144）'
+  else
+    bad '负例 N-144b whitelist 绝对路径 → exit 1 报文本层违规且零提交（票 144）' "exit=$rc $(tail -n 2 "$D/bm-b.out" | tr '\n' '|')"
+  fi
+
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: outside-link.txt\n'
+    printf 'message: escape symlink\n'
+    printf 'verify: true\n'
+  } > "$D/bm-c.contract"
+  sh "$LC" "$D/bm" "$D/bm-c.contract" >"$D/bm-c.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '越出仓库根（realpath containment 失败）' "$D/bm-c.out" \
+    && [ "$(git -C "$D/bm" rev-list --count HEAD)" -eq "$bm_n0" ]; then
+    ok '负例 N-144c whitelist symlink 指向仓外 → exit 1 realpath containment 拦出且零提交（票 144）'
+  else
+    bad '负例 N-144c whitelist symlink 指向仓外 → exit 1 realpath containment 拦出且零提交（票 144）' "exit=$rc $(tail -n 2 "$D/bm-c.out" | tr '\n' '|')"
+  fi
+
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: inside-link.txt\n'
+    printf 'message: inside symlink\n'
+    printf 'verify: true\n'
+  } > "$D/bm-d.contract"
+  sh "$LC" "$D/bm" "$D/bm-d.contract" >"$D/bm-d.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '不得为 symlink' "$D/bm-d.out" \
+    && [ "$(git -C "$D/bm" rev-list --count HEAD)" -eq "$bm_n0" ]; then
+    ok '负例 N-144d whitelist 仓内 symlink 自身 → exit 1 形态层拦出且零提交（票 144：仅普通文件）'
+  else
+    bad '负例 N-144d whitelist 仓内 symlink 自身 → exit 1 形态层拦出且零提交（票 144：仅普通文件）' "exit=$rc $(tail -n 2 "$D/bm-d.out" | tr '\n' '|')"
+  fi
+
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: flips escape\n'
+    printf 'verify: true\n'
+    printf 'flips: outside-link.txt:note:hello\n'
+  } > "$D/bm-e.contract"
+  sh "$LC" "$D/bm" "$D/bm-e.contract" >"$D/bm-e.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'flips 目标路径边界校验未通过' "$D/bm-e.out" \
+    && [ "$(git -C "$D/bm" rev-list --count HEAD)" -eq "$bm_n0" ]; then
+    ok '负例 N-144e flips 目标 symlink 指向仓外 → exit 1 边界校验拦出且零提交（票 144）'
+  else
+    bad '负例 N-144e flips 目标 symlink 指向仓外 → exit 1 边界校验拦出且零提交（票 144）' "exit=$rc $(tail -n 2 "$D/bm-e.out" | tr '\n' '|')"
+  fi
+
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: outside-link.txt\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: ticket escape\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK\n'
+    printf 'verdict_at: 2026-10-15T12:00\n'
+  } > "$D/bm-f.contract"
+  sh "$LC" "$D/bm" "$D/bm-f.contract" >"$D/bm-f.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'ticket 票文件 越出仓库根' "$D/bm-f.out" \
+    && [ "$(git -C "$D/bm" rev-list --count HEAD)" -eq "$bm_n0" ]; then
+    ok '负例 N-144f ticket 票文件 symlink 指向仓外 → exit 1 边界校验拦出且零提交（票 144）'
+  else
+    bad '负例 N-144f ticket 票文件 symlink 指向仓外 → exit 1 边界校验拦出且零提交（票 144）' "exit=$rc $(tail -n 2 "$D/bm-f.out" | tr '\n' '|')"
+  fi
+
+  # 负例副作用核验（票 144 AC3）：全部负例后——仓外哨兵文件内容不变、仓库工作树
+  # 结构（文件名集）与内容（逐文件 cksum 链）指纹均与负例前基线全等。
+  if [ "$(cksum "$D/bm-outside-sentinel.txt")" = "$bm_sent0" ] \
+    && [ "$(cd "$D/bm" && find . -name .git -prune -o -print | LC_ALL=C sort | cksum)" = "$bm_ls0" ] \
+    && [ "$(cd "$D/bm" && find . -name .git -prune -o -type f -print | LC_ALL=C sort | xargs cksum | cksum)" = "$bm_ck0" ]; then
+    ok '负例副作用核验 仓外哨兵内容＋仓库工作树结构/内容指纹负例前后全等（票 144 AC3 零仓外副作用）'
+  else
+    bad '负例副作用核验 仓外哨兵内容＋仓库工作树结构/内容指纹负例前后全等（票 144 AC3 零仓外副作用）' '哨兵 cksum 或仓库指纹漂移'
+  fi
+
+  # 正例 P-144：合法仓内相对路径零回归——symlink 在场语境（同夹具）micro 合同照旧
+  # 两段式收口 exit 0 且微账本落行（AC：合法目标行为不变）。负例段 lc_git_commit 已把
+  # a.txt 既有改动入库，此处再造已跟踪文件改动供产品提交承载。
+  printf 'change-144\n' > "$D/bm/a.txt"
+  lc_contract "$D/bm-p.contract" '30m（票 144 合法回归占位）'
+  sh "$LC" "$D/bm" "$D/bm-p.contract" >"$D/bm-p.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"actual": "30m（票 144 合法回归占位）"' "$D/bm/facts/project/micro.jsonl" \
+    && [ "$(git -C "$D/bm" rev-list --count HEAD)" -eq "$((bm_n0 + 2))" ]; then
+    ok '正例 P-144 symlink 在场语境合法相对路径 micro 全链 → exit 0 两段提交＋微账本落行（票 144 零回归）'
+  else
+    bad '正例 P-144 symlink 在场语境合法相对路径 micro 全链 → exit 0 两段提交＋微账本落行（票 144 零回归）' "exit=$rc $(tail -n 3 "$D/bm-p.out" | tr '\n' '|')"
   fi
 
   # ---- 票 108 断言：user-review 道 .json 票体全链 ----
@@ -2963,8 +3398,10 @@ RULES
 
   # 负例 N1：分支名不合 ticket/<NN>-<slug> → exit 1
   wt_build_fixture "$D/n1/repo"
-  sh "$WA" "$D/n1/wt2" main >"$D/n1.out" 2>&1
+  cd "$D/n1/repo" || exit 1
+  sh "$WA" ../wt2 main >"$D/n1.out" 2>&1
   rc=$?
+  cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 1 ] && grep -q '分支名不合' "$D/n1.out"; then
     ok '负例 N1 分支名不合形态 → exit 1 指名形态'
   else
@@ -3350,6 +3787,7 @@ case $SUITE in
   upgrade-check) suite_upgrade_check ;;
   absorption) suite_absorption ;;
   health) suite_health ;;
+  shellcheck) suite_shellcheck ;;
   install) suite_install ;;
   all)
     suite_module_map
@@ -3364,6 +3802,7 @@ case $SUITE in
     suite_upgrade_check
     suite_absorption
     suite_health
+    suite_shellcheck
     suite_install
     self_check_injection
     ;;

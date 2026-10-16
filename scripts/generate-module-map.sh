@@ -145,7 +145,8 @@ fi
 mm_script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 mm_rules_path="$mm_script_dir/module-map.rules"
 [ -f "$mm_rules_path" ] || die2 "语言规则表缺失: $mm_rules_path"
-mm_rules_bad=$(LC_ALL=C awk -v progin="$mm_rules_path" '
+mm_rules_bad=''
+LC_ALL=C awk -v progin="$mm_rules_path" '
   function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
   {
     raw = $0; ln++
@@ -193,7 +194,7 @@ mm_rules_bad=$(LC_ALL=C awk -v progin="$mm_rules_path" '
     nf = 0
   }
   END { if (n > 0) exit 1 }
-' "$mm_rules_path" > "$mm_rules_tmp") || mm_rules_bad=1
+' "$mm_rules_path" > "$mm_rules_tmp" || mm_rules_bad=1
 mm_rules_bad=${mm_rules_bad:-}
 if [ -n "$mm_rules_bad" ]; then
   printf 'generate-module-map: FAIL: 语言规则表非执行式解析不合预期（fail-closed）: %s\n' "$mm_rules_path" >&2

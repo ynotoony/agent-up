@@ -72,6 +72,7 @@ tmp_rows=''
 tmp_copied=''
 install_rules_tmp=''
 script_dir=''
+# shellcheck disable=SC2329  # cleanup 经 trap EXIT/HUP/INT/TERM 引用真实生效（shellcheck 单文件视野误报，151 同款先例）
 cleanup() {
   rm -f "$tmp_gates" "$tmp_rows" "$tmp_copied" "$install_rules_tmp"
 }
@@ -95,7 +96,8 @@ install_rules_tmp=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 script_dir=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
 rules_path="$script_dir/install-policy.rules"
 [ -f "$rules_path" ] || die2 "安装政策规则表缺失: $rules_path"
-install_parse_bad=$(LC_ALL=C awk -v progin="$rules_path" '
+install_parse_bad=''
+LC_ALL=C awk -v progin="$rules_path" '
   function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
   {
     raw = $0; ln++
@@ -141,7 +143,7 @@ install_parse_bad=$(LC_ALL=C awk -v progin="$rules_path" '
     print cmd "\t" substr(out, 1, length(out) - 1)
   }
   END { if (n > 0) exit 1 }
-' "$rules_path" > "$install_rules_tmp") || install_parse_bad=1
+' "$rules_path" > "$install_rules_tmp" || install_parse_bad=1
 install_parse_bad=${install_parse_bad:-}
 if [ -n "$install_parse_bad" ]; then
   printf 'install: FAIL: 安装政策规则表非执行式解析不合预期（fail-closed）: %s\n' "$rules_path" >&2
