@@ -65,11 +65,12 @@
     "category": {
       "type": "string",
       "enum": [
-        "decision",
-        "procedural",
-        "temporal"
+        "bug",
+        "enhancement",
+        "debt",
+        "chore"
       ],
-      "description": "可选。票记录类别（R-DP-039 类别保留政策，开票时声明；缺省视同 procedural）：decision 决定类——记录『为什么这么做』的决策依据与理由，永久保留；procedural 过程类——记录『怎么做的』过程与操作，收口归档后冻结保留；temporal 时效类——特定时点的状态快照，事件闭合即视为过期，不作执行依据。存量票零回扫：缺字段不补不改。"
+      "description": "可选。票类别＝问题性质轴（驱动流程，不承载保留政策），开票时声明；缺省视同 chore：bug——坏了，行为不合预期，须修复并带回归验证（verification 必须至少含一条回归验证句：复现路径或回归断言；开票时自查、Review 按验收逐项核对，流程职责非机械门禁，要求见卡片定义节）；enhancement——更好，现有行为可用但不理想，须带验收口径；debt——欠账，已知技术债或权宜实现，须带复发风险说明；chore——保养，依赖升级、清理等例行维护，即做即走。类别不决定保留：所有票默认永久保留，保留语义见 R-DP-039 读取面纪律。旧三值 decision/procedural/temporal 退役：存量票零回扫，旧值原样保留不校验、不补不改（open 校验只对新票时点生效）。"
     },
     "estimated_time": {
       "type": "string",

@@ -14,7 +14,7 @@
 
 ## 卡片：一张存下来的方案
 
-本目录的票在需求语境下叫**卡片**：用户提需求、agent 出方案、用户拍板之后，方案落成一张卡片存进本目录（一卡一文件）。卡片从头用到尾——存方案时是方案卡，开工后是任务单，做完后是留底档案；不换纸、不搬家、不设第二本账。卡片正面六格（全部为既有字段）：`goal` 要解决什么 / `out_of_scope` 不做什么 / `scope` 怎么做（允许改动的路径）/ `acceptance` 怎么算完 / `risks` 会牵动哪里 / `decision` 用户拍板原话＋日期；背面（开工后追加）＝Checkpoint 区：干到哪了、验证结果、审查结论。
+本目录的票在需求语境下叫**卡片**：用户提需求、agent 出方案、用户拍板之后，方案落成一张卡片存进本目录（一卡一文件）。卡片从头用到尾——存方案时是方案卡，开工后是任务单，做完后是留底档案；不换纸、不搬家、不设第二本账。卡片正面六格（全部为既有字段）：`goal` 要解决什么 / `out_of_scope` 不做什么 / `scope` 怎么做（允许改动的路径）/ `acceptance` 怎么算完 / `risks` 会牵动哪里 / `decision` 用户拍板原话＋日期；背面（开工后追加）＝Checkpoint 区：干到哪了、验证结果、审查结论。开卡同时声明类别 `category`（问题性质轴，定义见票模板节）——类别驱动流程：bug 卡的 `verification` 必须至少含一条回归验证句（复现路径或回归断言），enhancement 卡带验收口径，debt 卡带复发风险说明，chore 卡即做即走。bug 回归验证句的承载＝开票时自查＋Review 按 R-RR-002 验收核对职责间接核对，非机械门禁。
 
 卡片一生五态：**存好**（`ready`——用户拍板后落卡即停，等发令；停着的卡不算过期）/ **进行中**（`in_progress`——用户发令后按卡施工）/ **卡住**（`blocked`——报用户，不动手）/ **归档**（`done`——验收后留底，永不删）/ **弃案**（`superseded`——标注原因留底；重提开新卡不翻旧案）。需求变更＝卡面修订一版、用户重新拍板、重新等发令。
 
@@ -37,7 +37,7 @@
   "kind": "task",
   "title": "<标题>",
   "created_at": "<YYYY-MM-DD>",
-  "category": "decision|procedural|temporal",
+  "category": "bug|enhancement|debt|chore",
   "complexity": "C0|C1|C2|C3",
   "profile": "D:...,B:...,I:...,U:...,S:...,M:...,O:...",
   "blocked_by": [],
@@ -55,7 +55,7 @@
 - `id`＝文件名去 `.json` 扩展名；`goal` 从用户视角写端到端行为，不是逐层实现清单。
 - `blocked_by` 只列真正门禁这张票的票 id，无依赖为空数组。
 - 本体无 `status` 字段——票状态真相源＝本目录 `index.json`（见上方架构节）。
-- `category` 可选（R-DP-039 类别保留面）：`decision` 决定类（为什么这么做，永久保留）/ `procedural` 过程类（怎么做的，收口归档冻结）/ `temporal` 时效类（时点快照，事件闭合即过期不作依据）；缺省视同 `procedural`，存量票零回扫。票被推翻时其索引条目登记 `superseded_by: <替代票 id>`（替代标记，存在性经 check-stale-claims.sh S7 硬断言）。
+- `category` 可选（问题性质轴，驱动流程；权威条文＝R-DP-039 类别保留）：`bug` 坏了（行为不合预期，须修复）/ `enhancement` 更好（现有行为可用但不理想，须带验收口径）/ `debt` 欠账（已知技术债或权宜实现，须带复发风险说明）/ `chore` 保养（依赖升级、清理等例行维护，即做即走）；缺省视同 `chore`。bug 类票的 `verification` 必须至少含一条回归验证句（复现路径或回归断言）：开票时自查、Review 按验收逐项核对（流程职责，非机械门禁）。旧三值 `decision`/`procedural`/`temporal` 退役：存量票零回扫，旧值原样保留不校验、不补不改。原三值的保留政策语义（永久/冻结/时效）不承载于 category，并入 R-DP-039 读取面纪律：所有票默认永久保留，不作执行依据的判定靠状态投影与 `superseded_by`，不靠 category。票被推翻时其索引条目登记 `superseded_by: <替代票 id>`（替代标记，存在性经 check-stale-claims.sh S7 硬断言）。
 - `goal`/`scope`/`acceptance`/`verification` 等合同散文要素以 JSON 字符串承载，换行以 `\n` 转义。
 
 不写具体文件路径和代码片段（它们过期最快；原型片段例外规则见 [`../specs/README.md`](../specs/README.md)）。票内 Checkpoint 区追加记录：最后检查点、已修改范围、验证命令与结果（失败也记录）、下一步。
