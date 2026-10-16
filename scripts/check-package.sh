@@ -118,10 +118,11 @@ pm_mechmark=''
 pm_citeex=''
 pm_idxmech=''
 pm_idxids=''
+pm_parsed=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
     "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
-    "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_idxmech" "$pm_idxids"
+    "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_idxmech" "$pm_idxids" "$pm_parsed"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -140,6 +141,7 @@ pm_mechmark=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_citeex=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxmech=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxids=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_parsed=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 
 pm_die() {
   printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
@@ -156,95 +158,102 @@ pm_report() {
   fi
 }
 
-pm_entry() {
-  [ $# -eq 1 ] || pm_die 'pm_entry 行参数数量不合预期（须恰 1：包内相对路径）'
-  printf '%s\n' "$1" >> "$pm_entries"
-}
-pm_script() {
-  [ $# -eq 3 ] || pm_die 'pm_script 行参数数量不合预期（须恰 3：路径、kind、说明）'
-  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_scripts"
-}
-pm_template() {
-  [ $# -eq 1 ] || pm_die 'pm_template 行参数数量不合预期（须恰 1：模板文件名）'
-  printf '%s\n' "$1" >> "$pm_templates"
-}
-pm_shortcode() {
-  [ $# -eq 2 ] || pm_die 'pm_shortcode 行参数数量不合预期（须恰 2：短码、所属文件）'
-  printf '%s\t%s\n' "$1" "$2" >> "$pm_codes"
-}
-pm_platform() {
-  [ $# -eq 1 ] || pm_die 'pm_platform 行参数数量不合预期（须恰 1：枚举值）'
-  printf '%s\n' "$1" >> "$pm_platforms"
-}
-pm_vague_word() {
-  [ $# -eq 1 ] || pm_die 'pm_vague_word 行参数数量不合预期（须恰 1：模糊措辞词，字面匹配非正则）'
-  printf '%s\n' "$1" >> "$pm_words"
-}
-pm_vague_exempt() {
-  [ $# -eq 3 ] || pm_die 'pm_vague_exempt 行参数数量不合预期（须恰 3：包内相对路径、行号、理由）'
-  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_exempts"
-}
-pm_mirror() {
-  [ $# -eq 1 ] || pm_die 'pm_mirror 行参数数量不合预期（须恰 1：镜像脚本单段文件名）'
-  printf '%s\n' "$1" >> "$pm_mirrors"
-}
-pm_capability() {
-  [ $# -eq 1 ] || pm_die 'pm_capability 行参数数量不合预期（须恰 1：能力基元名，权威表现场提取不自造）'
-  printf '%s\n' "$1" >> "$pm_caps"
-}
-pm_capability_authority() {
-  [ $# -eq 1 ] || pm_die 'pm_capability_authority 行参数数量不合预期（须恰 1：能力权威表文件包内相对路径）'
-  printf '%s\n' "$1" >> "$pm_capauth"
-}
-pm_capability_target() {
-  [ $# -eq 3 ] || pm_die 'pm_capability_target 行参数数量不合预期（须恰 3：目标路径、kind、预期名单）'
-  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_captargets"
-}
-pm_mechanism() {
-  [ $# -eq 1 ] || pm_die 'pm_mechanism 行参数数量不合预期（须恰 1：机制受控值）'
-  printf '%s\n' "$1" >> "$pm_mechs"
-}
-pm_mechanism_marker() {
-  [ $# -eq 1 ] || pm_die 'pm_mechanism_marker 行参数数量不合预期（须恰 1：外定义标记词）'
-  printf '%s\n' "$1" >> "$pm_mechmark"
-}
-pm_cite_exempt() {
-  [ $# -eq 3 ] || pm_die 'pm_cite_exempt 行参数数量不合预期（须恰 3：包内相对路径、行号、理由）'
-  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$pm_citeex"
-}
 
 pm_rules="$script_dir/package-manifest.rules"
 if [ ! -f "$pm_rules" ]; then
   printf 'check-package: 错误：包清单数据文件缺失: %s\n' "$pm_rules" >&2
   exit 2
 fi
-# 预校验（source 前）：非空非注释行须为顶格指令行（十四指令之一）——source 对行级失败
-# 不具中止性（未知指令行报错后继续执行、尾态可能为 0），故未知指令必须在 source 前
-# 即 exit 2，不能只靠 source 返回码收敛。
-pm_bad=$(LC_ALL=C awk '
-  BEGIN { split("pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror pm_capability pm_capability_authority pm_capability_target pm_mechanism pm_mechanism_marker pm_cite_exempt", d, " ") }
-  function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
-  /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
-  /^[[:space:]]/ { bad("行首空白（指令行须顶格）"); next }
+# ---- 非执行式清单解析（票 145）：不再 source 清单——清单只作为受控文本数据解析，
+# 未知指令、恶意 shell 片段与结构破坏统一 fail-closed exit 2，不产生部分结论。awk 逐
+# 逻辑行处理「指令 参数...」——续行（行尾反斜杠）拼接、单引号词法取段（与 sh 单引号
+# 字面量同语义：引号内零解释原样承载）、引号外空白分词；指令名与参数数由引擎核验
+# （十四指令各自参数数），未登记指令即 exit 2。解析在全部结构校验之前完成，恶意输入
+# （命令替换、重定向、管道、字段污染）在执行任何检查语义前即被拒绝：引号外禁止 shell
+# 语法元字符（` $ ( ) ; & | < >），引号内禁止命令替换形态（` 与 $( 与 ${）；解析期零
+# 求值零二次展开（awk 产出的 TAB 行只经引擎逐节再分发），字段值只作数据承载。行内制
+# 表符与 CR 为污染形态（字段边界唯一边界符＝解析器注入 TAB），直接拒绝。解析先落临时
+# 文件、末尾按指令名原子分发到各节账本（all-or-nothing：解析失败零行落账）。
+pm_parse_bad=$(LC_ALL=C awk -v progin="$pm_rules" '
+  function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
   {
-    ok = 0
-    for (k = 1; k <= 14; k++) if (substr($0, 1, length(d[k]) + 1) == d[k] " ") ok = 1
-    if (!ok) bad("未知指令或非指令行: " substr($0, 1, 40))
+    raw = $0; ln++
+    gsub(/\r/, "", raw)
+    while (raw ~ /\\$/) {
+      raw = substr(raw, 1, length(raw) - 1)
+      if ((getline nxt) <= 0) { bad("续行无后续物理行（行尾反斜杠悬空）"); next }
+      ln++
+      gsub(/\r/, "", nxt)
+      raw = raw nxt
+    }
+    sub(/^[[:space:]]+/, "", raw)
+    if (raw == "" || substr(raw, 1, 1) == "#") next
+    out = ""; tok = ""; first = 1; inq = 0; inqseen = 0; nf = 0
+    L = length(raw)
+    for (i = 1; i <= L; i++) {
+      c = substr(raw, i, 1)
+      if (c == "\t") { bad("行内制表符（字段边界污染，TAB 为解析器注入唯一边界符）"); next }
+      if (c == "'"'"'") { inq = 1 - inq; inqseen = 1; continue }
+      if (!inq && c == " ") {
+        if (tok != "" || inqseen) {
+          if (first) { cmd = tok; first = 0 } else { out = out tok "\t"; nf++ }
+          inqseen = 0
+        }
+        tok = ""
+        continue
+      }
+      if (!inq && index("`$(;|<>&", c) > 0) { bad("引号外 shell 语法元字符（非执行式解析拒绝）: " c); next }
+      if (inq && c == "`") { bad("引号内命令替换形态（反引号）——非执行式解析拒绝"); next }
+      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "(") { bad("引号内命令替换形态（美元括号）——非执行式解析拒绝"); next }
+      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "{") { bad("引号内参数展开形态（美元花括号）——非执行式解析拒绝"); next }
+      tok = tok c
+    }
+    if (inq) { bad("单引号未闭合（词法破坏）"); next }
+    if (tok != "" || inqseen) {
+      if (first) { cmd = tok } else { out = out tok "\t"; nf++ }
+      inqseen = 0
+    }
+    if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
+    ar = -1
+    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_mirror" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word") ar = 1
+    else if (cmd == "pm_shortcode") ar = 2
+    else if (cmd == "pm_script" || cmd == "pm_vague_exempt" || cmd == "pm_cite_exempt" || cmd == "pm_capability_target") ar = 3
+    if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
+    if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
+    print cmd "\t" substr(out, 1, length(out) - 1)
   }
   END { if (n > 0) exit 1 }
-' "$pm_rules") || true
-pm_report "$pm_bad"
-# source 窗口临时关 set -e：行执行出错须经返回码收敛为 exit 2，而非被 set -e 直接
-# 以 127 退出（fail-closed 统一退出码口径；pm_* 函数内 arg-count 违规经 pm_die 直达 exit 2）。
-set +e
-# shellcheck disable=SC1090  # source 外置规则表（数据路径含变量；外置数据＋引擎零专名设计）
-. "$pm_rules"
-pm_src_rc=$?
-set -e
-if [ "$pm_src_rc" -ne 0 ]; then
-  printf 'check-package: 错误：包清单数据 source 失败（语法损坏或行执行出错，exit %s）: %s\n' "$pm_src_rc" "$pm_rules" >&2
+' "$pm_rules" > "$pm_parsed") || pm_parse_bad=1
+pm_parse_bad=${pm_parse_bad:-}
+if [ -n "$pm_parse_bad" ]; then
+  printf 'check-package: 错误：包清单数据非执行式解析不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
+  rm -f "$pm_parsed"; pm_parsed=''
   exit 2
 fi
+pm_dispatch_row=''
+pm_dispatch_cmd=''
+pm_dispatch_rest=''
+while IFS= read -r pm_dispatch_row; do
+  pm_dispatch_cmd=${pm_dispatch_row%%"$TAB"*}
+  pm_dispatch_rest=${pm_dispatch_row#*"$TAB"}
+  case $pm_dispatch_cmd in
+    pm_entry) printf '%s\n' "$pm_dispatch_rest" >> "$pm_entries" ;;
+    pm_script) printf '%s\n' "$pm_dispatch_rest" >> "$pm_scripts" ;;
+    pm_template) printf '%s\n' "$pm_dispatch_rest" >> "$pm_templates" ;;
+    pm_shortcode) printf '%s\n' "$pm_dispatch_rest" >> "$pm_codes" ;;
+    pm_platform) printf '%s\n' "$pm_dispatch_rest" >> "$pm_platforms" ;;
+    pm_vague_word) printf '%s\n' "$pm_dispatch_rest" >> "$pm_words" ;;
+    pm_vague_exempt) printf '%s\n' "$pm_dispatch_rest" >> "$pm_exempts" ;;
+    pm_mirror) printf '%s\n' "$pm_dispatch_rest" >> "$pm_mirrors" ;;
+    pm_capability) printf '%s\n' "$pm_dispatch_rest" >> "$pm_caps" ;;
+    pm_capability_authority) printf '%s\n' "$pm_dispatch_rest" >> "$pm_capauth" ;;
+    pm_capability_target) printf '%s\n' "$pm_dispatch_rest" >> "$pm_captargets" ;;
+    pm_mechanism) printf '%s\n' "$pm_dispatch_rest" >> "$pm_mechs" ;;
+    pm_mechanism_marker) printf '%s\n' "$pm_dispatch_rest" >> "$pm_mechmark" ;;
+    pm_cite_exempt) printf '%s\n' "$pm_dispatch_rest" >> "$pm_citeex" ;;
+  esac
+done < "$pm_parsed"
+rm -f "$pm_parsed"; pm_parsed=''
 
 [ -s "$pm_entries" ] || pm_die '清单缺 entry-files 节（零行）'
 [ -s "$pm_scripts" ] || pm_die '清单缺 scripts 节（零行）'

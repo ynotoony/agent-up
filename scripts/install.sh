@@ -13,9 +13,11 @@
 #      目标可写、目标同名件冲突）先于复制，停止零半套；包内误运行守卫（--target 解析后
 #      含 agent-up/SKILL.md 或 SKILL.md、或等于本脚本所在目录）exit 1；源缺失/目标不存在
 #      或不可写/目标同名件与基线不一致 exit 1（reconcile 纪律：人工漂移不覆盖，检出即
-#      停报告）；已存在且字节一致的同名件幂等跳过；复制后 cmp 逐件核验。本脚本为包侧
-#      工具（复制基线安装器），不落本仓 rules/implementation/scripts/ 镜像；落位语境不存在——引擎只在包内
-#      运行，目标目录即落位目的地。
+#      停报告）；已存在且字节一致的同名件幂等跳过；复制后 cmp 逐件核验。规则表自票 145
+#      起非执行式解析：不再 source install-policy.rules——规则表只作为受控文本数据解析，
+#      未知指令、恶意 shell 片段与结构破坏统一 exit 2 fail-closed（先例 check-package.sh
+#      票 145 同款解析器）；本脚本为包侧工具（复制基线安装器），不落本仓
+#      rules/implementation/scripts/ 镜像；落位语境不存在——引擎只在包内运行，目标目录即落位目的地。
 
 # 用法、安装政策数据格式与退出码见同目录 README.md 专节。
 
@@ -68,40 +70,94 @@ t_dir=${TMPDIR:-/tmp}
 tmp_gates=''
 tmp_rows=''
 tmp_copied=''
-# shellcheck disable=SC2329  # DSL 函数由被 source 的规则表在加载时调用（外置数据＋引擎零专名设计；单文件视野不可见）
+install_rules_tmp=''
+script_dir=''
 cleanup() {
-  rm -f "$tmp_gates" "$tmp_rows" "$tmp_copied"
+  rm -f "$tmp_gates" "$tmp_rows" "$tmp_copied" "$install_rules_tmp"
 }
 trap cleanup EXIT HUP INT TERM
 tmp_gates=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 tmp_rows=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 tmp_copied=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 
-# ---- 安装政策规则表加载（外置数据＋引擎零专名，先例 generate-module-map.sh）----
+# ---- 安装政策规则表加载（外置数据＋引擎零专名，先例 generate-module-map.sh；票 145
+#      非执行式解析：不再 source 规则表——规则表只作为受控文本数据解析，未知指令、恶意
+#      shell 片段与结构破坏统一 exit 2 fail-closed，先例 check-package.sh 同款解析器）----
 # 行格式（数据文件头部注释为权威口径）：
 #   ip_gate <gate> <flag> <说明>
 #   ip_file <pkg-rel-path> <lifecycle> <gate> <说明>
-# 逐行 TAB 连接落 tmp_gates / tmp_rows，供结构校验与集合选取。
-
-# shellcheck disable=SC2329  # DSL 函数由被 source 的规则表在加载时调用（外置数据＋引擎零专名设计；单文件视野不可见）
-ip_gate() {
-  [ $# -eq 3 ] || die2 '规则表 ip_gate 行参数数量不合预期（须恰 3：gate、flag、说明）'
-  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$tmp_gates"
-}
-
-# shellcheck disable=SC2329  # DSL 函数由被 source 的规则表在加载时调用（外置数据＋引擎零专名设计；单文件视野不可见）
-ip_file() {
-  [ $# -eq 4 ] || die2 '规则表 ip_file 行参数数量不合预期（须恰 4：基线路径、lifecycle、门控、说明）'
-  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$tmp_rows"
-}
-
+# 逐行 TAB 连接落 tmp_gates / tmp_rows，供结构校验与集合选取。解析口径与两兄弟引擎同款：
+# awk 逐逻辑行（续行拼接）单引号词法取段、引号外空白分词；引号外禁 shell 语法元字符
+# （` $ ( ) ; & | < >），引号内禁命令替换形态（` 与 $( 与 ${）；指令名与参数数由引擎
+# 核验（ip_gate 恰 3、ip_file 恰 4），未登记指令即 exit 2；行内制表符与 CR 为污染形态
+# 直接拒绝；解析先落临时文件、末尾按指令名原子分发（all-or-nothing：解析失败零行落账）。
+install_rules_tmp=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 script_dir=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
 rules_path="$script_dir/install-policy.rules"
 [ -f "$rules_path" ] || die2 "安装政策规则表缺失: $rules_path"
-# shellcheck disable=SC1090  # source 外置规则表（数据路径含变量；外置数据＋引擎零专名设计）
-if ! . "$rules_path"; then
-  die2 "安装政策规则表 source 失败（语法损坏或行执行出错）: $rules_path"
+install_parse_bad=$(LC_ALL=C awk -v progin="$rules_path" '
+  function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
+  {
+    raw = $0; ln++
+    gsub(/\r/, "", raw)
+    while (raw ~ /\\$/) {
+      raw = substr(raw, 1, length(raw) - 1)
+      if ((getline nxt) <= 0) { bad("续行无后续物理行（行尾反斜杠悬空）"); next }
+      ln++
+      gsub(/\r/, "", nxt)
+      raw = raw nxt
+    }
+    sub(/^[[:space:]]+/, "", raw)
+    if (raw == "" || substr(raw, 1, 1) == "#") next
+    out = ""; tok = ""; first = 1; inq = 0; inqseen = 0; nf = 0
+    L = length(raw)
+    for (i = 1; i <= L; i++) {
+      c = substr(raw, i, 1)
+      if (c == "\t") { bad("行内制表符（字段边界污染，TAB 为解析器注入唯一边界符）"); next }
+      if (c == "'"'"'") { inq = 1 - inq; inqseen = 1; continue }
+      if (!inq && c == " ") {
+        if (tok != "" || inqseen) {
+          if (first) { cmd = tok; first = 0 } else { out = out tok "\t"; nf++ }
+          inqseen = 0
+        }
+        tok = ""
+        continue
+      }
+      if (!inq && index("`$(;|<>&", c) > 0) { bad("引号外 shell 语法元字符（非执行式解析拒绝）: " c); next }
+      if (inq && c == "`") { bad("引号内命令替换形态（反引号）——非执行式解析拒绝"); next }
+      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "(") { bad("引号内命令替换形态（美元括号）——非执行式解析拒绝"); next }
+      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "{") { bad("引号内参数展开形态（美元花括号）——非执行式解析拒绝"); next }
+      tok = tok c
+    }
+    if (inq) { bad("单引号未闭合（词法破坏）"); next }
+    if (tok != "" || inqseen) {
+      if (first) { cmd = tok } else { out = out tok "\t"; nf++ }
+      inqseen = 0
+    }
+    if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
+    ar = cmd == "ip_gate" ? 3 : cmd == "ip_file" ? 4 : -1
+    if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
+    if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
+    print cmd "\t" substr(out, 1, length(out) - 1)
+  }
+  END { if (n > 0) exit 1 }
+' "$rules_path" > "$install_rules_tmp") || install_parse_bad=1
+install_parse_bad=${install_parse_bad:-}
+if [ -n "$install_parse_bad" ]; then
+  printf 'install: FAIL: 安装政策规则表非执行式解析不合预期（fail-closed）: %s\n' "$rules_path" >&2
+  rm -f "$install_rules_tmp"
+  exit 2
 fi
+install_row=''
+while IFS= read -r install_row; do
+  install_cmd=${install_row%%"$TAB"*}
+  install_rest=${install_row#*"$TAB"}
+  case $install_cmd in
+    ip_gate) printf '%s\n' "$install_rest" >> "$tmp_gates" ;;
+    ip_file) printf '%s\n' "$install_rest" >> "$tmp_rows" ;;
+  esac
+done < "$install_rules_tmp"
+rm -f "$install_rules_tmp"
 [ -s "$tmp_gates" ] || die2 "安装政策规则表未定义任何门控行: $rules_path"
 [ -s "$tmp_rows" ] || die2 "安装政策规则表未登记任何文件行: $rules_path"
 

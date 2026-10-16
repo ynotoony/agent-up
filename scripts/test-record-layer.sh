@@ -1,7 +1,7 @@
 #!/bin/sh
 # Input: 同目录被测脚本八件（generate-module-map.sh＋module-map.rules、ticket-ops.sh＋
 #        generate-progress.sh、check-package.sh、check-append-only.sh、check-artifacts.sh、
-#        check-stale-claims.sh）与参数：--suite/--script-dir/--pkg-root。
+#        check-stale-claims.sh、install.sh＋install-policy.rules）与参数：--suite/--script-dir/--pkg-root。
 #        场景来源＝票 41～45/47 六票 Implementation Checkpoint 的 fixture（只作场景清单）；
 #        预期值按被测脚本当前行为独立重建（cmp/逐一相等断言，票 26 教训）；票 56 检查 8
 #        清单 8→10 件（追加 install.sh＋install-policy.rules），check-package 套件预期串
@@ -43,13 +43,19 @@
 #        STALE 指名票 id 与跃迁方向，终态史取 Git 基线）：套件登记数期望随动（未点亮
 #        3→4、全点亮 5→6）＋S6 正负例四（终态索引照旧→exit 0；done→in_progress→
 #        STALE 指名票 id 与跃迁方向；superseded→ready 同款；非终态流转零误报，终态史
-#        经 git init 基线提交承载）。
+#        经 git init 基线提交承载）；票 145（规则表非执行式解析门禁：三引擎
+#        generate-module-map.sh/check-package.sh/install.sh 去 source 改纯文本解析，
+#        恶意输入——命令替换、反引号、重定向、未知指令、字段污染——统一 fail-closed：
+#        module-map 套件补恶意负例 N4～N6（rc=2 零地图写入），check-package 套件补
+#        N24～N27（rc=2 不产生部分结论），新增 install 套件（正例安装全链＋恶意夹具
+#        N1～N5 rc=2 零写入＋幂等跳过）并在 README 声明。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
 #      脚本（check-package.sh 同款路径惯例），--script-dir/--pkg-root 参数化支持复制落位
-#      语境；七 suite（module-map/ticket-ops/progress/check-package/append-only/
-#      check-artifacts/stale-claims）＋完整运行（--suite all）末尾注入自检；POSIX sh 零外部
+#      语境；十三 suite（module-map/ticket-ops/progress/check-package/append-only/
+#      check-artifacts/stale-claims/lane-commit/worktree/upgrade-check/absorption/
+#      health/install）＋完整运行（--suite all）末尾注入自检；POSIX sh 零外部
 #      依赖（夹具 git init/commit 依赖被测脚本自身声明的 Git）。用法、suite 覆盖表、退出码
 #      与维护规则见同目录 README.md 专节。
 
@@ -64,7 +70,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | worktree | upgrade-check | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | worktree | upgrade-check | absorption | health | install | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
@@ -83,11 +89,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|all) ;;
+  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|install|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
-for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh; do
+for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh install.sh install-policy.rules; do
   [ -f "$SCRIPT_DIR/$f" ] || { printf 'test-record-layer: 被测成员缺失: %s/%s\n' "$SCRIPT_DIR" "$f" >&2; exit 2; }
 done
 if [ -z "$PKG_ROOT" ]; then
@@ -418,6 +424,35 @@ suite_module_map() {
   else
     bad '负例 N3 非 Git 目录 → exit 2' "exit=$rc"
   fi
+
+  # 票 145 恶意输入负例 N4～N6：临时副本规则表注入恶意行 → 解析期 exit 2 且零地图写入
+  # （命令替换/反引号/未知指令先于任何规则语义执行被拒——非执行式解析门禁）。
+  for mm_i in 1 2 3; do
+    mkdir -p "$D/mal$mm_i"
+    cp "$SCRIPT_DIR/generate-module-map.sh" "$D/mal$mm_i/"
+    cp "$SCRIPT_DIR/module-map.rules" "$D/mal$mm_i/module-map.rules"
+    rm -rf "$D/mrepo$mm_i"; mm_build_fixture "$D/mrepo$mm_i"
+    case $mm_i in
+      1) printf "mm_rule 'python' '*.py' '' '' 'cov' 'x\$(touch /tmp/trl145mm1)x'\n" >> "$D/mal1/module-map.rules" ;;
+      2) printf "mm_rule 'python' '*.py' '' '' 'cov' 'x\`touch /tmp/trl145mm2\`x'\n" >> "$D/mal2/module-map.rules" ;;
+      3) printf "evil_cmd 'rm' '-rf' '/' 'x' 'y' 'z'\n" >> "$D/mal3/module-map.rules" ;;
+    esac
+    sh "$D/mal$mm_i/generate-module-map.sh" "$D/mrepo$mm_i" >"/dev/null" 2>"$D/mal$mm_i/err"
+    rc=$?
+    case $mm_i in
+      1) mm_desc='负例 N4 规则表命令替换注入（引号内美元括号）→ exit 2 且零地图写入'; mm_probe=/tmp/trl145mm1 ;;
+      2) mm_desc='负例 N5 规则表反引号注入 → exit 2 且零地图写入'; mm_probe=/tmp/trl145mm2 ;;
+      3) mm_desc='负例 N6 未知指令注入 → exit 2 且零地图写入'; mm_probe='' ;;
+    esac
+    if [ "$rc" -eq 2 ] && [ ! -f "$D/mrepo$mm_i/facts/project/architecture/module-map.json" ] \
+      && { [ -z "$mm_probe" ] && ! ls "$mm_probe" >/dev/null 2>&1 || [ -n "$mm_probe" ] && [ ! -e "$mm_probe" ]; } \
+      && grep -q '非执行式解析不合预期' "$D/mal$mm_i/err"; then
+      ok "$mm_desc"
+    else
+      bad "$mm_desc" "exit=$rc stderr=$(head -n 1 "$D/mal$mm_i/err")"
+    fi
+  done
+  rm -f /tmp/trl145mm1 /tmp/trl145mm2
 
   # 票 137 schema 融合断言三例（grep 形态零依赖）
   if grep -q '"constraints"' "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" \
@@ -1534,6 +1569,29 @@ EOF
   else
     bad '负例 N23 git 语境 mode 双向负例（script→644／rules→755）→ exit 1 且双断言同报指名期望 mode' "exit=$rc"
   fi
+
+  # 票 145 恶意输入负例 N24～N27：临时副本 manifest 注入恶意行 → 非执行式解析期
+  # exit 2 fail-closed 不产生部分结论（零 PASS/FAIL 检查行输出）——命令替换、反引号、
+  # 引号外重定向、未知指令四形态；探针文件断言承载零执行（解析期无任何求值面）。
+  for cp_i in 1 2 3 4; do
+    cp -R "$PKG_ROOT" "$D/pkgmal$cp_i"
+    case $cp_i in
+      1) printf "pm_entry SKILL.md\npm_vague_word 'x\$(touch /tmp/trp145cp1)x'\n" >> "$D/pkgmal1/scripts/package-manifest.rules"; cp_desc='负例 N24 manifest 命令替换注入（引号内美元括号）→ exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp1 ;;
+      2) printf "pm_vague_word 'x\`touch /tmp/trp145cp2\`x'\n" >> "$D/pkgmal2/scripts/package-manifest.rules"; cp_desc='负例 N25 manifest 反引号注入 → exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp2 ;;
+      3) printf "pm_entry SKILL.md > /tmp/trp145cp3\n" >> "$D/pkgmal3/scripts/package-manifest.rules"; cp_desc='负例 N26 manifest 引号外重定向注入 → exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp3 ;;
+      4) printf "evil_cmd 'rm' '-rf' '/'\n" >> "$D/pkgmal4/scripts/package-manifest.rules"; cp_desc='负例 N27 manifest 未知指令注入 → exit 2 不产生部分结论'; cp_probe='' ;;
+    esac
+    sh "$D/pkgmal$cp_i/scripts/check-package.sh" "$D/pkgmal$cp_i" >"$D/act.n24_$cp_i" 2>&1
+    rc=$?
+    if [ "$rc" -eq 2 ] && ! grep -q '^PASS' "$D/act.n24_$cp_i" && ! grep -q '^FAIL' "$D/act.n24_$cp_i" \
+      && grep -q '非执行式解析不合预期' "$D/act.n24_$cp_i" \
+      && { [ -z "$cp_probe" ] || [ ! -e "$cp_probe" ]; }; then
+      ok "$cp_desc"
+    else
+      bad "$cp_desc" "exit=$rc head=$(head -n 1 "$D/act.n24_$cp_i")"
+    fi
+  done
+  rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
 
   suite_summary 'check-package'
 }
@@ -2804,7 +2862,7 @@ self_check_injection() {
   SUITE_START=$TOTAL
   D=$T/inject
   mkdir -p "$D/injectpkg/scripts"
-  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh; do
+  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh install.sh install-policy.rules; do
     cp "$SCRIPT_DIR/$f" "$D/injectpkg/scripts/$f"
   done
   sed 's/~python-import~/~python-importX~/' "$SCRIPT_DIR/module-map.rules" > "$D/rules.tmp" && mv "$D/rules.tmp" "$D/injectpkg/scripts/module-map.rules"
@@ -3179,6 +3237,103 @@ suite_upgrade_check() {
   suite_summary 'upgrade-check'
 }
 
+# ============================================================
+# suite: install（票 145 场景沉淀：install.sh 非执行式规则表解析正负例——合法表
+# 安装全链＋幂等跳过＋规则表缺失/损坏 fail-closed＋恶意输入四形态 rc=2 零写入）
+# ============================================================
+
+inst_build_pkg() {
+  # $1=夹具包根：install.sh＋install-policy.rules＋快道/票务两门控全部登记源
+  P=$1
+  rm -rf "$P"; mkdir -p "$P/scripts"
+  cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/install-policy.rules" "$P/scripts/"
+  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh; do
+    cp "$SCRIPT_DIR/$f" "$P/scripts/$f" 2>/dev/null || true
+  done
+}
+
+suite_install() {
+  CUR_SUITE='install'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/inst
+  mkdir -p "$D"
+  INST="$SCRIPT_DIR/install.sh"
+
+  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 10 件（stdout 摘要行计数）
+  inst_build_pkg "$D/pkg1"; mkdir -p "$D/proj1"
+  sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops >"$D/p1.out" 2>&1
+  rc=$?
+  p1_n=$(grep -c '^install: OK:' "$D/p1.out")
+  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 10 ] && grep -q '^install: DONE: 复制 10 件、幂等跳过 0 件' "$D/p1.out" \
+    && [ -f "$D/proj1/rules/implementation/scripts/check-gates.sh" ] \
+    && [ -f "$D/proj1/rules/implementation/scripts/ticket-ops.sh" ]; then
+    ok '正例 P1 合法表双门控安装 → exit 0 复制 10 件落位'
+  else
+    bad '正例 P1 合法表双门控安装 → exit 0 复制 10 件落位' "exit=$rc ok_lines=$p1_n"
+  fi
+
+  # 正例 P2：幂等重跑 → 逐件 SKIP exit 0 零新写入（文件集与首跑逐一相等）
+  ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.before"
+  sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops >"$D/p2.out" 2>&1
+  rc=$?
+  ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
+  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件、幂等跳过 10 件' "$D/p2.out" \
+    && cmp -s "$D/p2.tree.before" "$D/p2.tree.after"; then
+    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 10 件（文件集零变化）'
+  else
+    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 10 件（文件集零变化）' "exit=$rc"
+  fi
+
+  # 负例 N1：规则表缺失 → exit 2 零写入
+  inst_build_pkg "$D/pkg2"; rm -f "$D/pkg2/scripts/install-policy.rules"; mkdir -p "$D/proj2"
+  sh "$D/pkg2/scripts/install.sh" --target "$D/proj2" --fast-lane >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && [ ! -d "$D/proj2/rules" ]; then
+    ok '负例 N1 规则表缺失 → exit 2 零写入'
+  else
+    bad '负例 N1 规则表缺失 → exit 2 零写入' "exit=$rc"
+  fi
+
+  # 负例 N2：结构破坏（ip_file 参数数不合预期）→ exit 2 零写入（既有口径回归钉死）
+  inst_build_pkg "$D/pkg3"
+  printf "ip_file agent-up/scripts/check-gates.sh Conditional\n" >> "$D/pkg3/scripts/install-policy.rules"
+  mkdir -p "$D/proj3"
+  sh "$D/pkg3/scripts/install.sh" --target "$D/proj3" --fast-lane >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && [ ! -d "$D/proj3/rules" ]; then
+    ok '负例 N2 ip_file 参数数不足 → exit 2 零写入（结构校验 fail-closed）'
+  else
+    bad '负例 N2 ip_file 参数数不足 → exit 2 零写入（结构校验 fail-closed）' "exit=$rc"
+  fi
+
+  # 票 145 恶意输入负例 N3～N6：规则表注入恶意行 → 非执行式解析期 exit 2 零写入，
+  # 探针文件断言承载零执行；目标仓 canary 文件断言零非预期写入。
+  for ii_i in 1 2 3 4; do
+    inst_build_pkg "$D/pkgm$ii_i"
+    mkdir -p "$D/projm$ii_i"; printf 'canary\n' > "$D/projm$ii_i/canary"
+    printf "ip_gate fast-lane --fast-lane 'fixture gate'\nip_file agent-up/scripts/check-gates.sh Conditional fast-lane 'fixture file'\n" > "$D/pkgm$ii_i/scripts/install-policy.rules"
+    case $ii_i in
+      1) printf "ip_file 'x\$(touch /tmp/tri145i1)x' Conditional fast-lane 'evil'\n" >> "$D/pkgm$ii_i/scripts/install-policy.rules"; ii_desc='负例 N3 规则表命令替换注入（引号内美元括号）→ exit 2 零写入'; ii_probe=/tmp/tri145i1 ;;
+      2) printf "ip_file 'x\`touch /tmp/tri145i2\`x' Conditional fast-lane 'evil'\n" >> "$D/pkgm$ii_i/scripts/install-policy.rules"; ii_desc='负例 N4 规则表反引号注入 → exit 2 零写入'; ii_probe=/tmp/tri145i2 ;;
+      3) printf "ip_file agent-up/scripts/check-gates.sh > /tmp/tri145i3 Conditional fast-lane 'evil'\n" >> "$D/pkgm$ii_i/scripts/install-policy.rules"; ii_desc='负例 N5 规则表引号外重定向注入 → exit 2 零写入'; ii_probe=/tmp/tri145i3 ;;
+      4) printf "evil_cmd 'rm' '-rf' '/' 'x' 'y'\n" >> "$D/pkgm$ii_i/scripts/install-policy.rules"; ii_desc='负例 N6 规则表未知指令注入 → exit 2 零写入'; ii_probe='' ;;
+    esac
+    sh "$D/pkgm$ii_i/scripts/install.sh" --target "$D/projm$ii_i" --fast-lane >/dev/null 2>"$D/pkgm$ii_i/err"
+    rc=$?
+    if [ "$rc" -eq 2 ] && [ ! -d "$D/projm$ii_i/rules" ] && [ "$(cat "$D/projm$ii_i/canary")" = 'canary' ] \
+      && { [ -z "$ii_probe" ] || [ ! -e "$ii_probe" ]; } \
+      && grep -q '非执行式解析不合预期' "$D/pkgm$ii_i/err"; then
+      ok "$ii_desc"
+    else
+      bad "$ii_desc" "exit=$rc stderr=$(head -n 1 "$D/pkgm$ii_i/err")"
+    fi
+  done
+  rm -f /tmp/tri145i1 /tmp/tri145i2 /tmp/tri145i3
+
+  suite_summary 'install'
+}
+
 case $SUITE in
   module-map) suite_module_map ;;
   ticket-ops) suite_ticket_ops ;;
@@ -3195,6 +3350,7 @@ case $SUITE in
   upgrade-check) suite_upgrade_check ;;
   absorption) suite_absorption ;;
   health) suite_health ;;
+  install) suite_install ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -3208,6 +3364,7 @@ case $SUITE in
     suite_upgrade_check
     suite_absorption
     suite_health
+    suite_install
     self_check_injection
     ;;
 esac

@@ -83,9 +83,10 @@ tmp_nodes=''
 tmp_fp=''
 tmp_modf=''
 tmp_rules=''
+mm_rules_tmp=''
 probe_file=''
 cleanup() {
-  rm -f "$tmp_out" "$tmp_edges" "$tmp_nodes" "$tmp_fp" "$tmp_modf" "$tmp_rules" "$probe_file"
+  rm -f "$tmp_out" "$tmp_edges" "$tmp_nodes" "$tmp_fp" "$tmp_modf" "$tmp_rules" "$mm_rules_tmp" "$probe_file"
 }
 trap cleanup EXIT HUP INT TERM
 tmp_out=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
@@ -93,6 +94,7 @@ tmp_edges=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
 tmp_nodes=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
 tmp_fp=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
 tmp_rules=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
+mm_rules_tmp=$(mktemp "${t_dir%/}/genmodulemap.XXXXXX")
 
 # ---- 工具探测：SHA-256 与 stat 方言（缺失即 fail-closed，exit 2）----
 
@@ -124,22 +126,84 @@ else
   die2 'stat 工具不可用或输出不合预期（BSD/GNU 双方言探测均失败）——无法取文件字节与 mtime'
 fi
 
-# ---- 语言规则表加载（票 44 表驱动化：语言知识唯一承载点，引擎零语言专名）----
+# ---- 语言规则表加载（票 44 表驱动化：语言知识唯一承载点，引擎零语言专名；票 145
+#      非执行式解析：不再 source 规则表——规则表只作为受控文本数据解析，未知指令、
+#      恶意 shell 片段与结构破坏统一 fail-closed exit 2，先例 check-package.sh 预校验）----
 # 行格式：mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>，逐行 TAB 连接落
 # tmp_rules；编码语义见规则表头部注释与同目录 README.md 专节。
 
-mm_rule() {
-  if [ "$#" -ne 6 ]; then
-    die2 '规则表行参数数量不合预期（mm_rule 须恰 6 个参数）'
-  fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$tmp_rules"
-}
-
+# 非执行式规则表解析器（票 145）：awk 逐逻辑行处理「指令 参数...」——续行（行尾反斜杠）
+# 拼接、单引号词法取段（与 sh 单引号字面量同语义：引号内零解释原样承载）、引号外空白
+# 分词；指令名与参数数由引擎核验（mm_rule 恰 6 参），未登记指令即 fail-closed。解析在
+# 结构校验之前完成，恶意输入（命令替换、重定向、管道、未知指令、字段污染）在执行任何
+# 规则语义前即被拒绝：引号外禁止 shell 语法元字符（` $ ( ) ; & | < >），引号内禁止
+# 命令替换形态（` 与 $( 与 ${）；解析期零求值零二次展开（awk 产出的 TAB 行只经 read
+# 逐行并入账本，不经 shell 评估），字段值只作数据承载。解析先落临时文件、末尾原子并入
+# tmp_rules（all-or-nothing：解析失败零行落账）。空段核验＝引号内整段空白字段（合法空
+# 字段形态）经引号包裹计数保留；行内制表符与 CR 为污染形态（字段边界唯一边界符＝解析
+# 器注入 TAB），直接拒绝。
 mm_script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 mm_rules_path="$mm_script_dir/module-map.rules"
 [ -f "$mm_rules_path" ] || die2 "语言规则表缺失: $mm_rules_path"
-# shellcheck disable=SC1090  # source 外置规则表（数据路径含变量；外置数据＋引擎零专名设计）
-. "$mm_rules_path"
+mm_rules_bad=$(LC_ALL=C awk -v progin="$mm_rules_path" '
+  function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
+  {
+    raw = $0; ln++
+    gsub(/\r/, "", raw)
+    # 续行拼接：行尾反斜杠＝下一物理行并入本逻辑行（反斜杠剥除，sh 同语义；续行不受
+    # 注释/空行豁免——拼接后整体判定）。
+    while (raw ~ /\\$/) {
+      raw = substr(raw, 1, length(raw) - 1)
+      if ((getline nxt) <= 0) { bad("续行无后续物理行（行尾反斜杠悬空）"); next }
+      ln++
+      gsub(/\r/, "", nxt)
+      raw = raw nxt
+    }
+    sub(/^[[:space:]]+/, "", raw)
+    if (raw == "" || substr(raw, 1, 1) == "#") next
+    out = ""; tok = ""; first = 1; inq = 0; inqseen = 0; nf = 0
+    L = length(raw)
+    for (i = 1; i <= L; i++) {
+      c = substr(raw, i, 1)
+      if (c == "\t") { bad("行内制表符（字段边界污染，TAB 为解析器注入唯一边界符）"); next }
+      if (c == "'"'"'") { inq = 1 - inq; inqseen = 1; continue }
+      if (!inq && c == " ") {
+        if (tok != "" || inqseen) {
+          if (first) { cmd = tok; first = 0 } else { out = out tok "\t"; nf++ }
+          inqseen = 0
+        }
+        tok = ""
+        continue
+      }
+      if (!inq && index("`$(;|<>&", c) > 0) { bad("引号外 shell 语法元字符（非执行式解析拒绝）: " c); next }
+      if (inq && c == "`") { bad("引号内命令替换形态（反引号）——非执行式解析拒绝"); next }
+      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "(") { bad("引号内命令替换形态（美元括号）——非执行式解析拒绝"); next }
+      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "{") { bad("引号内参数展开形态（美元花括号）——非执行式解析拒绝"); next }
+      tok = tok c
+    }
+    if (inq) { bad("单引号未闭合（词法破坏）"); next }
+    if (tok != "" || inqseen) {
+      if (first) { cmd = tok } else { out = out tok "\t"; nf++ }
+      inqseen = 0
+    }
+    if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
+    if (cmd != "mm_rule") { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
+    if (nf != 6) { bad("参数数量不合预期（mm_rule 须恰 6 个参数）: " nf); next }
+    print substr(out, 1, length(out) - 1)
+    nf = 0
+  }
+  END { if (n > 0) exit 1 }
+' "$mm_rules_path" > "$mm_rules_tmp") || mm_rules_bad=1
+mm_rules_bad=${mm_rules_bad:-}
+if [ -n "$mm_rules_bad" ]; then
+  printf 'generate-module-map: FAIL: 语言规则表非执行式解析不合预期（fail-closed）: %s\n' "$mm_rules_path" >&2
+  rm -f "$mm_rules_tmp"; mm_rules_tmp=''
+  exit 2
+fi
+while IFS= read -r mm_rule_row; do
+  printf '%s\n' "$mm_rule_row" >> "$tmp_rules"
+done < "$mm_rules_tmp"
+rm -f "$mm_rules_tmp"; mm_rules_tmp=''
 [ -s "$tmp_rules" ] || die2 "语言规则表未登记任何语言行: $mm_rules_path"
 
 # 结构校验（fail-closed）：字段数、op 编码、规则形态、selector/strategy 枚举、label 字符集、
