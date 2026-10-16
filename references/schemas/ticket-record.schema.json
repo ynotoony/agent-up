@@ -145,9 +145,81 @@
           },
           "minItems": 1,
           "description": "数组形态（融合新增）：逐条验收谓词，与 scope 条目等数（R-DP-038 完整性门：谓词条数＝清单条数才可派发）。每元素一条机器可判定检查（唯一匹配/期望输出/可跑命令）。存量票字符串形态继续合法。"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "check",
+              "expect"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "验收条件名称（如 AC1、Schema改进完成）"
+              },
+              "description": {
+                "type": "string",
+                "description": "可选。验收条件详细说明"
+              },
+              "check": {
+                "type": "string",
+                "minLength": 1,
+                "description": "检查命令（如 grep、test、cat），验证器执行此命令"
+              },
+              "check_any": {
+                "type": "array",
+                "minItems": 1,
+                "description": "可选。多个检查命令，任意一条通过即可（与 check 互斥，二选一）",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "command",
+                    "description"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "检查命令"
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "此检查项说明"
+                    },
+                    "expect": {
+                      "type": "string",
+                      "description": "期望输出（可选，缺省表示只验证退出码为0）"
+                    },
+                    "not_equals": {
+                      "type": "string",
+                      "description": "期望输出不等于此值（可选，与 expect 互斥）"
+                    }
+                  }
+                }
+              },
+              "expect": {
+                "type": "string",
+                "minLength": 1,
+                "description": "期望输出（字符串或退出码，如 '0'、'PASS'、'OK'）"
+              },
+              "fail_msg": {
+                "type": "string",
+                "description": "可选。验证失败时的提示信息"
+              }
+            }
+          },
+          "minItems": 1,
+          "description": "机器可执行格式（Workflow 新增）：结构化验收对象数组。每个对象包含 name（验收条件名）、check（检查命令）、expect（期望结果）、fail_msg（失败提示）。验证器直接运行命令并比对结果，无需理解散文。"
         }
       ],
-      "description": "验收谓词。两形态：字符串（存量形态，整段散文）或数组（融合新增，逐条谓词与 scope 等数——完整性门机器核对实体）。"
+      "description": "验收谓词。三形态：字符串（存量形态，整段散文）、字符串数组（融合新增，逐条谓词与 scope 等数——完整性门机器核对实体）、或对象数组（Workflow 机器可执行格式，结构化验收定义）。"
     },
     "output_contract": {
       "type": "string",
