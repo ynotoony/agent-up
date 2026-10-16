@@ -131,7 +131,7 @@ case $1 in
 esac
 
 if [ -z "${repo_root}" ]; then
-  repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+  repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/../../.." && pwd)
 fi
 [ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
 

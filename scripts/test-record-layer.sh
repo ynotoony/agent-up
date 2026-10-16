@@ -985,14 +985,14 @@ EOF
   fi
 
   # 正例 N-100g：ledger 缺省根语境（生成项目落位形态：rules/implementation/scripts/ 落位，
-  # 缺省根＝脚本所在目录上一级，即 rules/implementation/——账本落 rules/implementation/
-  # facts/project/changes.jsonl，按引擎缺省根推导现值重述，票 113 波④）同款工作
-  mkdir -p "$D/fix-l/rules/implementation/scripts" "$D/fix-l/rules/implementation/facts/project"
+  # 缺省根＝脚本所在目录上三级，即仓根——账本落 facts/project/changes.jsonl，
+  # 按引擎缺省根推导现值重述，票 158 修复）同款工作
+  mkdir -p "$D/fix-l/rules/implementation/scripts" "$D/fix-l/facts/project"
   cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$D/fix-l/rules/implementation/scripts/"
-  : > "$D/fix-l/rules/implementation/facts/project/changes.jsonl"
+  : > "$D/fix-l/facts/project/changes.jsonl"
   ( cd "$D/fix-l" && sh rules/implementation/scripts/ticket-ops.sh ledger --ledger-line "$LED_LEDGER_OK" ) >"$D/lg3.log" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && [ "$(tail -n 1 "$D/fix-l/rules/implementation/facts/project/changes.jsonl")" = "$LED_LEDGER_OK" ]; then
+  if [ "$rc" -eq 0 ] && [ "$(tail -n 1 "$D/fix-l/facts/project/changes.jsonl")" = "$LED_LEDGER_OK" ]; then
     ok '正例 N-100g ledger 缺省根语境（rules/implementation/scripts/ 落位形态）→ exit 0 账本收录（票 100）'
   else
     bad '正例 N-100g ledger 缺省根语境（rules/implementation/scripts/ 落位形态）→ exit 0 账本收录（票 100）' "exit=$rc $(head -n 2 "$D/lg3.log" | tr '\n' '|')"
