@@ -1,0 +1,89 @@
+workflow:
+  name: triage
+  description: 需求分诊流程——从需求描述到 ready 票
+
+inputs:
+  - name: requirement
+    type: string
+    description: 用户需求描述
+    required: true
+
+outputs:
+  - name: ticket_id
+    type: string
+    description: 生成的票 ID
+
+steps:
+  - id: parse-requirement
+    type: command
+    description: 解析需求——提取核心目标和上下文
+    checkpoint_field: checkpoint.triage.parse_requirement
+    command: echo "步骤1完成 - 需求解析"
+
+  - id: estimate-complexity
+    type: command
+    description: 估算复杂度——判定 C0/C1/C2 并生成 profile
+    checkpoint_field: checkpoint.triage.estimate_complexity
+    command: echo "步骤2完成 - 复杂度估算 C0"
+
+  - id: write-card
+    type: command
+    description: 写卡——生成完整的票 JSON
+    checkpoint_field: checkpoint.triage.write_card
+    command: echo "步骤3完成 - 卡面生成" && echo '{"test":"ticket"}' > /tmp/test-ticket-$$.json
+
+  - id: verify-card
+    type: command
+    description: 验证——检查票文件格式和必需字段
+    checkpoint_field: checkpoint.triage.verify_card
+    command: echo "步骤4完成 - 卡面验证"
+
+  - id: register-ticket
+    type: command
+    description: 开票——将票注册到 index.json
+    checkpoint_field: checkpoint.triage.register_ticket
+    command: echo "步骤5完成 - 票注册完成"
+
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 待分诊
+    - name: parsing
+      description: 解析中
+    - name: estimating
+      description: 估算中
+    - name: writing
+      description: 写卡中
+    - name: verifying
+      description: 验证中
+    - name: ready
+      description: 已开票，可实施
+      terminal: true
+    - name: failed
+      description: 分诊失败
+      terminal: true
+  transitions:
+    - from: pending
+      to: parsing
+      condition: workflow_started
+      trigger: parse-requirement
+    - from: parsing
+      to: estimating
+      condition: checkpoint.triage.parse_requirement
+      trigger: estimate-complexity
+    - from: estimating
+      to: writing
+      condition: checkpoint.triage.estimate_complexity
+      trigger: write-card
+    - from: writing
+      to: verifying
+      condition: checkpoint.triage.write_card
+      trigger: verify-card
+    - from: verifying
+      to: ready
+      condition: checkpoint.triage.verify_card
+      trigger: register-ticket
+    - from: verifying
+      to: failed
+      condition: verification_failed

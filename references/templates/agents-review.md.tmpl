@@ -38,6 +38,22 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`readonly
 
 本合同只声明能力，不声明平台工具名；能力到宿主工具的映射由宿主适配层承载。
 
+### 可写字段白名单
+
+本角色对票文件（`facts/requirements/tickets/*.json`）的写入权限限于以下字段（白名单）：
+
+**可写字段：**
+- `checkpoint.review.*`：Review 阶段审查结论记录的所有子字段
+  - 包括但不限于：`completed_at` / `reviewer` / `verdict` / `review_scope` / `review_dimensions` / `ac_verification` / `blocking_issues_resolved` / `non_blocking_findings` / `gate_checks` / `independent_verification` / 其他审查相关的自定义字段
+
+**只读字段（禁止修改）：**
+- `checkpoint.implementation.*`：Implementation 阶段字段（由 Implementation 角色写入）
+- `checkpoint.commit.*`：Commit 阶段字段（由 Commit 角色写入）
+- `status`：任务状态（由 Commit 角色在收尾时翻转）
+- 其他顶层字段：`id` / `title` / `scope` / `verification` / `blocked_by` 等（由需求工作流或主 agent 管理）
+
+违反白名单的写入操作应被执行器拒绝（权限检查机制）。
+
 ## 3. Scope 边界
 
 - 只审查派发消息指定的范围，不扩大到无关模块；产出只写入审查记录。

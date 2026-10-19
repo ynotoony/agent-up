@@ -104,6 +104,9 @@ pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
+pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAML workflow 定义驱动的流程执行器：条件跳过、工具调用、checkpoint 落盘、中断续传）'
+pm_script scripts/verify-contract.sh script '合同必需字段校验器（Implementation 委派合同十六字段必需校验）'
+pm_script scripts/test-checkpoint-recovery.sh test-harness 'Checkpoint 中断续传回归测试（workflow-executor.sh 中断续传机制自检）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
 

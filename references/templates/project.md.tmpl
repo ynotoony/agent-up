@@ -351,6 +351,16 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 
 恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。Intake Session（用户说"加需求"）只做需求接收与方案对话（需求工作三道，见 `rules/assessment.md` §4），不进入本流程。后台链接棒默认重开（CreateWorkflow 新 run）；Resume/Amend 续跑仅当票单与进度完全已知且需保序——换模型/换参数视为接棒即重开。升级质询的裁决必须同票 Checkpoint 落账（含 question-id 与裁决内容）——裁决不落盘即未裁决。
 
+**Workflow executor 恢复协议**：`<repo-root>/rules/implementation/scripts/workflow-executor.sh` 实现 workflow 级别的 checkpoint 读取与恢复执行。
+
+- **Checkpoint 读取**：executor 启动时读取票文件的 `checkpoint` 字段，提取已完成的 steps（步骤级 checkpoint 含 `completed_at` 字段）。
+- **恢复点判定**：`--resume` 模式下，跳过 `checkpoint` 中已记录 `completed_at` 的 steps，从下一个未完成 step 继续执行；输出日志标明跳过的 steps 与恢复点。
+- **幂等性保证**：
+  - 所有 step 操作可重复执行而不破坏状态（verification 可重跑、文件写入使用临时文件 + `mv` 原子化）。
+  - `--retry <step_id>` 支持幂等重试指定 step（如验证失败后重跑），不影响其他已完成 steps。
+  - Checkpoint 写入原子化（临时文件 + `mv`），中断后可从上一个完成的 step 继续。
+- **可观测性**：恢复时输出日志（已完成 steps 数量、跳过的 steps、从哪里继续），便于调试与审计。
+
 #### R-DP-014 恢复顺序固定 `MUST`
 
 - **When**：Delivery Session 启动或接管中断任务时。

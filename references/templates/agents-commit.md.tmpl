@@ -35,6 +35,26 @@ required_capabilities（运行时）：`inspect`、`vcs-read`、`vcs-write`；�
 
 本合同只声明能力，不声明平台工具名；能力到宿主工具的映射由宿主适配层承载。
 
+### 可写字段白名单
+
+本角色对票文件（`facts/requirements/tickets/*.json`）的写入权限限于以下字段（白名单）：
+
+**可写字段：**
+- `checkpoint.commit.*`：Commit 阶段提交结果记录的所有子字段
+  - 包括但不限于：`completed_at` / `commit_id` / `commit_message` / `committed_files` / `whitelist_check` / `scope_check_command` / 其他提交相关的自定义字段
+
+**收尾记录翻转权限（提交合同明确授权时）：**
+- `status`：任务状态（如 `in_progress` → `done`，通过 `ticket-ops.sh flip` 执行）
+- `facts/requirements/tickets/index.json`：索引表状态行
+- `facts/requirements/tickets/progress-current.md`：进度投影条目
+
+**只读字段（禁止修改）：**
+- `checkpoint.implementation.*`：Implementation 阶段字段（由 Implementation 角色写入）
+- `checkpoint.review.*`：Review 阶段字段（由 Review 角色写入）
+- 其他顶层字段：`id` / `title` / `scope` / `verification` / `blocked_by` 等（由需求工作流或主 agent 管理）
+
+违反白名单的写入操作应被执行器拒绝（权限检查机制）。
+
 ## 3. Scope 边界
 
 - 只暂存提交合同白名单列出的文件；一个提交是一个可解释的恢复点，提交信息按仓库规定的 `<type>(<scope>): <结果>` 格式。
