@@ -25,6 +25,7 @@ set -f  # 关闭文件名展开：模式匹配只经 case，路径展开不可�
 # Source common helper functions
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
+  # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
   die2() { printf 'check-artifacts: %s\n' "$1" >&2; exit 2; }
