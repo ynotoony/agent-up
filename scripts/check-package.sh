@@ -785,6 +785,8 @@ if [ "$in_worktree" -eq 1 ]; then
   IFS=$OLDIFS
   if [ -n "$missing_scripts" ]; then
     fail 8 "脚本必需件存在（${n_scripts} 个文件，worktree 跳过 main-only）" "$missing_scripts"
+  else
+    pass 8 "脚本必需件存在（${n_scripts} 个文件，worktree 跳过 main-only）"
   fi
 else
   # 主检出：检查全部 scripts 节登记件
@@ -877,6 +879,8 @@ if [ "$in_worktree" -eq 1 ]; then
   fi
   if [ -n "$problems" ]; then
     fail 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致（worktree 跳过 main-only）" "$problems"
+  else
+    pass 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致（worktree 跳过 main-only）"
   fi
 else
   # 主检出：检查全部 scripts 节与成员表一致性
