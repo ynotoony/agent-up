@@ -418,6 +418,7 @@ os.rename(tmp_name, index_file)
 print(f'状态已更新: {new_status}')
 PYTHON
 
+  # shellcheck disable=SC2181  # here-document 退出码必须通过 $? 检查，无法内联
   if [ $? -ne 0 ]; then
     die1 "状态更新失败"
   fi
@@ -437,7 +438,7 @@ sm = json.load(sys.stdin)
 print(len(sm.get('transitions', [])))")
 
   trans_idx=0
-  while [ $trans_idx -lt $transitions_count ]; do
+  while [ "$trans_idx" -lt "$transitions_count" ]; do
     transition=$(echo "$state_machine_json" | python3 -c "
 import sys, json
 sm = json.load(sys.stdin)
@@ -534,7 +535,7 @@ fi
 # ---- 步骤执行循环 ----
 
 i=0
-while [ $i -lt $steps_count ]; do
+while [ "$i" -lt "$steps_count" ]; do
   # 提取当前 step 的元数据
   step_json=$(echo "$steps_json" | python3 -c "
 import sys, json
@@ -628,7 +629,7 @@ print(len(verifications))")
 
       j=0
       all_pass=true
-      while [ $j -lt $verification_count ]; do
+      while [ "$j" -lt "$verification_count" ]; do
         verify_item=$(echo "$verification_json" | python3 -c "
 import sys, json
 verifications = json.load(sys.stdin)
@@ -747,6 +748,7 @@ os.rename(tmp_name, ticket_file)
 print(f"Checkpoint 已写入: {checkpoint_field}")
 PYTHON
 
+    # shellcheck disable=SC2181  # here-document 退出码必须通过 $? 检查，无法内联
     if [ $? -ne 0 ]; then
       die1 "checkpoint 写入失败"
     fi

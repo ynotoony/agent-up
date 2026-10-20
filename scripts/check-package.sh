@@ -27,6 +27,24 @@ set -f  # 关闭文件名展开：脚本不依赖 glob，展开文件清单时�
 
 failures=0
 
+# Worktree 检测函数（票 177）：git worktree 内 --git-dir ≠ --git-common-dir。
+# 返回 0 表示在 worktree 内，返回 1 表示在主检出或非 git 环境。
+is_worktree() {
+  git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1 || return 1
+  _git_dir=$(git -C "$pkg_root" rev-parse --git-dir 2>/dev/null)
+  _common_dir=$(git -C "$pkg_root" rev-parse --git-common-dir 2>/dev/null)
+  # 规范化为绝对路径后再比较（避免相对/绝对路径字符串不等但语义相等的误判）
+  case $_git_dir in
+    /*) _git_dir_abs=$_git_dir ;;
+    *) _git_dir_abs=$(cd "$pkg_root/$_git_dir" && pwd) ;;
+  esac
+  case $_common_dir in
+    /*) _common_dir_abs=$_common_dir ;;
+    *) _common_dir_abs=$(cd "$pkg_root/$_common_dir" && pwd) ;;
+  esac
+  [ "$_git_dir_abs" != "$_common_dir_abs" ]
+}
+
 pass() {
   printf 'PASS: %s %s\n' "$1" "$2"
 }
@@ -710,81 +728,205 @@ else
   pass 7 '根治理文件不在包内'
 fi
 
+# 票 177：worktree 环境识别与 main-only 清单提取（门禁 8/9 共用）。
+# worktree 内 delivery.rules dp_mainonly 清单的脚本不检查存在性。
+mainonly_list=''
+in_worktree=0
+if is_worktree; then
+  # 获取主仓库工作树根目录（通过 git-common-dir 向上追溯到工作树根）
+  _common_dir=$(git -C "$pkg_root" rev-parse --git-common-dir 2>/dev/null)
+  if [ -n "$_common_dir" ]; then
+    # git-common-dir 返回 .git 目录，需要向上一级到工作树根
+    case $_common_dir in
+      /*) _repo_root=$(dirname "$_common_dir") ;;
+      *) _repo_root=$(cd "$pkg_root/$_common_dir/.." && pwd) ;;
+    esac
+    if [ -f "$_repo_root/delivery.rules" ]; then
+      # 解析 delivery.rules dp_mainonly 指令（格式：dp_mainonly <路径>，取第二字段）
+      mainonly_list=$(LC_ALL=C awk '/^dp_mainonly / { print $2 }' "$_repo_root/delivery.rules")
+      if [ -n "$mainonly_list" ]; then
+        in_worktree=1
+      fi
+    fi
+  fi
+fi
+
 # 检查 8：脚本必需件存在（清单 scripts 节逐行，票 57 数据驱动；kind 区分普通脚本/规则
 # 表/test-harness，口径差定谳＝test-record-layer.sh 定为必需件；票 48 fail-closed 守卫：
 # 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽）。
+# 票 177：worktree 环境豁免 main-only 脚本检查（delivery.rules dp_mainonly 清单），
+# 主检出保持原有检查（仍检测全部 scripts 节登记件）。
 n_scripts=$(wc -l < "$pm_scripts" | tr -d ' ')
 missing_scripts=''
 sep=''
-OLDIFS=$IFS
-IFS='
+
+if [ "$in_worktree" -eq 1 ]; then
+  printf 'SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）\n'
+  # worktree 环境：检查非 main-only 脚本
+  OLDIFS=$IFS
+  IFS='
 '
-while IFS= read -r row; do
-  rel=${row%%"$TAB"*}
-  if [ ! -f "$pkg_root/$rel" ]; then
-    missing_scripts="$missing_scripts$sep  - $rel"
-    sep='
+  while IFS= read -r row; do
+    rel=${row%%"$TAB"*}
+    # 判断是否为 main-only 脚本
+    is_mainonly=0
+    for mo in $mainonly_list; do
+      if [ "$rel" = "$mo" ]; then
+        is_mainonly=1
+        break
+      fi
+    done
+    if [ "$is_mainonly" -eq 0 ] && [ ! -f "$pkg_root/$rel" ]; then
+      missing_scripts="$missing_scripts$sep  - $rel"
+      sep='
 '
+    fi
+  done < "$pm_scripts"
+  IFS=$OLDIFS
+  if [ -n "$missing_scripts" ]; then
+    fail 8 "脚本必需件存在（${n_scripts} 个文件，worktree 跳过 main-only）" "$missing_scripts"
   fi
-done < "$pm_scripts"
-IFS=$OLDIFS
-if [ -n "$missing_scripts" ]; then
-  fail 8 "脚本必需件存在（${n_scripts} 个文件）" "$missing_scripts"
 else
-  pass 8 "脚本必需件存在（${n_scripts} 个文件）"
+  # 主检出：检查全部 scripts 节登记件
+  OLDIFS=$IFS
+  IFS='
+'
+  while IFS= read -r row; do
+    rel=${row%%"$TAB"*}
+    if [ ! -f "$pkg_root/$rel" ]; then
+      missing_scripts="$missing_scripts$sep  - $rel"
+      sep='
+'
+    fi
+  done < "$pm_scripts"
+  IFS=$OLDIFS
+  if [ -n "$missing_scripts" ]; then
+    fail 8 "脚本必需件存在（${n_scripts} 个文件）" "$missing_scripts"
+  else
+    pass 8 "脚本必需件存在（${n_scripts} 个文件）"
+  fi
 fi
 
 # 检查 9：$scripts_readme_rel 成员表 ↔ 数据 scripts 节一致（票 57 新增）。一致口径（双向）：
 # ①数据 scripts 节每件都在成员表登记（表＝人读投影不得漏登必需件）；②成员表登记的
 # 每件都是 $scripts_dir 下实际文件（表与实物不漂移）。
+# 票 177：worktree 环境豁免 main-only 脚本的成员表检查，主检出保持原有检查。
 problems=''
 scripts_readme="$pkg_root/$scripts_readme_rel"
-if [ ! -f "$scripts_readme" ]; then
-  add_problem "  - ${scripts_readme_rel}（成员表）不存在"
-else
-  # 提取成员表（锚点＝首列表头行；表格随首个非 | 行结束），每行取首列反引号名单。
-  # shellcheck disable=SC2016  # awk 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
-  table_names=$(awk '
-    /^\| 名字 \| 地位 \| 功能 \|/ { f = 1; next }
-    f { if ($0 !~ /^\|/) f = 0; else print }
-  ' "$scripts_readme" | sed -n 's/^| `\([^`]*\)`.*/\1/p')
-  if [ -z "$table_names" ]; then
-    add_problem '  - 成员表未提取到成员行（表结构漂移）'
+
+if [ "$in_worktree" -eq 1 ]; then
+  printf 'SKIP: 9 %s 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）\n' "$scripts_readme_rel"
+  # worktree 环境：检查非 main-only 脚本与成员表一致性
+  if [ ! -f "$scripts_readme" ]; then
+    add_problem "  - ${scripts_readme_rel}（成员表）不存在"
   else
-    miss_tbl=''
-    sep2=''
-    OLDIFS=$IFS
-    IFS='
+    # shellcheck disable=SC2016  # sed 正则捕获组 \(...\) 必须单引号防止 shell 展开
+    table_names=$(awk '
+      /^\| 名字 \| 地位 \| 功能 \|/ { f = 1; next }
+      f { if ($0 !~ /^\|/) f = 0; else print }
+    ' "$scripts_readme" | sed -n 's/^| `\([^`]*\)`.*/\1/p')
+    if [ -z "$table_names" ]; then
+      add_problem '  - 成员表未提取到成员行（表结构漂移）'
+    else
+      miss_tbl=''
+      sep2=''
+      OLDIFS=$IFS
+      IFS='
 '
-    while IFS= read -r row; do
-      rel=${row%%"$TAB"*}
-      b=${rel##*/}
-      if ! printf '%s\n' "$table_names" | grep -qxF "$b"; then
-        miss_tbl="$miss_tbl$sep2$b"
-        sep2='、'
+      while IFS= read -r row; do
+        rel=${row%%"$TAB"*}
+        b=${rel##*/}
+        # 跳过 main-only 脚本的成员表检查
+        is_mainonly=0
+        for mo in $mainonly_list; do
+          if [ "$rel" = "$mo" ]; then
+            is_mainonly=1
+            break
+          fi
+        done
+        if [ "$is_mainonly" -eq 0 ] && ! printf '%s\n' "$table_names" | grep -qxF "$b"; then
+          miss_tbl="$miss_tbl$sep2$b"
+          sep2='、'
+        fi
+      done < "$pm_scripts"
+      IFS=$OLDIFS
+      if [ -n "$miss_tbl" ]; then
+        add_problem "  - 数据登记未在成员表（worktree 跳过 main-only）：$miss_tbl"
       fi
-    done < "$pm_scripts"
-    IFS=$OLDIFS
-    if [ -n "$miss_tbl" ]; then
-      add_problem "  - 数据登记未在成员表：$miss_tbl"
-    fi
-    no_file=''
-    sep2=''
-    for b in $table_names; do
-      if [ ! -f "$pkg_root/$scripts_dir/$b" ]; then
-        no_file="$no_file$sep2$b"
-        sep2='、'
+      no_file=''
+      sep2=''
+      for b in $table_names; do
+        # 跳过 main-only 脚本的文件存在性检查
+        is_mainonly_b=0
+        for mo in $mainonly_list; do
+          mo_basename=${mo##*/}
+          if [ "$b" = "$mo_basename" ]; then
+            is_mainonly_b=1
+            break
+          fi
+        done
+        if [ "$is_mainonly_b" -eq 0 ] && [ ! -f "$pkg_root/$scripts_dir/$b" ]; then
+          no_file="$no_file$sep2$b"
+          sep2='、'
+        fi
+      done
+      if [ -n "$no_file" ]; then
+        add_problem "  - 成员表登记但无实际文件（worktree 跳过 main-only）：$no_file"
       fi
-    done
-    if [ -n "$no_file" ]; then
-      add_problem "  - 成员表登记但无实际文件：$no_file"
     fi
   fi
-fi
-if [ -n "$problems" ]; then
-  fail 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致" "$problems"
+  if [ -n "$problems" ]; then
+    fail 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致（worktree 跳过 main-only）" "$problems"
+  fi
 else
-  pass 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致"
+  # 主检出：检查全部 scripts 节与成员表一致性
+  if [ ! -f "$scripts_readme" ]; then
+    add_problem "  - ${scripts_readme_rel}（成员表）不存在"
+  else
+    # 提取成员表（锚点＝首列表头行；表格随首个非 | 行结束），每行取首列反引号名单。
+    # shellcheck disable=SC2016  # awk 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
+    table_names=$(awk '
+      /^\| 名字 \| 地位 \| 功能 \|/ { f = 1; next }
+      f { if ($0 !~ /^\|/) f = 0; else print }
+    ' "$scripts_readme" | sed -n 's/^| `\([^`]*\)`.*/\1/p')
+    if [ -z "$table_names" ]; then
+      add_problem '  - 成员表未提取到成员行（表结构漂移）'
+    else
+      miss_tbl=''
+      sep2=''
+      OLDIFS=$IFS
+      IFS='
+'
+      while IFS= read -r row; do
+        rel=${row%%"$TAB"*}
+        b=${rel##*/}
+        if ! printf '%s\n' "$table_names" | grep -qxF "$b"; then
+          miss_tbl="$miss_tbl$sep2$b"
+          sep2='、'
+        fi
+      done < "$pm_scripts"
+      IFS=$OLDIFS
+      if [ -n "$miss_tbl" ]; then
+        add_problem "  - 数据登记未在成员表：$miss_tbl"
+      fi
+      no_file=''
+      sep2=''
+      for b in $table_names; do
+        if [ ! -f "$pkg_root/$scripts_dir/$b" ]; then
+          no_file="$no_file$sep2$b"
+          sep2='、'
+        fi
+      done
+      if [ -n "$no_file" ]; then
+        add_problem "  - 成员表登记但无实际文件：$no_file"
+      fi
+    fi
+  fi
+  if [ -n "$problems" ]; then
+    fail 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致" "$problems"
+  else
+    pass 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致"
+  fi
 fi
 
 # 检查 10：规则块短码使用 ⊆ 登记（票 57 新增）。扫描范围＝包内全部 *.md 与 *.tmpl
