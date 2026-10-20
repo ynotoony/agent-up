@@ -23,6 +23,14 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die2() { printf '%s: 错误：%s\n' "$prog" "$1" >&2; exit 2; }
+fi
+
 prog=export-payload
 
 usage() {
@@ -38,11 +46,6 @@ usage() {
   2  用法或配置错误（参数不合、非 Git 工作区、delivery.rules 缺失 payload 节或解析破坏、
      payload 根不存在、git subtree 不可用）。
 USAGE
-}
-
-die2() {
-  printf '%s: 错误：%s\n' "$prog" "$1" >&2
-  exit 2
 }
 
 # ---- delivery.rules 解析引擎段（fail-closed 六规则，设计 §2；消费方共用逻辑，本段

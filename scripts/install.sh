@@ -28,6 +28,15 @@ scripts_readme_rel='rules/implementation/scripts/README.md'
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die1() { printf 'install: FAIL: %s\n' "$1" >&2; exit 1; }
+  die2() { printf 'install: %s\n' "$1" >&2; exit 2; }
+fi
+
 NL='
 '
 TAB=$(printf '\t')
@@ -52,16 +61,6 @@ usage() {
         缺失、目标同名件与基线不一致、cmp 核验失败；预检先于复制，停止零半套）；2 用法
         或环境错误（缺 --target、未知参数、零启用门控、规则表缺失或结构校验不过）。
 USAGE
-}
-
-die1() {
-  printf 'install: FAIL: %s\n' "$1" >&2
-  exit 1
-}
-
-die2() {
-  printf 'install: %s\n' "$1" >&2
-  exit 2
 }
 
 # ---- 临时文件与清理（全部落 TMPDIR，目标项目只写复制件）----

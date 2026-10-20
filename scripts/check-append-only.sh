@@ -28,6 +28,19 @@ FACTS_ARCHIVE_CHANGES='facts/project/archive/changes.md'
 
 set -eu
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die2() { printf 'check-append-only: %s\n' "$1" >&2; exit 2; }
+fi
+
+fail1() {
+  printf 'check-append-only: FAIL: %s\n' "$1"
+  violations=$((violations + 1))
+}
+
 usage() {
   cat <<'USAGE'
 用法: sh check-append-only.sh <repo-root>
@@ -43,16 +56,6 @@ usage() {
   文件不存在跳过（懒创建语义）；无 Git 基线（无 HEAD）WARN 退出 0（票 49 先例）。
 退出码: 0 通过（含跳过与 WARN）；1 存在违规；2 用法或环境错误。
 USAGE
-}
-
-die2() {
-  printf 'check-append-only: %s\n' "$1" >&2
-  exit 2
-}
-
-fail1() {
-  printf 'check-append-only: FAIL: %s\n' "$1"
-  violations=$((violations + 1))
 }
 
 [ $# -eq 1 ] || { usage >&2; exit 2; }

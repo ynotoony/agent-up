@@ -12,6 +12,14 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die2() { printf 'check-gates: %s\n' "$1" >&2; exit 2; }
+fi
+
 NL='
 '
 
@@ -27,11 +35,6 @@ usage() {
   -h / --help 打印本用法。
 退出码: 0 全部通过；1 有未过项（越界改动或 verify 失败）；2 用法或环境错误。
 USAGE
-}
-
-die2() {
-  printf 'check-gates: %s\n' "$1" >&2
-  exit 2
 }
 
 case $# in

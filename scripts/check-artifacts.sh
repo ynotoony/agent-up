@@ -22,6 +22,14 @@
 set -eu
 set -f  # 关闭文件名展开：模式匹配只经 case，路径展开不可依赖
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die2() { printf 'check-artifacts: %s\n' "$1" >&2; exit 2; }
+fi
+
 # ---- 路径常量区（票 111 波②建立；票 113 波④翻值 rules/facts 新形态：
 #      映射 R9/R11/R12/R13/R15/R25）----
 artifacts_yaml='facts/project/artifacts.yaml'  # 治理产物登记（R9，仓根相对）
@@ -53,11 +61,6 @@ usage() {
         repo-root 不存在、artifacts.yaml 缺失或解析破坏、条目 id 重复、数据块
         不合预期）。
 USAGE
-}
-
-die2() {
-  printf 'check-artifacts: %s\n' "$1" >&2
-  exit 2
 }
 
 [ $# -ge 1 ] || { usage >&2; exit 2; }

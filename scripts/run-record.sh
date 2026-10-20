@@ -31,6 +31,15 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die1() { printf 'run-record: FAIL: %s\n' "$1" >&2; exit 1; }
+  die2() { printf 'run-record: %s\n' "$1" >&2; exit 2; }
+fi
+
 NL='
 '
 
@@ -89,16 +98,6 @@ usage() {
         环境错误（参数形态、未知子命令/选项、仓库根不存在或非 Git 仓库、无 HEAD、
         SHA-256/stat/python3 工具缺失）。
 USAGE
-}
-
-die1() {
-  printf 'run-record: FAIL: %s\n' "$1" >&2
-  exit 1
-}
-
-die2() {
-  printf 'run-record: %s\n' "$1" >&2
-  exit 2
 }
 
 # ---- 临时文件与清理（全部落 TMPDIR，仓库内只写目标 run record 本件）----

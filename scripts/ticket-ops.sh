@@ -41,6 +41,15 @@ scripts_dir_rel='rules/implementation/scripts'
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die1() { printf 'ticket-ops: FAIL: %s\n' "$1" >&2; exit 1; }
+  die2() { printf 'ticket-ops: %s\n' "$1" >&2; exit 2; }
+fi
+
 NL='
 '
 TAB=$(printf '\t')
@@ -91,16 +100,6 @@ usage() {
 退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；open 条目
         已存在即停，非幂等；take/flip 重跑会重复落账本行，核对后处理）；2 用法或环境错误。
 USAGE
-}
-
-die1() {
-  printf 'ticket-ops: FAIL: %s\n' "$1" >&2
-  exit 1
-}
-
-die2() {
-  printf 'ticket-ops: %s\n' "$1" >&2
-  exit 2
 }
 
 tmp_idx=''

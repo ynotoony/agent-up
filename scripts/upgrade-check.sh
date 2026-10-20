@@ -6,6 +6,14 @@
 set -eu
 set -f
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die2() { printf '%s: 错误：%s\n' "$prog" "$1" >&2; exit 2; }
+fi
+
 prog=upgrade-check
 tab=$(printf '\t')
 
@@ -26,11 +34,6 @@ usage() {
   只报告存在性或人工回访，不把人工核对说成内容同步。
 退出码: 0 自动检查面无差距；1 有落后/漂移/双布局冲突；2 用法、环境或布局不明确。
 USAGE
-}
-
-die2() {
-  printf '%s: 错误：%s\n' "$prog" "$1" >&2
-  exit 2
 }
 
 [ $# -ge 1 ] || { usage >&2; exit 2; }

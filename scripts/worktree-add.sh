@@ -22,6 +22,15 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die1() { printf '%s: FAIL: %s\n' "$prog" "$1" >&2; exit 1; }
+  die2() { printf '%s: 错误：%s\n' "$prog" "$1" >&2; exit 2; }
+fi
+
 prog=worktree-add
 
 usage() {
@@ -47,16 +56,6 @@ usage() {
   2  用法或配置错误（参数不合、非 Git 工作区、delivery.rules 缺失或未声明 main-only
      节或解析破坏）。
 USAGE
-}
-
-die1() {
-  printf '%s: FAIL: %s\n' "$prog" "$1" >&2
-  exit 1
-}
-
-die2() {
-  printf '%s: 错误：%s\n' "$prog" "$1" >&2
-  exit 2
 }
 
 # ---- delivery.rules 解析引擎段（fail-closed 六规则，与同族消费脚本同款；本脚本消费

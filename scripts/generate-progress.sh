@@ -21,6 +21,15 @@ gen_script_rel='rules/implementation/scripts/generate-progress.sh'
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die1() { printf 'generate-progress: FAIL: %s\n' "$1" >&2; exit 1; }
+  die2() { printf 'generate-progress: %s\n' "$1" >&2; exit 2; }
+fi
+
 usage() {
   cat <<'USAGE'
 用法: sh rules/implementation/scripts/generate-progress.sh [--check] [repo-root]
@@ -32,16 +41,6 @@ usage() {
 退出码: 0 生成成功或 --check 一致；1 --check 不一致（投影 stale）或既有投影缺失；
         2 用法错误、索引文件缺失/不可读或条目行不合预期（fail-closed，不写投影）。
 USAGE
-}
-
-die1() {
-  printf 'generate-progress: FAIL: %s\n' "$1" >&2
-  exit 1
-}
-
-die2() {
-  printf 'generate-progress: %s\n' "$1" >&2
-  exit 2
 }
 
 check_mode=0

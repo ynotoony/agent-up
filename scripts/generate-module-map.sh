@@ -21,6 +21,15 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  . "$_helper_script"
+else
+  die1() { printf 'generate-module-map: FAIL: %s\n' "$1" >&2; exit 1; }
+  die2() { printf 'generate-module-map: %s\n' "$1" >&2; exit 2; }
+fi
+
 # ---- 路径常量区（票 111 波②收拢；票 113 波④按 rules-facts-layout-spec §2 R19/R24/R25 翻值）----
 MAP_DIR_REL='facts/project/architecture'
 RUNS_DIR_REL='facts/requirements/runs'
@@ -39,16 +48,6 @@ usage() {
         fail-closed，不写地图）；2 用法或环境错误（非 Git 仓库、仓库根不存在、
         SHA-256/stat 工具缺失、语言规则表缺失或不合预期）。
 USAGE
-}
-
-die1() {
-  printf 'generate-module-map: FAIL: %s\n' "$1" >&2
-  exit 1
-}
-
-die2() {
-  printf 'generate-module-map: %s\n' "$1" >&2
-  exit 2
 }
 
 case $# in
