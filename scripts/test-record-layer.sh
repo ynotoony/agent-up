@@ -524,7 +524,7 @@ tix_build_fixture() {
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project" "$F/agent-up/scripts"
   cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$F/rules/implementation/scripts/"
-  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-helpers.sh" "$F/agent-up/scripts/"
+  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/agent-up/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
   mkdir -p "$F/agent-up/references/schemas"

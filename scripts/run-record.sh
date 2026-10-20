@@ -141,59 +141,16 @@ git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1 || \
   die2 "仓库根不是 Git 仓库: $repo_root"
 
 # ---- stats 子命令（票 71）：只读聚合 usage 用量报表，零写入，坏卡 fail-closed ----
+# 票 160：使用独立 Python 模块 json-validator.py（run stats 模式）
 
 if [ "$cmd" = stats ]; then
   [ -d "$repo_root/$RUNS_DIR_REL" ] || \
     die1 "$RUNS_DIR_REL/ 不存在——无卡可聚合（fail-closed）"
-  RR=$repo_root python3 - <<'PYEOF'
-import glob, json, os, sys
 
-runs = sorted(glob.glob(os.path.join(os.environ['RR'], 'facts', 'requirements', 'runs', '*.json')))
-if not runs:
-    print('run-record: FAIL: facts/requirements/runs/ 无 .json 卡——无数据可聚合', file=sys.stderr)
-    sys.exit(1)
-total = with_usage = 0
-tok = req = dur = 0
-missing = []
-for fp in runs:
-    name = os.path.basename(fp)
-    try:
-        with open(fp, encoding='utf-8') as f:
-            rec = json.load(f)
-    except Exception as e:
-        print('run-record: FAIL: 坏 JSON 卡（fail-closed，零输出零写入）: %s (%s)' % (name, e),
-              file=sys.stderr)
-        sys.exit(1)
-    if not isinstance(rec, dict):
-        print('run-record: FAIL: 顶层不是 JSON 对象（fail-closed）: %s' % name, file=sys.stderr)
-        sys.exit(1)
-    total += 1
-    u = rec.get('usage')
-    if u is None:
-        missing.append(str(rec.get('run_id') or '<no-run-id>'))
-        continue
-    if not isinstance(u, dict):
-        print('run-record: FAIL: usage 非对象（fail-closed）: %s' % name, file=sys.stderr)
-        sys.exit(1)
-    with_usage += 1
-    for key in ('tokens_total', 'requests', 'duration_seconds'):
-        v = u.get(key, 0)
-        if isinstance(v, bool) or not isinstance(v, int) or v < 0:
-            print('run-record: FAIL: usage.%s 非 ≥0 整数（fail-closed）: %s (%r)' % (key, name, v),
-                  file=sys.stderr)
-            sys.exit(1)
-    tok += u.get('tokens_total', 0)
-    req += u.get('requests', 0)
-    dur += u.get('duration_seconds', 0)
-print('口径：usage 为可选字段；缺 usage 卡不计入合计；带 usage 卡的缺值子字段按 0 计入；覆盖率＝带 usage 卡数/总卡数。')
-print('总卡数: %d' % total)
-print('带 usage 卡数: %d' % with_usage)
-print('覆盖率: %d/%d' % (with_usage, total))
-print('tokens_total 合计: %d' % tok)
-print('requests 合计: %d' % req)
-print('duration_seconds 合计: %d' % dur)
-print('缺 usage 卡 run_id 清单: %s' % ('、'.join(missing) if missing else '（无）'))
-PYEOF
+  validator_script="$repo_root/agent-up/scripts/json-validator.py"
+  [ -f "$validator_script" ] || die2 "json-validator.py 不存在: $validator_script"
+
+  python3 "$validator_script" run stats "$repo_root/$RUNS_DIR_REL"
   exit $?
 fi
 
@@ -443,133 +400,9 @@ mf_rel=$(compute_mf_rel)
 check_path_safety "$mf_rel" 'modified_files'
 mf_abs=$(printf '%s\n' "$mf_rel" | absolutize)
 
+# 票 160：使用独立 Python 模块 json-validator.py（run seal 模式）
+validator_script="$repo_root/agent-up/scripts/json-validator.py"
+[ -f "$validator_script" ] || die2 "json-validator.py 不存在: $validator_script"
+
 RR_UPDATED_AT=$now_ua RR_VCS_REF=$vcs_ref RR_FP=$fingerprint RR_MF=$mf_abs \
-  python3 - "$rr_file" <<'PYEOF'
-import json, os, re, sys
-
-path = sys.argv[1]
-errs = []
-try:
-    with open(path, encoding='utf-8') as f:
-        rec = json.load(f)
-except Exception as e:
-    print('run-record: FAIL: JSON 解析失败（python3 json.load）: %s' % e, file=sys.stderr)
-    sys.exit(1)
-
-if not isinstance(rec, dict):
-    print('run-record: FAIL: 顶层不是 JSON 对象', file=sys.stderr)
-    sys.exit(1)
-
-def sget(obj, key, where):
-    v = obj.get(key)
-    if not isinstance(v, str) or v == '':
-        errs.append('%s 缺失或非非空字符串' % where)
-        return ''
-    return v
-
-required = ['run_id', 'mode', 'phase', 'task', 'status', 'scope', 'baseline',
-            'modified_files', 'last_verified', 'next_step', 'blocker', 'network',
-            'updated_at', 'usage']
-miss = [k for k in required if k not in rec]
-if miss:
-    errs.append('缺必填字段: ' + ', '.join(miss))
-
-rid = sget(rec, 'run_id', 'run_id')
-if rid and not re.fullmatch(r'[0-9]{8}-[a-z0-9]{6,}', rid):
-    errs.append('run_id 不合 pattern ^[0-9]{8}-[a-z0-9]{6,}$: ' + rid)
-md = sget(rec, 'mode', 'mode')
-if md and md not in ('delivery', 'intake', 'triage'):
-    errs.append('mode 枚举非法（delivery|intake|triage）: ' + md)
-for k in ('phase', 'task', 'next_step'):
-    sget(rec, k, k)
-if not isinstance(rec.get('blocker'), str):
-    errs.append('blocker 缺失或非字符串（无阻塞记空串）')
-nw = rec.get('network')
-if not isinstance(nw, str):
-    errs.append('network 缺失或非字符串')
-elif nw not in ('available', 'unavailable', 'unknown'):
-    errs.append('network 枚举非法（available|unavailable|unknown）: ' + nw)
-ua = sget(rec, 'updated_at', 'updated_at')
-if ua and not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}', ua):
-    errs.append('updated_at 不合 pattern YYYY-MM-DDTHH:MM: ' + ua)
-
-st = rec.get('status')
-if isinstance(st, dict):
-    sess = sget(st, 'session', 'status.session')
-    if sess and sess not in ('active', 'interrupted', 'unknown', 'recovering', 'closed'):
-        errs.append('status.session 枚举非法: ' + sess)
-    stask = sget(st, 'task', 'status.task')
-    if stask and not re.fullmatch(
-            r'(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done)',
-            stask):
-        errs.append('status.task 不合状态机 pattern: ' + stask)
-else:
-    errs.append('status 缺失或非对象')
-
-bl = rec.get('baseline')
-if isinstance(bl, dict):
-    sget(bl, 'vcs_ref', 'baseline.vcs_ref')
-    fp = sget(bl, 'workspace_fingerprint', 'baseline.workspace_fingerprint')
-    if fp and not re.fullmatch(r'fp-v1:[0-9a-f]{16}', fp):
-        errs.append('workspace_fingerprint 不合 pattern fp-v1:<hex16>: ' + fp)
-else:
-    errs.append('baseline 缺失或非对象')
-
-lv = rec.get('last_verified')
-if isinstance(lv, dict):
-    sget(lv, 'command', 'last_verified.command')
-    sget(lv, 'result', 'last_verified.result')
-    sget(lv, 'at', 'last_verified.at')
-else:
-    errs.append('last_verified 缺失或非对象')
-
-for k in ('scope', 'modified_files'):
-    v = rec.get(k)
-    if not isinstance(v, list) or not all(isinstance(x, str) and x != '' for x in v):
-        errs.append('%s 缺失或非非空字符串数组' % k)
-
-# usage（票 63 引入，票 70 收紧为收口必备）：缺 usage 或缺任一子字段即 fail-closed，报明缺项。
-us = rec.get('usage')
-if not isinstance(us, dict):
-    errs.append('usage 缺失或非对象（收口卡必备，票 70 硬门禁：收口必回填用量遥测）')
-else:
-    extra = sorted(k for k in us if k not in (
-        'tokens_total', 'requests', 'duration_seconds', 'source', 'at'))
-    if extra:
-        errs.append('usage 含未定义子字段（additionalProperties false）: ' + ', '.join(extra))
-    miss_u = [k for k in ('tokens_total', 'requests', 'duration_seconds', 'source', 'at')
-              if k not in us]
-    if miss_u:
-        errs.append('usage 缺子字段（五子字段须齐）: ' + ', '.join(miss_u))
-    for k in ('tokens_total', 'requests', 'duration_seconds'):
-        if k not in us:
-            continue
-        v = us[k]
-        if isinstance(v, bool) or not isinstance(v, int) or v < 0:
-            errs.append('usage.%s 须为 ≥0 整数: %r' % (k, v))
-    if 'source' in us:
-        src = us['source']
-        if not isinstance(src, str) or src not in ('executor', 'coordinator', 'mixed'):
-            errs.append('usage.source 枚举非法（executor|coordinator|mixed）: %r' % (src,))
-    if 'at' in us:
-        uat = us['at']
-        if not isinstance(uat, str) or not re.fullmatch(
-                r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}', uat):
-            errs.append('usage.at 不合 pattern YYYY-MM-DDTHH:MM（同 updated_at 风格）: %r' % (uat,))
-
-if errs:
-    print('run-record: FAIL: seal 校验未过（fail-closed，文件未改动）:', file=sys.stderr)
-    for e in errs:
-        print('  - ' + e, file=sys.stderr)
-    sys.exit(1)
-
-rec['updated_at'] = os.environ['RR_UPDATED_AT']
-rec['baseline']['vcs_ref'] = os.environ['RR_VCS_REF']
-rec['baseline']['workspace_fingerprint'] = os.environ['RR_FP']
-rec['modified_files'] = [ln for ln in os.environ['RR_MF'].split('\n') if ln != '']
-
-with open(path, 'w', encoding='utf-8') as f:
-    json.dump(rec, f, indent=2, ensure_ascii=False)
-    f.write('\n')
-print('run-record: OK: seal 通过，机械字段已按当前仓库状态刷新（updated_at/vcs_ref/指纹/modified_files）: ' + path)
-PYEOF
+  python3 "$validator_script" run seal "$rr_file"
