@@ -47,6 +47,10 @@ NL='
 '
 TAB=$(printf '\t')
 
+# 用途: 打印用法、合同行格式、翻转语义与退出码说明（本脚本的唯一人读规格入口）。
+# 参数: 无。
+# 副作用: 仅写 stdout（调用方按场景重定向到 stderr）；无文件读写、不改全局状态。
+# 返回码: 恒 0（是否以 exit 0/2 结束由调用方决定）。
 usage() {
   cat <<'USAGE'
 用法: sh lane-commit.sh [repo-root] <contract-file>
@@ -93,13 +97,18 @@ USAGE
 }
 
 # ---- 写入面路径边界（票 144）----
-# lc_in_repo <repo-root> <仓库根相对路径> <路径角色名>
-# 校验通过静默返回 0；违规向 stderr 报因并返回 1。三道检查均在任何写入前执行：
-# ① 文本层：拒绝 ..（路径段）、绝对路径（/ 开头）与 ./ 前缀——仓库根相对普通文件路径
-#    不得携带向上跳段或前缀点缀（文本层先行，防 realpath 前路径拼写歧义）；
-# ② realpath containment：目标物理 realpath 须位于仓库根物理 realpath 之下——symlink
-#    指向仓外（含 /tmp 夹具）、深层 .. 越界、大小写/规格化歧义一律在此拦出；
-# ③ 形态层：symlink 自身拒绝（-h）、仅普通文件（-f && ! -L）——目录不属写入面。
+# 用途: 校验一个仓库根相对路径是否属本脚本写入面（仓库根内普通相对文件），三道检查
+#       均在任何写入前执行：
+#       ① 文本层：拒绝 ..（路径段）、绝对路径（/ 开头）与 ./ 前缀——仓库根相对普通文件
+#          路径不得携带向上跳段或前缀点缀（文本层先行，防 realpath 前路径拼写歧义）；
+#       ② realpath containment：目标物理 realpath 须位于仓库根物理 realpath 之下——
+#          symlink 指向仓外（含 /tmp 夹具）、深层 .. 越界、大小写/规格化歧义一律在此拦出；
+#       ③ 形态层：symlink 自身拒绝（-h）、仅普通文件（-f && ! -L）——目录不属写入面。
+# 参数: $1=repo-root（仓库根目录）；$2=仓库根相对路径；$3=路径角色名（报因时指代来源，
+#       如 whitelist 条目 / flips 目标 / ticket 票文件）。
+# 副作用: 仅违规时向 stderr 打印一行 FAIL 报因；不写任何文件、不改全局状态（局部变量
+#         以 _lir_ 前缀隔离）。
+# 返回码: 0 校验通过（静默）；1 任一道检查违规（已向 stderr 报因）。
 # POSIX 依赖仅 realpath（POSIX 2018 标准外部命令）与 test 探针；macOS/BSD/GNU 通用。
 lc_in_repo() {
   _lir_root=$1
@@ -144,6 +153,11 @@ lc_in_repo() {
 tmp_gate=''
 tmp_flip=''
 tmp_idx=''
+# 用途: EXIT/HUP/INT/TERM 陷阱体，清理本脚本创建的临时文件，避免异常退出留残。
+# 参数: 无（读取全局 tmp_gate / tmp_flip / tmp_idx）。
+# 副作用: 删除临时文件（rm -f 幂等，缺文件不报错）。注：tmp_flip、tmp_idx 分支先清空
+#         变量再调 rm，实际只删得掉 tmp_gate；这是既有实现形态，本票仅文档化不改逻辑。
+# 返回码: 恒 0（末条 if 不成立时 test 的假值不影响陷阱退出码语义）。
 cleanup() {
   if [ -n "${tmp_gate}" ]; then rm -f "${tmp_gate}"; fi
   if [ -n "${tmp_flip}" ]; then tmp_flip=''; rm -f "${tmp_flip}"; fi
@@ -422,9 +436,16 @@ done
 
 # ---- 翻转锚点与索引/生成器预检（只扫描不写入；任何不合规在写入前停止） ----
 
+# 用途: 对单个文件做一次翻转运算并输出结果（不落地）——body 模式整行替换 `**Status:**` 行
+#       （投影打印件形态），line 模式把字面锚点所在行整行换成新值；命中行数须恰为 1，用作
+#       写入前预检（输出到 /dev/null）与写入期生成（输出到临时文件、由调用方 mv 落位）。
+# 参数: $1=仓库根相对文件路径；$2=输出目标路径（/dev/null 即只校验不产出）；$3=模式
+#       body|line；$4=锚点（仅 line 模式使用，按字面子串匹配；body 模式传空串）；$5=替换值。
+#       经由环境变量 MODE/ANCHOR/VALUE 传入 awk，避免 awk -v 转义歧义。
+# 副作用: 写 $2（调用方给的临时文件或 /dev/null）；不合规时向 stderr 打印一行 FAIL 报因。
+#         不改仓库内文件（落位由调用方 mv 完成）。依赖全局 repo_root。
+# 返回码: 0 命中恰 1 行且已产出；1 命中 0 行或多行（body 模式即 Status 行数 ≠ 1）。
 flip_run() {
-  # $1=仓库根相对路径 $2=输出目标路径(check 传 /dev/null) $3=模式(body|line)
-  # $4=锚点(line 模式字面子串) $5=替换值；锚点不合规 exit 1
   MODE=$3 ANCHOR=$4 VALUE=$5 awk '
     BEGIN {
       MODE = ENVIRON["MODE"]
@@ -454,8 +475,13 @@ flip_run() {
   ' "${repo_root}/$1" > "$2"
 }
 
+# 用途: 索引单写前的只读预检——核对 index.json 的「一条目一行」排版未被破坏（每个条目行
+#       须同行带 status/updated_at），且目标 id 锚点全文恰命中 1 行；零命中或多命中即不执行单写。
+# 参数: $1=索引条目 id（票文件去 .md/.json 后缀的纯 id，形如 <NN>-<slug>）。
+# 副作用: 只读，不写文件；不合规时向 stderr 打印一行 FAIL 报因。依赖全局
+#         repo_root 与 FACTS_TICKETS_INDEX。
+# 返回码: 0 预检通过；1 排版破坏、条目零命中或锚点多命中任一成立。
 index_precheck() {
-  # $1=索引条目 id；核对一条目一行排版与 id 锚点唯一命中（只读）
   _id=$1
   IDX_ID=${_id} awk '
     BEGIN {
@@ -480,8 +506,16 @@ index_precheck() {
   ' "${repo_root}/${FACTS_TICKETS_INDEX}"
 }
 
+# 用途: 生成索引单写后的完整索引文本到 stdout（不落地）——按 id 锚点整行替换目标条目行，
+#       仅改该行的 status 与 updated_at 两个值，其余字段与其余行原样保留（依赖「一条目一行」
+#       排版）；本函数自身不写仓库文件，落位由调用方 mv 完成。
+# 参数: $1=索引条目 id；$2=新 status（状态机裸值）；$3=新 updated_at（ISO 8601，允许冒号）。
+#       经环境变量 IDX_ID/IDX_STATUS/IDX_UA 传入 awk。
+# 副作用: 仅写 stdout 与违规时的 stderr 报因；不改文件。依赖全局 repo_root 与
+#         FACTS_TICKETS_INDEX。
+# 返回码: 0 锚点恰命中 1 行且排版合规、已产出结果；1 条目零命中、锚点多命中或条目行缺
+#         同行 status/updated_at 字段（此时拒绝单写，调用方据非 0 停止且不留半成品）。
 index_write() {
-  # $1=id $2=新 status $3=新 updated_at；单写一行（id 锚点整行替换），写 tmp 由调用方 mv
   IDX_ID=$1 IDX_STATUS=$2 IDX_UA=$3 awk '
     BEGIN {
       id = ENVIRON["IDX_ID"]; nstatus = ENVIRON["IDX_STATUS"]; nua = ENVIRON["IDX_UA"]
@@ -674,8 +708,13 @@ for flip in ${flips}; do
   fi
 done
 
+# 用途: 向 stdout 输出一段 User Review Checkpoint 记录块（日期标题＋裁决原文＋裁决时间＋
+#       产品提交 ID 与 subject＋diff 摘要），供 .md 票票尾追加与 .json 票独立 checkpoint md
+#       两处共用同一格式（票 108），保证两种票体记录块逐字节一致。
+# 参数: 无（读取全局 date_today / verdict_quote / verdict_at / cid1 / subject1 / diffsum1）。
+# 副作用: 仅写 stdout；不改文件（追加/创建由调用方完成）。
+# 返回码: 恒 0（printf 失败仅在极端的 stdout 写错误下非 0）。
 emit_checkpoint_block() {
-  # User Review Checkpoint 记录块（.md 票票尾追加与 .json 票独立 checkpoint md 共用同一块格式）
   printf '\n## User Review Checkpoint（%s，lane-commit.sh）\n\n' "${date_today}"
   printf -- '- 裁决原文：%s\n' "${verdict_quote}"
   printf -- '- 裁决时间：%s\n' "${verdict_at}"
