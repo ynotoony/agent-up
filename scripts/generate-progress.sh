@@ -33,6 +33,7 @@ esac
 # Source common helper functions (in agent-up/scripts/)
 _helper_script="$_repo_root/agent-up/scripts/common-helpers.sh"
 if [ -f "$_helper_script" ]; then
+  # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
   die1() { printf 'generate-progress: FAIL: %s\n' "$1" >&2; exit 1; }
@@ -42,6 +43,7 @@ fi
 # Source JSON helper functions (in agent-up/scripts/)
 _json_helper_script="$_repo_root/agent-up/scripts/json-helpers.sh"
 if [ -f "$_json_helper_script" ]; then
+  # shellcheck source=agent-up/scripts/json-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_json_helper_script"
 fi
 
