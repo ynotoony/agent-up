@@ -10,6 +10,7 @@
 | --- | --- | --- |
 | `README.md` | 目录索引 | 说明脚本用途、用法、二十项检查、包清单数据表格式、输出格式、退出码与维护联动规则。 |
 | `common-helpers.sh` | 共享错误处理库 | 提供 die1/die2/warn 函数，统一错误输出格式（脚本名自动提取）；被 12 个脚本 source 引用。 |
+| `json-helpers.sh` | JSON 解析共享库 | 提供 json_extract_string/json_extract_number/json_validate_row 函数，POSIX shell 纯脚本 JSON 行解析能力（零外部依赖，无 jq）；被记录层脚本 source 引用（generate-progress.sh 使用）。 |
 | `check-package.sh` | 包完整性检查 | 按二十项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004；检查 1/5/8 清单自 `package-manifest.rules` 数据读取，检查 9/10/11 以数据为比对基准；检查 12 规则块体模糊措辞扫描、检查 13 镜像脚本与仓根同名件 cmp；检查 14 能力映射一致性；检查 15 模板规则索引与规则块全集全等、检查 16 索引机制列受控词表、检查 17 机械行点名出处存在、检查 19 scripts 节 mode 断言）；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
 | `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（承接「Record 行级保护」候选口径）：`facts/project/changes.jsonl` 与 `facts/project/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`facts/project/archive/progress.md` 与 `facts/project/archive/changes.md` 冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（不硬猜基线先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
 | `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`facts/project/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed；`--fix` 修复形态（反向未登记 → 十三字段登记条目骨架，dry-run 缺省零写入、`--apply` 显式落盘且与预览逐字一致、与检测共用判定代码；正向缺失不修）。详见下文专节。 |
@@ -790,6 +791,44 @@ test-record-layer: FAIL（共 N 项断言，M 项失败）    # exit 1
 - 被测行为合法变更时同步更新本 harness 断言（预期值重新独立重建，不照抄实跑输出）；module-map 专节"维护联动"所述规则表 fixture 回归由此 harness 承载，`--suite module-map` 即回归入口。
 - 夹具不入仓：fixture 由 harness 运行时自建于 mktemp（每语言样例＋去重/注释/字符串负例，fixture 纪律），仓库零留样。
 - 复制落位（生成项目语境）随记录层工具同迁（同 `ticket-ops.sh` 落位口径，见 `../references/templates/scripts-README.md.tmpl` 自检工具落位句）；落位后缺省自测同目录包内脚本，包内/落位两语境同码。
+
+## JSON 处理规范（共享库）
+
+### json-helpers.sh（JSON 解析共享库）
+
+**用途**：为记录层脚本提供 POSIX shell 纯脚本 JSON 解析能力，消除内嵌 awk JSON 提取逻辑重复。零外部依赖（无 jq/python），适用于简单 JSON 行格式（一条目一行，非嵌套对象/数组）。
+
+**提供函数**：
+
+1. **json_extract_string**：从 JSON 行提取字符串值
+   - 参数：`$1=json_line`，`$2=key`
+   - 返回：提取的值（通过 stdout）；字段缺失或值为空字符串均返回空
+   - 用法：`value=$(json_extract_string "$line" "id")`
+
+2. **json_extract_number**：从 JSON 行提取数值
+   - 参数：`$1=json_line`，`$2=key`
+   - 返回：提取的值（整数或小数）；字段缺失返回空
+   - 用法：`num=$(json_extract_number "$line" "complexity")`
+
+3. **json_validate_row**：验证 JSON 行包含所有必备字段且非空
+   - 参数：`$1=json_line`，`$2...$N=required_field_names`（空格分隔）
+   - 返回：exit 0 全部字段存在且非空；exit 1 任一字段缺失或为空（stderr 输出详情）
+   - 用法：`json_validate_row "$line" "id" "status" "updated_at" || die2 "验证失败"`
+
+**限制**：仅支持简单 JSON 行格式（键值对平铺，值为字符串或数字）；不处理嵌套对象、数组、布尔值或 null；不做完整 JSON 语法校验（假定输入合法）。
+
+**使用场景**：
+- `generate-progress.sh`：从 `index.json` 提取票状态字段生成投影
+- `ticket-ops.sh`：读取票索引条目字段（可选改造）
+- 其他记录层脚本需解析简单 JSON 行时复用
+
+**测试套件**：`test-record-layer.sh --suite json-helpers`（10 项断言覆盖三函数正负例）。
+
+**Source 用法**：
+```sh
+. "$(dirname "$0")/common-helpers.sh"
+. "$(dirname "$0")/json-helpers.sh"
+```
 
 ## 维护联动
 

@@ -21,13 +21,28 @@ gen_script_rel='rules/implementation/scripts/generate-progress.sh'
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
-# Source common helper functions
-_helper_script=$(dirname "$0")/common-helpers.sh
+# Determine script directory and repo root for helper loading
+_script_dir=$(cd "$(dirname "$0")" && pwd)
+# Repo root calculation: agent-up/scripts/ → ../.. ; rules/implementation/scripts/ → ../../..
+case "$_script_dir" in
+  */agent-up/scripts) _repo_root=$(cd "$_script_dir/../.." && pwd) ;;
+  */rules/implementation/scripts) _repo_root=$(cd "$_script_dir/../../.." && pwd) ;;
+  *) _repo_root=$(cd "$_script_dir/../.." && pwd) ;;  # fallback: assume agent-up/scripts/
+esac
+
+# Source common helper functions (in agent-up/scripts/)
+_helper_script="$_repo_root/agent-up/scripts/common-helpers.sh"
 if [ -f "$_helper_script" ]; then
   . "$_helper_script"
 else
   die1() { printf 'generate-progress: FAIL: %s\n' "$1" >&2; exit 1; }
   die2() { printf 'generate-progress: %s\n' "$1" >&2; exit 2; }
+fi
+
+# Source JSON helper functions (in agent-up/scripts/)
+_json_helper_script="$_repo_root/agent-up/scripts/json-helpers.sh"
+if [ -f "$_json_helper_script" ]; then
+  . "$_json_helper_script"
 fi
 
 usage() {
@@ -74,24 +89,25 @@ entries=$(grep '"id": "[0-9]' "$index_file") || {
 
 # 每条目行投影一行状态表；必备字段（id/status/complexity/updated_at）值均非空（schema minLength），
 # 故空值即判缺失；checkpoint_ref 可选（省略投影为空单元格）。
-rows=$(printf '%s\n' "$entries" | awk '
-function jval(line, key,    i, rest, j) {
-  i = index(line, "\"" key "\": \"")
-  if (i == 0) return ""
-  rest = substr(line, i + length(key) + 5)
-  j = index(rest, "\"")
-  if (j == 0) return ""
-  return substr(rest, 1, j - 1)
-}
-{
-  id = jval($0, "id"); st = jval($0, "status"); ua = jval($0, "updated_at")
-  if (id == "" || st == "" || ua == "") {
-    printf "generate-progress: FAIL: 条目行缺必备字段或不合预期: %s\n", $0 > "/dev/stderr"
-    exit 2
-  }
-  printf "| %s | %s | %s | %s |\n", id, st, jval($0, "checkpoint_ref"), ua
-}
-')
+rows=''
+while IFS= read -r entry_line; do
+  id=$(json_extract_string "$entry_line" "id")
+  status=$(json_extract_string "$entry_line" "status")
+  updated_at=$(json_extract_string "$entry_line" "updated_at")
+  checkpoint_ref=$(json_extract_string "$entry_line" "checkpoint_ref")
+
+  if [ -z "$id" ] || [ -z "$status" ] || [ -z "$updated_at" ]; then
+    die2 "条目行缺必备字段或不合预期: $entry_line"
+  fi
+
+  if [ -n "$rows" ]; then
+    rows="${rows}
+"
+  fi
+  rows="${rows}| ${id} | ${status} | ${checkpoint_ref} | ${updated_at} |"
+done <<EOF
+$entries
+EOF
 
 t_dir=${TMPDIR:-/tmp}
 tmp_out=$(mktemp "${t_dir%/}/genprogress.XXXXXX")

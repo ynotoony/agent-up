@@ -96,7 +96,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|all) ;;
+  module-map|ticket-ops|progress|json-helpers|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|install|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -522,8 +522,9 @@ tix_build_fixture() {
   # 票 79 起另落位 schema 权威与被 open 票的本体文件）
   F=$1
   rm -rf "$F"
-  mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project"
+  mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project" "$F/agent-up/scripts"
   cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$F/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-helpers.sh" "$F/agent-up/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
   mkdir -p "$F/agent-up/references/schemas"
@@ -1269,6 +1270,102 @@ EOF
   fi
 
   suite_summary 'progress'
+}
+
+# ============================================================
+# suite: json-helpers（票 158：JSON 解析共享库功能验证——json_extract_string、
+# json_extract_number、json_validate_row 三函数正负例覆盖，至少 8 断言）
+# ============================================================
+
+suite_json_helpers() {
+  CUR_SUITE='json-helpers'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/jhelp
+  mkdir -p "$D"
+
+  # Source the libraries
+  . "$SCRIPT_DIR/common-helpers.sh"
+  . "$SCRIPT_DIR/json-helpers.sh"
+
+  # Positive: json_extract_string extracts simple string field
+  result=$(json_extract_string '{"id": "123-test", "status": "ready"}' "id")
+  if [ "$result" = "123-test" ]; then
+    ok 'json_extract_string 提取 id 字段'
+  else
+    bad 'json_extract_string 提取 id 字段' "expected=123-test actual=$result"
+  fi
+
+  # Positive: json_extract_string extracts status field
+  result=$(json_extract_string '{"id": "123-test", "status": "in_progress", "updated_at": "2026-01-01"}' "status")
+  if [ "$result" = "in_progress" ]; then
+    ok 'json_extract_string 提取 status 字段'
+  else
+    bad 'json_extract_string 提取 status 字段' "expected=in_progress actual=$result"
+  fi
+
+  # Positive: json_extract_string handles empty checkpoint_ref
+  result=$(json_extract_string '{"id": "90", "checkpoint_ref": "", "status": "ready"}' "checkpoint_ref")
+  if [ "$result" = "" ]; then
+    ok 'json_extract_string 处理空字符串值'
+  else
+    bad 'json_extract_string 处理空字符串值' "expected=(empty) actual=$result"
+  fi
+
+  # Negative: json_extract_string returns empty for missing field
+  result=$(json_extract_string '{"id": "123", "status": "ready"}' "nonexistent")
+  if [ -z "$result" ]; then
+    ok 'json_extract_string 缺失字段返回空'
+  else
+    bad 'json_extract_string 缺失字段返回空' "expected=(empty) actual=$result"
+  fi
+
+  # Positive: json_extract_number extracts integer
+  result=$(json_extract_number '{"complexity": 1, "status": "ready"}' "complexity")
+  if [ "$result" = "1" ]; then
+    ok 'json_extract_number 提取整数'
+  else
+    bad 'json_extract_number 提取整数' "expected=1 actual=$result"
+  fi
+
+  # Positive: json_extract_number extracts decimal
+  result=$(json_extract_number '{"version": 2.5, "name": "test"}' "version")
+  if [ "$result" = "2.5" ]; then
+    ok 'json_extract_number 提取小数'
+  else
+    bad 'json_extract_number 提取小数' "expected=2.5 actual=$result"
+  fi
+
+  # Negative: json_extract_number returns empty for missing field
+  result=$(json_extract_number '{"complexity": 1}' "nonexistent")
+  if [ -z "$result" ]; then
+    ok 'json_extract_number 缺失字段返回空'
+  else
+    bad 'json_extract_number 缺失字段返回空' "expected=(empty) actual=$result"
+  fi
+
+  # Positive: json_validate_row passes with all required fields
+  if json_validate_row '{"id": "90", "status": "ready", "updated_at": "2026-01-01"}' "id" "status" "updated_at" 2>/dev/null; then
+    ok 'json_validate_row 所有必备字段存在返回 0'
+  else
+    bad 'json_validate_row 所有必备字段存在返回 0' "expected=0 actual=$?"
+  fi
+
+  # Negative: json_validate_row fails when field missing
+  if json_validate_row '{"id": "90", "status": "ready"}' "id" "status" "updated_at" 2>/dev/null; then
+    bad 'json_validate_row 缺失必备字段返回 1' "expected=1 actual=0"
+  else
+    ok 'json_validate_row 缺失必备字段返回 1'
+  fi
+
+  # Negative: json_validate_row fails when field empty
+  if json_validate_row '{"id": "", "status": "ready"}' "id" "status" 2>/dev/null; then
+    bad 'json_validate_row 空值字段返回 1' "expected=1 actual=0"
+  else
+    ok 'json_validate_row 空值字段返回 1'
+  fi
+
+  suite_summary 'json-helpers'
 }
 
 # ============================================================
@@ -3808,6 +3905,7 @@ case $SUITE in
   module-map) suite_module_map ;;
   ticket-ops) suite_ticket_ops ;;
   progress) suite_progress ;;
+  json-helpers) suite_json_helpers ;;
   check-package) suite_check_package ;;
   append-only) suite_append_only ;;
   check-artifacts) suite_check_artifacts ;;
@@ -3826,6 +3924,7 @@ case $SUITE in
     suite_module_map
     suite_ticket_ops
     suite_progress
+    suite_json_helpers
     suite_check_package
     suite_append_only
     suite_check_artifacts
