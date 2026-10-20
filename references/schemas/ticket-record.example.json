@@ -20,7 +20,16 @@
     "无 Git 写操作（样例占位条目）"
   ],
   "acceptance": [
-    "AC1 样例占位验收一条（占位文本，非真实验收标准）"
+    {
+      "text": "AC1: Schema oneOf 分支数为 2",
+      "kind": "machine",
+      "verify_ref": "V1"
+    },
+    {
+      "text": "AC2: 代码风格符合项目规范",
+      "kind": "semantic",
+      "judge": "Review"
+    }
   ],
   "verification": "样例占位：真实验证命令原文与结果入 Implementation Checkpoint 与 run record，本字段只承载口径陈述（占位，非真实执行记录）。",
   "output_contract": "报告 ≤55 行，含修改文件清单、验证命令与真实结果、Checkpoint 位置（样例占位）。",
@@ -28,5 +37,7 @@
   "context": "1. 样例占位上下文行一（演示换行 \\n 转义）\n2. 样例占位上下文行二",
   "risks": [
     "样例占位风险一条（非真实风险登记）"
-  ]
+  ],
+  "complexity_reason": "C2 样例占位：涉及多文件协同改造且需扩展校验逻辑（占位理由，非真实定级）",
+  "priority_reason": "中优先级样例占位：影响新票开票流程但不阻塞存量票（占位理由，非真实优先级）"
 }

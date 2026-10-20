@@ -123,13 +123,86 @@
       "description": "Forbidden Changes 数组：每元素一条禁止事项。"
     },
     "acceptance": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "minItems": 1,
-      "description": "Acceptance 验收数组：每元素一条（历史形态 AC 编号清单，建议元素以 AC<N> 起头便于引用）。"
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "字符串形态（存量兼容）：每元素一条散文验收标准，建议以 AC<N> 起头便于引用。"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "text",
+              "kind"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "验收条件文本（如 AC1: Schema 改进完成）"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "machine",
+                  "semantic"
+                ],
+                "description": "验收类型：machine（机器可判定，须挂 verify_ref）或 semantic（语义判断，须标 judge）"
+              },
+              "verify_ref": {
+                "type": "string",
+                "minLength": 1,
+                "description": "验证谓词引用（kind=machine 必须）：指向 verification 数组索引或命令行标识符"
+              },
+              "judge": {
+                "type": "string",
+                "minLength": 1,
+                "description": "裁判角色（kind=semantic 必须）：User / Review / Implementation"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "machine"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "verify_ref"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "semantic"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "judge"
+                  ]
+                }
+              }
+            ]
+          },
+          "minItems": 1,
+          "description": "对象形态（新增）：结构化验收条件数组。每对象包含 text（验收条件文本）、kind（machine 或 semantic）、verify_ref（kind=machine 必须）/ judge（kind=semantic 必须）。"
+        }
+      ],
+      "description": "Acceptance 验收数组：oneOf 双形态（字符串数组 | 对象数组）。字符串形态为存量兼容；对象形态为新增结构化形态，kind=machine 必须挂 verify_ref、kind=semantic 必须标 judge。向前生效，存量票不回填。"
     },
     "verification": {
       "oneOf": [
