@@ -768,10 +768,13 @@ if [ "$in_worktree" -eq 1 ]; then
 '
   while IFS= read -r row; do
     rel=${row%%"$TAB"*}
-    # 判断是否为 main-only 脚本
+    # 判断是否为 main-only 脚本（delivery.rules 路径含 agent-up/ 前缀，需匹配 scripts/ 相对路径）
     is_mainonly=0
     for mo in $mainonly_list; do
-      if [ "$rel" = "$mo" ]; then
+      # mo 形如 agent-up/scripts/export-payload.sh，rel 形如 scripts/export-payload.sh
+      # 匹配时去掉 agent-up/ 前缀
+      mo_rel="${mo#agent-up/}"
+      if [ "$rel" = "$mo_rel" ]; then
         is_mainonly=1
         break
       fi
@@ -838,10 +841,11 @@ if [ "$in_worktree" -eq 1 ]; then
       while IFS= read -r row; do
         rel=${row%%"$TAB"*}
         b=${rel##*/}
-        # 跳过 main-only 脚本的成员表检查
+        # 跳过 main-only 脚本的成员表检查（delivery.rules 路径含 agent-up/ 前缀）
         is_mainonly=0
         for mo in $mainonly_list; do
-          if [ "$rel" = "$mo" ]; then
+          mo_rel="${mo#agent-up/}"
+          if [ "$rel" = "$mo_rel" ]; then
             is_mainonly=1
             break
           fi
