@@ -21,7 +21,7 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 
 ## 1. 输入
 
-- 主 agent 的审查合同（检查范围与验收条件）。
+- 主 agent 的审查合同（检查范围与验收条件）；**收到合同首步**：先跑 `sh rules/implementation/scripts/check-dispatch-contract.sh --check <合同文件>` 自查合同完整性（按合同类型必备字段核对），通过后再完整读取合同内容，动手审查。
 - Implementation 阶段交付报告。
 - 实际 diff、规格与验收条件；版本库状态。
 

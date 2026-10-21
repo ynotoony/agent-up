@@ -1,0 +1,72 @@
+{
+  "$id": "agent-up/references/schemas/dispatch-contract.schema.json",
+  "title": "dispatch-contract（派发合同占位符清单）",
+  "description": "派发合同占位符统一索引与按阶段必备字段表：placeholders 为 28 个占位符全集（合同模板与合同文件共用的字段名字典）；contract_fields 按 implementation（16 字段）／review（6 字段）／commit（6 字段）三阶段列出必备字段。权威消费者＝scripts/check-dispatch-contract.sh：--check-template 以本表 placeholders 全集与 references/prompts/ 三份派发合同模板的占位符并集做双向零差集核对；--check 以本表 contract_fields 对合同文件做按推断类型的必备字段完整性核对。占位符承载面＝../prompts/implementation-prompt.md、../prompts/review-prompt.md、../prompts/commit-prompt.md。",
+  "version": "1.0.0",
+  "placeholders": [
+    "ACCEPTANCE_CRITERIA",
+    "ACTUAL_TIME",
+    "BUDGET_CHECKPOINTS",
+    "COMMIT_MESSAGE",
+    "CONSTRAINTS",
+    "CONTEXT_EVIDENCE",
+    "DEPENDENCIES_BLOCKERS",
+    "DIFF_LOCATION",
+    "ESTIMATED_TIME",
+    "FILE_WHITELIST",
+    "FORBIDDEN_CHANGES",
+    "GOAL",
+    "IMPLEMENTATION_SUMMARY",
+    "KEY",
+    "OUT_OF_SCOPE",
+    "RECORD_FLIP_AUTHORIZATION",
+    "REPOSITORY_PATH",
+    "REVIEW_DIMENSIONS",
+    "REVIEW_PASS_CHECKPOINT",
+    "REVIEW_SCOPE",
+    "RISKS",
+    "SCOPE_CHECK_COMMAND",
+    "SCOPE_TREE",
+    "STATUS",
+    "TASK_DESCRIPTION",
+    "TICKET_ID",
+    "TICKET_PATH",
+    "VERIFICATION_COMMANDS"
+  ],
+  "contract_fields": {
+    "implementation": [
+      "REPOSITORY_PATH",
+      "TASK_DESCRIPTION",
+      "GOAL",
+      "SCOPE_TREE",
+      "OUT_OF_SCOPE",
+      "CONTEXT_EVIDENCE",
+      "CONSTRAINTS",
+      "FORBIDDEN_CHANGES",
+      "ACCEPTANCE_CRITERIA",
+      "VERIFICATION_COMMANDS",
+      "DEPENDENCIES_BLOCKERS",
+      "RISKS",
+      "BUDGET_CHECKPOINTS",
+      "ESTIMATED_TIME",
+      "ACTUAL_TIME",
+      "TICKET_ID"
+    ],
+    "review": [
+      "REVIEW_SCOPE",
+      "IMPLEMENTATION_SUMMARY",
+      "ACCEPTANCE_CRITERIA",
+      "DIFF_LOCATION",
+      "REVIEW_DIMENSIONS",
+      "TICKET_ID"
+    ],
+    "commit": [
+      "REVIEW_PASS_CHECKPOINT",
+      "FILE_WHITELIST",
+      "COMMIT_MESSAGE",
+      "RECORD_FLIP_AUTHORIZATION",
+      "SCOPE_CHECK_COMMAND",
+      "TICKET_ID"
+    ]
+  }
+}

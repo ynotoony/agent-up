@@ -65,7 +65,7 @@ suite_check_package() {
   fi
   if [ "$_cp_in_wt" -eq 1 ]; then
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（16 个文件）
+PASS: 1 必需入口存在（17 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -73,7 +73,7 @@ PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（26 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（27 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
@@ -85,20 +85,20 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（26 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 29 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（27 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
 check-package: PASS
 EOF
   else
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（16 个文件）
+PASS: 1 必需入口存在（17 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（26 个文件）
+PASS: 8 脚本必需件存在（27 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -109,8 +109,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（26 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 29 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（27 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
 check-package: PASS
 EOF
   fi
@@ -126,14 +126,14 @@ EOF
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
   cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（16 个文件）
+PASS: 1 必需入口存在（17 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（26 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（27 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -143,7 +143,7 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 28 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 29 项，symlink 0 个）
 check-package: FAIL（3 项未通过，共 20 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
@@ -161,14 +161,14 @@ EOF
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（16 个文件）
+PASS: 1 必需入口存在（17 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（26 个文件）
+PASS: 8 脚本必需件存在（27 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :119 登记与数据不一致：缺少 pi
@@ -178,7 +178,7 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 29 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
 check-package: FAIL（1 项未通过，共 20 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
@@ -498,7 +498,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（26 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（27 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \

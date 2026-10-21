@@ -21,7 +21,7 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 
 ## 1. 输入
 
-- 主 agent 的委派合同，含 16 个固定字段；先完整读取合同和 Context / Evidence 列出的文件，再动手。
+- 主 agent 的委派合同，含 16 个固定字段；**收到合同首步**：先跑 `sh rules/implementation/scripts/check-dispatch-contract.sh --check <合同文件>` 自查合同完整性（按合同类型必备字段核对），通过后再完整读取合同和 Context / Evidence 列出的文件，再动手实现。
 - 当前任务票、相关规格与领域上下文。
 - 目标项目 development-process 的流程规则（读取阶梯、门禁、检查点纪律）。
 
