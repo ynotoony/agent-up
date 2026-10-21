@@ -27,7 +27,7 @@ fi
 # 扩五项（AGENTS.md/docs//rules//facts//.zcode/）；负例 N12/N13/N14/N15/N16/N17 注入目标
 # 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）；
 # delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户；票 141 requests 模板退役 16→15）
-# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）；票 190 检查 13 改跨树同名脚本所有权三分类（pm_mirror 两参数 mirror/package-only/repo-only：mirror 类 11 对逐对 cmp＋仓侧缺同名件报登记悬空；package-only 类 4 件不 cmp——仓侧同名实例属待升级流程同步过渡态不判差异；repo-only 类 4 件断言包内侧缺席；源仓语境门控＝包根父目录两落位目录任一在场，消费项目整项静默跳过）＋新增检查 21 references 树成员闭合与导航（全树文件 ⊆ entry-files∪templates、references/README.md 目录清单一级投影双向、包内 *.md 行内链接目标存在；预期串计数 20→21 翻值、检查 1 计数 18→35、检查 13 比对 9→11 对、正例补检查 21 PASS 行两形态；补负例 N28 references 子树未登记新件/N29 已登记成员删除缺件/N30 坏相对链接/N31 一级目录未入 README 投影/N32 mirror 登记悬空/N33 repo-only 件投放包内＋正例 P1 package-only 过渡态临时夹具（全 mktemp 源仓语境）；N16 注入项号检查 21→22 随总数同步）
+# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）；票 190 检查 13 改跨树同名脚本所有权三分类（pm_mirror 两参数 mirror/package-only/repo-only：mirror 类 11 对逐对 cmp＋仓侧缺同名件报登记悬空；package-only 类 4 件不 cmp——仓侧同名实例属待升级流程同步过渡态不判差异；repo-only 类 4 件断言包内侧缺席；源仓语境门控＝包根父目录两落位目录任一在场，消费项目整项静默跳过）＋新增检查 21 references 树成员闭合与导航（全树文件 ⊆ entry-files∪templates、references/README.md 目录清单一级投影双向、包内 *.md 行内链接目标存在；预期串计数 20→21 翻值、检查 1 计数 18→35、检查 13 比对 9→11 对、正例补检查 21 PASS 行两形态；补负例 N28 references 子树未登记新件/N29 已登记成员删除缺件/N30 坏相对链接/N31 一级目录未入 README 投影/N32 mirror 登记悬空/N33 repo-only 件投放包内＋正例 P1 package-only 过渡态临时夹具（全 mktemp 源仓语境）；N16 注入项号检查 21→22 随总数同步）；票 192 解析器单源化随票修（新增 pm_script dp-load-rules.sh 与 pm_entry references/delivery-rules.md → 检查 1 计数 35→36、检查 8/19 计数 27→28、检查 20 一级 30→31；pm_mirror 两消费件 mirror 翻 package-only（仓侧旧版内嵌解析器副本为待升级流程收敛过渡态）→ 检查 13 比对 11→9 对、三分类夹具组清单随动；检查 21 成员 47→48）
 # ============================================================
 
 suite_check_package() {
@@ -67,7 +67,7 @@ suite_check_package() {
   fi
   if [ "$_cp_in_wt" -eq 1 ]; then
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（35 个文件）
+PASS: 1 必需入口存在（36 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -75,46 +75,46 @@ PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（27 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（28 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 11 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 9 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行，全集 54 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（27 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 47 件，链接 2 个）
+PASS: 19 scripts 节 mode 断言（28 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 48 件，链接 2 个）
 check-package: PASS
 EOF
   else
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（35 个文件）
+PASS: 1 必需入口存在（36 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（27 个文件）
+PASS: 8 脚本必需件存在（28 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 11 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 9 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行，全集 54 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（27 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 47 件，链接 2 个）
+PASS: 19 scripts 节 mode 断言（28 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 48 件，链接 2 个）
 check-package: PASS
 EOF
   fi
@@ -130,14 +130,14 @@ EOF
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
   cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（35 个文件）
+PASS: 1 必需入口存在（36 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（27 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（28 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -147,8 +147,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 29 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 47 件，链接 2 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 48 件，链接 2 个）
 check-package: FAIL（3 项未通过，共 21 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
@@ -166,14 +166,14 @@ EOF
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（35 个文件）
+PASS: 1 必需入口存在（36 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 15 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（27 个文件）
+PASS: 8 脚本必需件存在（28 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :119 登记与数据不一致：缺少 pi
@@ -183,8 +183,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 47 件，链接 2 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 48 件，链接 2 个）
 check-package: FAIL（1 项未通过，共 21 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
@@ -249,7 +249,7 @@ EOF
   # 落位（消费项目语境无仓侧目录时 repo-only 行报登记悬空，不影响本负例指名断言）。
   mkdir -p "$D/mrepo/scripts" "$D/mrepo/rules/implementation/scripts"
   cp -R "$PKG_ROOT" "$D/mrepo/agent-up"
-  for m in generate-progress.sh ticket-ops.sh check-stale-claims.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh worktree-add.sh; do
+  for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh; do
     cp "$PKG_ROOT/scripts/$m" "$D/mrepo/scripts/$m"
   done
   if [ -d "$REPO_SIDE" ]; then
@@ -510,7 +510,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（27 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（28 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
@@ -584,7 +584,7 @@ EOF
   rm -f "$D/pkgcopy25/references/workflows/triage.yaml"
   sh "$D/pkgcopy25/scripts/check-package.sh" "$D/pkgcopy25" >"$D/act.n29" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（35 个文件）' "$D/act.n29" \
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（36 个文件）' "$D/act.n29" \
     && grep -q '  - references/workflows/triage.yaml' "$D/act.n29"; then
     ok '负例 N29 删除已登记 references 成员 → exit 1 且 FAIL: 1 指名缺件'
   else
@@ -626,7 +626,7 @@ EOF
     # 指名悬空件（mirror 类登记须两落位在场，缺件不得静默）。
     mkdir -p "$D/mrepo2/scripts" "$D/mrepo2/rules/implementation/scripts"
     cp -R "$PKG_ROOT" "$D/mrepo2/agent-up"
-    for m in generate-progress.sh ticket-ops.sh check-stale-claims.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh worktree-add.sh; do
+    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/mrepo2/scripts/$m"
     done
     for m in merge-ticket.sh check-derived-freshness.sh check-payload-boundary.sh check-role-permissions.sh; do
@@ -653,12 +653,12 @@ EOF
       bad '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）' "exit=$rc"
     fi
 
-    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：11 对 mirror 全 cmp＋
+    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：9 对 mirror 全 cmp＋
     # 4 件 package-only 仓侧同名实例在场不判差异＋4 件 repo-only 包侧缺席）→ exit 0 且
-    # PASS: 13 比对 11 对（三分类登记与两侧实物全恰，含检查 21 同过）。
+    # PASS: 13 比对 9 对（三分类登记与两侧实物全恰，含检查 21 同过）。
     mkdir -p "$D/porepo/scripts" "$D/porepo/rules/implementation/scripts"
     cp -R "$PKG_ROOT" "$D/porepo/agent-up"
-    for m in generate-progress.sh ticket-ops.sh check-stale-claims.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh worktree-add.sh; do
+    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/porepo/scripts/$m"
     done
     for m in merge-ticket.sh check-derived-freshness.sh check-payload-boundary.sh check-role-permissions.sh; do
@@ -666,11 +666,11 @@ EOF
     done
     sh "$D/porepo/agent-up/scripts/check-package.sh" "$D/porepo/agent-up" >"$D/act.p1" 2>&1
     rc=$?
-    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 11 对）' "$D/act.p1" \
+    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 9 对）' "$D/act.p1" \
       && grep -q '^PASS: 21 references 树成员闭合与导航' "$D/act.p1"; then
-      ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 11 对'
+      ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 9 对'
     else
-      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 11 对' "exit=$rc"
+      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 9 对' "exit=$rc"
     fi
   else
     printf 'SKIP  [check-package] 仓侧 rules/implementation/scripts 不在场（消费项目语境）——检查 13 所有权三分类夹具组跳过，覆盖归源仓\n'

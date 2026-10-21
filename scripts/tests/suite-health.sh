@@ -16,7 +16,7 @@ hs_build_fixture() {
   # $1=夹具目录：repo/facts/project/changes.jsonl ＋ rules/implementation/scripts/ 三件单件
   rm -rf "$1"
   mkdir -p "$1/repo/facts/project" "$1/repo/rules/implementation/scripts"
-  cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$1/repo/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/rules/implementation/scripts/"
 }
 
 hs_run() {

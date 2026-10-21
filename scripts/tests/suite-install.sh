@@ -22,7 +22,7 @@ inst_build_pkg() {
   P=$1
   rm -rf "$P"; mkdir -p "$P/scripts" "$P/references/schemas" "$P/references/protocol"
   cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/install-policy.rules" "$P/scripts/"
-  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-helpers.sh json-validator.py; do
+  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-helpers.sh json-validator.py dp-load-rules.sh; do
     if [ ! -f "$SCRIPT_DIR/$f" ]; then
       printf 'test-record-layer: 夹具依赖缺失: %s/%s（安装闭包登记源）\n' "$SCRIPT_DIR" "$f" >&2
       exit 2
@@ -60,6 +60,22 @@ EOF
   printf '%s\n' '{"date": "2026-10-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture seed", "evidence_ref": "facts/requirements/tickets/index.json"}' > "$F/facts/project/changes.jsonl"
 }
 
+dp_build_fixture_min() {
+  # $1=夹具仓根 $2=delivery.rules 文件：最小 git 夹具仓（已安装 worktree-add 解析链
+  # 运行语境；keep.txt＝非 main-only 件，栅栏化创建后必须在 worktree 在场）
+  rm -rf "$1"
+  mkdir -p "$1"
+  git -C "$1" init -q
+  git -C "$1" config user.email fixture@t
+  git -C "$1" config user.name fixture
+  mkdir -p "$1/fenced"
+  echo x > "$1/fenced/deep.sh"
+  echo keep > "$1/keep.txt"
+  cp "$2" "$1/delivery.rules"
+  git -C "$1" add -A
+  git -C "$1" commit -qm init
+}
+
 suite_install() {
   # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='install'
@@ -87,12 +103,12 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p1.out" 2>&1
   rc=$?
   p1_n=$(grep -c '^install: OK:' "$D/p1.out")
-  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 15 ] && grep -q '^install: DONE: 复制 15 件（脚本 13＋数据 2）、幂等跳过 0 件' "$D/p1.out" \
+  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 16 ] && grep -q '^install: DONE: 复制 16 件（脚本 14＋数据 2）、幂等跳过 0 件' "$D/p1.out" \
     && [ -f "$D/proj1/rules/implementation/scripts/check-gates.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-ops.sh" ]; then
-    ok '正例 P1 合法表双门控安装 → exit 0 复制 15 件（脚本 13＋数据 2）落位'
+    ok '正例 P1 合法表双门控安装 → exit 0 复制 16 件（脚本 14＋数据 2）落位'
   else
-    bad '正例 P1 合法表双门控安装 → exit 0 复制 15 件（脚本 13＋数据 2）落位' "exit=$rc ok_lines=$p1_n"
+    bad '正例 P1 合法表双门控安装 → exit 0 复制 16 件（脚本 14＋数据 2）落位' "exit=$rc ok_lines=$p1_n"
   fi
 
   # 正例 P2：幂等重跑 → 逐件 SKIP exit 0 零新写入（文件集与首跑逐一相等）
@@ -100,11 +116,11 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p2.out" 2>&1
   rc=$?
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
-  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 15 件' "$D/p2.out" \
+  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 16 件' "$D/p2.out" \
     && cmp -s "$D/p2.tree.before" "$D/p2.tree.after"; then
-    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 15 件（文件集零变化）'
+    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 16 件（文件集零变化）'
   else
-    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 15 件（文件集零变化）' "exit=$rc"
+    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 16 件（文件集零变化）' "exit=$rc"
   fi
 
   # 负例 N1：规则表缺失 → exit 2 零写入
@@ -301,6 +317,46 @@ EOF
       bad "$ii_desc" "exit=$rc"
     fi
   done
+
+  # 闭包正例 R4～R6（共享解析器安装语境）：--fast-lane 安装 → dp-load-rules.sh 与
+  # worktree-add.sh 同落位且字节一致；已安装 worktree-add 真实加载已安装解析器完成
+  # delivery.rules 解析链（缺配置拒跑＋合法四节栅栏化创建真跑两形态）。
+  inst_build_pkg "$D/pkgdp"; mkdir -p "$D/projdp"
+  ( cd "$D" && sh "$INST" --target "$D/projdp" --fast-lane --ticket-ops ) >"$D/r4.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && [ -f "$D/projdp/rules/implementation/scripts/dp-load-rules.sh" ] \
+    && [ -f "$D/projdp/rules/implementation/scripts/worktree-add.sh" ] \
+    && cmp -s "$SCRIPT_DIR/dp-load-rules.sh" "$D/projdp/rules/implementation/scripts/dp-load-rules.sh"; then
+    ok '闭包正例 R4 --fast-lane 安装 → dp-load-rules.sh 落位且与包基线字节一致（解析器入安装闭包）'
+  else
+    bad '闭包正例 R4 --fast-lane 安装 → dp-load-rules.sh 落位且与包基线字节一致（解析器入安装闭包）' "exit=$rc out=$(tail -n 1 "$D/r4.out")"
+  fi
+
+  dp_wt_rules_tmp=$(mktemp "${TMPDIR:-/tmp}/dpinstall.XXXXXX")
+  # 已安装 worktree-add：payload-only rules（未声明 main-only 节）→ 解析通过后拒跑
+  # exit 2 指名未声明（解析器加载＋解析链在安装布局全链生效，最短越解析点路径）
+  printf '# ==== payload：导出形态（export-payload.sh 读）====\ndp_payload_root pr\ndp_payload_remote r\ndp_payload_target b\ndp_payload_local_ref l\n' > "$dp_wt_rules_tmp"
+  dp_build_fixture_min "$D/fx.instw" "$dp_wt_rules_tmp"
+  ( cd "$D/fx.instw" && sh "$D/projdp/rules/implementation/scripts/worktree-add.sh" ../wt.inst ticket/94-probe ) > "$D/r5.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '未声明 main-only 节' "$D/r5.out"; then
+    ok '闭包正例 R5 已安装 worktree-add 真实执行 → 解析通过（payload-only 越解析点）后未声明 main-only 节拒跑 exit 2 指名'
+  else
+    bad '闭包正例 R5 已安装 worktree-add 真实执行 → 解析通过（payload-only 越解析点）后未声明 main-only 节拒跑 exit 2 指名' "exit=$rc $(tail -n 2 "$D/r5.out" | LC_ALL=C tr '\n' '|')"
+  fi
+
+  # 已安装 worktree-add：合法四节 rules → 栅栏化创建 exit 0 且 main-only 路径物理不在场
+  printf '# ==== payload：导出形态（export-payload.sh 读）====\ndp_payload_root pr\ndp_payload_remote r\ndp_payload_target b\ndp_payload_local_ref l\n\n# ==== main-only：worktree 排除清单（worktree-add.sh 读）====\ndp_mainonly fenced/deep.sh\n' > "$dp_wt_rules_tmp"
+  dp_build_fixture_min "$D/fx.instw2" "$dp_wt_rules_tmp"
+  ( cd "$D/fx.instw2" && sh "$D/projdp/rules/implementation/scripts/worktree-add.sh" ../wt.inst2 ticket/95-probe ) > "$D/r6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -e "$D/wt.inst2/fenced" ] && [ -f "$D/wt.inst2/keep.txt" ]; then
+    ok '闭包正例 R6 已安装 worktree-add 合法四节 rules → 栅栏化创建 exit 0 且 main-only 路径物理不在场（安装布局解析链全链生效）'
+  else
+    bad '闭包正例 R6 已安装 worktree-add 合法四节 rules → 栅栏化创建 exit 0 且 main-only 路径物理不在场（安装布局解析链全链生效）' "exit=$rc $(tail -n 2 "$D/r6.out" | LC_ALL=C tr '\n' '|')"
+  fi
+  rm -f "$dp_wt_rules_tmp"
 
   suite_summary 'install'
 }

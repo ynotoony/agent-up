@@ -1,6 +1,6 @@
 # Input: 目标项目的 delivery 配置决策（用户确认的导出远端/包根/排除清单）——逐仓事实由执行体按盘点与用户确认填写，不编造。
 # Output: 仓根 delivery.rules（四节锚点＋dp_ 指令行式配置），供 export-payload.sh、pre-push 安检、check-artifacts.sh、check-stale-claims.sh、worktree-add.sh 加载；fail-closed 六规则任一命中 exit 2。
-# Pos: delivery.rules 唯一分发模板：锚点行与包内四脚本 dp_load_rules BEGIN 段 an[1..4] 逐字一致（写错即解析失败，升级同步见 references/old-project.md §3）；触发＝用户确认启用快道（--fast-lane 语境，生成到目标项目仓库根）；main-only 节裸锚点＋注释条目＝空排除清单已声明（无 main-only 脚本保留空节）；本头 # 形态＝解析器跳 # 行，包完整性检查按 artifacts-yaml.tmpl 先例豁免。
+# Pos: delivery.rules 唯一分发模板：锚点行与包内共享解析器 scripts/dp-load-rules.sh 锚点表 an[1..4] 逐字一致（写错即解析失败；文法与版本详见 references/delivery-rules.md，落地拷贝同步见 references/old-project.md §3）；触发＝用户确认启用快道（--fast-lane 语境，生成到目标项目仓库根）；main-only 节裸锚点＋注释条目＝空排除清单已声明（无 main-only 脚本保留空节）；本头 # 形态＝解析器跳 # 行，包完整性检查按 artifacts-yaml.tmpl 先例豁免。
 
 # ==== payload：导出形态（export-payload.sh 读）====
 

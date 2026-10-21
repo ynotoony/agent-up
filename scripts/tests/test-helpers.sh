@@ -39,7 +39,7 @@ self_check_injection() {
   SUITE_START=$TOTAL
   D=$T/inject
   mkdir -p "$D/injectpkg/scripts"
-  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh install.sh install-policy.rules; do
+  for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh dp-load-rules.sh install.sh install-policy.rules; do
     cp "$SCRIPT_DIR/$f" "$D/injectpkg/scripts/$f"
   done
   sed 's/~python-import~/~python-importX~/' "$SCRIPT_DIR/module-map.rules" > "$D/rules.tmp" && mv "$D/rules.tmp" "$D/injectpkg/scripts/module-map.rules"

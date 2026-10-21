@@ -59,6 +59,7 @@ suite_stale_claims() {
   sc_build_fixture "$D/p1"
   mkdir -p "$D/p1/eng"
   cp "$SC" "$D/p1/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p1/eng/dp-load-rules.sh"
   sc_run "$D/p1" > "$D/p1.out" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] \
@@ -76,6 +77,7 @@ suite_stale_claims() {
   sc_build_fixture "$D/p2"
   mkdir -p "$D/p2/eng"
   cp "$SC" "$D/p2/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p2/eng/dp-load-rules.sh"
   cat > "$D/p2/repo/delivery.rules" <<'EOF'
 # ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====
 
@@ -98,6 +100,7 @@ EOF
   sc_build_fixture "$D/n1"
   mkdir -p "$D/n1/eng"
   cp "$SC" "$D/n1/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n1/eng/dp-load-rules.sh"
   printf '# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n\ndp_bogus x\n' > "$D/n1/repo/delivery.rules"
   sc_run "$D/n1" > "$D/n1.out" 2>&1
   rc=$?
@@ -112,6 +115,7 @@ EOF
   sc_build_fixture "$D/p3"
   mkdir -p "$D/p3/eng" "$D/p3/repo/facts/requirements/research"
   cp "$SC" "$D/p3/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p3/eng/dp-load-rules.sh"
   sc_git_baseline "$D/p3/repo"
   printf '# 调研夹具\n\n结论：采用方案 X（出处 file:facts/requirements/research/ref.md；轨:本仓自用）\n' > "$D/p3/repo/facts/requirements/research/2026-09-24-p3.md"
   sc_run "$D/p3" > "$D/p3.out" 2>&1
@@ -129,6 +133,7 @@ EOF
   sc_build_fixture "$D/n2"
   mkdir -p "$D/n2/eng" "$D/n2/repo/facts/requirements/research"
   cp "$SC" "$D/n2/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n2/eng/dp-load-rules.sh"
   sc_git_baseline "$D/n2/repo"
   printf '# 调研夹具\n\n- 结论：采用方案 Y\n' > "$D/n2/repo/facts/requirements/research/2026-09-24-n2.md"
   sc_run "$D/n2" > "$D/n2.out" 2>&1
@@ -144,6 +149,7 @@ EOF
   sc_build_fixture "$D/p4"
   mkdir -p "$D/p4/eng" "$D/p4/repo/facts/requirements/research"
   cp "$SC" "$D/p4/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p4/eng/dp-load-rules.sh"
   printf '# 调研夹具\n\n结论：存量行不标注（历史零改写）\n' > "$D/p4/repo/facts/requirements/research/2026-09-24-p4.md"
   sc_git_baseline "$D/p4/repo"
   sc_run "$D/p4" > "$D/p4.out" 2>&1
@@ -159,6 +165,7 @@ EOF
   sc_build_fixture "$D/n3"
   mkdir -p "$D/n3/eng" "$D/n3/repo/facts/requirements/research"
   cp "$SC" "$D/n3/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n3/eng/dp-load-rules.sh"
   printf '# 调研夹具\n\n结论：基线行标注齐（出处 file:ref.md；轨:agent-up）\n' > "$D/n3/repo/facts/requirements/research/2026-09-24-n3.md"
   sc_git_baseline "$D/n3/repo"
   printf '\n结论：追加行未标注\n' >> "$D/n3/repo/facts/requirements/research/2026-09-24-n3.md"
@@ -184,6 +191,7 @@ EOF
   sc_build_fixture "$D/p5"
   mkdir -p "$D/p5/eng"
   cp "$SC" "$D/p5/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p5/eng/dp-load-rules.sh"
   sc_s6_write "$D/p5/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/p5/repo"
   sc_run "$D/p5" > "$D/p5.out" 2>&1
@@ -202,6 +210,7 @@ EOF
   sc_build_fixture "$D/n4"
   mkdir -p "$D/n4/eng"
   cp "$SC" "$D/n4/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n4/eng/dp-load-rules.sh"
   sc_s6_write "$D/n4/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/n4/repo"
   sc_s6_write "$D/n4/repo" in_progress 2026-09-28T01:00:00Z superseded 2026-09-28T00:00:00Z
@@ -221,6 +230,7 @@ EOF
   sc_build_fixture "$D/n5"
   mkdir -p "$D/n5/eng"
   cp "$SC" "$D/n5/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n5/eng/dp-load-rules.sh"
   sc_s6_write "$D/n5/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/n5/repo"
   sc_s6_write "$D/n5/repo" 'done' 2026-09-28T00:00:00Z ready 2026-09-28T01:00:00Z
@@ -239,6 +249,7 @@ EOF
   sc_build_fixture "$D/p6"
   mkdir -p "$D/p6/eng"
   cp "$SC" "$D/p6/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p6/eng/dp-load-rules.sh"
   sc_git_baseline "$D/p6/repo"
   printf '{"id": "90-fixture", "status": "in_progress", "updated_at": "2026-09-28T01:00:00Z"}\n' > "$D/p6/repo/facts/requirements/tickets/index.json"
   printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | in_progress | - | 2026-09-28T01:00:00Z |\n' > "$D/p6/repo/facts/requirements/tickets/progress-current.md"
@@ -274,6 +285,7 @@ EOF
   sc_build_fixture "$D/p7"
   mkdir -p "$D/p7/eng"
   cp "$SC" "$D/p7/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p7/eng/dp-load-rules.sh"
   sc_git_baseline "$D/p7/repo"
   sc_s7_write "$D/p7/repo" superseded 92-s7 'done'
   sc_run "$D/p7" > "$D/p7.out" 2>&1
@@ -291,6 +303,7 @@ EOF
   sc_build_fixture "$D/n6"
   mkdir -p "$D/n6/eng"
   cp "$SC" "$D/n6/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n6/eng/dp-load-rules.sh"
   sc_git_baseline "$D/n6/repo"
   sc_s7_write "$D/n6/repo" superseded 99-none 'done'
   sc_run "$D/n6" > "$D/n6.out" 2>&1
@@ -308,6 +321,7 @@ EOF
   sc_build_fixture "$D/p8"
   mkdir -p "$D/p8/eng"
   cp "$SC" "$D/p8/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p8/eng/dp-load-rules.sh"
   sc_git_baseline "$D/p8/repo"
   sc_s7_write "$D/p8/repo" superseded '' 'done'
   sc_run "$D/p8" > "$D/p8.out" 2>&1
@@ -325,6 +339,7 @@ EOF
   sc_build_fixture "$D/n7"
   mkdir -p "$D/n7/eng"
   cp "$SC" "$D/n7/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n7/eng/dp-load-rules.sh"
   sc_git_baseline "$D/n7/repo"
   sc_s7_write "$D/n7/repo" superseded 92-s7 in_progress
   sc_run "$D/n7" > "$D/n7.out" 2>&1
@@ -354,6 +369,7 @@ EOF
   sc_build_fixture "$D/p9"
   mkdir -p "$D/p9/eng"
   cp "$SC" "$D/p9/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p9/eng/dp-load-rules.sh"
   sc_git_baseline "$D/p9/repo"
   sc_s8_write "$D/p9/repo" '沉淀到 rules/x.md#锚点文本在这里' rules 1
   sc_run "$D/p9" > "$D/p9.out" 2>&1
@@ -368,6 +384,7 @@ EOF
   sc_build_fixture "$D/n8b"
   mkdir -p "$D/n8b/eng"
   cp "$SC" "$D/n8b/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n8b/eng/dp-load-rules.sh"
   sc_git_baseline "$D/n8b/repo"
   sc_s8_write "$D/n8b/repo" '沉淀到 rules/gone.md' rules 0
   sc_run "$D/n8b" > "$D/n8b.out" 2>&1
@@ -382,6 +399,7 @@ EOF
   sc_build_fixture "$D/n9"
   mkdir -p "$D/n9/eng"
   cp "$SC" "$D/n9/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n9/eng/dp-load-rules.sh"
   sc_git_baseline "$D/n9/repo"
   sc_s8_write "$D/n9/repo" '沉淀到 rules/x.md#锚点已不在' rules 1
   sc_run "$D/n9" > "$D/n9.out" 2>&1
@@ -396,6 +414,7 @@ EOF
   sc_build_fixture "$D/p10"
   mkdir -p "$D/p10/eng"
   cp "$SC" "$D/p10/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p10/eng/dp-load-rules.sh"
   sc_git_baseline "$D/p10/repo"
   sc_s8_write "$D/p10/repo" '教训无沉淀指针' none 0
   sc_run "$D/p10" > "$D/p10.out" 2>&1
@@ -415,7 +434,9 @@ EOF
     mkdir -p "$1/repo/rules/implementation/scripts"
     mkdir -p "$1/repo/$(dirname "$2")"
     cp "$SC" "$1/repo/$2"
+    cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/$(dirname "$2")/dp-load-rules.sh"
     cp "$SC" "$1/repo/eng/check-stale-claims.sh"
+    cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/eng/dp-load-rules.sh"
     ( cd "$1/repo" && sh "$2" ) > "$4" 2>&1
     _bare_rc=$?
     sh "$1/repo/eng/check-stale-claims.sh" "$1/repo" gate > "$3" 2>&1
@@ -439,7 +460,9 @@ EOF
   sc_git_baseline "$D/p12/repo"
   mkdir -p "$D/p12/repo/agent-up/scripts" "$D/p12/repo/eng"
   cp "$SC" "$D/p12/repo/agent-up/scripts/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p12/repo/agent-up/scripts/dp-load-rules.sh"
   cp "$SC" "$D/p12/repo/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p12/repo/eng/dp-load-rules.sh"
   ( cd "$D/p12/repo" && sh agent-up/scripts/check-stale-claims.sh ) > "$D/p12.out" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p12.out"; then

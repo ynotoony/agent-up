@@ -46,6 +46,7 @@ ip_file agent-up/scripts/absorption-trigger.sh Conditional ticket-ops '吸收触
 ip_file agent-up/scripts/health-summary.sh Conditional ticket-ops '体系仪表盘（四分区只读汇总，打分/候选/报警/对账一屏看；视图非门禁）'
 ip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops '回退依赖：票务收尾投影再生依赖同目录生成器（PATH 回退），目标项目未落位时一并复制'
 ip_file agent-up/scripts/common-helpers.sh Conditional fast-lane '共享错误处理库：道脚本运行依赖（同目录定位，安装闭包）'
+ip_file agent-up/scripts/dp-load-rules.sh Conditional fast-lane 'delivery.rules 共享解析库：worktree-add 运行依赖（同目录定位，安装闭包；解析版本唯一来源 DP_PARSER_VERSION）'
 ip_file agent-up/scripts/common-helpers.sh Conditional ticket-ops '共享错误处理库：票务脚本运行依赖（同目录定位，安装闭包）'
 ip_file agent-up/scripts/json-helpers.sh Conditional fast-lane 'JSON 解析共享库：道脚本收尾投影再生运行依赖（同目录定位，安装闭包）'
 ip_file agent-up/scripts/json-helpers.sh Conditional ticket-ops 'JSON 解析共享库：票务收尾投影再生运行依赖（同目录定位，安装闭包）'

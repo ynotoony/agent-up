@@ -15,9 +15,10 @@
 #      文件的十三字段登记条目骨架逐条追加进 artifacts.yaml，正向缺失不修——缺的是实物
 #      不是登记）；修复与检测共用同一判定代码（--fix 复跑同一对账管线取未登记清单）。
 # dp-parser: 2
-#      （解析器版本注记：本文件内嵌 dp_load_rules 的版本号；落地拷贝遇未知锚点/指令时
-#      报错引用此值，版本落后包内现版即升级指引信号——同步方式见 references/old-project.md
-#      §3 dp_load_rules 引擎件行。四件同族脚本注记须一致。）
+#      （本件要求解析器最低版注记；解析唯一实现＝同目录 dp-load-rules.sh，版本唯一
+#      来源＝其 DP_PARSER_VERSION。落地拷贝遇未知锚点/指令、解析器缺件或版本漂移即
+#      报错指名——同步方式见 references/old-project.md §3 dp-load-rules.sh 引擎件行，
+#      文法与版本详见 references/delivery-rules.md。四件同族脚本注记须一致。）
 
 set -eu
 set -f  # 关闭文件名展开：模式匹配只经 case，路径展开不可依赖
@@ -85,7 +86,7 @@ repo_root=$ca_pos
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 repo_root=$(CDPATH='' cd "$repo_root" && pwd)
 yaml="$repo_root/$artifacts_yaml"
-[ -f "$yaml" ] || die2 "治理产物登记缺失: facts/project/artifacts.yaml（相对 $repo_root）"
+[ -f "$yaml" ] || die2 "治理产物登记缺失: facts/project/artifacts.yaml（相对 ${repo_root}）"
 
 script_dir=$(CDPATH='' cd "$(dirname -- "$0")" && pwd)
 enum_template="$script_dir/../references/templates/artifacts-yaml.tmpl"
@@ -205,117 +206,18 @@ scan_ext_files() {
   done < "$ca_scan"
   return 0
 }
-# ---- delivery.rules 解析引擎段（fail-closed 六规则，设计 §2；与 export-payload.sh
-#      同款，错误前缀参数化）----
-# shellcheck disable=SC2034  # DP 引擎统一解析产出字段（五副本同构契约；本脚本未消费≠冗余，禁删——调研报告禁改面）
-dp_load_rules() {
-  DP_PRESENT=0
-  DP_HAS_PAYLOAD=0
-  DP_ROOT=''; DP_REMOTE=''; DP_TARGET=''; DP_LOCAL_REF=''
-  DP_FORBID=''; DP_EXEMPT=''; DP_STALE_LIT=''
-  _dp_prefix=$2
-  _dp_file="$1/delivery.rules"
-  [ -f "$_dp_file" ] || return 0
-  DP_PRESENT=1
-  _dp_stream=$(mktemp "${TMPDIR:-/tmp}/dprules.XXXXXX") || return 2
-  _dp_rc=0
-  _dp_err=$(LC_ALL=C awk -v out="$_dp_stream" '
-    function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
-    function bad2(msg) { print msg; n++ }
-    BEGIN {
-      an[1] = "# ==== payload：导出形态（export-payload.sh 读）===="
-      an[2] = "# ==== boundary：禁入名单（pre-push 安检读）===="
-      an[3] = "# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）===="
-      an[4] = "# ==== main-only：worktree 排除清单（worktree-add.sh 读）===="
-      sc[1] = "payload"; sc[2] = "boundary"; sc[3] = "calibration"
-      sc[4] = "main-only"
-      dpv = 2
-    }
-    function is_known(d) {
-      return (d == "dp_payload_root" || d == "dp_payload_remote" || d == "dp_payload_target" \
-        || d == "dp_payload_local_ref" || d == "dp_forbid" || d == "dp_artifact_exempt" \
-        || d == "dp_stale_lit" || d == "dp_mainonly")
-    }
-    {
-      line = $0
-      sub(/[[:space:]]+$/, "", line)
-      if (line == "") next
-      hit = 0
-      for (k = 1; k <= 4; k++) {
-        if (line == an[k]) {
-          hit = 1
-          if (seen[k]++) bad("锚点重复: " an[k])
-          else cur = sc[k]
-          break
-        }
-      }
-      if (hit) next
-      if (line ~ /^#/) {
-        if (line ~ /^# ==== .+：.+====$/) bad2("锚点 " line " 本版解析器（dp-parser: " dpv "）不识别——落地拷贝可能早于包当前版本，请与包内同件 diff 后同步")
-        next
-      }
-      if (line ~ /^[[:space:]]/) { bad("行首空白（指令行须顶格）"); next }
-      if (index(line, "\t") > 0) { bad("字段内禁制表符"); next }
-      sp = index(line, " ")
-      if (sp == 0) { bad("未知指令行: " substr(line, 1, 40)); next }
-      d = substr(line, 1, sp - 1)
-      v = substr(line, sp + 1)
-      if (!is_known(d)) { bad("未知指令行: " d "（锚点/指令表见本脚本 dp_load_rules BEGIN 段；若为包新增指令而本件头部 dp-parser 版本早于包内现版，落地拷贝可能早于包当前版本，请与包内同件 diff 后同步）"); next }
-      if (v == "" || v ~ /[[:space:]]/) { bad("值须为恰一非空字段（禁空白与多余空格）: " d); next }
-      if (d ~ /^dp_payload_/ && cur != "payload") { bad("条目违属：dp_payload_* 仅得出现于 payload 锚点后: " d); next }
-      if (d == "dp_forbid" && cur != "boundary") { bad("条目违属：dp_forbid 仅得出现于 boundary 锚点后"); next }
-      if ((d == "dp_artifact_exempt" || d == "dp_stale_lit") && cur != "calibration") { bad("条目违属：" d " 仅得出现于 calibration 锚点后"); next }
-      if (d == "dp_mainonly" && cur != "main-only") { bad("条目违属：dp_mainonly 仅得出现于 main-only 锚点后"); next }
-      if (d == "dp_mainonly") {
-        if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
-        if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }
-        if (v ~ /\/$/) { bad("路径禁尾斜杠: " v); next }
-      }
-      if ((d == "dp_payload_root" || d == "dp_forbid" || d == "dp_artifact_exempt")) {
-        if (v ~ /^\//) { bad("路径禁前导斜杠: " v); next }
-        if (v ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " v); next }
-      }
-      if (d == "dp_stale_lit" && v != "S1" && v != "S2") { bad("枚举违（dp_stale_lit ∈ {S1,S2}）: " v); next }
-      if (v in seenval) bad("值跨行重复: " v)
-      else seenval[v] = 1
-      if (d ~ /^dp_payload_/) cnt[d]++
-      printf "%s\t%s\n", d, v >> out
-    }
-    END {
-      for (k = 1; k <= 3; k++) if (seen[k] && sc[k] == "payload") haspay = 1
-      if (haspay) {
-        np = split("dp_payload_root dp_payload_remote dp_payload_target dp_payload_local_ref", pd, " ")
-        for (k = 1; k <= np; k++) if (cnt[pd[k]] != 1) bad2("恰数违：payload 节存在时 " pd[k] " 须恰一行（实测 " cnt[pd[k]] + 0 "）")
-      }
-      if (n > 0) exit 1
-    }
-  ' "$_dp_file") || _dp_rc=$?
-  if [ "$_dp_rc" -ne 0 ] || [ -n "$_dp_err" ]; then
-    rm -f "$_dp_stream"
-    printf '%s: 错误：delivery.rules 解析破坏（fail-closed，不产生部分结论）: %s\n' "$_dp_prefix" "$_dp_file" >&2
-    if [ -n "$_dp_err" ]; then
-      printf '%s\n' "$_dp_err" >&2
-    fi
-    return 2
-  fi
-  while IFS="$(printf '\t')" read -r _dp_d _dp_v; do
-    [ -n "${_dp_d:-}" ] || continue
-    case $_dp_d in
-      dp_payload_root) DP_ROOT=$_dp_v; DP_HAS_PAYLOAD=1 ;;
-      dp_payload_remote) DP_REMOTE=$_dp_v; DP_HAS_PAYLOAD=1 ;;
-      dp_payload_target) DP_TARGET=$_dp_v; DP_HAS_PAYLOAD=1 ;;
-      dp_payload_local_ref) DP_LOCAL_REF=$_dp_v; DP_HAS_PAYLOAD=1 ;;
-      dp_forbid) DP_FORBID="$DP_FORBID$_dp_v
-" ;;
-      dp_artifact_exempt) DP_EXEMPT="$DP_EXEMPT$_dp_v
-" ;;
-      dp_stale_lit) DP_STALE_LIT="$DP_STALE_LIT$_dp_v
-" ;;
-    esac
-  done < "$_dp_stream"
-  rm -f "$_dp_stream"
-  return 0
-}
+# 共享解析器加载（dp_load_rules 唯一实现＝同目录 dp-load-rules.sh；缺件或版本漂移
+# fail-closed exit 2 指名，不内嵌副本；定义载入在此、消费在对账数据块装载后的 calibration 节）
+_dp_parser_file=$(dirname "$0")/dp-load-rules.sh
+if [ -f "$_dp_parser_file" ]; then
+  # shellcheck source=agent-up/scripts/dp-load-rules.sh  # 路径动态计算，显式声明基线位置
+  . "$_dp_parser_file"
+else
+  die2 "共享解析器缺失: ${_dp_parser_file}（dp_load_rules 唯一实现＝同目录 dp-load-rules.sh，与消费件同目录分发）"
+fi
+if [ "${DP_PARSER_VERSION:-0}" -lt 2 ]; then
+  die2 "共享解析器版本漂移: $_dp_parser_file 版本 ${DP_PARSER_VERSION:-（未声明）} 低于本件最低要求 2（请与包内同件同步）"
+fi
 
 load_reconcile_data
 

@@ -53,7 +53,7 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
   2. 再配置面（`delivery.rules` 按模板生成或按 diff 逐节对齐——锚点行逐字匹配，禁手抄）；
   3. 后更新模板生成的文件（逐件：备份现件 → 按新模板重生成 → 项目自有条款与【按项目填写】值按现件回填 → 你确认关键条款 diff）；
   4. 每件更新后重跑该件配套验证（脚本 `sh -n`＋家族夹具；条款件过包对账器）。
-- 解析器族升级（内嵌 `dp_load_rules` 的四脚本）按 `old-project.md` §3 dp_load_rules 引擎件行同步六 hunk，或整件对齐包新基线后核 `# dp-parser` 注记一致。
+- 解析器升级（共享解析库 `scripts/dp-load-rules.sh`＋四消费件 `check-artifacts.sh`／`check-stale-claims.sh`／`export-payload.sh`／`worktree-add.sh`）整件对齐包新基线：解析版本唯一来源＝解析库 `DP_PARSER_VERSION`，消费件头部 `# dp-parser: N` 为最低要求版注记，报「共享解析器版本漂移」即解析库落后；安装语境下解析库随 fast-lane 门控与消费件同批落位（安装闭包见 `scripts/install-policy.rules`）。文法与版本详见 `delivery-rules.md`。
 - 记录类产物（决策账本、状态索引、运行记录）与用户事实**不在升级范围**：模板升级不得覆盖（R-DP-003 口径），永不触碰。
 
 ## 5. 验证与收尾
