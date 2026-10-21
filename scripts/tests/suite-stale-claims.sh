@@ -12,7 +12,12 @@ fi
 # 点亮按配置断言、delivery.rules 解析破坏 exit 2、汇总登记数动态化；票 85 增补：
 # S5 方案结论标注句正负例四——向前生效经 git init 基线提交承载；票 94 增补：
 # S6 终态哨兵正负例四——终态史经 git init 基线提交承载，done→in_progress／
-# superseded→ready 非法跃迁即报、终态稳态与非终态流转零误报）
+# superseded→ready 非法跃迁即报、终态稳态与非终态流转零误报；票 194 增补：
+# S4 扫描覆盖正负例九——扫描面声明实证（IN＝facts 树 md＋artifacts.yaml 单件／
+# OUT＝排除面、非 md、facts 外 rules 树与仓根）、target-count 等值与漂移指名、
+# omission/false-positive/false-negative 三防线逐行指名、词表语义分立（与检查 12
+# 模糊措辞六词不互扫）与显式豁免三例（恰行免报／行号漂移照报／缺理由 exit 2，
+# 豁免注入只改 eng 夹具副本 heredoc，被测对象本体零改动）
 # ============================================================
 
 sc_build_fixture() {
@@ -483,6 +488,186 @@ EOF
     ok '负例 N12 未知落位无参裸跑 → exit 2 fail-closed 指名推导失败'
   else
     bad '负例 N12 未知落位无参裸跑 → exit 2 fail-closed 指名推导失败' "exit=$rc $(tail -n 2 "$D/n12.out" | tr '\n' '|')"
+  fi
+
+  # ---- S4 扫描覆盖与词表正负例九（票 194）------------------------------------
+  # 扫描面声明实证（以脚本数据节声明为准）：IN＝facts/ 树 *.md（排除面外）＋
+  # facts/project/artifacts.yaml 单件；OUT＝prune 排除面（tickets/、runs/、
+  # architecture/generated/）＋case 跳过面（archive/progress.md、archive/changes.md、
+  # progress-current.md）＋非 md ＋facts 外（rules 树、仓根）。四类例各产生指名结果
+  # （退出码＋报文指名 file:line，非出现性 grep）；豁免注入只改 eng 夹具副本
+  # heredoc，被测对象本体零改动（真实豁免表维持空表交付）。
+  sc_eng_setup() {
+    # $1=夹具目录：eng 引擎目录＋被测件单件副本（含共享解析器，票 192 语境）
+    mkdir -p "$1/eng"
+    cp "$SC" "$1/eng/check-stale-claims.sh"
+    cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/eng/dp-load-rules.sh"
+  }
+  sc_s4_exempt_inject() {
+    # $1=夹具目录 $2=注入豁免行（s4_exempt 路径 行号 理由 形态，空串不注入）；
+    # 注入点＝副本 s4_load_exempts heredoc 闭标行前（恰整行匹配 S4_EXEMPT_DATA
+    # 闭标行，开头 <<'S4_EXEMPT_DATA' 形态不等值不误中）。
+    # shellcheck disable=SC2016  # awk 程序单引号防 shell 展开 $0（家族先例同款形态必需）
+    awk -v ex="$2" '$0 == "S4_EXEMPT_DATA" { if (ex != "") print ex } { print }' \
+      "$1/eng/check-stale-claims.sh" > "$1/eng/csc.injected" || return 2
+    mv "$1/eng/csc.injected" "$1/eng/check-stale-claims.sh"
+  }
+
+  # S4-T1（target-count 正向）：计数陈述与实际相等（README 锚点 1↔index 条目 1）
+  # → exit 0、零 S4 报文（等值零误报）
+  sc_build_fixture "$D/s4t1"
+  sc_eng_setup "$D/s4t1"
+  sc_run "$D/s4t1" > "$D/s4t1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && ! grep -q '^STALE' "$D/s4t1.out" \
+    && ! grep -q 'STALE-prone' "$D/s4t1.out" \
+    && ! grep -q 'S4 数量相等' "$D/s4t1.out"; then
+    ok 'S4-T1 计数陈述与实际相等（锚点 1↔条目 1）→ exit 0 零 S4 报文（target-count 正向）'
+  else
+    bad 'S4-T1 计数陈述与实际相等（锚点 1↔条目 1）→ exit 0 零 S4 报文（target-count 正向）' "exit=$rc $(tail -n 2 "$D/s4t1.out" | tr '\n' '|')"
+  fi
+
+  # S4-T2（target-count 反向）：计数陈述与实际漂移（锚点 2↔条目 1）→ exit 1 且
+  # STALE 指名双侧计数（报文含两侧计数文本，非出现性 grep）
+  sc_build_fixture "$D/s4t2"
+  sc_eng_setup "$D/s4t2"
+  printf '# issues\n\n任务票 1；\n任务票 2；\n' > "$D/s4t2/repo/facts/requirements/tickets/README.md"
+  sc_run "$D/s4t2" > "$D/s4t2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -qF 'S4 数量相等断言失效：README「任务票 NN；」锚点行 2 行 vs facts/requirements/tickets/index.json 任务条目 1 条' "$D/s4t2.out"; then
+    ok 'S4-T2 计数陈述与实际漂移（锚点 2↔条目 1）→ exit 1 STALE 指名双侧计数'
+  else
+    bad 'S4-T2 计数陈述与实际漂移（锚点 2↔条目 1）→ exit 1 STALE 指名双侧计数' "exit=$rc $(tail -n 2 "$D/s4t2.out" | tr '\n' '|')"
+  fi
+
+  # S4-OM1（omission 防线：应扫未扫即抓）：扫描面深层路径（排除面外嵌套目录）与
+  # artifacts.yaml 单件各布命中 → exit 1 且逐行指名（声明为扫描面即必达）
+  sc_build_fixture "$D/s4om1"
+  sc_eng_setup "$D/s4om1"
+  mkdir -p "$D/s4om1/repo/facts/project/notes/sub"
+  printf '# 深层笔记\n\n范围行：2～3 共\n合计行：共 4 项\n' > "$D/s4om1/repo/facts/project/notes/sub/deep.md"
+  printf 'kind: 事实登记\nmeta: 批次 6～9 共\n' > "$D/s4om1/repo/facts/project/artifacts.yaml"
+  sc_run "$D/s4om1" > "$D/s4om1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -qF 'STALE-prone: facts/project/notes/sub/deep.md:3 —' "$D/s4om1.out" \
+    && grep -qF 'STALE-prone: facts/project/notes/sub/deep.md:4 —' "$D/s4om1.out" \
+    && grep -qF 'STALE-prone: facts/project/artifacts.yaml:2 —' "$D/s4om1.out"; then
+    ok 'S4-OM1 扫描面深层路径与 artifacts.yaml 命中 → exit 1 逐行指名（omission 防线）'
+  else
+    bad 'S4-OM1 扫描面深层路径与 artifacts.yaml 命中 → exit 1 逐行指名（omission 防线）' "exit=$rc $(grep -c 'STALE-prone' "$D/s4om1.out")"
+  fi
+
+  # S4-FP1（false-positive 防线：不应报而报即抓）：与命中同文布进排除面 prune 三处
+  # （票面 md/runs/生成投影）、case 跳过三处（冻结档案/账本冻结件/现役投影）、非 md、
+  # facts 外（rules 树、仓根）→ exit 0、零 STALE-prone（扫描范围声明边界实证：
+  # 规则树不在扫描面）
+  sc_build_fixture "$D/s4fp1"
+  sc_eng_setup "$D/s4fp1"
+  printf '# 票面\n历史范围 2～3 共\n' > "$D/s4fp1/repo/facts/requirements/tickets/190-fp.md"
+  mkdir -p "$D/s4fp1/repo/facts/requirements/runs" "$D/s4fp1/repo/facts/project/architecture/generated" "$D/s4fp1/repo/rules/implementation"
+  printf 'run 记录：共 4 项\n' > "$D/s4fp1/repo/facts/requirements/runs/run-fp.md"
+  printf '生成投影：3～5 共\n' > "$D/s4fp1/repo/facts/project/architecture/generated/gen-fp.md"
+  printf '\n历史：3～5 共\n' >> "$D/s4fp1/repo/facts/project/archive/progress.md"
+  printf '# 账本冻结件\n只追加：共 4 项\n' > "$D/s4fp1/repo/facts/project/archive/changes.md"
+  printf '\n批次 2～3 共\n' >> "$D/s4fp1/repo/facts/requirements/tickets/progress-current.md"
+  printf '共 4 项\n' > "$D/s4fp1/repo/facts/fp.txt"
+  printf '规则树笔记：2～3 共\n' > "$D/s4fp1/repo/rules/implementation/notes.md"
+  printf '根目录笔记：共 4 项\n' > "$D/s4fp1/repo/FP-ROOT.md"
+  sc_run "$D/s4fp1" > "$D/s4fp1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && ! grep -q 'STALE-prone' "$D/s4fp1.out" \
+    && ! grep -q '^STALE' "$D/s4fp1.out"; then
+    ok 'S4-FP1 排除面 prune/case 跳过、非 md、facts 外（rules 树/仓根）同文零报（false-positive 防线＋扫描范围声明）'
+  else
+    bad 'S4-FP1 排除面 prune/case 跳过、非 md、facts 外（rules 树/仓根）同文零报（false-positive 防线＋扫描范围声明）' "exit=$rc $(grep 'STALE-prone' "$D/s4fp1.out" | head -3 | tr '\n' '|')"
+  fi
+
+  # S4-FN1（false-negative 防线：应报未报即抓）：词表甲乙两臂＋乙臂五量词全变体
+  # 布进扫描面 → exit 1 且六行逐一指名（任一臂/量词交替失效即抓）
+  sc_build_fixture "$D/s4fn1"
+  sc_eng_setup "$D/s4fn1"
+  printf '甲臂：2～3 共\n乙张：共 12 张\n乙条：共 12 条\n乙项：共 12 项\n乙件：共 12 件\n乙个：共 12 个\n' > "$D/s4fn1/repo/facts/requirements/research/2026-10-21-fn.md"
+  sc_run "$D/s4fn1" > "$D/s4fn1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -qF 'STALE-prone: facts/requirements/research/2026-10-21-fn.md:1 —' "$D/s4fn1.out" \
+    && grep -qF 'STALE-prone: facts/requirements/research/2026-10-21-fn.md:2 —' "$D/s4fn1.out" \
+    && grep -qF 'STALE-prone: facts/requirements/research/2026-10-21-fn.md:3 —' "$D/s4fn1.out" \
+    && grep -qF 'STALE-prone: facts/requirements/research/2026-10-21-fn.md:4 —' "$D/s4fn1.out" \
+    && grep -qF 'STALE-prone: facts/requirements/research/2026-10-21-fn.md:5 —' "$D/s4fn1.out" \
+    && grep -qF 'STALE-prone: facts/requirements/research/2026-10-21-fn.md:6 —' "$D/s4fn1.out"; then
+    ok 'S4-FN1 词表甲乙两臂＋五量词六行 → exit 1 逐一指名（false-negative 防线）'
+  else
+    bad 'S4-FN1 词表甲乙两臂＋五量词六行 → exit 1 逐一指名（false-negative 防线）' "exit=$rc $(grep -c 'STALE-prone' "$D/s4fn1.out")"
+  fi
+
+  # S4-V1（词表语义分立，AC2）：与检查 12 模糊措辞词表（尽量/适当/必要时/通常/
+  # 原则上/酌情六词）非等价——纯措辞文件入 S4 扫描面零报（正例）；措辞与计数同文
+  # 异行分立，仅计数行指名（负例：词表外措辞行不因邻行命中而连坐）
+  sc_build_fixture "$D/s4v1"
+  sc_eng_setup "$D/s4v1"
+  mkdir -p "$D/s4v1/repo/facts/project/notes"
+  printf '措辞面：尽量适当，必要时通常；原则上酌情处理。\n' > "$D/s4v1/repo/facts/project/notes/vocab.md"
+  printf '措辞行：必要时酌情\n计数行：共 4 项\n' > "$D/s4v1/repo/facts/project/notes/mixed.md"
+  sc_run "$D/s4v1" > "$D/s4v1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -qF 'STALE-prone: facts/project/notes/mixed.md:2 —' "$D/s4v1.out" \
+    && ! grep -qF 'STALE-prone: facts/project/notes/vocab.md' "$D/s4v1.out" \
+    && ! grep -qF 'STALE-prone: facts/project/notes/mixed.md:1 —' "$D/s4v1.out"; then
+    ok 'S4-V1 检查 12 模糊措辞六词入扫描面零报、仅计数行指名（词表语义分立非等价不互扫）'
+  else
+    bad 'S4-V1 检查 12 模糊措辞六词入扫描面零报、仅计数行指名（词表语义分立非等价不互扫）' "exit=$rc $(grep 'STALE-prone' "$D/s4v1.out" | tr '\n' '|')"
+  fi
+
+  # S4-X1（显式豁免正例）：副本注入豁免行（路径＋行号＋理由）恰行免报 ：3，
+  # 非豁免命中照报指名（豁免不扩大面）
+  sc_build_fixture "$D/s4x1"
+  sc_eng_setup "$D/s4x1"
+  sc_s4_exempt_inject "$D/s4x1" 's4_exempt facts/exempt-fix.md 3 审计正当例外：样例行（理由必填显式登记）'
+  printf '第一行\n第二行\n命中行：共 6 项\n' > "$D/s4x1/repo/facts/exempt-fix.md"
+  printf '他行命中：4～6 共\n' > "$D/s4x1/repo/facts/other-fix.md"
+  sc_run "$D/s4x1" > "$D/s4x1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && ! grep -qF 'STALE-prone: facts/exempt-fix.md:3 —' "$D/s4x1.out" \
+    && grep -qF 'STALE-prone: facts/other-fix.md:1 —' "$D/s4x1.out"; then
+    ok 'S4-X1 显式豁免（路径＋行号＋理由）恰行免报 exempt-fix.md:3、非豁免命中照报 other-fix.md:1'
+  else
+    bad 'S4-X1 显式豁免（路径＋行号＋理由）恰行免报 exempt-fix.md:3、非豁免命中照报 other-fix.md:1' "exit=$rc $(grep 'STALE-prone' "$D/s4x1.out" | tr '\n' '|')"
+  fi
+
+  # S4-X2（豁免负例：行号漂移）：登记行号 ：3 而实际命中 ：4 → 恰整行匹配不罩他行，
+  # 照报指名 ：4（豁免机械可验证，漂移静默免报即抓）
+  sc_build_fixture "$D/s4x2"
+  sc_eng_setup "$D/s4x2"
+  sc_s4_exempt_inject "$D/s4x2" 's4_exempt facts/exempt-fix.md 3 审计正当例外：登记行号 3'
+  printf '第一行\n第二行\n第三行\n命中行：共 6 项\n' > "$D/s4x2/repo/facts/exempt-fix.md"
+  sc_run "$D/s4x2" > "$D/s4x2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -qF 'STALE-prone: facts/exempt-fix.md:4 —' "$D/s4x2.out"; then
+    ok 'S4-X2 豁免行号漂移（登记 :3 实际命中 :4）→ exit 1 恰整行匹配不罩他行照报指名 :4'
+  else
+    bad 'S4-X2 豁免行号漂移（登记 :3 实际命中 :4）→ exit 1 恰整行匹配不罩他行照报指名 :4' "exit=$rc $(grep 'STALE-prone' "$D/s4x2.out" | tr '\n' '|')"
+  fi
+
+  # S4-X3（豁免负例：结构破坏）：豁免行缺理由（理由必填无静默豁免）→ exit 2
+  # fail-closed 指名，不产生部分结论
+  sc_build_fixture "$D/s4x3"
+  sc_eng_setup "$D/s4x3"
+  sc_s4_exempt_inject "$D/s4x3" 's4_exempt facts/exempt-fix.md 3'
+  sc_run "$D/s4x3" > "$D/s4x3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] \
+    && grep -qF 'S4 豁免表理由必填（无静默豁免）' "$D/s4x3.out"; then
+    ok 'S4-X3 豁免表结构破坏（缺理由）→ exit 2 fail-closed 指名（豁免显式无静默）'
+  else
+    bad 'S4-X3 豁免表结构破坏（缺理由）→ exit 2 fail-closed 指名（豁免显式无静默）' "exit=$rc $(tail -n 2 "$D/s4x3.out" | tr '\n' '|')"
   fi
 
   suite_summary 'stale-claims'
