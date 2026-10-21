@@ -2,7 +2,7 @@
 #        规则块短码登记、platform 枚举、模糊措辞词表与豁免、镜像脚本、能力基元名单与检查
 #        目标、规则索引执行机制受控词表——十节唯一承载点；
 #        check-package.sh 检查 1/5/8 的清单与计数自本表读取（引擎内硬编码清单废止），检查
-#        9/10/11/12/13/14/15/16/17 以本表为比对基准。
+#        9/10/11/12/13/14/15/16/17/21 以本表为比对基准。
 # Output: check-package.sh 引擎启动时 source 本表——每行一个 pm_* 调用：
 #         pm_entry <pkg-rel-path>（必需入口文件，包根相对路径）；
 #         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
@@ -15,10 +15,15 @@
 #           references/protocol/governance-format.md R-GF-010 原文列举六词，引擎零词表硬编码）；
 #         pm_vague_exempt <pkg-rel-path> <行号> <理由>（检查 12 行级豁免：命中行无法安全换词
 #           时登记，理由必填；登记行无命中即失效豁免 FAIL，行号漂移须复核更新）；
-#         pm_mirror <filename>（镜像脚本单段文件名：包侧 scripts/<filename> 与包根父目录
-#           仓根 scripts/<filename> 同名件逐对 cmp——对应关系＝同名件，对数以本节
-#           登记行为准，检查 13；仓根无 scripts/ 或无同名件
-#           静默跳过）；
+#         pm_mirror <filename> <ownership>（跨树同名脚本所有权登记，检查 13：单段文件名＋
+#           所有权类别；类别 ∈ mirror（包侧 scripts/<filename> 与仓侧 scripts/ 或
+#           rules/implementation/scripts/ 下同名件互为镜像，逐对 cmp，byte 差异或仓侧
+#           两落位皆无同名件即 FAIL）/package-only（包侧为唯一维护权威，不 cmp；仓侧
+#           同名实例在场属待升级流程同步的过渡态，升级主链见 references/upgrade.md）/
+#           repo-only（仅仓侧存在、包侧明确不收录，包内出现同名件即 FAIL，仓侧两落位
+#           皆无同名件即 FAIL）；登记域＝两侧 scripts/ 树的跨树同名脚本全集（main-only
+#           件归 delivery.rules dp_mainonly 管辖不入本节）；仓根无镜像落位目录
+#           （scripts/ 与 rules/implementation/scripts/ 皆无＝消费项目）整项静默跳过）；
 #         pm_capability <name>（能力基元名单项：九基元名自 references/adapters/
 #           capability-contract.md §2.1 权威表现场提取登记，不自造基元，检查 14）；
 #         pm_capability_authority <pkg-rel-path>（能力权威表文件，恰一行；引擎以窄锚点
@@ -44,14 +49,15 @@
 #      （check-package.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不产生
 #      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
 #      pm_shortcode 恰 2、pm_platform 恰 1、pm_vague_word 恰 1、pm_vague_exempt 恰 3、
-#      pm_mirror 恰 1、pm_capability 恰 1、pm_capability_authority 恰 1、
+#      pm_mirror 恰 2、pm_capability 恰 1、pm_capability_authority 恰 1、
 #      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1，字段内
 #      禁制表符）；路径禁前导斜杠、空白与
 #      .. 段；pm_script 须 scripts/ 前缀加单段文件名；kind 枚举三值（见 Output）；
 #      pm_template 须单段 .tmpl 文件名；短码两字母大写且「短码+owner」对跨行唯一（一短码
 #      允许多行 owner 登记多件所属文件），owner 须 references/ 前缀；platform 值须小写
 #      token；pm_vague_word 词须非空且跨行唯一；pm_vague_exempt
-#      行号须正整数、理由非空、路径+行号跨行唯一；pm_mirror 须单段文件名且跨行唯一；
+#      行号须正整数、理由非空、路径+行号跨行唯一；pm_mirror 须单段文件名、所有权类别
+#      ∈ mirror/package-only/repo-only 且文件名跨行唯一；
 #      pm_capability 名须小写 token 且跨行唯一；pm_capability_authority 跨行恰一行；
 #      pm_capability_target 目标路径跨行唯一、kind ∈ decl/table、预期名单逐名 ⊆
 #      pm_capability 名单且并集 ⊇ 名单；pm_mechanism 值须非空且不含空白并跨行唯一；
@@ -83,6 +89,23 @@ pm_entry references/schemas/run-record.schema.json
 pm_entry references/schemas/run-record.example.json
 pm_entry references/schemas/dispatch-contract.schema.json
 pm_entry references/schemas/ticket-record.schema.json
+pm_entry references/upgrade.md
+pm_entry references/adapters/adapter-template.md
+pm_entry references/adapters/claude-code.md
+pm_entry references/adapters/codex.md
+pm_entry references/adapters/dsh.md
+pm_entry references/adapters/pi.md
+pm_entry references/prompts/README.md
+pm_entry references/prompts/implementation-prompt.md
+pm_entry references/prompts/review-prompt.md
+pm_entry references/prompts/commit-prompt.md
+pm_entry references/schemas/issue-index.schema.json
+pm_entry references/schemas/request-index.schema.json
+pm_entry references/schemas/ticket-record.example.json
+pm_entry references/schemas/workflow.schema.json
+pm_entry references/workflows/README.md
+pm_entry references/workflows/triage.yaml
+pm_entry references/workflows/implementation.yaml
 
 # ==== scripts：脚本必需件（检查 8；成员表一致性检查 9）====
 # kind 口径差定谳：test-record-layer.sh 定为必需件，kind 标 test-harness。
@@ -177,20 +200,37 @@ pm_vague_word '酌情'
 pm_vague_exempt references/protocol/governance-format.md 82 'R-GF-003 Forbidden 字段枚举禁用措辞——禁令条款内引述词表本身，换词即丢失枚举语义（R-GF-010 Evidence 明示禁令条款内引述除外）'
 pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden 字段＝词表权威列举处（vague-words 节依据），禁令条款内引述除外'
 
-# ==== mirrors：镜像脚本登记（检查 13；对应关系＝包侧 scripts/ 与包根父目录仓根
-#      scripts/ 的同名件，逐对 cmp；对数以本节登记行为准）。源仓实例迁移后
-#      镜像对应件居 rules/implementation/scripts/；检查 13 在仓根无 scripts/ 时静默
-#      跳过＝消费项目语义，源仓镜像纪律由 cmp 抽查承载。====
+# ==== mirrors：跨树同名脚本所有权登记（检查 13；每名恰一类别，登记域＝包侧 scripts/
+#      与仓侧 scripts/、rules/implementation/scripts/ 的跨树同名脚本全集）：
+#      mirror＝两侧同名件互为镜像逐对 cmp（byte 纪律，仓侧缺同名件即 FAIL）；
+#      package-only＝包侧为唯一维护权威，不 cmp；仓侧同名实例在场属待升级流程同步的
+#      过渡态（升级主链见 references/upgrade.md），不判差异不判存在；
+#      repo-only＝仅仓侧存在、包侧明确不收录，包内出现同名件即 FAIL（防未决策采纳）。
+#      仓根无镜像落位目录（scripts/ 与 rules/implementation/scripts/ 皆无＝消费项目）
+#      整项静默跳过。main-only 件归 delivery.rules dp_mainonly 管辖不入本节。====
 
-pm_mirror generate-progress.sh
-pm_mirror ticket-ops.sh
-pm_mirror check-stale-claims.sh
-pm_mirror absorption-trigger.sh
-pm_mirror health-summary.sh
-pm_mirror run-record.sh
-pm_mirror ticket-grade.sh
-pm_mirror lane-commit.sh
-pm_mirror check-gates.sh
+# -- mirror：两侧同名件互为镜像 --
+pm_mirror generate-progress.sh mirror
+pm_mirror ticket-ops.sh mirror
+pm_mirror check-stale-claims.sh mirror
+pm_mirror absorption-trigger.sh mirror
+pm_mirror health-summary.sh mirror
+pm_mirror run-record.sh mirror
+pm_mirror ticket-grade.sh mirror
+pm_mirror lane-commit.sh mirror
+pm_mirror check-gates.sh mirror
+pm_mirror upgrade-check.sh mirror
+pm_mirror worktree-add.sh mirror
+# -- package-only：包侧唯一维护权威（仓侧同名实例待升级流程同步的过渡态） --
+pm_mirror check-dispatch-contract.sh package-only
+pm_mirror test-checkpoint-recovery.sh package-only
+pm_mirror verify-contract.sh package-only
+pm_mirror workflow-executor.sh package-only
+# -- repo-only：仅仓侧存在，包侧明确不收录 --
+pm_mirror merge-ticket.sh repo-only
+pm_mirror check-derived-freshness.sh repo-only
+pm_mirror check-payload-boundary.sh repo-only
+pm_mirror check-role-permissions.sh repo-only
 
 # ==== capability-primitives：能力基元名单与检查目标（检查 14）====
 # 九基元名自 references/adapters/capability-contract.md §2.1 权威表逐行现场提取登记

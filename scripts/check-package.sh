@@ -3,9 +3,9 @@
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
 #        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标/规则索引执行
 #        机制受控词表十节唯一承载点，票 57/58/59/60）。
-# Output: 二十项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
-#         exit 1；检查 13 仓根无镜像时静默跳过无输出行；检查 19 非 git 语境静默跳过
-#         无输出行）。
+# Output: 二十一项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
+#         exit 1；检查 13 仓根无镜像落位目录时静默跳过无输出行；检查 19 非 git 语境静默
+#         跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
 
 # 用法与检查项实现细节（含各例外登记）见同目录 README.md。
@@ -76,10 +76,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  二十项检查全部通过
+  0  二十一项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-二十项检查说明、例外登记与输出格式见同目录 README.md。
+二十一项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -235,8 +235,8 @@ LC_ALL=C awk -v progin="$pm_rules" '
     }
     if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
     ar = -1
-    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_mirror" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word") ar = 1
-    else if (cmd == "pm_shortcode") ar = 2
+    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word") ar = 1
+    else if (cmd == "pm_shortcode" || cmd == "pm_mirror") ar = 2
     else if (cmd == "pm_script" || cmd == "pm_vague_exempt" || cmd == "pm_cite_exempt" || cmd == "pm_capability_target") ar = 3
     if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
     if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
@@ -381,8 +381,9 @@ pm_report "$pm_bad"
 pm_bad=$(LC_ALL=C awk -F'\t' '
   function bad(msg) { printf "mirrors 节第 %d 行: %s\n", FNR, msg; n++ }
   {
-    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if (NF != 2) { bad("字段数 " NF "（预期 2：文件名、所有权类别）"); next }
     if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) { bad("须为单段文件名: " $1); next }
+    if ($2 != "mirror" && $2 != "package-only" && $2 != "repo-only") { bad("所有权类别不合预期（mirror|package-only|repo-only）: " $2); next }
     if ($1 in seen) { bad("文件名跨行重复: " $1) } else { seen[$1] = 1 }
   }
   END { if (n > 0) exit 1 }
@@ -1180,47 +1181,82 @@ else
   pass 12 "规则块体无模糊措辞（词表 ${n_words} 词，豁免 ${n_exempt} 行）"
 fi
 
-# 检查 13：镜像脚本与仓根同名件一致（票 58 新增）。比对对＝清单 mirrors 节登记（对应
-# 关系＝包侧 $scripts_dir/<名> 与包根父目录仓根 $scripts_dir/<名> 同名件，注记见 manifest）；
-# 仓根无 $scripts_dir 或无同名件静默跳过（消费项目语义，--pkg-root 参数化语境同样跳过，
-# 无输出行）；逐对 cmp，一致 PASS、差异 FAIL 指名文件。
-# 票 123 增补（源仓倒挂拦截）：仓根镜像迁居新布局（rules/implementation/scripts/）后，
-# 包根父目录 $scripts_dir 不在场导致本检查静默跳过＝防线失效——补第二落位形态探测：
-# 仓根 rules/implementation/scripts/ 下同名件在场即 cmp（同一 mirrors 清单，两形态任一
-# 在场即比对；两形态皆无＝保持消费项目静默跳过语义）。此为"仓领先于包"倒挂的提交前
-# 机械拦截面：仓侧镜像件改动未同步包内时本检查即红，不等导出波。
+# 检查 13：镜像脚本与仓根同名件一致（票 58 新增；跨树同名脚本所有权三分类，登记域＝
+# 清单 mirrors 节 pm_mirror <文件名> <所有权> 两参数行）。三分类语义：
+#   mirror        包侧 $scripts_dir/<名> 与仓侧同名件（$scripts_dir/ 与
+#                 rules/implementation/scripts/ 两落位任一在场）互为镜像，逐对 cmp，
+#                 byte 差异即 FAIL 指名；仓侧两落位皆无同名件即 FAIL（镜像登记悬空）。
+#   package-only  包侧为唯一维护权威，不 cmp；包侧缺件由检查 8 指名本项不重复报；仓侧
+#                 同名实例在场属待升级流程同步的过渡态（升级主链见 references/upgrade.md），
+#                 不判差异不判存在。
+#   repo-only     仅仓侧存在、包侧明确不收录：包内出现同名件即 FAIL（防未决策采纳）；
+#                 仓侧两落位皆无同名件即 FAIL（登记悬空）。
+# 票 123 增补（源仓倒挂拦截）保留：仓侧落位形态两处探测（旧 $scripts_dir/ 与新布局
+# rules/implementation/scripts/）。源仓语境判定＝包根父目录存在两落位目录任一；皆无＝
+# 消费项目语境，整项静默跳过无输出行（--pkg-root 参数化语境同口径）。
 problems=''
 mirror_compared=0
 mirror_root=$(CDPATH='' cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
 mirror_new_dir='rules/implementation/scripts'
-OLDIFS=$IFS
-IFS='
+in_mirror_ctx=0
+if [ -n "$mirror_root" ] && { [ -d "$mirror_root/$scripts_dir" ] || [ -d "$mirror_root/$mirror_new_dir" ]; }; then
+  in_mirror_ctx=1
+fi
+if [ "$in_mirror_ctx" -eq 1 ]; then
+  OLDIFS=$IFS
+  IFS='
 '
-while IFS= read -r m; do
-  [ -f "$pkg_root/$scripts_dir/$m" ] || continue
-  _m_dst=''
-  if [ -n "$mirror_root" ] && [ -f "$mirror_root/$scripts_dir/$m" ]; then
-    _m_dst="$mirror_root/$scripts_dir/$m"
-    _m_loc="$scripts_dir/$m"
-  elif [ -n "$mirror_root" ] && [ -f "$mirror_root/$mirror_new_dir/$m" ]; then
-    _m_dst="$mirror_root/$mirror_new_dir/$m"
-    _m_loc="$mirror_new_dir/$m"
-  fi
-  [ -n "$_m_dst" ] || continue
-  mirror_compared=$((mirror_compared + 1))
-  if ! cmp -s "$pkg_root/$scripts_dir/$m" "$_m_dst"; then
-    add_problem "  - $scripts_dir/$m 与仓根 $_m_loc 不一致（byte-diff，两处同源演化须互为镜像）"
-  fi
-done < "$pm_mirrors"
-IFS=$OLDIFS
-if [ "$mirror_compared" -gt 0 ]; then
-  if [ -n "$problems" ]; then
-    fail 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）" "$problems"
-  else
-    pass 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）"
+  while IFS= read -r mrow; do
+    IFS=$OLDIFS
+    m=${mrow%%"$TAB"*}
+    m_own=${mrow#*"$TAB"}
+    _m_dst=''
+    _m_loc=''
+    if [ -n "$mirror_root" ] && [ -f "$mirror_root/$scripts_dir/$m" ]; then
+      _m_dst="$mirror_root/$scripts_dir/$m"
+      _m_loc="$scripts_dir/$m"
+    elif [ -n "$mirror_root" ] && [ -f "$mirror_root/$mirror_new_dir/$m" ]; then
+      _m_dst="$mirror_root/$mirror_new_dir/$m"
+      _m_loc="$mirror_new_dir/$m"
+    fi
+    case $m_own in
+      mirror)
+        if [ ! -f "$pkg_root/$scripts_dir/$m" ]; then
+          continue  # 包侧缺件由检查 8 指名，本项不重复报
+        fi
+        if [ -z "$_m_dst" ]; then
+          # 花括号不可省略：全角字符相邻时防止变量名吞并（先例检查 5/12/17）
+          add_problem "  - $scripts_dir/$m 登记 mirror 但仓侧两落位皆无同名件（镜像登记悬空，须复核同步或改所有权类别）"
+          continue
+        fi
+        mirror_compared=$((mirror_compared + 1))
+        if ! cmp -s "$pkg_root/$scripts_dir/$m" "$_m_dst"; then
+          add_problem "  - $scripts_dir/$m 与仓根 $_m_loc 不一致（byte-diff，两处同源演化须互为镜像）"
+        fi
+        ;;
+      package-only)
+        : # 包侧缺件由检查 8 指名；不 cmp，仓侧同名实例过渡态不判（升级主链收口）
+        ;;
+      repo-only)
+        if [ -f "$pkg_root/$scripts_dir/$m" ]; then
+          add_problem "  - $scripts_dir/$m 登记 repo-only 但包内出现同名件（防未决策采纳，须改登记 mirror 或移除包内侧）"
+        fi
+        if [ -z "$_m_dst" ]; then
+          add_problem "  - $m 登记 repo-only 但仓侧两落位皆无同名件（登记悬空，须复核移除登记或恢复仓侧件）"
+        fi
+        ;;
+    esac
+  done < "$pm_mirrors"
+  IFS=$OLDIFS
+  if [ "$mirror_compared" -gt 0 ] || [ -n "$problems" ]; then
+    if [ -n "$problems" ]; then
+      fail 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）" "$problems"
+    else
+      pass 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）"
+    fi
   fi
 fi
-# mirror_compared=0（仓根两形态皆无同名件）→ 静默跳过，无输出行
+# 消费项目语境（两落位目录皆无）或零 mirror 类登记且零问题 → 静默跳过，无输出行
 
 # 检查 14：能力映射一致（票 59 新增）。名单＝清单 capability-primitives 节（九基元名，
 # 引擎零基元名硬编码）；权威表＝capability_authority 登记文件（窄锚点「### …能力基元
@@ -1598,7 +1634,7 @@ fi
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
-n_total_checks=20
+n_total_checks=21
 n_mrow=0
 mech_m='机械'
 if [ "$n_idx" -eq 0 ]; then
@@ -1949,8 +1985,184 @@ else
   pass 20 "包闭合性与符号链接防护（scripts 一级 ${n_closure} 项，symlink ${n_syms} 个）"
 fi
 
+# 检查 21：references 树成员闭合与导航。三段防线：
+#   ①references 全树文件 ⊆ 清单登记——find references/ 全部常规文件逐件核对：包根相对
+#     路径在清单 entry-files 节，或属 references/templates/ 下 .tmpl 且在 templates 节
+#     （检查 5 同源数据，引擎零文件名硬编码）；未登记额外文件（成员增删漏登记、恶意
+#     投放、隐藏条目）即 FAIL 指名；references/ 目录缺失一体 FAIL。
+#   ②references/README.md 目录清单投影双向——references/ 一级条目（文件与目录）与
+#     README「## 目录清单」表首列反引号名单双向全等（表＝人读投影、数据与实物＝机器
+#     真相，先例检查 5/9 投影纪律）；一级条目未登记表或表登记无实物均 FAIL 指名；
+#     锚点未命中或零成员行判表结构漂移 FAIL。
+#   ③包内 Markdown 行内链接目标存在——全部 *.md 的 ](target) 链接：外链（含 :// 与
+#     mailto:）与 # 纯锚点不在口径；其余剥离 #锚点 后相对所在文件目录词法折叠（点段
+#     折叠，复用检查 20 词法判定形态），目标不存在或折出包根（含绝对路径目标）即 FAIL
+#     指名文件:行号与目标（坏相对链接导航防线）。
+problems=''
+n_ref_files=0
+n_links=0
+ref_dir="$pkg_root/references"
+ref_readme="$ref_dir/README.md"
+link_resolve() {
+  # $1=链接目标 $2=所在文件包根相对路径：输出目标相对所在文件目录词法折叠后的包根相对
+  # 路径；折出包根（含绝对路径目标）输出 ESCAPE。词法判定，不展开路径 symlink。
+  _lr_t=$1
+  case $_lr_t in
+    /*) printf 'ESCAPE'; return 0 ;;
+  esac
+  _lr_acc=$(dirname "$2")/$_lr_t
+  _lr_out=''
+  _lr_i=1
+  _lr_n=$(printf '%s' "$_lr_acc" | LC_ALL=C awk '{ n = split($0, p, "/"); print n }')
+  while [ "$_lr_i" -le "$_lr_n" ]; do
+    _lr_seg=$(printf '%s' "$_lr_acc" | LC_ALL=C awk -v i="$_lr_i" '{ n = split($0, p, "/"); print p[i] }')
+    case $_lr_seg in
+      '') ;;
+      .) ;;
+      ..)
+        if [ -z "$_lr_out" ]; then
+          printf 'ESCAPE'
+          return 0
+        fi
+        case $_lr_out in
+          */*) _lr_out=${_lr_out%/*} ;;
+          *) _lr_out='' ;;
+        esac
+        ;;
+      *)
+        if [ -n "$_lr_out" ]; then
+          _lr_out="$_lr_out/$_lr_seg"
+        else
+          _lr_out=$_lr_seg
+        fi
+        ;;
+    esac
+    _lr_i=$((_lr_i + 1))
+  done
+  printf '%s' "$_lr_out"
+}
+if [ ! -d "$ref_dir" ]; then
+  add_problem '  - references/ 目录不存在'
+else
+  # ① 全树成员闭合
+  unreg=''
+  sep2=''
+  OLDIFS=$IFS
+  IFS='
+'
+  for _rf in $(find "$ref_dir" -type f | LC_ALL=C sort); do
+    IFS=$OLDIFS
+    n_ref_files=$((n_ref_files + 1))
+    _rf_rel=${_rf#"${pkg_root}/"}
+    if grep -qxF "$_rf_rel" "$pm_entries"; then
+      continue
+    fi
+    case $_rf_rel in
+      references/templates/*.tmpl)
+        if grep -qxF "$(basename "$_rf_rel")" "$pm_templates"; then
+          continue
+        fi
+        ;;
+    esac
+    unreg="$unreg$sep2$_rf_rel"
+    sep2='、'
+  done
+  IFS=$OLDIFS
+  if [ -n "$unreg" ]; then
+    add_problem "  - references 全树未登记条目（闭合白名单＝entry-files ∪ templates 节 .tmpl）: $unreg"
+  fi
+  # ② README 一级投影双向
+  if [ ! -f "$ref_readme" ]; then
+    add_problem '  - references/README.md（目录清单投影）不存在'
+  else
+    # shellcheck disable=SC2016  # sed 捕获组 \(...\) 刻意单引号防 shell 展开
+    man_names=$(sed -n '/^## 目录清单/,/^## /p' "$ref_readme" | sed -n 's/^[^`]*`\([^`]*\)`.*/\1/p' | sed 's:/*$::' | LC_ALL=C sort -u)
+    if [ -z "$man_names" ]; then
+      add_problem '  - references/README.md 目录清单表未提取到成员行（表结构漂移）'
+    else
+      lvl1_names=''
+      OLDIFS=$IFS
+      IFS='
+'
+      for _l1 in $(find "$ref_dir" -mindepth 1 -maxdepth 1 | LC_ALL=C sort); do
+        IFS=$OLDIFS
+        lvl1_names="$lvl1_names${_l1##*/}
+"
+      done
+      IFS=$OLDIFS
+      miss_man=''
+      sep2=''
+      OLDIFS=$IFS
+      IFS='
+'
+      for _n in $lvl1_names; do
+        IFS=$OLDIFS
+        [ -n "$_n" ] || continue
+        if ! printf '%s\n' "$man_names" | grep -qxF "$_n"; then
+          miss_man="$miss_man$sep2$_n"
+          sep2='、'
+        fi
+      done
+      IFS=$OLDIFS
+      if [ -n "$miss_man" ]; then
+        add_problem "  - references/ 一级条目未在 README 目录清单登记: $miss_man"
+      fi
+      miss_disk=''
+      sep2=''
+      for _n in $man_names; do
+        if [ ! -e "$ref_dir/$_n" ]; then
+          miss_disk="$miss_disk$sep2$_n"
+          sep2='、'
+        fi
+      done
+      if [ -n "$miss_disk" ]; then
+        add_problem "  - README 目录清单登记但 references/ 一级无实物: $miss_disk"
+      fi
+    fi
+  fi
+fi
+# ③ Markdown 行内链接目标存在
+link_raw=$(cd "$pkg_root" && grep -rnoE '\]\([^)]+\)' --include='*.md' . 2>/dev/null | sed 's|^\./||') || link_raw=''
+if [ -n "$link_raw" ]; then
+  OLDIFS=$IFS
+  IFS='
+'
+  for _lh in $link_raw; do
+    IFS=$OLDIFS
+    _lf=${_lh%%:*}
+    _lrest=${_lh#*:}
+    _ll=${_lrest%%:*}
+    _lm=${_lrest#*:}
+    _lt=${_lm#](}
+    _lt=${_lt%\)}
+    case $_lt in
+      *'://'*|mailto:*|'#'*) continue ;;
+    esac
+    _lt=${_lt%%#*}
+    [ -n "$_lt" ] || continue
+    n_links=$((n_links + 1))
+    _lr=$(link_resolve "$_lt" "$_lf")
+    case $_lr in
+      ESCAPE)
+        add_problem "  - $_lf:$_ll 坏相对链接（目标为绝对路径或折出包根）: $_lt"
+        ;;
+      *)
+        if [ ! -e "$pkg_root/$_lr" ]; then
+          add_problem "  - $_lf:$_ll 坏相对链接（目标不存在）: $_lt"
+        fi
+        ;;
+    esac
+  done
+  IFS=$OLDIFS
+fi
+if [ -n "$problems" ]; then
+  fail 21 "references 树成员闭合与导航（成员 ${n_ref_files} 件，链接 ${n_links} 个）" "$problems"
+else
+  pass 21 "references 树成员闭合与导航（成员 ${n_ref_files} 件，链接 ${n_links} 个）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 20 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 21 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'
