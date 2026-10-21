@@ -6,7 +6,9 @@
 #         ——.md 票追加票尾，.json 票体零追加、落独立 facts/requirements/tickets/<id>-review-checkpoint.md
 #         （票 108）；micro 道向 facts/project/micro.jsonl 懒创建落 JSON 行——键序 date,lane,
 #         whitelist,gates,verify,commit,actual 六键＋actual 键（票 100：记净工时，缺省空串
-#         既有六键行向后兼容））、索引单写与状态投影
+#         既有六键行向后兼容；行型合同＝agent-up 公开包 references/schemas/ledger-row.schema.json，
+#         本脚本 micro 道落行形态与其 micro_seven_key/micro_six_key_legacy 行族逐字对齐，
+#         文档级单源，不运行时读取，安装闭包不含此件））、索引单写与状态投影
 #         （flips 索引条目口径：单写 facts/requirements/tickets/index.json → 机械回写受影响票正文
 #         **Status:** 行（.json 票体无 Status 行，跳过回写）→ 调 generate-progress.sh 再生
 #         facts/requirements/tickets/progress-current.md 投影并 --check 核对）与两段提交的逐步输出，两段提交 ID、

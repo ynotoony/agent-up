@@ -778,6 +778,103 @@ EOF
     bad '负例 lesson 分数键序错（predicate 在前）→ exit 1 指名固定键序（票 133）' "exit=$rc $(tail -n 1 "$D/ls5.log" | head -c 120)"
   fi
 
+  # ---- 票 193 断言：统一账本行合同（references/schemas/ledger-row.schema.json 单源）----
+  # AC1：合同文件为行型真相源——内部一致（example 键序＝keys 逐字、五/七/九键行族键数
+  # 在场），合同正例行族 example 经 ticket-ops ledger 全数收录（合同↔校验同源实证），
+  # 三方消费者（ticket-ops.sh 头注／lane-commit.sh 头注／project.md.tmpl 票务脚本承载
+  # 注记）均指向该合同且模板键序串与合同 keys 逐字一致。AC2：未知键／键序破坏／值域
+  # 越界负例 fail-closed 零写入且报文指名行形态（行族键集／具体键／值域）。夹具全
+  # mktemp，ledger 无票入口不触票务面；合同文件为套件依赖（缺失 exit 2，同 ticket-record
+  # schema 先例）。
+  LR_SCHEMA="${SCRIPT_DIR}/../references/schemas/ledger-row.schema.json"
+  [ -f "$LR_SCHEMA" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（账本行行型合同，票 193）\n' "$LR_SCHEMA" >&2; exit 2; }
+  mkdir -p "$D/lr"
+  if python3 - "$LR_SCHEMA" "$D/lr" >"$D/lr-parse.log" 2>&1 <<'PYTHON'
+import json, os, sys
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+out = sys.argv[2]
+rows = {r['id']: r for r in schema['rows']}
+for rid, r in rows.items():
+    assert list(r['example'].keys()) == r['keys'], f"{rid}: example 键序漂移"
+assert rows['changes_five_key']['key_count'] == 5
+assert rows['micro_seven_key']['key_count'] == 7
+assert rows['changes_lesson_nine_key']['key_count'] == 9
+for rid in ('changes_five_key', 'changes_lesson_six_key', 'changes_replan_eight_key', 'changes_lesson_nine_key'):
+    with open(os.path.join(out, rid + '.json'), 'w', encoding='utf-8') as f:
+        json.dump(rows[rid]['example'], f, ensure_ascii=False)
+with open(os.path.join(out, 'changes-order.txt'), 'w', encoding='utf-8') as f:
+    f.write(','.join(rows['changes_five_key']['keys']))
+with open(os.path.join(out, 'micro-order.txt'), 'w', encoding='utf-8') as f:
+    f.write(','.join(rows['micro_seven_key']['keys']))
+PYTHON
+  then
+    ok '正例 合同内部一致（example 键序＝keys 逐字；五/七/九键行族键数在场，票 193 AC1）'
+  else
+    bad '正例 合同内部一致（example 键序＝keys 逐字；五/七/九键行族键数在场，票 193 AC1）' "$(head -n 3 "$D/lr-parse.log" | tr '\n' '|')"
+  fi
+
+  uc_build_ticket_ops_fixture "$D/lrpos"
+  for lr_row in changes_five_key changes_lesson_six_key changes_replan_eight_key changes_lesson_nine_key; do
+    sh "$SCRIPT_DIR/ticket-ops.sh" "$D/lrpos" ledger --ledger-line "$(cat "$D/lr/$lr_row.json")" >"$D/lrpos.log" 2>&1
+    rc=$?
+    if [ "$rc" -eq 0 ] && tail -n 1 "$D/lrpos/facts/project/changes.jsonl" | grep -qF "$(cat "$D/lr/$lr_row.json")"; then
+      ok "正例 合同行族 ${lr_row} example 经 ticket-ops 收录（合同↔校验同源，票 193 AC1）"
+    else
+      bad "正例 合同行族 ${lr_row} example 经 ticket-ops 收录（合同↔校验同源，票 193 AC1）" "exit=$rc $(tail -n 1 "$D/lrpos.log" | head -c 120)"
+    fi
+  done
+
+  LR_TMPL="${SCRIPT_DIR}/../references/templates/project.md.tmpl"
+  if grep -qF 'references/schemas/ledger-row.schema.json' "$SCRIPT_DIR/ticket-ops.sh" \
+    && grep -qF 'references/schemas/ledger-row.schema.json' "$SCRIPT_DIR/lane-commit.sh" \
+    && grep -qF 'references/schemas/ledger-row.schema.json' "$LR_TMPL"; then
+    ok '三方消费者同指一合同（ticket-ops.sh＋lane-commit.sh 头注＋模板承载注记，票 193 AC1）'
+  else
+    bad '三方消费者同指一合同（ticket-ops.sh＋lane-commit.sh 头注＋模板承载注记，票 193 AC1）' '至少一方缺合同指针'
+  fi
+  if grep -qF "$(cat "$D/lr/changes-order.txt")" "$LR_TMPL" \
+    && grep -qF "$(cat "$D/lr/micro-order.txt")" "$LR_TMPL"; then
+    ok '模板承载注记键序串与合同 keys 逐字一致（changes 五键序＋micro 七键序，票 193 AC1）'
+  else
+    bad '模板承载注记键序串与合同 keys 逐字一致（changes 五键序＋micro 七键序，票 193 AC1）' '模板键序串漂移'
+  fi
+
+  # AC2 负例（独立空账本夹具；各行族负例 fail-closed 零写入且报文指名行形态）
+  uc_build_ticket_ops_fixture "$D/lrneg"
+  lr_n0=$(wc -l < "$D/lrneg/facts/project/changes.jsonl" | tr -d ' ')
+  lr_neg() {
+    # $1=负例名 $2=行 $3=报文必含字面片段（grep -F）
+    sh "$SCRIPT_DIR/ticket-ops.sh" "$D/lrneg" ledger --ledger-line "$2" >"$D/lrneg.log" 2>&1
+    rc=$?
+    lr_n1=$(wc -l < "$D/lrneg/facts/project/changes.jsonl" | tr -d ' ')
+    if [ "$rc" -eq 1 ] && [ "$lr_n1" -eq "$lr_n0" ] && grep -qF -- "$3" "$D/lrneg.log"; then
+      ok "负例 ${1} → exit 1 零写入且报文指名行形态（票 193 AC2）"
+    else
+      bad "负例 ${1} → exit 1 零写入且报文指名行形态（票 193 AC2）" "exit=$rc 行数=${lr_n1}/${lr_n0} $(head -n 2 "$D/lrneg.log" | tr '\n' '|')"
+    fi
+  }
+  lr_neg '193a 五键族未知键' \
+    '{"date": "2026-10-21", "kind": "scope", "scope": "s", "decision": "d", "evidence_ref": "e", "unknown_key": "x"}' \
+    '账本行含未知键'
+  lr_neg '193a2 五键族未知键指名键名' \
+    '{"date": "2026-10-21", "kind": "scope", "scope": "s", "decision": "d", "evidence_ref": "e", "unknown_key": "x"}' \
+    'unknown_key'
+  lr_neg '193b lesson 六键族未知键' \
+    '{"date": "2026-10-21", "kind": "lesson", "scope": "s", "decision": "d", "evidence_ref": "e", "promoted_to": "rules", "unknown_key": "x"}' \
+    'unknown_key'
+  lr_neg '193c 五键族键序破坏（kind/date 换位）' \
+    '{"kind": "scope", "date": "2026-10-21", "scope": "s", "decision": "d", "evidence_ref": "e"}' \
+    '账本行不合键序或形状'
+  lr_neg '193d 五键族值域越界（date 非 YYYY-MM-DD 形状）' \
+    '{"date": "2026/10/21", "kind": "scope", "scope": "s", "decision": "d", "evidence_ref": "e"}' \
+    '账本行不合键序或形状'
+  lr_neg '193e replan 八键族值域越界（布尔位字串）' \
+    '{"date": "2026-10-21", "kind": "replan", "scope": "s", "decision": "d", "evidence_ref": "e", "replan_original": "true", "replan_replacement": false, "replan_undone": true}' \
+    '布尔字面量'
+  lr_neg '193f micro 七键行误入 changes 账本（跨账本键集拒绝）' \
+    '{"date": "2026-10-21", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "abc1234", "actual": ""}' \
+    'lane,whitelist,gates,verify,commit,actual'
+
   # ---- 票 152 断言：open 本体 schema 全量校验（type/pattern/enum/oneOf/
   # additionalProperties/条件 required）----
   # 独立夹具 fix152（免受前段状态影响）：最小 task 本体照（tix_body 形态）重建后逐字段

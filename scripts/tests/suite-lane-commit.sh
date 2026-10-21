@@ -708,5 +708,59 @@ PYTHON
     bad '负例 N-json flips id 与 .json 票文件不符 → exit 1 零提交零写入且票体零追加（票 108 fail-closed）' "exit=$rc $(tail -n 2 "$D/nj.out" | tr '\n' '|')"
   fi
 
+  # ---- 票 193 断言：微账本行合同（references/schemas/ledger-row.schema.json 单源）----
+  # AC1/AC2 lane-commit 写入面：micro 道机写落行与合同 micro_seven_key 行族逐键对齐
+  # （键序/枚举/值域经合同文件机核）；既有六键行（无 actual 键）向后兼容——旧行逐字节
+  # 保留、新行恒七键。行型合同文件为套件依赖（缺失 exit 2）。
+  LR_SCHEMA="${SCRIPT_DIR}/../references/schemas/ledger-row.schema.json"
+  [ -f "$LR_SCHEMA" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（微账本行行型合同，票 193）\n' "$LR_SCHEMA" >&2; exit 2; }
+
+  lc_build_fixture "$D/lr7"
+  lc_contract "$D/lr7.contract" '25m（票 193 微账本合同占位）'
+  sh "$LC" "$D/lr7" "$D/lr7.contract" >"$D/lr7.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    if python3 - "$LR_SCHEMA" "$D/lr7/facts/project/micro.jsonl" >"$D/lr7-check.log" 2>&1 <<'PYTHON'
+import json, re, sys
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+rows = {r['id']: r for r in schema['rows']}
+keys = rows['micro_seven_key']['keys']
+last = open(sys.argv[2], encoding='utf-8').read().rstrip('\n').split('\n')[-1]
+obj = json.loads(last)
+assert list(obj.keys()) == keys, f"键序漂移: {list(obj.keys())} != {keys}"
+assert obj['lane'] == 'micro', obj['lane']
+assert obj['gates'] == 'PASS', obj['gates']
+assert isinstance(obj['verify'], int) and obj['verify'] >= 1, obj['verify']
+assert re.fullmatch(r'[0-9a-f]{7,}', obj['commit']), obj['commit']
+assert re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', obj['date']), obj['date']
+assert obj['actual'] == '25m（票 193 微账本合同占位）', obj['actual']
+PYTHON
+    then
+      ok '正例 micro 落行与合同 micro_seven_key 行族逐键对齐（键序/枚举/值域，票 193 AC1＋AC2 写入面）'
+    else
+      bad '正例 micro 落行与合同 micro_seven_key 行族逐键对齐（键序/枚举/值域，票 193 AC1＋AC2 写入面）' "$(head -n 3 "$D/lr7-check.log" | tr '\n' '|')"
+    fi
+  else
+    bad '正例 micro 落行与合同 micro_seven_key 行族逐键对齐（键序/枚举/值域，票 193 AC1＋AC2 写入面）' "exit=$rc $(tail -n 3 "$D/lr7.out" | tr '\n' '|')"
+  fi
+
+  # 既有六键行（无 actual 键）向后兼容：夹具微账本改置六键 legacy 行，全链收口后旧行
+  # 逐字节保留（只追加不重写）且新行落七键（actual 键在场）。
+  lc_build_fixture "$D/lr6"
+  LR6_LEGACY='{"date": "2026-09-27", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 2, "commit": "legacy6"}'
+  printf '%s\n' "$LR6_LEGACY" > "$D/lr6/facts/project/micro.jsonl"
+  lc_git_commit "$D/lr6"
+  printf 'change-lr6\n' > "$D/lr6/a.txt"
+  lc_contract "$D/lr6.contract" ''
+  sh "$LC" "$D/lr6" "$D/lr6.contract" >"$D/lr6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && [ "$(head -n 1 "$D/lr6/facts/project/micro.jsonl")" = "$LR6_LEGACY" ] \
+    && grep -q '"commit": "[0-9a-f]\{7,\}", "actual": ""}' "$D/lr6/facts/project/micro.jsonl"; then
+    ok '正例 既有六键行向后兼容：旧行逐字节保留且新行恒七键（票 193 兼容约束）'
+  else
+    bad '正例 既有六键行向后兼容：旧行逐字节保留且新行恒七键（票 193 兼容约束）' "exit=$rc $(tail -n 3 "$D/lr6.out" | tr '\n' '|')"
+  fi
+
   suite_summary 'lane-commit'
 }

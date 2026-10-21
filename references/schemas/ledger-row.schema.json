@@ -1,0 +1,106 @@
+{
+  "$id": "agent-up/references/schemas/ledger-row.schema.json",
+  "title": "ledger-row（账本行运行格式合同）",
+  "description": "记录账本行键集、键序与值域的单一合同（数据表 schema，非 JSON Schema draft-07：键序属 JSON 对象语义之外的行级约定，故以有序 keys 数组承载而非 properties 约束）。覆盖两账本写入面：facts/project/changes.jsonl（写入与行校验者＝scripts/ticket-ops.sh，open/take/flip/ledger 四子命令经 --ledger-line 校验后追加）与 facts/project/micro.jsonl（写入者＝scripts/lane-commit.sh micro 道收尾机写落行；user-review 道不落数据账本行，裁决原文与时间落 User Review Checkpoint）。行型适用条件按 kind 维度裁决并在此单源声明；scripts/ticket-ops.sh 行校验、scripts/lane-commit.sh 微账本落行与 references/templates/project.md.tmpl 票务脚本承载注记三方引用本表，键序描述逐字对齐 rows[].keys。",
+  "version": "1.0.0",
+  "rowtype_version": 3,
+  "common_rules": [
+    "一行一事实：每行恰一个 JSON 对象，行内禁裸换行与制表符。",
+    "字符串值禁内嵌双引号与反斜杠（防解析歧义）。",
+    "紧凑与带空格 JSONL 均合法：键值冒号后空格可有可无，键序不变。",
+    "键序固定：条件键按 rows[].keys 声明次序紧跟基础键；乱序、缺条件键、未知键一律拒绝（fail-closed），不静默收编。",
+    "只追加：写入面只向账本追加行，不改写既有行；旧合法行读取零回扫。",
+    "changes.jsonl 行按 kind 二维裁决：kind=lesson 取六键或九键（二选一，九键为三分数键可选升级形态）；kind=replan 取八键；其余 kind 取恰五键。",
+    "micro.jsonl 行由 lane-commit.sh 机写，不经手写输入：现行写入面恒七键（actual 键缺省落空串）。"
+  ],
+  "value_domains": {
+    "date": "YYYY-MM-DD 形状（校验面查 [0-9]{4}-[0-9]{2}-[0-9]{2}；日历有效性由生产方保证）",
+    "kind": "自由字符串；lesson 与 replan 为保留字，触发各自条件键集，保留字之外不触发",
+    "scope": "非空字符串，记录行适用范围（无引号无反斜杠）",
+    "decision": "非空字符串，本行事实或拍板内容（无引号无反斜杠）",
+    "evidence_ref": "仓库根相对路径或可检索引用（无引号无反斜杠）",
+    "promoted_to": "枚举 新票|rules|sop|validator|test|none（none＝显式拍板不晋升，防教训悬空）",
+    "score_contract": "整数 -1（N/A）或 0-100",
+    "score_predicate": "整数 -1（N/A）或 0-100",
+    "score_rework": "整数 -1（N/A）或 0-100",
+    "replan_original": "布尔字面量 true|false",
+    "replan_replacement": "布尔字面量 true|false",
+    "replan_undone": "布尔字面量 true|false",
+    "lane": "字面量 micro",
+    "whitelist": "逗号分隔的仓库根相对路径串",
+    "gates": "字面量 PASS（门禁重跑全过方落行）",
+    "verify": "非负整数＝本次 verify 命令条数",
+    "commit": "Git 提交号（短号即可）",
+    "actual": "净工时口径文本，可空串（开放性口径：可后补不强制）"
+  },
+  "rows": [
+    {
+      "id": "changes_five_key",
+      "ledger": "facts/project/changes.jsonl",
+      "key_count": 5,
+      "applies_when": "kind 为 lesson/replan 之外的自由值（如 scope/change/rename/renumber）——通用事实行",
+      "keys": ["date", "kind", "scope", "decision", "evidence_ref"],
+      "example": {"date": "2026-10-21", "kind": "scope", "scope": "facts/project", "decision": "fixture 五键行", "evidence_ref": "facts/project/changes.jsonl"}
+    },
+    {
+      "id": "changes_lesson_six_key",
+      "ledger": "facts/project/changes.jsonl",
+      "key_count": 6,
+      "applies_when": "kind=lesson 且不带分数键——教训行既有形态（向后兼容）",
+      "keys": ["date", "kind", "scope", "decision", "evidence_ref", "promoted_to"],
+      "example": {"date": "2026-10-21", "kind": "lesson", "scope": "facts/project", "decision": "fixture 六键教训行", "evidence_ref": "facts/project/changes.jsonl", "promoted_to": "rules"}
+    },
+    {
+      "id": "changes_replan_eight_key",
+      "ledger": "facts/project/changes.jsonl",
+      "key_count": 8,
+      "applies_when": "kind=replan——重规划行，三布尔条件键齐备且固定次序",
+      "keys": ["date", "kind", "scope", "decision", "evidence_ref", "replan_original", "replan_replacement", "replan_undone"],
+      "example": {"date": "2026-10-21", "kind": "replan", "scope": "facts/project", "decision": "fixture 八键重规划行", "evidence_ref": "facts/project/changes.jsonl", "replan_original": true, "replan_replacement": false, "replan_undone": true}
+    },
+    {
+      "id": "changes_lesson_nine_key",
+      "ledger": "facts/project/changes.jsonl",
+      "key_count": 9,
+      "applies_when": "kind=lesson 且带三分数键——教训行可选升级形态（带分数则恰九键，键序固定）",
+      "keys": ["date", "kind", "scope", "decision", "evidence_ref", "promoted_to", "score_contract", "score_predicate", "score_rework"],
+      "example": {"date": "2026-10-21", "kind": "lesson", "scope": "facts/project", "decision": "fixture 九键教训行", "evidence_ref": "facts/project/changes.jsonl", "promoted_to": "sop", "score_contract": 90, "score_predicate": 100, "score_rework": -1}
+    },
+    {
+      "id": "micro_seven_key",
+      "ledger": "facts/project/micro.jsonl",
+      "key_count": 7,
+      "applies_when": "micro 道每次收尾机写一行（现行写入面恒此形态）",
+      "keys": ["date", "lane", "whitelist", "gates", "verify", "commit", "actual"],
+      "example": {"date": "2026-10-21", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "abc1234", "actual": ""}
+    },
+    {
+      "id": "micro_six_key_legacy",
+      "ledger": "facts/project/micro.jsonl",
+      "key_count": 6,
+      "applies_when": "无 actual 键的既有行——历史事实只读兼容形态（写入面不再产生，存量零回扫）",
+      "keys": ["date", "lane", "whitelist", "gates", "verify", "commit"],
+      "example": {"date": "2026-10-20", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "abc1234"}
+    }
+  ],
+  "consumers": [
+    {
+      "id": "scripts/ticket-ops.sh",
+      "role": "changes.jsonl 唯一写入者与行校验者",
+      "entry": "--ledger-line（open/take/flip/ledger 四子命令共用）；校验先于任何写入",
+      "failure": "键序、缺条件键、未知键或值域越界即 exit 1 fail-closed 零写入，报文按行族指名（键/枚举/值域）"
+    },
+    {
+      "id": "scripts/lane-commit.sh",
+      "role": "micro.jsonl 唯一写入者（micro 道收尾机写）",
+      "entry": "提交合同文件 actual: 行承载第七键值；缺省落空串",
+      "failure": "actual 行重复、含制表符或道不符即 exit 1 零提交零写入"
+    },
+    {
+      "id": "references/templates/project.md.tmpl",
+      "role": "目标项目治理模板（票务脚本承载注记生成面）",
+      "entry": "生成目标项目 rules/project.md 的键序描述与本表 rows[].keys 逐字一致",
+      "failure": "键序描述与本表不一致即模板漂移，以本表为准修订模板"
+    }
+  ]
+}

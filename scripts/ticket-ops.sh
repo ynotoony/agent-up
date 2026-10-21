@@ -36,6 +36,9 @@
 
 # 用法、数据契约与退出码见同目录 README.md。
 # ledger-rowtype-version: 3（五键/lesson 六键九键/replan 八键；机制版本注记，票 133 行型）
+# 行型合同：账本行键集/键序/值域适用表单一真相源＝agent-up 公开包
+# references/schemas/ledger-row.schema.json（本脚本行校验与其 rows[].keys/值域逐条
+# 对齐；文档级单源，不运行时读取，安装闭包不含此件）。
 
 # ---- 路径常量区（票 113 波④：值翻 rules/facts 新形态，映射见 rules-facts-layout-spec §2 R11/R13/R15/R19）----
 issues_index_rel='facts/requirements/tickets/index.json'
@@ -86,9 +89,11 @@ usage() {
                                              键，票 81：lesson 必带第六键 promoted_to（枚
                                              举 新票/rules/sop/validator/test/none），replan
                                              必带 replan_original/replan_replacement/
-                                             replan_undone（布尔）；紧凑或带空格 JSONL
-                                             均可；脚本只校验后追加，不代生成散文；字符
-                                             串值不得内嵌引号或反斜杠）
+                                             replan_undone（布尔）；行型键集/键序/值域适
+                                             用表单一合同＝agent-up 公开包 references/
+                                             schemas/ledger-row.schema.json；紧凑或带空
+                                             格 JSONL 均可；脚本只校验后追加，不代生成
+                                             散文；字符串值不得内嵌引号或反斜杠）
                    [--blocked-by <id,id>]    逗号分隔 blocker id（缺省空数组）
   take           领取：--id --status --ledger-line 三项必选；--status 须为 in_progress。
   flip           收口/状态翻转：--id --status --ledger-line 三项必选；--status 为状态机
@@ -214,6 +219,26 @@ else
   if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?[^,]*, ?"replan_replacement": ?[^,]*, ?"replan_undone": ?[^}]*\}$'; then
     die1 'replan 行条件键须为布尔字面量 true/false 且按 replan_original→replan_replacement→replan_undone 固定键序（票 81）'
   fi
+  # 未知键指名（行型合同 references/schemas/ledger-row.schema.json 键集对齐，不静默收编）：
+  # 键名提取＝先剥字符串值再按键引号边界切分（合法行字符串值域不含双引号；畸形行尽力
+  # 而为，提取不出未知键即落下方通用报因，fail-closed 结论不变）。行型选择由前序正则
+  # 承载，此处只对键名归集：基础五键＋lesson 六/九键与 replan 八键条件键全集。
+  ledger_unknown_keys=''
+  case ${ledger_line} in
+    '{'*'}')
+      ledger_unknown_keys=$(printf '%s' "${ledger_line}" \
+        | sed -e 's/: *"[^"]*"/:/g' \
+        | sed -e 's/, \{0,1\}"/\
+/g' \
+        | sed -e 's/^{"//' -e 's/".*//' \
+        | LC_ALL=C grep -Ev '^(date|kind|scope|decision|evidence_ref|promoted_to|score_contract|score_predicate|score_rework|replan_original|replan_replacement|replan_undone)?$' \
+        | paste -sd, -)
+      ;;
+  esac
+  case ${ledger_unknown_keys} in
+    '') ;;
+    *) die1 "账本行含未知键（不在行型键集内——基础五键 date,kind,scope,decision,evidence_ref＋kind 条件键，行型合同 references/schemas/ledger-row.schema.json）: ${ledger_unknown_keys}" ;;
+  esac
   die1 '账本行不合键序或形状（键序 date,kind,scope,decision,evidence_ref；五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to（枚举 新票/rules/sop/validator/test/none）、replan 必带 replan_original/replan_replacement/replan_undone（布尔）——票 81；紧凑或带空格 JSONL 均可；字符串值不得内嵌引号或反斜杠）'
 fi
 
