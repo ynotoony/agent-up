@@ -305,7 +305,7 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
   {
     if (NF != 3) { bad("字段数 " NF "（预期 3：路径、kind、说明）"); next }
     if ($1 !~ /^scripts\/[A-Za-z0-9][A-Za-z0-9._-]*$/) { bad("路径须 scripts/ 前缀加单段文件名（禁 .. 与斜杠入名）: " $1); next }
-    if ($2 !~ /^(script|rules|test-harness)$/) { bad("kind 不合预期（script|rules|test-harness）: " $2); next }
+    if ($2 !~ /^(script|rules|test-harness|dir)$/) { bad("kind 不合预期（script|rules|test-harness|dir）: " $2); next }
     if ($3 == "") { bad("缺说明"); next }
     if ($1 in seen) { bad("路径跨行重复: " $1) } else { seen[$1] = 1 }
   }
@@ -779,7 +779,7 @@ if [ "$in_worktree" -eq 1 ]; then
         break
       fi
     done
-    if [ "$is_mainonly" -eq 0 ] && [ ! -f "$pkg_root/$rel" ]; then
+    if [ "$is_mainonly" -eq 0 ] && [ ! -f "$pkg_root/$rel" ] && [ ! -d "$pkg_root/$rel" ]; then
       missing_scripts="$missing_scripts$sep  - $rel"
       sep='
 '
@@ -798,7 +798,7 @@ else
 '
   while IFS= read -r row; do
     rel=${row%%"$TAB"*}
-    if [ ! -f "$pkg_root/$rel" ]; then
+    if [ ! -f "$pkg_root/$rel" ] && [ ! -d "$pkg_root/$rel" ]; then
       missing_scripts="$missing_scripts$sep  - $rel"
       sep='
 '
@@ -871,7 +871,7 @@ if [ "$in_worktree" -eq 1 ]; then
             break
           fi
         done
-        if [ "$is_mainonly_b" -eq 0 ] && [ ! -f "$pkg_root/$scripts_dir/$b" ]; then
+        if [ "$is_mainonly_b" -eq 0 ] && [ ! -f "$pkg_root/$scripts_dir/$b" ] && [ ! -d "$pkg_root/$scripts_dir/$b" ]; then
           no_file="$no_file$sep2$b"
           sep2='、'
         fi
@@ -920,7 +920,7 @@ else
       no_file=''
       sep2=''
       for b in $table_names; do
-        if [ ! -f "$pkg_root/$scripts_dir/$b" ]; then
+        if [ ! -f "$pkg_root/$scripts_dir/$b" ] && [ ! -d "$pkg_root/$scripts_dir/$b" ]; then
           no_file="$no_file$sep2$b"
           sep2='、'
         fi
@@ -1768,8 +1768,9 @@ if git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1; then
     case $kind in
       script|test-harness) want=100755; want_exec=1 ;;
       rules) want=100644; want_exec=0 ;;
+      dir) continue ;;  # 目录成员（kind=dir，如 tests/ 套件目录）：git 不跟踪目录 mode，无可执行位语义，不核对不宣称
       *)
-        add_problem "  - $rel kind 不合预期（script|rules|test-harness 外值，期望 mode 未配置）: $kind"
+        add_problem "  - $rel kind 不合预期（script|rules|test-harness|dir 外值，期望 mode 未配置）: $kind"
         continue
         ;;
     esac

@@ -36,6 +36,7 @@
 | `test-checkpoint-recovery.sh` | Checkpoint 中断续传回归测试 | workflow-executor.sh 中断续传机制回归测试：模拟工作流中断后从 checkpoint 恢复继续执行的场景，验证 checkpoint 文件格式、恢复逻辑正确性；POSIX sh、mktemp 夹具 trap 清理、零工作区写入。供开发/升级时自检 checkpoint 机制。 |
 | `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控显示 N/A；快道证据两源＝delivery.rules 在场或快道专属脚本已装，多门控共享脚本（如 generate-progress.sh）不构成快道证据——未启用快道时 delivery.rules 恒 N/A，快道脚本已装而缺配置才报落后；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
+| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋16 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
 
 旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
@@ -742,6 +743,8 @@ sh scripts/upgrade-check.sh <pkg-dir> <repo-root>
 | 2 | 用法或环境错误（参数数量不合、pkg-dir/repo-root 不存在、install-policy.rules 或 delivery-rules.tmpl 或本件在包基线缺失）。 |
 
 ## test-record-layer.sh（记录层回归 harness）
+
+- 布局：`test-record-layer.sh` 为兼容入口（委托 `tests/test-runner.sh`，参数不变）；`tests/test-helpers.sh` 承载 ok/bad/assert_eq/suite_summary/cleanup 等共享函数；每个 suite 一个 `tests/suite-<name>.sh`（内含该套件私有夹具函数），文件头带独立入口（直接 `sh tests/suite-<name>.sh` 即跑该套件）。新增套件三处同步：runner 派发表、本节 suite 覆盖表、清单 scripts 节 dir 行描述。
 
 记录层共享回归 harness：把六票 Implementation Checkpoint 声明待沉淀的一次性 fixture 组装为常驻自检工具——一条命令回归记录层全链。POSIX sh（`#!/bin/sh`、`set -u`、`set -f`）、无 jq；open 本体校验路径依赖 python3 标准库，缺失即 exit 2（夹具 `git init` 依赖被测脚本自身声明的 Git）。缺省自测同目录包内脚本（check-package.sh 同款路径惯例），`--script-dir`/`--pkg-root` 参数化支持复制落位语境；被测脚本只读零改动（发现缺陷停报告，不顺手修、不为通过测试改预期）；夹具全部构建于 mktemp 临时目录并 trap 清理（异常退出亦清），仓库零写入；预期值按被测脚本当前行为独立重建（cmp/逐一相等断言——不为通过测试改预期教训；来源票只作场景清单）。
 
