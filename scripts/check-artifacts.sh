@@ -531,8 +531,31 @@ reg_covered() {
   return 1
 }
 
+# ---- 栅栏 worktree 识别（R-DP-036 同款，口径同 check-package 检查 8/9）----
+# worktree-add.sh 按主检出 delivery.rules dp_mainonly 物理排除 main-only 件；链接 worktree
+# 内这些登记目标不在场属栅栏语义而非缺失——正向审计对其 SKIP 不计缺失（主检出不受影响，
+# 仍 fail-closed 指名缺失）。判别＝git-dir ≠ git-common-dir；dp_mainonly 取自主检出根。
+ca_in_worktree=0
+ca_mainonly=''
+if git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1; then
+  _ca_gd=$(git -C "$repo_root" rev-parse --git-dir 2>/dev/null)
+  _ca_cd=$(git -C "$repo_root" rev-parse --git-common-dir 2>/dev/null)
+  case $_ca_gd in /*) : ;; *) _ca_gd="$repo_root/$_ca_gd" ;; esac
+  case $_ca_cd in /*) : ;; *) _ca_cd="$repo_root/$_ca_cd" ;; esac
+  _ca_gd=$(CDPATH='' cd "$_ca_gd" 2>/dev/null && pwd)
+  _ca_cd=$(CDPATH='' cd "$_ca_cd" 2>/dev/null && pwd)
+  if [ -n "$_ca_gd" ] && [ -n "$_ca_cd" ] && [ "$_ca_gd" != "$_ca_cd" ]; then
+    _ca_main_root=$(dirname "$_ca_cd")
+    if [ -f "$_ca_main_root/delivery.rules" ]; then
+      ca_mainonly=$(LC_ALL=C awk '/^dp_mainonly / { print $2 }' "$_ca_main_root/delivery.rules")
+      [ -n "$ca_mainonly" ] && ca_in_worktree=1
+    fi
+  fi
+fi
+
 # ---- 正向：登记目标存在性 ----
 ca_targets=0
+ca_fencedskip=0
 ca_missing=0
 ca_lazyskip=0
 while IFS="$(printf '\t')" read -r ca_eid ca_etgt; do
@@ -544,6 +567,9 @@ while IFS="$(printf '\t')" read -r ca_eid ca_etgt; do
   if is_lazy "$ca_etgt"; then
     ca_lazyskip=$((ca_lazyskip + 1))
     printf 'check-artifacts: SKIP: 条目 %s 登记目标暂缺（数据块懒创建许可）: %s\n' "$ca_eid" "$ca_etgt"
+  elif [ "$ca_in_worktree" -eq 1 ] && printf '%s\n' "$ca_mainonly" | LC_ALL=C grep -qxF "$ca_etgt"; then
+    ca_fencedskip=$((ca_fencedskip + 1))
+    printf 'check-artifacts: SKIP: 条目 %s 登记目标在 worktree 内不在场（R-DP-036 栅栏排除的 main-only 件，主检出照常审计）: %s\n' "$ca_eid" "$ca_etgt"
   else
     ca_missing=$((ca_missing + 1))
     printf 'check-artifacts: FAIL: 条目 %s 登记目标不存在: %s\n' "$ca_eid" "$ca_etgt"
@@ -618,6 +644,9 @@ fi
 
 printf 'check-artifacts: 正向: 登记目标 %d 个，缺失 %d 个，懒创建暂缺 %d 个\n' \
   "$ca_targets" "$ca_missing" "$ca_lazyskip"
+if [ "$ca_fencedskip" -gt 0 ]; then
+  printf 'check-artifacts: 正向: 栅栏跳过 %d 个（worktree 内 dp_mainonly 件，主检出照常审计）\n' "$ca_fencedskip"
+fi
 printf 'check-artifacts: 反向: 受管文件 %d 个，未登记 %d 个，豁免命中 %d 个\n' \
   "$ca_files" "$ca_unreg" "$ca_exempthit"
 if [ "$ca_missing" -gt 0 ] || [ "$ca_unreg" -gt 0 ]; then
