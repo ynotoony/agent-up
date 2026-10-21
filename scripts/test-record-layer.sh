@@ -3873,8 +3873,10 @@ suite_install() {
   INST="$SCRIPT_DIR/install.sh"
 
   # 正例 P1：合法表双门控安装 → exit 0 目标恰落 10 件（stdout 摘要行计数）
+  # install.sh 的 R-DP-036 worktree 自拒按调用 cwd 判定（非 Git 语境放行）：夹具安装
+  # 从 harness 的 mktemp 非 Git 目录调用，避免 harness 在 worktree 内跑时栅栏误拦夹具。
   inst_build_pkg "$D/pkg1"; mkdir -p "$D/proj1"
-  sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops >"$D/p1.out" 2>&1
+  ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p1.out" 2>&1
   rc=$?
   p1_n=$(grep -c '^install: OK:' "$D/p1.out")
   if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 10 ] && grep -q '^install: DONE: 复制 10 件、幂等跳过 0 件' "$D/p1.out" \
@@ -3887,7 +3889,7 @@ suite_install() {
 
   # 正例 P2：幂等重跑 → 逐件 SKIP exit 0 零新写入（文件集与首跑逐一相等）
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.before"
-  sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops >"$D/p2.out" 2>&1
+  ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p2.out" 2>&1
   rc=$?
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
   if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件、幂等跳过 10 件' "$D/p2.out" \
