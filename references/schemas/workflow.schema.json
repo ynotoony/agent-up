@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/workflow.schema.json",
   "title": "Agent Up Workflow Schema v2",
-  "description": "工作流 DSL schema v2（状态机＋步骤定义）。支持声明式工作流定义——inputs/outputs（参数与产物）、steps（agent/command/verification 三种类型）、state_machine（状态转换规则）、checkpoint_field（步骤级状态存储字段）。机械化执行器读 schema 即可推进，支持中断恢复（checkpoint 原子化），无需理解散文。适配层：执行器在 rules/implementation/scripts/workflow-executor.sh，实例文件在 rules/implementation/workflows/（如 triage.yaml）。",
+  "description": "工作流 DSL schema v2（状态机＋步骤定义）。支持声明式工作流定义——inputs/outputs（参数与产物）、steps（agent/command/verification 三种类型）、state_machine（状态转换规则）、checkpoint_field（步骤级状态存储字段）。agent-up/scripts/workflow-executor.sh 当前只执行 command/verification，agent step 在状态写入前失败关闭；支持中断恢复，checkpoint 与票本体分离，票只保存版本化固定 sibling checkpoint_ref（格式见 ticket-record.schema.json）。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -132,8 +132,8 @@
           },
           "checkpoint_field": {
             "type": "string",
-            "pattern": "^checkpoint\\.[a-z_]+(\\.[a-z_]+)*$",
-            "description": "Checkpoint 字段路径（如 checkpoint.implementation、checkpoint.implementation.completed_at）——该步骤完成后写入此字段，用于中断恢复"
+            "pattern": "^checkpoint\\.[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)*$",
+            "description": "Checkpoint 字段路径（如 checkpoint.implementation、checkpoint.implementation.step_1）——该步骤完成后写入此字段，用于中断恢复"
           },
           "agent": {
             "type": "string",
@@ -173,6 +173,12 @@
                   "type": "string",
                   "minLength": 1,
                   "description": "期望输出（字符串匹配）"
+                },
+                "expect_exit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255,
+                  "description": "可选。期望命令退出码，缺省为 0。"
                 },
                 "fail_msg": {
                   "type": "string",

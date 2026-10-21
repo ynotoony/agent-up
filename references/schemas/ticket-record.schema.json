@@ -282,6 +282,12 @@
                 "minLength": 1,
                 "description": "期望输出（字符串或退出码，如 '0'、'PASS'、'OK'）"
               },
+              "expect_exit": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255,
+                "description": "可选。期望验证命令退出码，缺省为 0。"
+              },
               "fail_msg": {
                 "type": "string",
                 "description": "可选。验证失败时的提示信息"
@@ -300,7 +306,7 @@
     },
     "checkpoint_ref": {
       "type": "string",
-      "description": "可选。最近检查点指针：<票路径>#<Checkpoint 锚点文本>（对齐 issue-index 的 checkpoint_ref 口径）。"
+      "description": "可选。最近检查点指针：历史通用形态为 <票路径>#<Checkpoint 锚点文本>；workflow executor 专用外置检查点使用 workflow-checkpoint-v1:<同目录 sidecar 文件名>。执行器只接受其版本化固定 sibling 引用，不解释或覆盖历史锚点引用。"
     },
     "context": {
       "type": "string",
