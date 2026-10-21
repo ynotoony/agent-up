@@ -591,6 +591,8 @@ check-append-only: PASS
 
 ## check-artifacts.sh（治理产物对账器）
 
+实现约束：登记条目的 kind 和 lifecycle 分别按 artifacts-yaml.tmpl 中唯一的 enum 行校验；path 比较先折叠重复斜杠、点段与可消解的 .. 段并移除非根尾斜杠，规范化后重复即 fail-closed，并在错误中列出冲突条目和规范化值。登记解析破坏还包括缺 kind/lifecycle、未知枚举和规范化 path 重复。
+
 治理产物登记与实物双向对账器（兑现 R-DP-007「治理产物逐件登记」的机械核对面）：正向＝`<repo-root>/facts/project/artifacts.yaml` 每条登记条目的 path 目标（剥离全角括注后的路径/聚合 glob/目录）必须存在，缺失 FAIL 指名条目；反向＝数据块受管口径内文件必须被登记（精确相等/case glob/目录聚合前缀三类覆盖）或命中豁免规则，未登记 FAIL 指名路径，豁免命中不报。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具，无 Git 依赖）、fail-closed——登记解析破坏（缺 artifacts: 顶层键、零条目、条目缺 path、多行 path、path 值空/含空白、未知形态行）即 exit 2 不产生部分结论；退出码口径同 ticket-ops.sh（0 完成 / 1 缺口 / 2 用法环境）。
 
 ### 用法

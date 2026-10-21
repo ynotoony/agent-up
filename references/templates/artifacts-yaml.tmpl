@@ -6,9 +6,11 @@
 #   id              产物稳定标识
 #   path            仓库内路径
 #   kind            产物类型（governance / index / record / spec / request / task / map / adapter / script 等；新增值先在此注释区登记）
+# enum kind: governance index record spec request task map adapter script payload research template
 #   authority       在权威层级中的层级（层级定义见 rules/project.md 权威层级）
 #   owner           唯一写入者
 #   lifecycle       Seed / Conditional / Record / Derived / Adapter
+# enum lifecycle: Seed Conditional Record Derived Adapter
 #   trigger         创建触发条件（对齐 rules/project.md 触发矩阵；Seed 写 always）
 #   read_when       读取时机（对齐读取阶梯与任务类型）
 #   sync_on         触发级联同步的变化类型（契约 / 拓扑 / 行为 / 派生；纯追加记录写 无）

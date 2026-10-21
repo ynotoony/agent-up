@@ -87,6 +87,16 @@ repo_root=$(CDPATH='' cd "$repo_root" && pwd)
 yaml="$repo_root/$artifacts_yaml"
 [ -f "$yaml" ] || die2 "治理产物登记缺失: facts/project/artifacts.yaml（相对 $repo_root）"
 
+script_dir=$(CDPATH='' cd "$(dirname -- "$0")" && pwd)
+enum_template="$script_dir/../references/templates/artifacts-yaml.tmpl"
+[ -f "$enum_template" ] || die2 "枚举权威模板缺失: $enum_template"
+ca_kind_values=$(awk '/^# enum kind: / { sub(/^# enum kind: /, ""); print }' "$enum_template")
+ca_lifecycle_values=$(awk '/^# enum lifecycle: / { sub(/^# enum lifecycle: /, ""); print }' "$enum_template")
+ca_kind_count=$(printf '%s\n' "$ca_kind_values" | awk 'NF { n++ } END { print n + 0 }')
+ca_lifecycle_count=$(printf '%s\n' "$ca_lifecycle_values" | awk 'NF { n++ } END { print n + 0 }')
+[ "$ca_kind_count" -eq 1 ] && [ "$ca_lifecycle_count" -eq 1 ] \
+  || die2 "kind/lifecycle 枚举权威各须恰一行: $enum_template"
+
 t_dir=${TMPDIR:-/tmp}
 ca_entries=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 ca_managed=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
@@ -327,13 +337,40 @@ fi
 # 口径：artifacts: 顶层键恰一；条目行＝两空格缩进「- id: 」；path 行＝四空格缩进
 # 「path: 」；每条目恰一 path 行且值非空、不含 ASCII 空白；条目稳定 id 全集唯一
 # （重复 id＝解析破坏 exit 2，票 147）；path 值剥离首个全角左括注
-# （聚合登记的中文说明尾注）与其后全部内容；其他缩进字段行忽略；未知形态行即解析破坏。
-ca_bad=$(LC_ALL=C awk '
+# （聚合登记的中文说明尾注）与其后全部内容；kind/lifecycle 依模板各自唯一的
+# enum 行校验；path 比较折叠重复 /、. 和可消解的 .. 段并去尾 /；其他缩进字段
+# 行忽略；未知形态行即解析破坏。
+ca_bad=$(LC_ALL=C awk -v kind_values="$ca_kind_values" -v lifecycle_values="$ca_lifecycle_values" '
   function bad(msg) { printf "ERR: 第 %d 行: %s\n", FNR, msg; n++ }
+  function normalize_path(path, parts, count, i, value, result, depth, stack) {
+    count = split(path, parts, "/")
+    depth = 0
+    for (i = 1; i <= count; i++) {
+      value = parts[i]
+      if (value == "" || value == ".") continue
+      if (value == ".." && depth > 0 && stack[depth] != "..") {
+        delete stack[depth]
+        depth--
+        continue
+      }
+      stack[++depth] = value
+    }
+    for (i = 1; i <= depth; i++) result = result (i == 1 ? "" : "/") stack[i]
+    return result == "" ? "." : result
+  }
+  function allowed(field, value, values, count, i) {
+    count = split(field == "kind" ? kind_values : lifecycle_values, values, " ")
+    for (i = 1; i <= count; i++) if (values[i] == value) return 1
+    return 0
+  }
   /^artifacts:[[:space:]]*$/ { top = 1; next }
   /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
   /^  - id: / {
-    if (curid != "" && !curpath) bad("条目缺 path 字段: " curid)
+    if (curid != "") {
+      if (!curpath) bad("条目缺 path 字段: " curid)
+      if (!curkind) bad("条目缺 kind 字段: " curid)
+      if (!curlifecycle) bad("条目缺 lifecycle 字段: " curid)
+    }
     curid = substr($0, 9)
     sub(/[[:space:]]+$/, "", curid)
     if (curid == "") bad("条目 id 为空")
@@ -341,6 +378,8 @@ ca_bad=$(LC_ALL=C awk '
     else seenid[curid] = FNR
     nent++
     curpath = ""
+    curkind = ""
+    curlifecycle = ""
     next
   }
   /^    path: / {
@@ -353,13 +392,43 @@ ca_bad=$(LC_ALL=C awk '
     gsub(/[[:space:]]+$/, "", v)
     if (v == "") bad("条目 path 值为空: " curid)
     else if (v ~ /[[:space:]]/) bad("条目 path 含空白（无法安全匹配）: " curid)
-    else { curpath = v; printf "%s\t%s\n", curid, v }
+    else {
+      curpath = v
+      normalized = normalize_path(v)
+      if (normalized in seenpath) bad("规范化 path 重复: " curid " 与 " seenpath[normalized] " → " normalized)
+      else seenpath[normalized] = curid
+      printf "%s\t%s\n", curid, v
+    }
+    next
+  }
+  /^    kind: / {
+    if (curid == "") { bad("kind 字段在条目外"); next }
+    if (curkind != "") { bad("条目重复 kind 字段: " curid); next }
+    value = substr($0, 11)
+    sub(/[[:space:]]+$/, "", value)
+    if (value == "") bad("条目 kind 值为空: " curid)
+    else if (!allowed("kind", value)) bad("条目 kind 未知: " curid "=" value)
+    curkind = value
+    next
+  }
+  /^    lifecycle: / {
+    if (curid == "") { bad("lifecycle 字段在条目外"); next }
+    if (curlifecycle != "") { bad("条目重复 lifecycle 字段: " curid); next }
+    value = substr($0, 16)
+    sub(/[[:space:]]+$/, "", value)
+    if (value == "") bad("条目 lifecycle 值为空: " curid)
+    else if (!allowed("lifecycle", value)) bad("条目 lifecycle 未知: " curid "=" value)
+    curlifecycle = value
     next
   }
   /^[[:space:]]+[A-Za-z_][A-Za-z0-9_-]*:/ { next }
   { bad("无法解析的行: " substr($0, 1, 40)) }
   END {
-    if (curid != "" && !curpath) bad("条目缺 path 字段: " curid)
+    if (curid != "") {
+      if (!curpath) bad("条目缺 path 字段: " curid)
+      if (!curkind) bad("条目缺 kind 字段: " curid)
+      if (!curlifecycle) bad("条目缺 lifecycle 字段: " curid)
+    }
     if (!top) bad("缺 artifacts: 顶层键")
     if (nent == 0) bad("零条目")
     if (n > 0) exit 1

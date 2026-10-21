@@ -2210,18 +2210,32 @@ rt_build_fixture() {
 artifacts:
   - id: agents-md
     path: AGENTS.md
+    kind: governance
+    lifecycle: Seed
   - id: scripts-tool
     path: rules/implementation/scripts/tool.sh
+    kind: script
+    lifecycle: Adapter
   - id: rules-notes
     path: rules/notes.md
+    kind: spec
+    lifecycle: Conditional
   - id: role-impl
     path: rules/implementation/roles/impl.md
+    kind: governance
+    lifecycle: Seed
   - id: tickets-aggregate
     path: facts/requirements/tickets/*.md（fixture 聚合登记）
+    kind: record
+    lifecycle: Record
   - id: micro-ledger
     path: facts/project/micro.jsonl（道账本，懒创建）
+    kind: record
+    lifecycle: Record
   - id: yaml-self
     path: facts/project/artifacts.yaml
+    kind: index
+    lifecycle: Seed
 EOF
 }
 
@@ -2241,6 +2255,51 @@ suite_check_artifacts() {
     ok '正例 P1 全对账 → exit 0'
   else
     bad '正例 P1 全对账 → exit 0' "exit=$rc $(head -n 2 "$D/p1.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P2：两条不同规范化路径可同时登记；重复斜杠和点段折叠规则由规范化器处理。
+  rt_build_fixture "$D/p2"
+  sh "$CA" "$D/p2" > "$D/p2.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '规范化 path 重复' "$D/p2.out"; then
+    ok '正例 P2 不同登记 id 的独立规范化路径 → exit 0'
+  else
+    bad '正例 P2 不同规范化路径 → exit 0' "exit=$rc $(grep '规范化 path 重复' "$D/p2.out" | head -n 1)"
+  fi
+
+  # 负例 N7/N8：kind/lifecycle 不在模板唯一枚举权威内时 fail-closed 并指名具体值。
+  rt_build_fixture "$D/n7"
+  sed 's/kind: governance/kind: bogus-kind/' "$D/n7/facts/project/artifacts.yaml" > "$D/n7/artifacts.tmp" \
+    && mv "$D/n7/artifacts.tmp" "$D/n7/facts/project/artifacts.yaml"
+  sh "$CA" "$D/n7" > "$D/n7.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'kind 未知: agents-md=bogus-kind' "$D/n7.out"; then
+    ok '负例 N7 未知 kind → exit 2 并指名非法值'
+  else
+    bad '负例 N7 未知 kind → exit 2 并指名非法值' "exit=$rc"
+  fi
+
+  rt_build_fixture "$D/n8"
+  sed 's/lifecycle: Seed/lifecycle: Live/' "$D/n8/facts/project/artifacts.yaml" > "$D/n8/artifacts.tmp" \
+    && mv "$D/n8/artifacts.tmp" "$D/n8/facts/project/artifacts.yaml"
+  sh "$CA" "$D/n8" > "$D/n8.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'lifecycle 未知: agents-md=Live' "$D/n8.out"; then
+    ok '负例 N8 未知 lifecycle → exit 2 并指名非法值'
+  else
+    bad '负例 N8 未知 lifecycle → exit 2 并指名非法值' "exit=$rc"
+  fi
+
+  # 负例 N9：重复分隔符/点段规范化后碰撞，报出两个 id 和冲突路径。
+  rt_build_fixture "$D/n9"
+  sed 's|path: rules/implementation/roles/impl.md|path: rules//implementation/./scripts/tool.sh|' "$D/n9/facts/project/artifacts.yaml" > "$D/n9/artifacts.tmp" \
+    && mv "$D/n9/artifacts.tmp" "$D/n9/facts/project/artifacts.yaml"
+  sh "$CA" "$D/n9" > "$D/n9.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '规范化 path 重复: role-impl 与 scripts-tool' "$D/n9.out"; then
+    ok '负例 N9 重复规范化 path → exit 2 并指名冲突项'
+  else
+    bad '负例 N9 重复规范化 path → exit 2 并指名冲突项' "exit=$rc"
   fi
   if grep -q 'SKIP: 条目 micro-ledger 登记目标暂缺（数据块懒创建许可）: facts/project/micro.jsonl' "$D/p1.out" && ! grep -q '^check-artifacts: FAIL' "$D/p1.out"; then
     ok '正例 P1 懒创建面登记暂缺 → SKIP 行且零 FAIL（豁免命中不报同证）'
