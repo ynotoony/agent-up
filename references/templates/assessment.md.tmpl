@@ -18,6 +18,8 @@
 
 任务状态的唯一当前记录＝`facts/requirements/tickets/index.json`（状态真相源）＋ `facts/requirements/tickets/progress-current.md`（现役状态投影，生成器独占写）；`facts/project/archive/progress.md` 为冻结历史档案（指针注记后零写入），不是对话日志。先按工作类型决定是否进入任务流程：
 
+票状态 authority、writer 与冲突处理引用 `read-policy.md` §2.3.1 **AW-02**；Intake/Triage 分工引用 **AW-03**；票本体与阶段 checkpoint 引用 **AW-06**。
+
 - 回答、解释、只读审查和诊断：允许只读检查，不领取任务，不修改进度，不实施修复。
 - 用户明确要求的治理或文档维护：可以不领业务任务；改变项目事实时写入对应规格或 `facts/project/changes.jsonl`。
 - 功能、修复或重构：必须领取一张 blocker 已完成的任务，并在开始、检查点和结束时更新进度。

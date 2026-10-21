@@ -42,6 +42,8 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 
 ### 可写字段白名单
 
+本角色只写 Implementation Checkpoint；票本体 schema、阶段 checkpoint owner 与票状态来源引用 `read-policy.md` §2.3.1 **AW-06** 与 **AW-02**。
+
 本角色对票文件（`facts/requirements/tickets/*.json`）的写入权限限于以下字段（白名单）：
 
 **可写字段：**

@@ -77,7 +77,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | worktree | upgrade-check | absorption | health | install | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | authority-matrix | worktree | upgrade-check | absorption | health | install | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
@@ -96,7 +96,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|json-helpers|check-package|append-only|check-artifacts|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|install|all) ;;
+  module-map|ticket-ops|progress|json-helpers|check-package|append-only|check-artifacts|stale-claims|lane-commit|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -4353,6 +4353,108 @@ suite_install() {
   suite_summary 'install'
 }
 
+authority_matrix_check() {
+  awk -F'|' -v template_root="$PKG_ROOT/references/templates" '
+    function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
+    function fail(message) { print "authority-matrix: FAIL: " message > "/dev/stderr"; failed = 1 }
+    BEGIN {
+      expected_topic["AW-01"] = "user-decision-runtime-facts"
+      expected_topic["AW-02"] = "ticket-index-progress"
+      expected_topic["AW-03"] = "triage-intake"
+      expected_topic["AW-04"] = "review-checkpoint"
+      expected_topic["AW-05"] = "commit-authorization"
+      expected_topic["AW-06"] = "ticket-body-checkpoints"
+    }
+    /^\| AW-[0-9][0-9] \|/ {
+      if (NF != 8) { fail("matrix row must have six cells: " $0); next }
+      id = trim($2); topic = trim($3); authority = trim($4)
+      writer = trim($5); resolution = trim($6); consumers = trim($7)
+      rows++
+      if (!(id in expected_topic) || topic != expected_topic[id]) fail("unknown or mismatched topic: " topic)
+      if (authority == "" || writer == "" || resolution == "" || consumers == "") fail("incomplete authority/writer/resolution row: " topic)
+      if (topic in topic_seen) {
+        if (topic_authority[topic] != authority) fail("duplicate-authority topic: " topic)
+        else if (topic_writer[topic] != writer) fail("conflicting-writer topic: " topic)
+        else fail("duplicate topic row: " topic)
+      } else {
+        topic_seen[topic] = 1
+        topic_authority[topic] = authority
+        topic_writer[topic] = writer
+      }
+      if (id in id_seen) fail("duplicate matrix id: " id)
+      id_seen[id] = 1
+      n = split(consumers, names, /;/)
+      for (i = 1; i <= n; i++) {
+        name = trim(names[i])
+        if (name !~ /^[A-Za-z0-9-]+\.md\.tmpl$/) fail("invalid template consumer for " topic ": " name)
+        expected_ref[name, id] = 1
+        template_seen[name] = 1
+      }
+    }
+    END {
+      if (rows != 6) fail("expected six authority topics; found " rows)
+      for (id in expected_topic) if (!(expected_topic[id] in topic_seen)) fail("missing topic: " expected_topic[id])
+      for (file in template_seen) {
+        path = template_root "/" file
+        while ((getline line < path) > 0) {
+          rest = line
+          while (match(rest, /AW-[0-9][0-9]/)) {
+            ref = substr(rest, RSTART, RLENGTH)
+            if (!(ref in expected_topic)) fail("unknown template reference " ref " in " file)
+            else if (!expected_ref[file, ref]) fail("undeclared template reference " ref " in " file)
+            actual_ref[file, ref] = 1
+            rest = substr(rest, RSTART + RLENGTH)
+          }
+        }
+        close(path)
+      }
+      for (pair in expected_ref) {
+        split(pair, parts, SUBSEP)
+        if (!actual_ref[parts[1], parts[2]]) fail("missing template reference " parts[2] " in " parts[1])
+      }
+      if (!failed) print "authority-matrix: PASS: six topics and template references agree"
+      exit failed ? 1 : 0
+    }
+  ' "$1"
+}
+
+suite_authority_matrix() {
+  CUR_SUITE='authority-matrix'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  D=$T/authority-matrix
+  mkdir -p "$D"
+  MATRIX="$PKG_ROOT/references/protocol/read-policy.md"
+
+  if authority_matrix_check "$MATRIX" >"$D/valid.out" 2>&1; then
+    ok 'unique-authority 正例：六组 authority/writer/resolution 与模板引用逐项一致'
+  else
+    bad 'unique-authority 正例：六组 authority/writer/resolution 与模板引用逐项一致' "$(cat "$D/valid.out")"
+  fi
+
+  cp "$MATRIX" "$D/duplicate-authority.md"
+  grep '^| AW-01 |' "$MATRIX" | sed 's/用户决定以用户原始决定为权威/重复来源为权威/' >> "$D/duplicate-authority.md"
+  if authority_matrix_check "$D/duplicate-authority.md" >"$D/duplicate.out" 2>&1; then
+    bad 'duplicate-authority 负例：必须拒绝并指名冲突主题' '变异矩阵意外通过'
+  elif grep -q 'duplicate-authority topic: user-decision-runtime-facts' "$D/duplicate.out"; then
+    ok 'duplicate-authority 负例：拒绝并指名 user-decision-runtime-facts'
+  else
+    bad 'duplicate-authority 负例：必须拒绝并指名冲突主题' "$(cat "$D/duplicate.out")"
+  fi
+
+  cp "$MATRIX" "$D/conflicting-writer.md"
+  grep '^| AW-01 |' "$MATRIX" | sed 's/用户作决定；Triage 记录决定；产生运行证据的阶段角色记录其实际观察/其他角色写入该主题/' >> "$D/conflicting-writer.md"
+  if authority_matrix_check "$D/conflicting-writer.md" >"$D/writer.out" 2>&1; then
+    bad 'conflicting-writer 负例：必须拒绝并指名冲突主题' '变异矩阵意外通过'
+  elif grep -q 'conflicting-writer topic: user-decision-runtime-facts' "$D/writer.out"; then
+    ok 'conflicting-writer 负例：拒绝并指名 user-decision-runtime-facts'
+  else
+    bad 'conflicting-writer 负例：必须拒绝并指名冲突主题' "$(cat "$D/writer.out")"
+  fi
+
+  suite_summary 'authority-matrix'
+}
+
 case $SUITE in
   module-map) suite_module_map ;;
   ticket-ops) suite_ticket_ops ;;
@@ -4363,6 +4465,7 @@ case $SUITE in
   check-artifacts) suite_check_artifacts ;;
   stale-claims) suite_stale_claims ;;
   lane-commit) suite_lane_commit ;;
+  authority-matrix) suite_authority_matrix ;;
 
 
 
@@ -4382,6 +4485,7 @@ case $SUITE in
     suite_check_artifacts
     suite_stale_claims
     suite_lane_commit
+    suite_authority_matrix
     suite_worktree
     suite_upgrade_check
     suite_absorption

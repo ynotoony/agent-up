@@ -40,6 +40,8 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`readonly
 
 ### 可写字段白名单
 
+审查结论本体由 Review 执行体写入任务票 Independent Review Checkpoint；run record 仅保存引用，冲突按 `read-policy.md` §2.3.1 **AW-04** 处理。
+
 本角色对票文件（`facts/requirements/tickets/*.json`）的写入权限限于以下字段（白名单）：
 
 **可写字段：**
