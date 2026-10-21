@@ -33,6 +33,15 @@ suite_install() {
   mkdir -p "$D"
   INST="$SCRIPT_DIR/install.sh"
 
+  # 栅栏环境跳过（R-DP-036：worktree-add.sh 按 delivery.rules dp_mainonly 排除 main-only 件，
+  # install.sh 在 worktree 内物理不在场；口径同 check-package 检查 8/9 的 worktree SKIP）：
+  # 被测件不在场则整套显式 SKIP 不计数——覆盖面归主检出全量，不宣称不存在的验证。
+  if [ ! -f "$INST" ]; then
+    printf 'SKIP  [install] 被测件 install.sh 不在场（worktree 栅栏排除 main-only 件）——整套跳过，覆盖归主检出\n'
+    suite_summary 'install'
+    return 0
+  fi
+
   # 正例 P1：合法表双门控安装 → exit 0 目标恰落 10 件（stdout 摘要行计数）
   # install.sh 的 R-DP-036 worktree 自拒按调用 cwd 判定（非 Git 语境放行）：夹具安装
   # 从 harness 的 mktemp 非 Git 目录调用，避免 harness 在 worktree 内跑时栅栏误拦夹具。

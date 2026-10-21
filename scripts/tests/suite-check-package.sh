@@ -40,6 +40,16 @@ suite_check_package() {
   D=$T/cpkg
   mkdir -p "$D"
 
+  # 栅栏环境跳过（R-DP-036：worktree 内 main-only 件 install.sh/export-payload.sh 物理不在场，
+  # 正例活树与 cp -R 夹具副本均缺件，金样串为完整包语境独立重建，无法在栅栏环境逐一相等；
+  # 口径同 check-package 自身检查 8/9 的 worktree SKIP）：整套显式 SKIP 不计数，覆盖归主检出全量；
+  # 检查器本体仍由 pre-commit 门禁 2 在真实树上以 worktree 模式执行。
+  if [ ! -f "$SCRIPT_DIR/install.sh" ]; then
+    printf 'SKIP  [check-package] main-only 件不在场（worktree 栅栏）——检查器自检套件整套跳过，覆盖归主检出；门禁 2 仍跑真实树\n'
+    suite_summary 'check-package'
+    return 0
+  fi
+
   # 票 177 worktree 变体：check-package 在 worktree 包根对 main-only 检查（8/9）输出
   # SKIP＋变体 PASS 行；黄金串按 PKG_ROOT 同款 worktree 判定条件化（检测逻辑与
   # check-package is_worktree 一致），否则 harness 在 worktree 内对此断言恒红。
