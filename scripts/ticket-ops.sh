@@ -455,7 +455,7 @@ ticket_body_check() {
   validator_script="${repo_root}/agent-up/scripts/json-validator.py"
   [ -f "${validator_script}" ] || die1 "json-validator.py 不存在: ${validator_script}"
 
-  python3 "${validator_script}" ticket "${schema_file}" "${ticket_file}" || \
+  python3 "${validator_script}" ticket "${schema_file}" "${ticket_file}" --new-ticket || \
     die1 "票本体 schema 校验未过（详见上方 stderr）"
 
   # id 一致性与理由非空断言（票 79）

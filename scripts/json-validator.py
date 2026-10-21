@@ -24,7 +24,7 @@ from collections import defaultdict
 # Ticket validation (extracted from ticket-ops.sh)
 # ============================================================
 
-def validate_ticket(schema_path, ticket_path):
+def validate_ticket(schema_path, ticket_path, new_ticket=False):
     """Validate ticket JSON against schema.
 
     Args:
@@ -44,6 +44,15 @@ def validate_ticket(schema_path, ticket_path):
         return 1
 
     errs = []
+
+    def schema_string_valid(value, rules):
+        if not isinstance(value, str):
+            return False
+        min_length = rules.get('minLength')
+        if min_length is not None and len(value) < min_length:
+            return False
+        pattern = rules.get('pattern')
+        return pattern is None or re.search(pattern, value) is not None
 
     # Type checks
     if not isinstance(body, dict):
@@ -67,6 +76,16 @@ def validate_ticket(schema_path, ticket_path):
 
     # Properties validation
     props = schema.get('properties', {})
+
+    if 'scope' in body and 'scope' in props:
+        scope = body['scope']
+        if not isinstance(scope, list):
+            errs.append('scope 不是数组')
+        else:
+            item_rules = props['scope'].get('items', {})
+            for i, item in enumerate(scope):
+                if not schema_string_valid(item, item_rules):
+                    errs.append(f'scope[{i}] 必须是非空字符串')
 
     # id pattern
     if 'id' in body and 'id' in props:
@@ -104,10 +123,25 @@ def validate_ticket(schema_path, ticket_path):
                     if not isinstance(item, str) or not re.fullmatch(item_pat, item):
                         errs.append(f"blocked_by[{i}] 不合 pattern: {item!r}")
 
-    # verification oneOf check
+    # Preserve historical ticket forms. Scope/predicate parity is checked on
+    # new-ticket creation only, so reading an existing ticket remains stable.
+    if new_ticket and body.get('kind') == 'task' and 'record_only' not in body:
+        ver = body.get('verification')
+        if not isinstance(ver, list) or not ver or not all(isinstance(item, dict) for item in ver):
+            errs.append('新 task 票必须提供非空对象数组 verification；纯记录须使用 record_only.reason + verification="N/A"')
+
     if 'verification' in body and 'verification' in props:
         ver = body['verification']
         one_of = props['verification'].get('oneOf', [])
+        legacy_item_rules = next((
+            branch.get('items', {}) for branch in one_of
+            if branch.get('type') == 'array' and branch.get('items', {}).get('type') == 'string'
+        ), {})
+        structured_item_rules = next((
+            branch.get('items', {}) for branch in one_of
+            if branch.get('type') == 'array' and branch.get('items', {}).get('type') == 'object'
+        ), {})
+        structured_fields = structured_item_rules.get('properties', {})
         if one_of:
             matched = False
             # Check if matches any of the oneOf schemas
@@ -117,6 +151,71 @@ def validate_ticket(schema_path, ticket_path):
                 matched = any(s.get('type') == 'array' for s in one_of)
             if not matched:
                 errs.append('verification 不匹配任何 oneOf schema（须为字符串或数组）')
+
+        if isinstance(ver, list):
+            if not ver:
+                errs.append('verification 数组不能为空（普通任务至少需要一条谓词）')
+            elif all(isinstance(item, str) for item in ver):
+                pass
+            elif all(isinstance(item, dict) for item in ver):
+                pass
+            else:
+                errs.append('verification 数组不得混用字符串与对象形态')
+            scope = body.get('scope')
+            if new_ticket and body.get('kind') == 'task' and ver and all(isinstance(item, dict) for item in ver):
+                if not isinstance(scope, list):
+                    errs.append('结构化 verification 新票必须提供 scope 数组')
+                else:
+                    if any(not isinstance(item, str) or not item.strip() for item in scope):
+                        errs.append('结构化 verification 新票的 scope 每项必须是非空字符串')
+                    if len(ver) != len(scope):
+                        errs.append(
+                            f'verification 与 scope 条目数不一致: verification={len(ver)}, scope={len(scope)}'
+                        )
+            for i, predicate in enumerate(ver):
+                if isinstance(predicate, str):
+                    if not schema_string_valid(predicate, legacy_item_rules):
+                        errs.append(f'verification[{i}] 不能为空字符串')
+                    continue
+                if not isinstance(predicate, dict):
+                    errs.append(f'verification[{i}] 必须是非空字符串或对象')
+                    continue
+                allowed_predicate = {'name', 'description', 'check', 'expect', 'expect_exit', 'fail_msg'}
+                for field in predicate:
+                    if field not in allowed_predicate:
+                        errs.append(f'verification[{i}] 含未定义字段: {field}')
+                required = ('name', 'check')
+                for field in required:
+                    value = predicate.get(field)
+                    if not schema_string_valid(value, structured_fields.get(field, {})):
+                        errs.append(f'verification[{i}].{field} 必须是非空字符串')
+                has_expect = 'expect' in predicate
+                has_expect_exit = 'expect_exit' in predicate
+                if has_expect == has_expect_exit:
+                    errs.append(f'verification[{i}] 必须且只能提供 expect 或 expect_exit 之一')
+                if has_expect and not schema_string_valid(predicate['expect'], structured_fields.get('expect', {})):
+                    errs.append(f'verification[{i}].expect 必须是非空字符串')
+                if has_expect_exit and (not isinstance(predicate['expect_exit'], int) or isinstance(predicate['expect_exit'], bool) or predicate['expect_exit'] < 0):
+                    errs.append(f'verification[{i}].expect_exit 必须是非负整数')
+                for field in ('description', 'fail_msg'):
+                    if field in predicate and not isinstance(predicate[field], str):
+                        errs.append(f'verification[{i}].{field} 必须是字符串')
+
+    # Pure record work must opt into the exception explicitly.  This keeps
+    # historical tickets readable while preventing new empty-verification
+    # records from silently passing a delivery gate.
+    if 'record_only' in body:
+        record_only = body['record_only']
+        if not isinstance(record_only, dict):
+            errs.append('record_only 必须是对象')
+        elif set(record_only) != {'reason'}:
+            errs.append('record_only 仅允许 reason 字段')
+        elif not schema_string_valid(record_only.get('reason'), props['record_only']['properties']['reason']):
+            errs.append('record_only.reason 必须是非空字符串')
+        if body.get('verification') != 'N/A':
+            errs.append('record_only 仅允许与 verification="N/A" 配套')
+    elif body.get('verification') == 'N/A':
+        errs.append('verification="N/A" 必须同时声明 record_only.reason')
 
     # allOf conditional required (kind=task requires additional fields)
     if 'kind' in body and body['kind'] == 'task':
@@ -385,7 +484,7 @@ def print_usage():
     print("""用法: python3 json-validator.py <mode> [options]
 
 模式:
-  ticket <schema> <ticket.json>
+  ticket <schema> <ticket.json> [--new-ticket]
       验证任务票 JSON 是否符合 schema
       退出码: 0=通过, 1=不合规
 
@@ -430,12 +529,12 @@ def main():
     mode = sys.argv[1]
 
     if mode == 'ticket':
-        if len(sys.argv) != 4:
-            print("用法: python3 json-validator.py ticket <schema> <ticket.json>", file=sys.stderr)
+        if len(sys.argv) not in (4, 5) or (len(sys.argv) == 5 and sys.argv[4] != '--new-ticket'):
+            print("用法: python3 json-validator.py ticket <schema> <ticket.json> [--new-ticket]", file=sys.stderr)
             sys.exit(2)
         schema_path = sys.argv[2]
         ticket_path = sys.argv[3]
-        sys.exit(validate_ticket(schema_path, ticket_path))
+        sys.exit(validate_ticket(schema_path, ticket_path, new_ticket=(len(sys.argv) == 5)))
 
     elif mode == 'grade':
         if len(sys.argv) < 4:

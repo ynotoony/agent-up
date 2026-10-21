@@ -32,7 +32,7 @@
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
 | `workflow-executor.sh` | Workflow 运行时执行器 | YAML workflow 定义驱动的流程执行器（条件跳过、工具调用、checkpoint 落盘、中断续传）：按 workflow 定义逐步执行，支持 condition 跳过、call 调用 shell 命令、checkpoint 记录中间状态。POSIX sh、fail-closed、零额外依赖。详见 `../references/workflows/README.md`。 |
-| `verify-contract.sh` | 合同必需字段校验器 | Implementation 委派合同十六字段必需校验：逐字段检查委派合同 JSON 是否包含所有必需字段（Repository / Task / Goal / Scope / Context / Constraints / Acceptance Criteria / Verification / Output Contract 等），缺失即 FAIL 指名字段；POSIX sh、只读、零外部依赖。供 workflow 或手工验证委派合同完整性。 |
+| `verify-contract.sh` | 结构化验收谓词执行器 | 读取票面 `verification` 对象数组，逐条执行 `check` 并核对 `expect`/`expect_exit`；普通任务禁止空数组或缺失字段。纯记录例外必须显式提供 `record_only.reason` 与 `verification: "N/A"`，不得用空值绕过门禁；存量散文 verification 仅作票体兼容，不在此执行。依赖 jq，失败即非零。 |
 | `test-checkpoint-recovery.sh` | Checkpoint 中断续传回归测试 | workflow-executor.sh 中断续传机制回归测试：模拟工作流中断后从 checkpoint 恢复继续执行的场景，验证 checkpoint 文件格式、恢复逻辑正确性；POSIX sh、mktemp 夹具 trap 清理、零工作区写入。供开发/升级时自检 checkpoint 机制。 |
 | `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控显示 N/A；快道证据两源＝delivery.rules 在场或快道专属脚本已装，多门控共享脚本（如 generate-progress.sh）不构成快道证据——未启用快道时 delivery.rules 恒 N/A，快道脚本已装而缺配置才报落后；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
@@ -252,7 +252,8 @@ sh scripts/check-gates.sh [repo-root] <gates-file>
 | 行格式 | 说明 |
 | --- | --- |
 | `whitelist: <逗号分隔的仓库根相对路径>` | 必需，至少一行；一行可多项，逗号分隔。 |
-| `verify: <验证命令>` | 一行一条，可多行；每条在仓库根内执行并记录退出码。 |
+| `verify: <验证命令>` | 一行一条，可多行；普通快道至少一条真实命令。纯记录例外只允许唯一 `verify: N/A`，且必须同时声明 `record-only: <理由>`。 |
+| `record-only: <纯记录理由>` | 可选，显式声明纯记录例外；不得与真实 verify 命令混用。 |
 | `# 注释` / 空行 | 行首 `#` 与空行忽略；无法识别的行判格式错误（exit 2）。 |
 
 白名单口径：白名单条目须为仓库根相对**文件路径**。改动集以 `git status --porcelain -uall` 逐文件展开（未跟踪目录不折叠为目录条目），逐文件与白名单条目做全字面比对——目录形态条目（如 `docs/`）在逐文件口径下永不可 PASS，属 fail-closed 方向；路径含空白或转义引用时拒绝解析（exit 2）。
@@ -303,7 +304,8 @@ sh scripts/lane-commit.sh [repo-root] <contract-file>
 | `ticket: <仓库根相对路径>` | user-review 道必填（票文件须存在）；micro 道不得出现。票体 `.md` 或 `.json`——Checkpoint 承载形态随票体分派（`.md` 票追加票尾；`.json` 票落独立 `facts/requirements/tickets/<id>-review-checkpoint.md`，票体零追加）。 |
 | `whitelist: <逗号分隔相对路径>` | 必填，一行可多项；口径同 check-gates.sh（须为仓库根相对文件路径）。 |
 | `message: <产品提交说明>` | 必填，恰一行。 |
-| `verify: <验证命令>` | 一行一条，可多行；交由 check-gates.sh 重跑并记录退出码。 |
+| `verify: <验证命令>` | 一行一条，可多行；交由 check-gates.sh 重跑并记录退出码。普通快道至少一条真实命令；纯记录例外须唯一 `verify: N/A`。 |
+| `record-only: <纯记录理由>` | 可选，显式纯记录例外；仅与 `verify: N/A` 配套。 |
 | `verdict_quote: <用户裁决原文>` | user-review 道必填；micro 道不得出现。 |
 | `verdict_at: <裁决时间>` | user-review 道必填；micro 道不得出现。 |
 | `actual: <净工时>` | micro 道可选（至多一行）：本次微收口净工时文本（净工时口径：会话段累计减中断段），落微账本 `actual` 键；缺省空串——既有六键行向后兼容（合同不带 `actual:` 行照旧落行，actual 记空串）；user-review 道不得出现（其实际用时落票本体 `actual_time` 字段，ticket-ops flip 收口硬拦）。 |

@@ -491,6 +491,8 @@ tix_body() {
   "complexity": "C1",
   "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:N/A,O:N/A",
   "blocked_by": [],
+  "scope": ["facts/requirements/tickets/"],
+  "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
   "complexity_reason": "fixture 定级理由（正例，非空）",
   "priority_reason": "fixture 优先级理由（正例，非空）"
 }
@@ -509,6 +511,8 @@ tix_body_at() {
   "complexity": "C1",
   "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:N/A,O:N/A",
   "blocked_by": [],
+  "scope": ["facts/requirements/tickets/"],
+  "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
   "complexity_reason": "fixture 定级理由（正例，非空）",
   "priority_reason": "fixture 优先级理由（正例，非空）",
   "actual_time": "2h（fixture 净工时占位：会话段累计减中断段）"
@@ -631,6 +635,56 @@ suite_ticket_ops() {
   tix_body "$F/facts/requirements/tickets/10-alpha-first.json" 10-alpha-first
   tix_body "$F/facts/requirements/tickets/40-delta-fourth.json" 40-delta-fourth
   tix_body_at "$F/facts/requirements/tickets/20-beta-second.json" 20-beta-second
+
+  # 票 183：新 task 的 verification 门禁必须由 ticket-ops open 入口执行，存量形态只在读取面兼容。
+  F183="$D/fix183"
+  tix_build_fixture "$F183"
+  F="$D/fix"
+  TIX183="$F183/facts/requirements/tickets/30-gamma-third.json"
+  for legacy_shape in legacy-string legacy-array; do
+    tix_body "$TIX183" 30-gamma-third
+    python3 - "$TIX183" "$legacy_shape" <<'PYTHON'
+import json, sys
+path, shape = sys.argv[1:]
+with open(path, encoding='utf-8') as f:
+    body = json.load(f)
+body['verification'] = 'legacy prose' if shape == 'legacy-string' else ['legacy predicate']
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(body, f)
+PYTHON
+    if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$TIX183" >/dev/null 2>&1; then
+      ok "正例 183-legacy-$legacy_shape 存量 verification 读取兼容"
+    else
+      bad "正例 183-legacy-$legacy_shape 存量 verification 读取兼容"
+    fi
+  done
+  for new_shape in missing legacy-string legacy-array mixed-array; do
+    tix_body "$TIX183" 30-gamma-third
+    python3 - "$TIX183" "$new_shape" <<'PYTHON'
+import json, sys
+path, shape = sys.argv[1:]
+with open(path, encoding='utf-8') as f:
+    body = json.load(f)
+if shape == 'missing':
+    body.pop('verification')
+elif shape == 'legacy-string':
+    body['verification'] = 'legacy prose'
+elif shape == 'legacy-array':
+    body['verification'] = ['legacy predicate']
+else:
+    body['verification'] = [body['verification'][0], 'legacy predicate']
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(body, f)
+PYTHON
+    TIX183_BEFORE=$(tix_state "$F183")
+    sh "$F183/rules/implementation/scripts/ticket-ops.sh" "$F183" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line '{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture open 183", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}' >"$D/open-183-$new_shape.log" 2>&1
+    rc=$?
+    if [ "$rc" -eq 1 ] && [ "$TIX183_BEFORE" = "$(tix_state "$F183")" ]; then
+      ok "负例 183-open-$new_shape ticket-ops 拒绝新 task verification 形态且零写入"
+    else
+      bad "负例 183-open-$new_shape ticket-ops 拒绝新 task verification 形态且零写入" "exit=$rc $(head -n 2 "$D/open-183-$new_shape.log" | tr '\n' '|')"
+    fi
+  done
 
   LED_OPEN='{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture open 30", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
   LED_TAKE='{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture take 30", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
@@ -3104,6 +3158,298 @@ suite_lane_commit() {
   D=$T/lc
   mkdir -p "$D"
   LC="$SCRIPT_DIR/lane-commit.sh"
+
+  # check-gates 直接入口和 verify-contract 执行器空验证闸门（票 183）。
+  lc_build_fixture "$D/gates-direct"
+  cat > "$D/gates-empty.gates" <<'EOF'
+whitelist: a.txt
+EOF
+  sh "$SCRIPT_DIR/check-gates.sh" "$D/gates-direct" "$D/gates-empty.gates" >"$D/gates-empty.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '至少需要一条 verify' "$D/gates-empty.out"; then
+    ok '负例 183-G check-gates 普通快道缺 verify → exit 2'
+  else
+    bad '负例 183-G check-gates 普通快道缺 verify → exit 2' "exit=$rc $(tail -n 2 "$D/gates-empty.out" | tr '\n' '|')"
+  fi
+  cat > "$D/gates-record.gates" <<'EOF'
+whitelist: a.txt
+record-only: 更新纯记录索引
+verify: N/A
+EOF
+  sh "$SCRIPT_DIR/check-gates.sh" "$D/gates-direct" "$D/gates-record.gates" >"$D/gates-record.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '纯记录例外' "$D/gates-record.out"; then
+    ok '正例 183-H check-gates record-only + N/A → exit 0'
+  else
+    bad '正例 183-H check-gates record-only + N/A → exit 0' "exit=$rc $(tail -n 2 "$D/gates-record.out" | tr '\n' '|')"
+  fi
+  cat > "$D/gates-unmarked-na.gates" <<'EOF'
+whitelist: a.txt
+verify: N/A
+EOF
+  sh "$SCRIPT_DIR/check-gates.sh" "$D/gates-direct" "$D/gates-unmarked-na.gates" >"$D/gates-unmarked-na.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'N/A' "$D/gates-unmarked-na.out"; then
+    ok '负例 183-H2 verify N/A 缺 record-only → exit 2'
+  else
+    bad '负例 183-H2 verify N/A 缺 record-only → exit 2' "exit=$rc $(tail -n 2 "$D/gates-unmarked-na.out" | tr '\n' '|')"
+  fi
+  lc_build_fixture "$D/gate-na-argument"
+  printf 'N/A\n' > "$D/gate-na-argument/README.md"
+  cat > "$D/gate-na-argument.gates" <<'EOF'
+whitelist: a.txt,README.md
+verify: grep -q N/A README.md
+EOF
+  sh "$SCRIPT_DIR/check-gates.sh" "$D/gate-na-argument" "$D/gate-na-argument.gates" >"$D/gate-na-argument.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -Fq 'PASS: verify[1] exit=0 grep -q N/A README.md' "$D/gate-na-argument.out"; then
+    ok '正例 183-H3 普通 verify 命令参数含 N/A → 完整命令执行通过'
+  else
+    bad '正例 183-H3 普通 verify 命令参数含 N/A → 完整命令执行通过' "exit=$rc $(tail -n 3 "$D/gate-na-argument.out" | tr '\n' '|')"
+  fi
+
+  mkdir -p "$D/verify-contract"
+  cat > "$D/verify-contract/empty.json" <<'EOF'
+{"verification": []}
+EOF
+  sh "$SCRIPT_DIR/verify-contract.sh" "$D/verify-contract/empty.json" >"$D/verify-contract/empty.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '禁止空 verification' "$D/verify-contract/empty.out"; then
+    ok '负例 183-I verify-contract 普通任务空数组 → exit 1'
+  else
+    bad '负例 183-I verify-contract 普通任务空数组 → exit 1' "exit=$rc $(tail -n 2 "$D/verify-contract/empty.out" | tr '\n' '|')"
+  fi
+  cat > "$D/verify-contract/record.json" <<'EOF'
+{"record_only":{"reason":"登记事实"},"verification":"N/A"}
+EOF
+  sh "$SCRIPT_DIR/verify-contract.sh" "$D/verify-contract/record.json" >"$D/verify-contract/record.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '纯记录例外' "$D/verify-contract/record.out"; then
+    ok '正例 183-J verify-contract 显式纯记录例外 → exit 0'
+  else
+    bad '正例 183-J verify-contract 显式纯记录例外 → exit 0' "exit=$rc $(tail -n 2 "$D/verify-contract/record.out" | tr '\n' '|')"
+  fi
+  cat > "$D/verify-contract/legacy-array.json" <<'EOF'
+{"verification":["旧式散文谓词"]}
+EOF
+  sh "$SCRIPT_DIR/verify-contract.sh" "$D/verify-contract/legacy-array.json" >"$D/verify-contract/legacy-array.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '字符串数组是散文谓词' "$D/verify-contract/legacy-array.out"; then
+    ok '负例 183-N verify-contract 识别 legacy 字符串数组并拒绝执行'
+  else
+    bad '负例 183-N verify-contract 识别 legacy 字符串数组并拒绝执行' "exit=$rc $(tail -n 2 "$D/verify-contract/legacy-array.out" | tr '\n' '|')"
+  fi
+  cat > "$D/verify-contract/unsupported-check-any.json" <<'EOF'
+{"verification":[{"name":"x","check_any":[{"command":"true","description":"unsupported"}],"expect":"ok"}]}
+EOF
+  sh "$SCRIPT_DIR/verify-contract.sh" "$D/verify-contract/unsupported-check-any.json" >"$D/verify-contract/unsupported-check-any.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '未知字段' "$D/verify-contract/unsupported-check-any.out"; then
+    ok '负例 183-Q verify-contract 拒绝未实现的 check_any'
+  else
+    bad '负例 183-Q verify-contract 拒绝未实现的 check_any' "exit=$rc $(tail -n 2 "$D/verify-contract/unsupported-check-any.out" | tr '\n' '|')"
+  fi
+  cat > "$D/verify-contract/bad-record-only.json" <<'EOF'
+{"record_only":{"reason":"登记事实","extra":"bad"},"verification":"N/A"}
+EOF
+  sh "$SCRIPT_DIR/verify-contract.sh" "$D/verify-contract/bad-record-only.json" >"$D/verify-contract/bad-record-only.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'record_only 必须恰为' "$D/verify-contract/bad-record-only.out"; then
+    ok '负例 183-O verify-contract record_only 未知字段 → FAIL'
+  else
+    bad '负例 183-O verify-contract record_only 未知字段 → FAIL' "exit=$rc $(tail -n 2 "$D/verify-contract/bad-record-only.out" | tr '\n' '|')"
+  fi
+
+  # 票 183：普通快道缺验证必须失败；纯记录例外必须显式 record-only + N/A；
+  # N/A 不得与真实命令混用。三例均在产品提交前拒绝/通过，锁住空验证不再静默 PASS。
+  lc_build_fixture "$D/gate-empty"
+  {
+    printf 'lane: micro\nwhitelist: a.txt\nmessage: missing verify\n'
+  } > "$D/gate-empty.contract"
+  sh "$LC" "$D/gate-empty" "$D/gate-empty.contract" >"$D/gate-empty.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '至少需要一条 verify' "$D/gate-empty.out" && [ "$(git -C "$D/gate-empty" rev-list --count HEAD)" -eq 1 ]; then
+    ok '负例 183-A 普通快道缺 verify → exit 1 且零提交'
+  else
+    bad '负例 183-A 普通快道缺 verify → exit 1 且零提交' "exit=$rc $(tail -n 2 "$D/gate-empty.out" | tr '\n' '|')"
+  fi
+
+  # 票 183：validator 对象谓词的 scope 等数、expect/expect_exit 互斥和混合数组。
+  VTEST="$D/validator"
+  mkdir -p "$VTEST"
+  cat > "$VTEST/base.json" <<'EOF'
+{"id":"99-validator","kind":"task","title":"validator","created_at":"2026-10-20","complexity":"C1","profile":"D:Required,B:N/A,I:N/A,U:N/A,S:N/A,M:N/A,O:N/A","blocked_by":[],"complexity_reason":"x","priority_reason":"x","scope":["a","b"],"verification":[{"name":"a","check":"true","expect":"ok"},{"name":"b","check":"true","expect_exit":0}]}
+EOF
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/base.json" >/dev/null 2>&1; then
+    ok '正例 183-D validator 对象谓词 expect/expect_exit 二选一且 scope 等数 → PASS'
+  else
+    bad '正例 183-D validator 对象谓词 expect/expect_exit 二选一且 scope 等数 → PASS'
+  fi
+  sed 's/"scope":\["a","b"\]/"scope":["a"]/' "$VTEST/base.json" > "$VTEST/mismatch.json"
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/mismatch.json" >/dev/null 2>&1; then
+    ok '正例 183-K 默认校验不追溯拒绝既有票 Scope 数量差异'
+  else
+    bad '正例 183-K 默认校验不追溯拒绝既有票 Scope 数量差异'
+  fi
+  sed 's/"verification":\[{"name":"a","check":"true","expect":"ok"},{"name":"b","check":"true","expect_exit":0}\]/"verification":["legacy predicate"]/' "$VTEST/base.json" > "$VTEST/legacy-ticket.json"
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/legacy-ticket.json" >/dev/null 2>&1; then
+    ok '正例 183-P 存量 legacy 字符串 verification 仍可读取'
+  else
+    bad '正例 183-P 存量 legacy 字符串 verification 仍可读取'
+  fi
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/mismatch.json" --new-ticket >/dev/null 2>&1; then
+    bad '负例 183-E validator scope/verification 数量不一致 → FAIL'
+  else
+    ok '负例 183-E validator scope/verification 数量不一致 → FAIL'
+  fi
+  sed 's/"expect_exit":0/"expect":"ok","expect_exit":0/' "$VTEST/base.json" > "$VTEST/both.json"
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/both.json" >/dev/null 2>&1; then
+    bad '负例 183-F validator expect 与 expect_exit 同时存在 → FAIL'
+  else
+    ok '负例 183-F validator expect 与 expect_exit 同时存在 → FAIL'
+  fi
+  sed 's/"check":"true"/"check_any":[{"command":"true","description":"unsupported"}]/' "$VTEST/base.json" > "$VTEST/check-any.json"
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/check-any.json" >/dev/null 2>&1; then
+    bad '负例 183-L schema/validator 拒绝未实现的 check_any'
+  else
+    ok '负例 183-L schema/validator 拒绝未实现的 check_any'
+  fi
+  python3 - "$VTEST/base.json" "$VTEST/missing-verification.json" "$VTEST/legacy-string.json" "$VTEST/legacy-array-new.json" "$VTEST/bad-scope-item.json" "$VTEST/blank-scope-item.json" "$VTEST/null-record-only.json" "$VTEST/blank-legacy-array.json" <<'PYTHON'
+import json, sys
+base = json.load(open(sys.argv[1], encoding='utf-8'))
+missing = dict(base)
+missing.pop('verification')
+legacy = dict(base)
+legacy['verification'] = 'legacy prose'
+legacy_array = dict(base)
+legacy_array['verification'] = ['legacy prose']
+bad_scope = dict(base)
+bad_scope['scope'] = [123, 'b']
+blank_scope = dict(base)
+blank_scope['scope'] = [' \t ', 'b']
+null_record = dict(base)
+null_record['record_only'] = None
+blank_legacy_array = dict(base)
+blank_legacy_array['verification'] = [' \t ']
+for path, value in zip(sys.argv[2:], (missing, legacy, legacy_array, bad_scope, blank_scope, null_record, blank_legacy_array)):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(value, f)
+PYTHON
+  for case in missing-verification legacy-string legacy-array-new bad-scope-item blank-scope-item null-record-only; do
+    if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/$case.json" --new-ticket >/dev/null 2>&1; then
+      bad "负例 183-T-$case 新 task 票校验拒绝缺失或错误形态"
+    else
+      ok "负例 183-T-$case 新 task 票校验拒绝缺失或错误形态"
+    fi
+  done
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/blank-legacy-array.json" >/dev/null 2>&1; then
+    bad '负例 183-T-blank-legacy-array schema/runtime 均拒绝纯空白存量谓词'
+  else
+    ok '负例 183-T-blank-legacy-array schema/runtime 均拒绝纯空白存量谓词'
+  fi
+  if python3 - "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" <<'PYTHON'
+import json, sys
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+props = schema['properties']
+verification = props['verification']['oneOf']
+legacy = next(s for s in verification if s.get('type') == 'array' and s['items'].get('type') == 'string')
+structured = next(s for s in verification if s.get('type') == 'array' and s['items'].get('type') == 'object')
+fields = structured['items']['properties']
+blank_pattern = r'[^\t\n\v\f\r \u001c-\u001f\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]'
+checks = [
+    props['scope']['items'].get('pattern') == blank_pattern,
+    legacy['items'].get('pattern') == blank_pattern,
+    all(fields[name].get('pattern') == blank_pattern for name in ('name', 'check', 'expect')),
+    props['record_only']['properties']['reason'].get('pattern') == blank_pattern,
+]
+if all(checks):
+    raise SystemExit(0)
+raise SystemExit(1)
+PYTHON
+  then
+    ok '正例 183-U schema Draft-07 空白字段约束与 runtime 覆盖一致'
+  else
+    bad '正例 183-U schema Draft-07 空白字段约束与 runtime 覆盖一致'
+  fi
+  python3 - "$VTEST/base.json" "$VTEST/blank-name.json" "$VTEST/blank-check.json" "$VTEST/blank-expect.json" "$VTEST/blank-record-only.json" "$VTEST/blank-expect-ecma.json" "$VTEST/blank-expect-python.json" <<'PYTHON'
+import json, sys
+base = json.load(open(sys.argv[1], encoding='utf-8'))
+cases = []
+for key, value in (('name', '   '), ('check', ' \t '), ('expect', '\n')):
+    item = dict(base)
+    item['verification'][0][key] = value
+    cases.append(item)
+record_only = dict(base)
+record_only['record_only'] = {'reason': '   '}
+record_only['verification'] = 'N/A'
+cases.append(record_only)
+for char in ('\ufeff', '\u0085', '\u001c'):
+    item = dict(base)
+    item['verification'][0]['expect'] = char
+    cases.append(item)
+for path, value in zip(sys.argv[2:], cases):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(value, f)
+PYTHON
+  for case in blank-name blank-check blank-expect blank-record-only blank-expect-ecma blank-expect-python; do
+    if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/$case.json" --new-ticket >/dev/null 2>&1; then
+      bad "负例 183-U-$case 拒绝纯空白验收字段"
+    else
+      ok "负例 183-U-$case 拒绝纯空白验收字段"
+    fi
+  done
+  sed 's/"verification":\[/"record_only":{"reason":"record","unexpected":true},"verification":\[/' "$VTEST/base.json" > "$VTEST/bad-record-only.json"
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/bad-record-only.json" >/dev/null 2>&1; then
+    bad '负例 183-M record_only 含未知字段 → FAIL'
+  else
+    ok '负例 183-M record_only 含未知字段 → FAIL'
+  fi
+  python3 - "$VTEST/base.json" "$VTEST/record-only-with-real-verification.json" "$VTEST/na-without-record-only.json" <<'PYTHON'
+import json, sys
+base = json.load(open(sys.argv[1], encoding='utf-8'))
+with_real = dict(base)
+with_real['record_only'] = {'reason': '登记事实'}
+with open(sys.argv[2], 'w', encoding='utf-8') as f:
+    json.dump(with_real, f)
+without_record = dict(base)
+without_record['verification'] = 'N/A'
+with open(sys.argv[3], 'w', encoding='utf-8') as f:
+    json.dump(without_record, f)
+PYTHON
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/record-only-with-real-verification.json" >/dev/null 2>&1; then
+    bad '负例 183-R record_only + 真实 verification → FAIL'
+  else
+    ok '负例 183-R record_only + 真实 verification → FAIL'
+  fi
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/na-without-record-only.json" >/dev/null 2>&1; then
+    bad '负例 183-S verification N/A 缺 record_only → FAIL'
+  else
+    ok '负例 183-S verification N/A 缺 record_only → FAIL'
+  fi
+
+  lc_build_fixture "$D/gate-record"
+  {
+    printf 'lane: micro\nwhitelist: a.txt\nmessage: record-only\nrecord-only: 仅登记事实\nverify: N/A\n'
+  } > "$D/gate-record.contract"
+  sh "$LC" "$D/gate-record" "$D/gate-record.contract" >"$D/gate-record.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '纯记录例外' "$D/gate-record.out"; then
+    ok '正例 183-B record-only + verify N/A → exit 0 且显式记录例外'
+  else
+    bad '正例 183-B record-only + verify N/A → exit 0 且显式记录例外' "exit=$rc $(tail -n 3 "$D/gate-record.out" | tr '\n' '|')"
+  fi
+
+  lc_build_fixture "$D/gate-mixed"
+  {
+    printf 'lane: micro\nwhitelist: a.txt\nmessage: mixed verify\nrecord-only: 不能混用\nverify: true\nverify: N/A\n'
+  } > "$D/gate-mixed.contract"
+  sh "$LC" "$D/gate-mixed" "$D/gate-mixed.contract" >"$D/gate-mixed.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '不能同时携带真实 verify' "$D/gate-mixed.out" && [ "$(git -C "$D/gate-mixed" rev-list --count HEAD)" -eq 1 ]; then
+    ok '负例 183-C record-only 混用真实 verify → exit 1 且零提交'
+  else
+    bad '负例 183-C record-only 混用真实 verify → exit 1 且零提交' "exit=$rc $(tail -n 2 "$D/gate-mixed.out" | tr '\n' '|')"
+  fi
 
   # 正例 P1：合同带 actual 行 → exit 0 且微账本第七键 actual 落值（票 100 决策 3）
   lc_build_fixture "$D/p1"

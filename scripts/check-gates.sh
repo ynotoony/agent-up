@@ -1,6 +1,7 @@
 #!/bin/sh
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层）与行式门禁清单文件
-#        （whitelist: 逗号分隔仓库根相对路径；verify: 逐行验证命令，可多行）。
+#        （whitelist: 逗号分隔仓库根相对路径；verify: 逐行验证命令，可多行；
+#         record-only: 纯记录例外理由，必须同时带唯一的 verify: N/A）。
 # Output: 实际改动对白名单的逐项 PASS/FAIL 行、verify 命令逐条退出码记录与结尾汇总行；
 #         exit 0 全部通过、1 有未过项、2 用法或环境错误。
 # Pos: 分级交付道快道门禁核对器（REQ-20260904-011 / 票 26；行为基线 = development-process
@@ -31,7 +32,8 @@ usage() {
   repo-root   仓库根目录；缺省取当前目录所在 Git 仓库顶层。
   gates-file  行式门禁清单文件，行格式（均以行首列为准）:
                 whitelist: <逗号分隔的仓库根相对路径>
-                verify: <验证命令>（一行一条，可多行）
+                verify: <验证命令>（一行一条，可多行；普通快道至少一条）
+                record-only: <纯记录理由>（仅纯记录例外；须同时有 verify: N/A）
                 # 注释（行首 #）与空行忽略；其余行判格式错误。
   -h / --help 打印本用法。
 退出码: 0 全部通过；1 有未过项（越界改动或 verify 失败）；2 用法或环境错误。
@@ -65,6 +67,8 @@ git -C "${repo_root}" rev-parse --git-dir >/dev/null 2>&1 || die2 "仓库根不�
 wl_seen=0
 whitelist=''
 verifies=''
+record_only_seen=0
+record_only=''
 
 while IFS= read -r line || [ -n "${line}" ]; do
   case ${line} in
@@ -92,6 +96,12 @@ while IFS= read -r line || [ -n "${line}" ]; do
           [ -n "${val}" ] || die2 'verify 行缺少命令'
           verifies="${verifies}${val}${NL}"
           ;;
+        record-only)
+          [ "${record_only_seen}" -eq 0 ] || die2 'record-only 行重复'
+          [ -n "${val}" ] || die2 'record-only 行缺少理由'
+          record_only_seen=1
+          record_only=${val}
+          ;;
         *)
           die2 "无法识别的门禁清单行: ${line}"
           ;;
@@ -104,6 +114,37 @@ while IFS= read -r line || [ -n "${line}" ]; do
 done < "${gates_file}"
 
 [ "${wl_seen}" -eq 1 ] || die2 '门禁清单缺少 whitelist 行'
+
+# 普通快道必须有真实验证；纯记录例外必须显式声明理由并使用唯一 N/A 哨兵。
+n_verify_lines=0
+n_real_verify=0
+n_na_verify=0
+verify_rest=${verifies}
+while [ -n "${verify_rest}" ]; do
+  case ${verify_rest} in
+    *"${NL}"*)
+      vcmd=${verify_rest%%"${NL}"*}
+      verify_rest=${verify_rest#*"${NL}"}
+      ;;
+    *)
+      vcmd=${verify_rest}
+      verify_rest=''
+      ;;
+  esac
+  n_verify_lines=$((n_verify_lines + 1))
+  if [ "${vcmd}" = 'N/A' ]; then
+    n_na_verify=$((n_na_verify + 1))
+  else
+    n_real_verify=$((n_real_verify + 1))
+  fi
+done
+if [ "${record_only_seen}" -eq 1 ]; then
+  [ "${n_real_verify}" -eq 0 ] || die2 'record-only 不能同时携带真实 verify 命令'
+  [ "${n_na_verify}" -eq 1 ] && [ "${n_verify_lines}" -eq 1 ] || die2 'record-only 必须携带唯一 verify: N/A'
+else
+  [ "${n_real_verify}" -gt 0 ] || die2 '普通快道至少需要一条 verify；纯记录请显式声明 record-only: <理由> 与 verify: N/A'
+  [ "${n_na_verify}" -eq 0 ] || die2 'verify: N/A 仅允许与 record-only 一起使用'
+fi
 
 # ---- 改动集 ⊆ 白名单 ----
 
@@ -160,6 +201,7 @@ done
 
 n_verify=0
 for vcmd in ${verifies}; do
+  [ "${vcmd}" = 'N/A' ] && continue
   n_verify=$((n_verify + 1))
   vrc=0
   vout=$(cd "${repo_root}" && sh -c "${vcmd}" 2>&1) || vrc=$?
@@ -177,7 +219,11 @@ done
 # ---- 汇总 ----
 
 if [ "${failures}" -eq 0 ]; then
-  printf 'check-gates: PASS（改动 %d 项全部在白名单内，verify %d 条全部通过）\n' "${n_files}" "${n_verify}"
+  if [ "${record_only_seen}" -eq 1 ]; then
+    printf 'check-gates: PASS（纯记录例外：%s；改动 %d 项全部在白名单内，verify N/A）\n' "${record_only}" "${n_files}"
+  else
+    printf 'check-gates: PASS（改动 %d 项全部在白名单内，verify %d 条全部通过）\n' "${n_files}" "${n_verify}"
+  fi
   exit 0
 fi
 printf 'check-gates: FAIL（%d 项未通过）\n' "${failures}"

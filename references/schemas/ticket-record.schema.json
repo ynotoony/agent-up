@@ -101,7 +101,8 @@
       "type": "array",
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
       },
       "minItems": 1,
       "description": "Scope 数组：每元素一棵 Scope 树字符串（根行＋缩进子行，树内换行以 \\n 转义；树结构展示口径对齐）；语义为本次任务允许修改的路径白名单。"
@@ -214,10 +215,11 @@
           "type": "array",
           "items": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
           },
           "minItems": 1,
-          "description": "数组形态（融合新增）：逐条验收谓词，与 scope 条目等数（R-DP-038 完整性门：谓词条数＝清单条数才可派发）。每元素一条机器可判定检查（唯一匹配/期望输出/可跑命令）。存量票字符串形态继续合法。"
+          "description": "legacy 字符串数组形态：存量兼容；新票结构化谓词应使用对象数组。"
         },
         {
           "type": "array",
@@ -225,14 +227,14 @@
             "type": "object",
             "required": [
               "name",
-              "check",
-              "expect"
+              "check"
             ],
             "additionalProperties": false,
             "properties": {
               "name": {
                 "type": "string",
                 "minLength": 1,
+                "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]",
                 "description": "验收条件名称（如 AC1、Schema改进完成）"
               },
               "description": {
@@ -242,45 +244,19 @@
               "check": {
                 "type": "string",
                 "minLength": 1,
+                "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]",
                 "description": "检查命令（如 grep、test、cat），验证器执行此命令"
-              },
-              "check_any": {
-                "type": "array",
-                "minItems": 1,
-                "description": "可选。多个检查命令，任意一条通过即可（与 check 互斥，二选一）",
-                "items": {
-                  "type": "object",
-                  "required": [
-                    "command",
-                    "description"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "command": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "检查命令"
-                    },
-                    "description": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "此检查项说明"
-                    },
-                    "expect": {
-                      "type": "string",
-                      "description": "期望输出（可选，缺省表示只验证退出码为0）"
-                    },
-                    "not_equals": {
-                      "type": "string",
-                      "description": "期望输出不等于此值（可选，与 expect 互斥）"
-                    }
-                  }
-                }
               },
               "expect": {
                 "type": "string",
                 "minLength": 1,
-                "description": "期望输出（字符串或退出码，如 '0'、'PASS'、'OK'）"
+                "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]",
+                "description": "可选。期望输出（字符串，如 PASS 或 OK）；与 expect_exit 二选一。"
+              },
+              "expect_exit": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "可选。期望退出码；与 expect 二选一。"
               },
               "expect_exit": {
                 "type": "integer",
@@ -292,13 +268,17 @@
                 "type": "string",
                 "description": "可选。验证失败时的提示信息"
               }
-            }
+            },
+            "oneOf": [
+              {"required": ["expect"]},
+              {"required": ["expect_exit"]}
+            ]
           },
           "minItems": 1,
-          "description": "机器可执行格式（Workflow 新增）：结构化验收对象数组。每个对象包含 name（验收条件名）、check（检查命令）、expect（期望结果）、fail_msg（失败提示）。验证器直接运行命令并比对结果，无需理解散文。"
+          "description": "机器可执行格式：结构化验收对象数组。每个对象包含 name、check，并且 expect 与 expect_exit 恰好提供一个；验证器直接运行命令并比对结果。"
         }
       ],
-      "description": "验收谓词。三形态：字符串（存量形态，整段散文）、字符串数组（融合新增，逐条谓词与 scope 等数——完整性门机器核对实体）、或对象数组（Workflow 机器可执行格式，结构化验收定义）。"
+      "description": "验收谓词。三形态：字符串（存量散文）、字符串数组（存量兼容）、或对象数组（结构化机器可执行定义；新票开票时须与 scope 条目等数）。"
     },
     "output_contract": {
       "type": "string",
@@ -352,6 +332,20 @@
         "inline"
       ],
       "description": "可选。派发通道声明（R-DP-038 两问闸分流结果，开票/派发时声明）：script＝两问全过主 agent 亲写用完即弃脚本；agent＝需执行体判断力派发走三阶段（两问回答由本票 scope/verification 承载）；inline＝真一次性且小经用户同意直改。缺省视同 agent。存量票零回扫。"
+    },
+    "record_only": {
+      "type": "object",
+      "required": ["reason"],
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]",
+          "description": "纯记录例外理由。与 verification: N/A 配套，禁止用空 verification 静默绕过门禁。"
+        }
+      },
+      "description": "可选。显式纯记录例外声明；仅当 verification 为 N/A 时使用。"
     }
   },
   "allOf": [
@@ -374,6 +368,28 @@
           "complexity_reason",
           "priority_reason"
         ]
+      }
+    },
+    {
+      "if": {
+        "required": ["record_only"]
+      },
+      "then": {
+        "required": ["verification"],
+        "properties": {
+          "verification": { "const": "N/A" }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["verification"],
+        "properties": {
+          "verification": { "const": "N/A" }
+        }
+      },
+      "then": {
+        "required": ["record_only"]
       }
     }
   ]

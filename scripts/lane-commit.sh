@@ -1,6 +1,7 @@
 #!/bin/sh
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层）与行式提交合同文件
-#        （lane / ticket / whitelist / message / verify / verdict_quote / verdict_at / flips）。
+#        （lane / ticket / whitelist / message / verify / record-only / verdict_quote /
+#         verdict_at / flips）。
 # Output: 门禁核对、白名单产品提交、记录写入（user-review 道追加 User Review Checkpoint
 #         ——.md 票追加票尾，.json 票体零追加、落独立 facts/requirements/tickets/<id>-review-checkpoint.md
 #         （票 108）；micro 道向 facts/project/micro.jsonl 懒创建落 JSON 行——键序 date,lane,
@@ -69,7 +70,8 @@ usage() {
                                                        票 108）
                    whitelist: <逗号分隔相对路径>      （必填，单项或逗号多项）
                    message: <产品提交说明>            （必填）
-                   verify: <验证命令>                 （一行一条，可多行）
+                   verify: <验证命令>                 （一行一条，可多行；普通快道至少一条）
+                   record-only: <纯记录理由>          （仅纯记录例外；须同时带唯一 verify: N/A）
                    verdict_quote: <用户裁决原文>      （user-review 必填；micro 不得出现）
                    verdict_at: <裁决时间>             （user-review 必填；micro 不得出现）
                    actual: <净工时（净工时口径文本）>  （micro 可选，票 100：记本次微收口
@@ -209,6 +211,8 @@ actual_seen=0
 actual=''
 whitelist=''
 verifies=''
+record_only_seen=0
+record_only=''
 flips=''
 n_index_flip=0
 
@@ -269,6 +273,12 @@ while IFS= read -r line || [ -n "${line}" ]; do
         verify)
           [ -n "${val}" ] || die1 'verify 行缺少命令'
           verifies="${verifies}${val}${NL}"
+          ;;
+        record-only)
+          [ "${record_only_seen}" -eq 0 ] || die1 'record-only 行重复'
+          [ -n "${val}" ] || die1 'record-only 行缺少理由'
+          record_only_seen=1
+          record_only=${val}
           ;;
         flips)
           [ -n "${val}" ] || die1 'flips 行缺少内容'
@@ -334,6 +344,26 @@ done < "${contract}"
 [ "${lane_seen}" -eq 1 ] || die1 '合同缺少 lane 行'
 [ "${message_seen}" -eq 1 ] && [ -n "${message}" ] || die1 '合同缺少 message 行'
 [ -n "${whitelist}" ] || die1 '合同缺少 whitelist 行或白名单为空'
+
+# 普通快道必须有真实验证；纯记录例外必须显式声明理由并使用唯一 N/A 哨兵。
+n_verify_lines=0
+n_real_verify=0
+n_na_verify=0
+for vcmd in ${verifies}; do
+  n_verify_lines=$((n_verify_lines + 1))
+  if [ "${vcmd}" = 'N/A' ]; then
+    n_na_verify=$((n_na_verify + 1))
+  else
+    n_real_verify=$((n_real_verify + 1))
+  fi
+done
+if [ "${record_only_seen}" -eq 1 ]; then
+  [ "${n_real_verify}" -eq 0 ] || die1 'record-only 不能同时携带真实 verify 命令'
+  [ "${n_na_verify}" -eq 1 ] && [ "${n_verify_lines}" -eq 1 ] || die1 'record-only 必须携带唯一 verify: N/A'
+else
+  [ "${n_real_verify}" -gt 0 ] || die1 '普通快道至少需要一条 verify；纯记录请显式声明 record-only: <理由> 与 verify: N/A'
+  [ "${n_na_verify}" -eq 0 ] || die1 'verify: N/A 仅允许与 record-only 一起使用'
+fi
 
 case ${lane} in
   user-review)
@@ -618,6 +648,9 @@ t_dir=${TMPDIR:-/tmp}
 tmp_gate=$(mktemp "${t_dir%/}/lane-gates.XXXXXX")
 {
   printf 'whitelist: %s\n' "$(printf '%s' "${whitelist}" | paste -sd, -)"
+  if [ "${record_only_seen}" -eq 1 ]; then
+    printf 'record-only: %s\n' "${record_only}"
+  fi
   for vcmd in ${verifies}; do
     printf 'verify: %s\n' "${vcmd}"
   done
