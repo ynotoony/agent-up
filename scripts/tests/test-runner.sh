@@ -108,6 +108,8 @@ export TEST_RECORD_SOURCE_ONLY
 . "$TESTS_DIR/suite-authority-matrix.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
 . "$TESTS_DIR/suite-dispatch-contract.sh"
+# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
+. "$TESTS_DIR/suite-workflow-contract.sh"
 
 
 SUITE='all'
@@ -118,7 +120,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | authority-matrix | worktree | upgrade-check | absorption | health | install | dispatch-contract | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | stale-claims | lane-commit | authority-matrix | worktree | upgrade-check | absorption | health | install | dispatch-contract | workflow-contract | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
@@ -137,7 +139,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|json-helpers|check-package|append-only|check-artifacts|stale-claims|lane-commit|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|all) ;;
+  module-map|ticket-ops|progress|json-helpers|check-package|append-only|check-artifacts|stale-claims|lane-commit|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -193,6 +195,7 @@ case $SUITE in
   shellcheck) suite_shellcheck ;;
   install) suite_install ;;
   dispatch-contract) suite_dispatch_contract ;;
+  workflow-contract) suite_workflow_contract ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -211,6 +214,7 @@ case $SUITE in
     suite_shellcheck
     suite_install
     suite_dispatch_contract
+    suite_workflow_contract
     self_check_injection
     ;;
 esac

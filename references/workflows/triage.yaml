@@ -3,13 +3,13 @@ workflow:
   description: 需求分诊流程——从需求描述到 ready 票
 
 inputs:
-  - name: requirement
+  requirement:
     type: string
-    description: 用户需求描述
     required: true
+    description: 用户需求描述
 
 outputs:
-  - name: ticket_id
+  ticket_id:
     type: string
     description: 生成的票 ID
 

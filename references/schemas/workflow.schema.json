@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/workflow.schema.json",
   "title": "Agent Up Workflow Schema v2",
-  "description": "工作流 DSL schema v2（状态机＋步骤定义）。支持声明式工作流定义——inputs/outputs（参数与产物）、steps（agent/command/verification 三种类型）、state_machine（状态转换规则）、checkpoint_field（步骤级状态存储字段）。agent-up/scripts/workflow-executor.sh 当前只执行 command/verification，agent step 在状态写入前失败关闭；支持中断恢复，checkpoint 与票本体分离，票只保存版本化固定 sibling checkpoint_ref（格式见 ticket-record.schema.json）。",
+  "description": "工作流 DSL schema v2（状态机＋步骤定义）。支持声明式工作流定义——inputs/outputs（参数与产物）、steps（agent/command/verification 三种类型）、state_machine（状态转换规则）、checkpoint_field（步骤级状态存储字段）。agent-up/scripts/workflow-executor.sh 当前只执行 command/verification，agent step 在状态写入前失败关闭；支持中断恢复，checkpoint 与票本体分离，票只保存版本化固定 sibling checkpoint_ref（格式见 ticket-record.schema.json）。executor 实际支持子集（哪些字段被读取并强制、哪些仅 schema 声明不消费）与 checkpoint_field/sidecar 读写语义，定稿于 references/schemas/README.md「workflow executor 支持子集」节，由 agent-up/scripts/tests/ 的 workflow-contract 套件回归锁定。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -40,7 +40,7 @@
     },
     "inputs": {
       "type": "object",
-      "description": "工作流输入参数定义（字段名→参数描述对象）",
+      "description": "工作流输入参数定义（字段名→参数描述对象；schema 声明项——executor 不消费本节，--param 仅接收登记、不做参数替换）",
       "patternProperties": {
         "^[a-zA-Z_][a-zA-Z0-9_]*$": {
           "type": "object",
@@ -74,7 +74,7 @@
     },
     "outputs": {
       "type": "object",
-      "description": "工作流输出产物定义（字段名→产物描述对象）",
+      "description": "工作流输出产物定义（字段名→产物描述对象；schema 声明项——executor 不消费本节）",
       "patternProperties": {
         "^[a-zA-Z_][a-zA-Z0-9_]*$": {
           "type": "object",
@@ -133,11 +133,11 @@
           "checkpoint_field": {
             "type": "string",
             "pattern": "^checkpoint\\.[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)*$",
-            "description": "Checkpoint 字段路径（如 checkpoint.implementation、checkpoint.implementation.step_1）——该步骤完成后写入此字段，用于中断恢复"
+            "description": "Checkpoint 字段路径（如 checkpoint.implementation、checkpoint.implementation.step_1）——该步骤完成后写入此字段，用于中断恢复。运行时语义（与 workflow-executor.sh 逐字段一致）：路径在 schema 与运行时以等价正则封锁（checkpoint. 加至少一段 [a-z_][a-z0-9_]*）；两个步骤的字段路径相同或互为前缀即整体拒绝（重叠禁写）；步骤成功且带 --ticket-file 时原子写入 sidecar 的 checkpoint 对象同名嵌套路径，叶子记录恰三键——step_name＝本步骤 id、completed_at＝UTC 时刻（格式 YYYY-MM-DDTHH:MM:SSZ 且日历有效）、outputs＝命令输出字符串；--resume 按同名字段回读并校验 step_name 与本步骤 id 一致、completed_at 非空且为合法 UTC 时刻、outputs 为字符串，任一不合即拒绝恢复；无本字段的步骤不落 checkpoint，恢复时视为未完成重跑"
           },
           "agent": {
             "type": "string",
-            "description": "Agent 路径或名称（type=agent 时必填）"
+            "description": "Agent 路径或名称（type=agent 时必填；executor 无 agent 适配器——未被 --retry 跳过时，含本类型的 workflow 在 checkpoint 落盘与任何步骤副作用之前整体失败关闭）"
           },
           "command": {
             "type": "string",
@@ -182,7 +182,7 @@
                 },
                 "fail_msg": {
                   "type": "string",
-                  "description": "失败时消息（可选）"
+                  "description": "失败时消息（可选；executor 解析兼容但不输出，失败消息由 executor 自行生成）"
                 }
               }
             }
@@ -190,14 +190,14 @@
           "on_failure": {
             "type": "string",
             "enum": ["stop", "continue", "retry"],
-            "description": "失败处理策略（可选，默认 stop）"
+            "description": "失败处理策略（可选，默认 stop；schema 声明项——executor 不读取本字段，任何步骤失败均按 stop 处理）"
           },
           "depends_on": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "依赖的步骤 id 列表（可选）"
+            "description": "依赖的步骤 id 列表（可选；schema 声明项——executor 不读取本字段，不强制依赖顺序，按 steps 声明序执行）"
           }
         },
         "oneOf": [
