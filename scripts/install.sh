@@ -1,19 +1,24 @@
 #!/bin/sh
 # Input: 命令行参数（--target <dir> 必选＋门控启用 flag）与安装政策数据文件
-#        install-policy.rules（与脚本同目录；门控集合构成、每文件复制基线路径与登记
-#        lifecycle 值的唯一承载点，票 56 单源化）。
-# Output: 按启用门控自数据读复制集合（引擎零脚本名零门控专名），逐件 cp 自包 scripts/
-#         至 <target>/rules/implementation/scripts/ 并 cmp 核验字节一致；stdout 输出逐件
-#         OK/SKIP 行＋新建 rules/implementation/scripts/README.md 提示行（目录缺失时）＋
-#         登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账
-#         承载）；stderr 报告失败原因。不代写目标治理文件（artifacts.yaml、
-#         rules/implementation/scripts/README.md 均归执行体）。
+#        install-policy.rules（与脚本同目录；门控集合构成、每脚本件复制基线路径、每数据件
+#        落位路径与登记 lifecycle 值的唯一承载点，票 56 单源化）。
+# Output: 按启用门控自数据读复制集合（引擎零脚本名零门控专名）：脚本件（ip_file 行）逐件
+#         cp 自包 scripts/ 至 <target>/rules/implementation/scripts/；数据件（ip_data 行）
+#         逐件 cp 自包内源路径至 <target>/<行内落位路径>（安装后运行时依赖闭包——
+#         schema/profile 等数据件随消费脚本同门控落位，消费脚本按自身落位形态邻接定位）；
+#         逐件 cmp 核验字节一致；stdout 输出逐件 OK/SKIP 行＋新建目录提示行（目录缺失时）＋
+#         登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，脚本件 kind: script、
+#         数据件 kind: spec，生成件登记随条目单本账承载）；stderr 报告失败原因。不代写
+#         目标治理文件（artifacts.yaml、rules/implementation/scripts/README.md 均归执行体）。
 # Pos: 安装脚本（票 56）。POSIX sh、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）、
 #      set -eu、fail-closed：规则表缺失或结构校验不过 exit 2 不写任何文件；预检（源存在、
 #      目标可写、目标同名件冲突）先于复制，停止零半套；包内误运行守卫（--target 解析后
 #      含 agent-up/SKILL.md 或 SKILL.md、或等于本脚本所在目录）exit 1；源缺失/目标不存在
 #      或不可写/目标同名件与基线不一致 exit 1（reconcile 纪律：人工漂移不覆盖，检出即
-#      停报告）；已存在且字节一致的同名件幂等跳过；复制后 cmp 逐件核验。规则表自票 145
+#      停报告）；已存在且字节一致的同名件幂等跳过；复制后 cmp 逐件核验。安装后运行时
+#      依赖闭包：规则表以 ip_data 行登记消费脚本的数据依赖（schema/profile 等），预检对
+#      数据件与脚本件同口径核验源存在——删除任一已登记依赖即安装明确失败（exit 1 指名
+#      缺失路径，零半套）。规则表自票 145
 #      起非执行式解析：不再 source install-policy.rules——规则表只作为受控文本数据解析，
 #      未知指令、恶意 shell 片段与结构破坏统一 exit 2 fail-closed（先例 check-package.sh
 #      票 145 同款解析器）；本脚本为包侧工具（复制基线安装器），不落本仓
@@ -46,21 +51,24 @@ usage() {
   cat <<'USAGE'
 用法: sh scripts/install.sh --target <dir> [--fast-lane] [--ticket-ops]
 参数:
-  --target <dir>  目标项目根目录（须已存在）；复制落位于 <dir>/rules/implementation/scripts/。
+  --target <dir>  目标项目根目录（须已存在）；脚本件复制落位于 <dir>/rules/implementation/scripts/，
+                  数据件按规则表行内落位路径落位（安装后运行时依赖闭包）。
   --fast-lane     门控启用 flag 之一：复制道脚本集合（构成见同目录 install-policy.rules）。
-  --ticket-ops    门控启用 flag 之一：复制票务运维脚本集合（含生成器回退依赖）。
+  --ticket-ops    门控启用 flag 之一：复制票务运维脚本集合（含生成器回退依赖与 schema/
+                  profile 运行时数据依赖）。
   -h / --help     打印本用法。
 行为: 按启用门控自查同目录 install-policy.rules 得复制集合（引擎零脚本名零门控专名，
-      加门控＝加规则行零引擎改动），逐件 cp 自包 scripts/ 至
-      <target>/rules/implementation/scripts/ 并 cmp 核验字节一致；目标
-      rules/implementation/scripts/ 缺失时创建并输出需生成
-      rules/implementation/scripts/README.md 提示行（README 生成不归本脚本）；末尾输出
-      登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，生成件登记随条目单本账
-      承载），不代写目标治理文件。已存在且字节一致的同名件幂等跳过；与基线不一致即停
-      （不覆盖人工漂移，reconcile 纪律）。
+      加门控＝加规则行零引擎改动），脚本件逐件 cp 自包 scripts/ 至
+      <target>/rules/implementation/scripts/，数据件逐件 cp 自包内源路径至
+      <target>/<行内落位路径>，并 cmp 核验字节一致；目标目录缺失时创建并输出提示行
+      （scripts 目录 README 生成不归本脚本）；末尾输出登记建议块（每复制件一行
+      artifacts.yaml 十三字段建议值，生成件登记随条目单本账承载），不代写目标治理文件。
+      已存在且字节一致的同名件幂等跳过；与基线不一致即停（不覆盖人工漂移，reconcile
+      纪律）。
 退出码: 0 全部复制并核验通过；1 fail-closed（包内误运行守卫、目标不存在或不可写、源
-        缺失、目标同名件与基线不一致、cmp 核验失败；预检先于复制，停止零半套）；2 用法
-        或环境错误（缺 --target、未知参数、零启用门控、规则表缺失或结构校验不过）。
+        缺失（脚本件与数据件同口径）、目标同名件与基线不一致、cmp 核验失败；预检先于
+        复制，停止零半套）；2 用法或环境错误（缺 --target、未知参数、零启用门控、规则
+        表缺失或结构校验不过）。
 USAGE
 }
 
@@ -69,17 +77,21 @@ USAGE
 t_dir=${TMPDIR:-/tmp}
 tmp_gates=''
 tmp_rows=''
+tmp_data=''
 tmp_copied=''
+tmp_data_copied=''
 install_rules_tmp=''
 script_dir=''
 # shellcheck disable=SC2329  # cleanup 经 trap EXIT/HUP/INT/TERM 引用真实生效（shellcheck 单文件视野误报，151 同款先例）
 cleanup() {
-  rm -f "$tmp_gates" "$tmp_rows" "$tmp_copied" "$install_rules_tmp"
+  rm -f "$tmp_gates" "$tmp_rows" "$tmp_data" "$tmp_copied" "$tmp_data_copied" "$install_rules_tmp"
 }
 trap cleanup EXIT HUP INT TERM
 tmp_gates=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 tmp_rows=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
+tmp_data=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 tmp_copied=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
+tmp_data_copied=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 
 # ---- 安装政策规则表加载（外置数据＋引擎零专名，先例 generate-module-map.sh；票 145
 #      非执行式解析：不再 source 规则表——规则表只作为受控文本数据解析，未知指令、恶意
@@ -87,13 +99,16 @@ tmp_copied=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 # 行格式（数据文件头部注释为权威口径）：
 #   ip_gate <gate> <flag> <说明>
 #   ip_file <pkg-rel-path> <lifecycle> <gate> <说明>
+#   ip_data <pkg-rel-path> <target-rel-path> <lifecycle> <gate> <说明>
 # 逐行 TAB 连接落 tmp_gates / tmp_rows，供结构校验与集合选取。解析口径与两兄弟引擎同款：
 # awk 逐逻辑行（续行拼接）单引号词法取段、引号外空白分词；引号外禁 shell 语法元字符
 # （` $ ( ) ; & | < >），引号内禁命令替换形态（` 与 $( 与 ${）；指令名与参数数由引擎
-# 核验（ip_gate 恰 3、ip_file 恰 4），未登记指令即 exit 2；行内制表符与 CR 为污染形态
+# 核验（ip_gate 恰 3、ip_file 恰 4、ip_data 恰 5），未登记指令即 exit 2；行内制表符与 CR 为污染形态
 # 直接拒绝；解析先落临时文件、末尾按指令名原子分发（all-or-nothing：解析失败零行落账）。
 install_rules_tmp=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 script_dir=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
+# 包根目录（本脚本居 <包根>/scripts/）：ip_data 行源路径（agent-up/ 前缀）的解析基準。
+pkg_root_dir=$(CDPATH='' cd -P "$script_dir/.." && pwd)
 rules_path="$script_dir/install-policy.rules"
 [ -f "$rules_path" ] || die2 "安装政策规则表缺失: $rules_path"
 install_parse_bad=''
@@ -137,7 +152,7 @@ LC_ALL=C awk -v progin="$rules_path" '
       inqseen = 0
     }
     if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
-    ar = cmd == "ip_gate" ? 3 : cmd == "ip_file" ? 4 : -1
+    ar = cmd == "ip_gate" ? 3 : cmd == "ip_file" ? 4 : cmd == "ip_data" ? 5 : -1
     if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
     if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
     print cmd "\t" substr(out, 1, length(out) - 1)
@@ -157,6 +172,7 @@ while IFS= read -r install_row; do
   case $install_cmd in
     ip_gate) printf '%s\n' "$install_rest" >> "$tmp_gates" ;;
     ip_file) printf '%s\n' "$install_rest" >> "$tmp_rows" ;;
+    ip_data) printf '%s\n' "$install_rest" >> "$tmp_data" ;;
   esac
 done < "$install_rules_tmp"
 rm -f "$install_rules_tmp"
@@ -165,12 +181,23 @@ rm -f "$install_rules_tmp"
 
 # ---- 规则表结构校验（fail-closed：任何不合预期即 exit 2，不写任何文件）----
 # 字段数与字段内制表符（由 -F'\t' 字段数承载）、gate/flag/lifecycle/路径字符集、flag 跨行
-# 唯一且不与引擎保留参数冲突、(文件,门控) 唯一、同文件 lifecycle 一致、未定义门控引用、
-# 零文件门控——先例 generate-module-map.sh 对 module-map.rules 的处理。
+# 唯一且不与引擎保留参数冲突、(文件/数据件,门控) 唯一、同文件 lifecycle 一致、未定义门控
+# 引用、零文件门控（文件段与数据段并集计数）、ip_data 源/落位路径形态（多段 token，禁 ..
+# 段与斜杠异常；落位路径跨行唯一且不侵入脚本落位目录）——先例 generate-module-map.sh
+# 对 module-map.rules 的处理。
 
-ip_bad=$(LC_ALL=C awk -F'\t' '
+ip_bad=$(LC_ALL=C awk -F'\t' -v scripts_rel="$scripts_dir_rel" '
   function bad(msg) { printf "%s第 %d 行: %s\n", seg, FNR, msg; badn++ }
-  NR == FNR {
+  function segok(p,   n, i, arr) {
+    if (p ~ /\/\//) return 0
+    if (p ~ /\/$/) return 0
+    n = split(p, arr, "/")
+    if (n < 1) return 0
+    for (i = 1; i <= n; i++) if (arr[i] !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) return 0
+    return 1
+  }
+  FNR == 1 { fidx++ }
+  fidx == 1 {
     seg = "门控段"
     if (NF != 3) { bad("ip_gate 字段数 " NF "（预期 3）"); next }
     if ($1 !~ /^[a-z][a-z0-9-]*$/) { bad("gate token 不合预期（小写字母开头，小写字母/数字/连字符）: " $1); next }
@@ -181,7 +208,7 @@ ip_bad=$(LC_ALL=C awk -F'\t' '
     if ($2 in fseen) { bad("flag 跨行重复定义: " $2) } else { fseen[$2] = 1 }
     next
   }
-  {
+  fidx == 2 {
     seg = "文件段"
     if (NF != 4) { bad("ip_file 字段数 " NF "（预期 4）"); next }
     if ($1 !~ /^agent-up\/scripts\/[A-Za-z0-9][A-Za-z0-9._-]*$/) { bad("基线路径不合预期（须 agent-up/scripts/ 前缀加单段文件名，禁 .. 与斜杠入名）: " $1); next }
@@ -196,14 +223,32 @@ ip_bad=$(LC_ALL=C awk -F'\t' '
     ord[++n] = $0
     next
   }
+  {
+    seg = "数据段"
+    if (NF != 5) { bad("ip_data 字段数 " NF "（预期 5）"); next }
+    if ($1 !~ /^agent-up\// || !segok($1)) { bad("源路径不合预期（须 agent-up/ 前缀多段路径，各段字母/数字起点 token，禁 .. 段与斜杠异常）: " $1); next }
+    if (!segok($2)) { bad("落位路径不合预期（须目标根相对多段路径，禁前导斜杠、.. 段与斜杠异常）: " $2); next }
+    if ($2 == scripts_rel || index($2, scripts_rel "/") == 1) { bad("落位路径侵入脚本落位目录（脚本件归 ip_file 承载）: " $2); next }
+    if (!($4 in gseen)) { bad("引用未定义门控: " $4); next }
+    if ($3 !~ /^[A-Za-z][A-Za-z0-9_-]*$/) { bad("lifecycle 不合预期（非空 token；枚举权威＝artifacts-yaml.tmpl）: " $3); next }
+    if ($5 == "") { bad("ip_data 缺说明"); next }
+    dkey = $1 SUBSEP $4
+    if (dkey in dseen) { bad("(数据件,门控) 跨行重复: " $1 " @ " $4) } else { dseen[dkey] = 1 }
+    if ($1 in dtgt && dtgt[$1] != $2) { bad("同数据件跨行落位路径不一致: " $1 "（" dtgt[$1] " vs " $2 "）") }
+    dtgt[$1] = $2
+    if ($2 in tseen) { bad("落位路径跨行重复（两数据件写同一目的地）: " $2) } else { tseen[$2] = 1 }
+    dgcount[$4]++
+    dord[++dn] = $0
+    next
+  }
   END {
     if (badn > 0) exit 1
     for (g in gseen) {
-      if (!(g in gcount)) { printf "门控无任何文件行: %s\n", g; badn++ }
+      if (!((g in gcount) || (g in dgcount))) { printf "门控无任何文件行: %s\n", g; badn++ }
     }
     if (badn > 0) exit 1
   }
-' "$tmp_gates" "$tmp_rows") || true
+' "$tmp_gates" "$tmp_rows" "$tmp_data") || true
 if [ -n "$ip_bad" ]; then
   printf 'install: FAIL: 安装政策规则表不合预期: %s\n' "$rules_path" >&2
   printf '%s\n' "$ip_bad" >&2
@@ -310,6 +355,24 @@ plan=$(LC_ALL=C awk -F'\t' -v en="$enabled" '
 ' "$tmp_rows")
 [ -n "$plan" ] || die1 '启用门控未选中任何文件（规则表与门控状态不一致）——fail-closed'
 
+# 数据件集合选取（按启用门控取 ip_data 行，按源路径去重；空集合合法＝规则表未登记
+# 数据件。安装后运行时依赖闭包的承载面：数据件随消费脚本同门控复制）。
+plan_data=$(LC_ALL=C awk -F'\t' -v en="$enabled" '
+  BEGIN {
+    n = split(en, ev, " ")
+    for (i = 1; i <= n; i++) on[ev[i]] = 1
+  }
+  {
+    if ($4 in on) {
+      if (!($1 in sel)) { sel[$1] = 1; ord[++k] = $1; tg[$1] = $2; lc[$1] = $3; hit[$1] = $4; note[$1] = $5 }
+      else hit[$1] = hit[$1] " " $4
+    }
+  }
+  END {
+    for (i = 1; i <= k; i++) printf "%s\t%s\t%s\t%s\t%s\n", ord[i], tg[ord[i]], lc[ord[i]], hit[ord[i]], note[ord[i]]
+  }
+' "$tmp_data")
+
 # ---- 预检（先于任何写入：源缺失/目标同名件漂移即停，零半套）----
 
 missing_src=''
@@ -329,6 +392,21 @@ for row in $plan; do
   fi
   if [ -e "$dst" ] && ! cmp -s "$src" "$dst"; then
     conflict="$conflict$sep  - ${base}（目标已存在且与包内基线不一致——人工漂移，reconcile 纪律不覆盖）"
+  fi
+done
+IFS=$NL
+for row in $plan_data; do
+  IFS=$oldifs
+  p=${row%%"$TAB"*}
+  rest=${row#*"$TAB"}
+  tgt=${rest%%"$TAB"*}
+  src="$pkg_root_dir/${p#agent-up/}"
+  dst="$target_abs/$tgt"
+  if [ ! -f "$src" ]; then
+    missing_src="$missing_src$sep  - ${p}（包内缺失: ${src}）"
+  fi
+  if [ -e "$dst" ] && ! cmp -s "$src" "$dst"; then
+    conflict="$conflict$sep  - ${tgt}（目标已存在且与包内基线不一致——人工漂移，reconcile 纪律不覆盖）"
   fi
 done
 IFS=$oldifs
@@ -378,6 +456,44 @@ for row in $plan; do
 done
 IFS=$oldifs
 
+# ---- 数据件复制与逐件 cmp 核验（安装后运行时依赖闭包；落位目录缺失即创建）----
+
+copied_data=0
+skipped_data=0
+IFS=$NL
+for row in $plan_data; do
+  IFS=$oldifs
+  p=${row%%"$TAB"*}
+  rest=${row#*"$TAB"}
+  tgt=${rest%%"$TAB"*}
+  rest=${rest#*"$TAB"}
+  lc=${rest%%"$TAB"*}
+  rest=${rest#*"$TAB"}
+  gates=${rest%%"$TAB"*}
+  note=${rest##*"$TAB"}
+  src="$pkg_root_dir/${p#agent-up/}"
+  dst="$target_abs/$tgt"
+  dst_parent=$(dirname "$dst")
+  if [ ! -d "$dst_parent" ]; then
+    mkdir -p "$dst_parent" || die1 "目标数据目录创建失败: $dst_parent"
+    printf 'install: NOTE: %s 为本脚本新建（数据目录，无 README 生成义务）\n' "$dst_parent"
+  fi
+  [ -w "$dst_parent" ] || die1 "目标数据目录不可写: $dst_parent"
+  if [ -e "$dst" ]; then
+    printf 'install: SKIP: %s（目标已存在且与基线字节一致，幂等跳过）\n' "$tgt"
+    skipped_data=$((skipped_data + 1))
+  else
+    cp "$src" "$dst" || die1 "复制失败: $p -> $dst"
+    if ! cmp -s "$src" "$dst"; then
+      die1 "cmp 核验失败（复制后与基线字节不一致）: $dst"
+    fi
+    printf 'install: OK: %s -> %s（数据件，lifecycle %s；门控 %s；%s）\n' "$p" "$dst" "$lc" "$gates" "$note"
+    printf '%s\n' "$row" >> "$tmp_data_copied"
+    copied_data=$((copied_data + 1))
+  fi
+done
+IFS=$oldifs
+
 if [ "$created_scripts" -eq 1 ]; then
   printf "install: NOTE: %s 为本脚本新建——需生成 ${scripts_readme_rel}（目录索引；README 生成不归本脚本，由执行体按包内模板补齐）\n" "$dst_dir"
 fi
@@ -407,5 +523,22 @@ if [ "$copied" -gt 0 ]; then
   printf 'install: 登记提醒: 每复制件按登记建议块同步登记 artifacts.yaml 条目（生成件登记并入条目单本账，见包内拆三规则模板）；建议块仅为可粘贴建议值。\n'
 fi
 
-printf 'install: DONE: 复制 %s 件、幂等跳过 %s 件 -> %s（集合与登记 lifecycle 值出自 install-policy.rules）\n' "$copied" "$skipped" "$dst_dir"
+if [ "$copied_data" -gt 0 ]; then
+  printf 'install: 登记建议块（数据件，artifacts.yaml 十三字段建议值，可粘贴；写入归执行体，本脚本不代写目标治理文件）:\n'
+  IFS=$NL
+  while IFS= read -r row; do
+    p=${row%%"$TAB"*}
+    rest=${row#*"$TAB"}
+    tgt=${rest%%"$TAB"*}
+    rest=${rest#*"$TAB"}
+    lc=${rest%%"$TAB"*}
+    base=${p##*/}
+    idbase=${base%.*}
+    printf "  {id: data-%s, path: %s, kind: spec, authority: 权威层级第 4 级（流程规则配套数据；按目标项目权威层级定级）, owner: 经用户确认的执行体, lifecycle: %s, trigger: 对应门控启用（用户在差异清单确认时）, read_when: 目标项目运行消费脚本时, sync_on: 无（包基线同源演化须登记差异）, depends_on: [assessment, discipline, project], generated_from: %s, platform: neutral, update_policy: 禁止覆盖（人工漂移走 reconcile，检出即停报告）}\n" "$idbase" "$tgt" "$lc" "$p"
+  done < "$tmp_data_copied"
+  IFS=$oldifs
+  printf 'install: 登记提醒: 数据件为安装闭包运行时依赖，登记可并入消费脚本条目或按建议块单列；建议块仅为可粘贴建议值。\n'
+fi
+
+printf 'install: DONE: 复制 %s 件（脚本 %s＋数据 %s）、幂等跳过 %s 件 -> %s（集合与登记 lifecycle 值出自 install-policy.rules）\n' "$((copied + copied_data))" "$copied" "$copied_data" "$((skipped + skipped_data))" "$dst_dir"
 exit 0

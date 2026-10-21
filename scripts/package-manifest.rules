@@ -82,6 +82,7 @@ pm_entry references/adapters/zcode.md
 pm_entry references/schemas/run-record.schema.json
 pm_entry references/schemas/run-record.example.json
 pm_entry references/schemas/dispatch-contract.schema.json
+pm_entry references/schemas/ticket-record.schema.json
 
 # ==== scripts：脚本必需件（检查 8；成员表一致性检查 9）====
 # kind 口径差定谳：test-record-layer.sh 定为必需件，kind 标 test-harness。

@@ -1,23 +1,31 @@
 # Input: 安装政策事实（单源化拍板）：门控集合构成、每文件复制基线路径与登记
 #        lifecycle 值——唯一承载点；SKILL.md 主流程步骤 5、references/old-project.md §3、
 #        scripts/README.md 口径段三处散文不再复写映射明细，只保留决策句与指向本表。
-# Output: install.sh 引擎启动时 source 本表——每行一个 ip_gate / ip_file 调用：
+# Output: install.sh 引擎启动时按非执行式解析读本表（引擎不 source 本表）——每行一个
+#         ip_gate / ip_file / ip_data 指令：
 #         ip_gate <gate> <flag> <说明>（门控定义行：gate token、启用 flag、一句话说明）；
-#         ip_file <pkg-rel-path> <lifecycle> <gate> <说明>（每文件×每门控一行：包内复制
+#         ip_file <pkg-rel-path> <lifecycle> <gate> <说明>（每脚本件×每门控一行：包内复制
 #         基线路径、登记 lifecycle 值、所属门控、该门控下角色说明；同一文件属多个门控时
-#         逐门控各一行，引擎按文件路径去重选取）。
+#         逐门控各一行，引擎按文件路径去重选取，落位目录固定 rules/implementation/scripts/）；
+#         ip_data <pkg-rel-path> <target-rel-path> <lifecycle> <gate> <说明>（每数据件×每
+#         门控一行：包内源路径、目标项目根相对落位路径、登记 lifecycle 值、所属门控、角色
+#         说明——安装后运行时依赖闭包的 schema/profile 等数据件承载行，随消费脚本同门控
+#         复制，落位路径须避开脚本落位目录）。
 # Pos: 安装政策数据文件（先例 module-map.rules：外置数据＋引擎零专名＋结构校验
-#      fail-closed）。复制哪些脚本、在什么门控下落位只在本表登记，install.sh 引擎零脚本
-#      名零门控专名；加门控＝加一行 ip_gate＋若干 ip_file，零引擎改动。结构校验口径
-#      （install.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不写任何文件）：
-#      字段数（ip_gate 恰 3、ip_file 恰 4，字段内禁制表符）；gate token（小写字母开头，
-#      小写字母/数字/连字符）与 flag（-- 加小写 token，不得与引擎保留参数 --target/-h/
-#      --help 冲突）字符集且跨行唯一；ip_file 基线路径须为 agent-up/scripts/ 前缀加单段
-#      文件名（禁 .. 与斜杠入名）；lifecycle 须为非空 token（枚举权威＝
-#      references/templates/artifacts-yaml.tmpl：Seed/Conditional/Record/Derived/Adapter，
-#      本表不复制枚举定义）；引用门控须已由 ip_gate 行定义；每门控至少一行 ip_file；
-#      (文件,门控) 跨行不重复；同文件跨行 lifecycle 必须一致。本表、install.sh 引擎与
-#      同目录 README.md 专节三处登记须同步（政策映射变化时）。
+#      fail-closed）。复制哪些脚本与数据件、在什么门控下落位只在本表登记，install.sh 引擎
+#      零脚本名零门控专名；加门控＝加一行 ip_gate＋若干 ip_file/ip_data，零引擎改动。
+#      结构校验口径（install.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不写
+#      任何文件）：字段数（ip_gate 恰 3、ip_file 恰 4、ip_data 恰 5，字段内禁制表符）；
+#      gate token（小写字母开头，小写字母/数字/连字符）与 flag（-- 加小写 token，不得与
+#      引擎保留参数 --target/-h/--help 冲突）字符集且跨行唯一；ip_file 基线路径须为
+#      agent-up/scripts/ 前缀加单段文件名（禁 .. 与斜杠入名）；ip_data 源路径须为
+#      agent-up/ 前缀多段路径、落位路径须为目标根相对多段路径（两者各段均为字母/数字
+#      起点 token，禁 .. 段与前导/连续/尾随斜杠；落位路径禁侵入脚本落位目录）；lifecycle
+#      须为非空 token（枚举权威＝references/templates/artifacts-yaml.tmpl：
+#      Seed/Conditional/Record/Derived/Adapter，本表不复制枚举定义）；引用门控须已由
+#      ip_gate 行定义；每门控至少一行 ip_file 或 ip_data；(文件/数据件,门控) 跨行不重复；
+#      同文件跨行 lifecycle 必须一致；ip_data 落位路径跨行不重复且同数据件跨行一致。
+#      本表、install.sh 引擎与同目录 README.md 专节三处登记须同步（政策映射变化时）。
 
 # ---- 门控定义（启用判定是用户决策，脚本只承接已确认的复制动作）----
 
@@ -37,3 +45,10 @@ ip_file agent-up/scripts/ticket-grade.sh Conditional ticket-ops '票定级建议
 ip_file agent-up/scripts/absorption-trigger.sh Conditional ticket-ops '吸收触发器（R-DP-041 吸收面：分数聚合出固化/禁区候选提示，提示不裁决；行型地基＝教训账本分数键）'
 ip_file agent-up/scripts/health-summary.sh Conditional ticket-ops '体系仪表盘（四分区只读汇总，打分/候选/报警/对账一屏看；视图非门禁）'
 ip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops '回退依赖：票务收尾投影再生依赖同目录生成器（PATH 回退），目标项目未落位时一并复制'
+ip_file agent-up/scripts/common-helpers.sh Conditional fast-lane '共享错误处理库：道脚本运行依赖（同目录定位，安装闭包）'
+ip_file agent-up/scripts/common-helpers.sh Conditional ticket-ops '共享错误处理库：票务脚本运行依赖（同目录定位，安装闭包）'
+ip_file agent-up/scripts/json-helpers.sh Conditional fast-lane 'JSON 解析共享库：道脚本收尾投影再生运行依赖（同目录定位，安装闭包）'
+ip_file agent-up/scripts/json-helpers.sh Conditional ticket-ops 'JSON 解析共享库：票务收尾投影再生运行依赖（同目录定位，安装闭包）'
+ip_file agent-up/scripts/json-validator.py Conditional ticket-ops 'JSON 校验模块：ticket-grade 判据计算与 ticket-ops open 本体校验运行依赖（同目录定位，安装闭包）'
+ip_data agent-up/references/schemas/ticket-record.schema.json rules/implementation/references/schemas/ticket-record.schema.json Conditional ticket-ops '票本体 schema：ticket-ops open 本体校验运行依赖（脚本邻接 references/ 定位，安装闭包数据件）'
+ip_data agent-up/references/protocol/complexity-profile.md rules/implementation/references/protocol/complexity-profile.md Conditional ticket-ops '定级判据权威手册：ticket-grade 判据数据（脚本邻接 references/ 定位，安装闭包数据件）'

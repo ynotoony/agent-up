@@ -23,7 +23,12 @@
 #      python3 标准库）；fail-closed：校验先于写入，
 #      索引排版破坏、README 行缺失或锚点不唯一、账本行不合键序、同 NN 异 slug 撞号
 #      （票 77）即停止不写；收尾生成器
-#      缺失或 --check 不过即整体失败退出非零，已写部分如实报告。职责边界：只做票务面
+#      缺失或 --check 不过即整体失败退出非零，已写部分如实报告。运行时依赖定位（安装
+#      闭包）：open 的 schema 权威与 json-validator.py 校验器先取包基线布局
+#      （<repo-root>/agent-up/…），缺失回退安装布局（本脚本同目录及其 references/ 邻接
+#      目录——安装器把脚本件落位 rules/implementation/scripts/、数据件落位
+#      rules/implementation/references/）；两布局均未命中即报明双候选 fail-closed。
+#      职责边界：只做票务面
 #      写入，不执行门禁核对与 Git 提交，不调用 check-gates.sh 与 lane-commit.sh（投影
 #      再生调用 generate-progress.sh 不在此限）。
 
@@ -268,9 +273,17 @@ esac
 index_file="${repo_root}/${issues_index_rel}"
 readme_file="${repo_root}/${issues_readme_rel}"
 ledger_file="${repo_root}/${changes_ledger_rel}"
-# 票 79：open 本体落盘位与 schema 权威（development-process §5.2 开票形态注记）
+# 本脚本所在目录（安装闭包回退定位基准；包基线布局＝agent-up/scripts/，安装布局＝
+# rules/implementation/scripts/——两者相对自身目录的 references/ 邻接路径同构）。
+_self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+# 票 79：open 本体落盘位与 schema 权威（development-process §5.2 开票形态注记）。
+# 安装闭包定位：先包基线布局（<repo-root>/agent-up/references/schemas/…），缺失回退
+# 安装布局（本脚本邻接 references/schemas/…）；均未命中时停在回退路径，由 open 预检
+# 报明双候选 fail-closed。
 ticket_file="${repo_root}/${issues_dir_rel}/${id}.json"
-schema_file="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
+schema_file_pkg="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
+schema_file="${schema_file_pkg}"
+[ -f "${schema_file}" ] || schema_file="${_self_dir}/../references/schemas/ticket-record.schema.json"
 
 # 票 100：flip 收口硬拦载体定位（actual_time 校验用）；ledger 无票面，不要求票本体。
 case ${cmd} in
@@ -448,12 +461,15 @@ ticket_body_check() {
     die1 "新票本体不存在: ${issues_dir_rel}/${id}.json——票 79 起 open 须先落位过 schema 的票 JSON 本体再开票"
   [ -r "${ticket_file}" ] || die1 "新票本体不可读: ${ticket_file}"
   [ -f "${schema_file}" ] || \
-    die1 "schema 文件不存在: ${schema_file}（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，development-process §5.2）"
+    die1 "schema 文件不存在（安装闭包双布局定位均未命中: ${schema_file_pkg} 与 ${schema_file}）（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，development-process §5.2）"
   [ -r "${schema_file}" ] || die1 "schema 文件不可读: ${schema_file}"
 
-  # 票 160：使用独立 Python 模块 json-validator.py
+  # 票 160：使用独立 Python 模块 json-validator.py（安装闭包定位：先包基线布局，
+  # 缺失回退本脚本同目录——安装器将校验器随脚本同目录落位）
   validator_script="${repo_root}/agent-up/scripts/json-validator.py"
-  [ -f "${validator_script}" ] || die1 "json-validator.py 不存在: ${validator_script}"
+  [ -f "${validator_script}" ] || validator_script="${_self_dir}/json-validator.py"
+  [ -f "${validator_script}" ] || \
+    die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
 
   python3 "${validator_script}" ticket "${schema_file}" "${ticket_file}" --new-ticket || \
     die1 "票本体 schema 校验未过（详见上方 stderr）"

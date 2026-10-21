@@ -31,7 +31,10 @@ case "$_script_dir" in
 esac
 
 # Source common helper functions (in agent-up/scripts/)
+# 安装闭包定位：先包基线布局（<repo-root>/agent-up/scripts/…），缺失回退本脚本同目录
+# （安装器将 helper 库随脚本同目录落位 rules/implementation/scripts/）。
 _helper_script="$_repo_root/agent-up/scripts/common-helpers.sh"
+[ -f "$_helper_script" ] || _helper_script="$_script_dir/common-helpers.sh"
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
@@ -40,8 +43,10 @@ else
   die2() { printf 'generate-progress: %s\n' "$1" >&2; exit 2; }
 fi
 
-# Source JSON helper functions (in agent-up/scripts/)
+# Source JSON helper functions (in agent-up/scripts/)——回退定位同上（投影再生解析
+# 索引 JSON 依赖本库；缺失时 json_extract_* 未定义，条目解析 fail-closed 报错）。
 _json_helper_script="$_repo_root/agent-up/scripts/json-helpers.sh"
+[ -f "$_json_helper_script" ] || _json_helper_script="$_script_dir/json-helpers.sh"
 if [ -f "$_json_helper_script" ]; then
   # shellcheck source=agent-up/scripts/json-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_json_helper_script"
