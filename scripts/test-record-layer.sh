@@ -1400,6 +1400,46 @@ suite_check_package() {
   D=$T/cpkg
   mkdir -p "$D"
 
+  # 票 177 worktree 变体：check-package 在 worktree 包根对 main-only 检查（8/9）输出
+  # SKIP＋变体 PASS 行；黄金串按 PKG_ROOT 同款 worktree 判定条件化（检测逻辑与
+  # check-package is_worktree 一致），否则 harness 在 worktree 内对此断言恒红。
+  _cp_in_wt=0
+  if git -C "$PKG_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    _cp_gd=$(git -C "$PKG_ROOT" rev-parse --git-dir 2>/dev/null)
+    _cp_cd=$(git -C "$PKG_ROOT" rev-parse --git-common-dir 2>/dev/null)
+    case $_cp_gd in /*) : ;; *) _cp_gd="$PKG_ROOT/$_cp_gd" ;; esac
+    case $_cp_cd in /*) : ;; *) _cp_cd="$PKG_ROOT/$_cp_cd" ;; esac
+    _cp_gd=$(cd "$_cp_gd" && pwd)
+    _cp_cd=$(cd "$_cp_cd" && pwd)
+    [ "$_cp_gd" != "$_cp_cd" ] && _cp_in_wt=1
+  fi
+  if [ "$_cp_in_wt" -eq 1 ]; then
+  cat > "$D/exp.positive" <<'EOF'
+PASS: 1 必需入口存在（16 个文件）
+PASS: 2 SKILL.md frontmatter 为 name: agent-up
+PASS: 3 包内无旧标识残留
+PASS: 4 无绝对路径与根治理引用
+PASS: 5 templates 下 .tmpl 为 15 个且全部登记
+PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
+PASS: 7 根治理文件不在包内
+SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
+PASS: 8 脚本必需件存在（25 个文件，worktree 跳过 main-only）
+SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
+PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
+PASS: 10 规则块短码使用均在登记内
+PASS: 11 platform 枚举登记与数据一致
+PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
+PASS: 13 镜像脚本与仓根同名件一致（比对 9 对）
+PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
+PASS: 15 模板规则索引与规则块全集全等（三件索引并集 54 行，全集 54 ID）
+PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
+PASS: 17 机械行点名出处存在（机械 9 行）
+PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
+PASS: 19 scripts 节 mode 断言（25 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 28 项，symlink 0 个）
+check-package: PASS
+EOF
+  else
   cat > "$D/exp.positive" <<'EOF'
 PASS: 1 必需入口存在（16 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
@@ -1423,6 +1463,7 @@ PASS: 19 scripts 节 mode 断言（25 件，kind 数据驱动）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 28 项，symlink 0 个）
 check-package: PASS
 EOF
+  fi
   sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ]; then
