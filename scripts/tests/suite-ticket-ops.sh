@@ -10,7 +10,10 @@ fi
 # ============================================================
 # suite: ticket-ops（票 41/47 场景沉淀：生成项目语境全链＋fail-closed 负例；票 113 波④
 # 夹具树翻 rules/facts 新形态——本体与索引落 facts/requirements/tickets/、账本落
-# facts/project/changes.jsonl、脚本落位 rules/implementation/scripts/，金样预期串独立重建）
+# facts/project/changes.jsonl、脚本落位 rules/implementation/scripts/，金样预期串独立重建；
+# 票 191 README 状态列同步合同——状态迁移正例逐链断言 README token↔索引 status 跨载体相等
+# ＋状态列规范化前后逐字节相等，负例缺锚/重锚/锚点已在（open 拒开）/缺表锚均 fail-closed
+# 零写入）
 # ============================================================
 
 tix_body() {
@@ -94,6 +97,58 @@ tix_state() {
     cksum "$1/facts/requirements/tickets/index.json" "$1/facts/requirements/tickets/README.md" "$1/facts/project/changes.jsonl"
     if [ -f "$1/facts/requirements/tickets/progress-current.md" ]; then cksum "$1/facts/requirements/tickets/progress-current.md"; else printf 'no-projection\n'; fi
   } | cksum
+}
+
+tix_readme_token() {
+  # $1=README 路径 $2=NN：`任务票 <NN>；` 锚点后首个闭合反引号状态 token 提取
+  # shellcheck disable=SC2016  # sed 模式反引号字面量（状态 token 定界，刻意单引号）
+  sed -n 's/.*任务票 '"$2"'；`\([a-z_]*\)`.*/\1/p' "$1"
+}
+
+tix_index_status() {
+  # $1=索引路径 $2=id：条目行 status 值提取（一条目一行排版）
+  sed -n 's/.*"id": "'"$2"'", "status": "\([a-z_]*\)".*/\1/p' "$1"
+}
+
+tix_assert_status_sync() {
+  # $1=夹具根 $2=id $3=NN：README 状态 token 与索引 status 相等（跨载体一致，票 191 AC1 口径）
+  its=$(tix_index_status "$1/facts/requirements/tickets/index.json" "$2")
+  rts=$(tix_readme_token "$1/facts/requirements/tickets/README.md" "$3")
+  if [ -n "$its" ] && [ "$its" = "$rts" ]; then
+    ok "README 状态 token 与索引状态相等（跨载体一致：${2} → ${its}）"
+  else
+    bad "README 状态 token 与索引状态相等（跨载体一致：${2}）" "索引=${its} README=${rts}"
+  fi
+}
+
+tix_norm_readme() {
+  # $1=README 路径：状态 token 规范化（`<token>` → `STATUS`）后 stdout，其余字节不动——
+  # 规范化前后逐字节 cmp 相等即证明状态列之外零变化（独立于金样全文件相等的字节比对口径）
+  # shellcheck disable=SC2016  # sed 模式反引号字面量（状态 token 定界，刻意单引号）
+  sed 's/；`[a-z_]*`（/；`STATUS`（/' "$1"
+}
+
+tix_assert_readme_only_status() {
+  # $1=操作前 README 快照 $2=操作后 README 路径 $3=暂存目录 $4=断言名：规范化后逐字节
+  # cmp——除状态 token 外全部字节未变（票 191 AC1 字节比对，非出现性 grep；规范化产物落
+  # 暂存目录，不污染夹具。适用于 take/flip 原位单 token 替换语义）
+  tix_norm_readme "$1" > "$3/norm-before.md"
+  tix_norm_readme "$2" > "$3/norm-after.md"
+  assert_eq "${4}（状态列规范化后逐字节相等，票 191 AC1）" "$3/norm-after.md" "$3/norm-before.md"
+}
+
+tix_assert_readme_append_only() {
+  # $1=操作前 README 快照 $2=操作后 README 路径 $3=暂存目录：open 追加语义字节比对——
+  # 行数恰 +1 且追加之前的全部既有行逐字节相等（既有行/非状态列零变化，票 191 AC1）
+  n=$(wc -l < "$1" | tr -d ' ')
+  m=$(wc -l < "$2" | tr -d ' ')
+  if [ "$m" -eq $((n + 1)) ]; then
+    ok 'open 后 README 行数恰 +1（追加语义，不重写既有行）'
+  else
+    bad 'open 后 README 行数恰 +1（追加语义，不重写既有行）' "实际 $n → $m"
+  fi
+  head -n "$n" "$2" > "$3/prefix.md"
+  assert_eq 'open 追加之前的既有行逐字节相等（票 191 AC1 字节比对）' "$3/prefix.md" "$1"
 }
 
 tix_expected_progress() {
@@ -225,6 +280,9 @@ PYTHON
 
   # ---- 正例全链：open → take → flip（生成项目语境：脚本落位 rules/implementation/scripts/，
   # repo-root 传参指明项目根＝$F）----
+  # 票 191 AC1：每步操作前快照 README，操作后断言（a）README 状态 token＝索引 status（跨载体
+  # 一致）（b）状态列规范化后前后逐字节相等——状态列之外零变化，字节比对独立于下方金样全文件相等
+  cp "$F/facts/requirements/tickets/README.md" "$D/rd-before-open.md"
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/open.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ]; then
@@ -247,7 +305,10 @@ PYTHON
   ROW30='| `30-gamma-third.json` | 任务票 30；`ready`（'"$TODAY"' 开票） | Gamma fixture ticket |'
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   tix_expect_full "$F" 'ready' "$UA30" 'ready' '2026-09-19T11:00' "$ROW30" '| `20-beta-second.json` | 任务票 20；`ready`（2026-09-19 开票） | Beta fixture ticket |' 2
+  tix_assert_status_sync "$F" 30-gamma-third 30
+  tix_assert_readme_append_only "$D/rd-before-open.md" "$F/facts/requirements/tickets/README.md" "$D"
 
+  cp "$F/facts/requirements/tickets/README.md" "$D/rd-before-take.md"
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" take --id 30-gamma-third --status in_progress --ledger-line "$LED_TAKE" >"$D/take.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ]; then
@@ -260,7 +321,10 @@ PYTHON
   ROW30B='| `30-gamma-third.json` | 任务票 30；`in_progress`（'"$TODAY"' 开票） | Gamma fixture ticket |'
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   tix_expect_full "$F" 'in_progress' "$UA30B" 'ready' '2026-09-19T11:00' "$ROW30B" '| `20-beta-second.json` | 任务票 20；`ready`（2026-09-19 开票） | Beta fixture ticket |' 3
+  tix_assert_status_sync "$F" 30-gamma-third 30
+  tix_assert_readme_only_status "$D/rd-before-take.md" "$F/facts/requirements/tickets/README.md" "$D" 'take 前后 README 状态列之外零变化'
 
+  cp "$F/facts/requirements/tickets/README.md" "$D/rd-before-flip.md"
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" flip --id 20-beta-second --status review_ready --ledger-line "$LED_FLIP" >"$D/flip.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ]; then
@@ -272,6 +336,8 @@ PYTHON
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   ROW20B='| `20-beta-second.json` | 任务票 20；`review_ready`（2026-09-19 开票） | Beta fixture ticket |'
   tix_expect_full "$F" 'in_progress' "$UA30B" 'review_ready' "$UA20" "$ROW30B" "$ROW20B" 4
+  tix_assert_status_sync "$F" 20-beta-second 20
+  tix_assert_readme_only_status "$D/rd-before-flip.md" "$F/facts/requirements/tickets/README.md" "$D" 'flip 前后 README 状态列之外零变化'
 
   sh "$F/rules/implementation/scripts/generate-progress.sh" --check "$F" >/dev/null 2>&1
   rc=$?
@@ -312,6 +378,77 @@ PYTHON
     ok '负例 N6 非法状态值 → exit 1 零写入'
   else
     bad '负例 N6 非法状态值 → exit 1 零写入' "exit/状态不符"
+  fi
+
+  # ---- 票 191 断言：README 状态列同步合同——锚点缺失/重复 fail-closed 零写入，open 追加
+  # 语义要求锚点零命中（已存在即拒，不制造重复锚点）。负例逐例独立夹具：tix_state 四载体
+  # 指纹（含投影缺席）零写入＋exit 1＋报文指名锚点；正例控制证明零命中路径不受新预检影响。
+  # N-rd1：README 缺该票行（缺锚）→ flip 恰 1 行预检停止
+  tix_build_fixture "$D/fixrd1"
+  Frd1=$D/fixrd1
+  tix_body_at "$Frd1/facts/requirements/tickets/20-beta-second.json" 20-beta-second
+  sed '/任务票 20；/d' "$Frd1/facts/requirements/tickets/README.md" > "$Frd1/rd.tmp" && mv "$Frd1/rd.tmp" "$Frd1/facts/requirements/tickets/README.md"
+  Srd1=$(tix_state "$Frd1")
+  sh "$Frd1/rules/implementation/scripts/ticket-ops.sh" "$Frd1" flip --id 20-beta-second --status review_ready --ledger-line "$LED_FLIP" >"$D/rd1.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$Srd1" = "$(tix_state "$Frd1")" ] && [ ! -f "$Frd1/facts/requirements/tickets/progress-current.md" ] && grep -q '任务票 20' "$D/rd1.log"; then
+    ok '负例 N-rd1 README 缺该票行（缺锚）flip → exit 1 零写入且报文指名锚点（票 191 AC2）'
+  else
+    bad '负例 N-rd1 README 缺该票行（缺锚）flip → exit 1 零写入且报文指名锚点（票 191 AC2）' "exit=$rc $(head -n 2 "$D/rd1.log" | tr '\n' '|')"
+  fi
+
+  # N-rd2：README 该票行重复（重锚）→ take 恰 1 行预检停止（锚点不唯一不猜测更新对象）
+  tix_build_fixture "$D/fixrd2"
+  Frd2=$D/fixrd2
+  tix_body_at "$Frd2/facts/requirements/tickets/20-beta-second.json" 20-beta-second
+  awk '{ print } /任务票 20；/ { print }' "$Frd2/facts/requirements/tickets/README.md" > "$Frd2/rd.tmp" && mv "$Frd2/rd.tmp" "$Frd2/facts/requirements/tickets/README.md"
+  Srd2=$(tix_state "$Frd2")
+  sh "$Frd2/rules/implementation/scripts/ticket-ops.sh" "$Frd2" take --id 20-beta-second --status in_progress --ledger-line "$LED_TAKE" >"$D/rd2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$Srd2" = "$(tix_state "$Frd2")" ] && [ ! -f "$Frd2/facts/requirements/tickets/progress-current.md" ] && grep -q '命中 2 行' "$D/rd2.log"; then
+    ok '负例 N-rd2 README 该票行重复（重锚）take → exit 1 零写入且报明命中行数（票 191 AC2）'
+  else
+    bad '负例 N-rd2 README 该票行重复（重锚）take → exit 1 零写入且报明命中行数（票 191 AC2）' "exit=$rc $(head -n 2 "$D/rd2.log" | tr '\n' '|')"
+  fi
+
+  # N-rd3：open 追加语义锚点已在场（索引↔README 漂移）→ 拒开零写入（照追加将制造重复锚点，
+  # 该票 take/flip 恰 1 行预检永不过）
+  tix_build_fixture "$D/fixrd3"
+  Frd3=$D/fixrd3
+  tix_body "$Frd3/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  cat >> "$Frd3/facts/requirements/tickets/README.md" <<'EOF'
+| `30-gamma-third.json` | 任务票 30；`ready`（2026-09-19 开票） | drifted stale row |
+EOF
+  Srd3=$(tix_state "$Frd3")
+  sh "$Frd3/rules/implementation/scripts/ticket-ops.sh" "$Frd3" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/rd3.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$Srd3" = "$(tix_state "$Frd3")" ] && [ ! -f "$Frd3/facts/requirements/tickets/progress-current.md" ] && grep -q '锚点行已存在' "$D/rd3.log"; then
+    ok '负例 N-rd3 README 锚点已存在时 open → exit 1 零写入（追加语义要求零命中，票 191 AC2）'
+  else
+    bad '负例 N-rd3 README 锚点已存在时 open → exit 1 零写入（追加语义要求零命中，票 191 AC2）' "exit=$rc $(head -n 2 "$D/rd3.log" | tr '\n' '|')"
+  fi
+  # 正例控制：删除漂移行后同 id open 照旧 exit 0 且索引落条目（零命中路径不受新预检影响）
+  sed '/任务票 30；/d' "$Frd3/facts/requirements/tickets/README.md" > "$Frd3/rd.tmp" && mv "$Frd3/rd.tmp" "$Frd3/facts/requirements/tickets/README.md"
+  sh "$Frd3/rules/implementation/scripts/ticket-ops.sh" "$Frd3" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/rd3p.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "30-gamma-third"' "$Frd3/facts/requirements/tickets/index.json"; then
+    ok '正例 锚点零命中后同 id open → exit 0 且索引落条目（新锚点预检零误伤，票 191）'
+  else
+    bad '正例 锚点零命中后同 id open → exit 0 且索引落条目（新锚点预检零误伤，票 191）' "exit=$rc $(head -n 2 "$D/rd3p.log" | tr '\n' '|')"
+  fi
+
+  # N-rd4：open 缺表锚（README 目录清单表行零命中）→ 表行预检停止零写入（追加无处可附）
+  tix_build_fixture "$D/fixrd4"
+  Frd4=$D/fixrd4
+  tix_body "$Frd4/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  sed '/^| `/d' "$Frd4/facts/requirements/tickets/README.md" > "$Frd4/rd.tmp" && mv "$Frd4/rd.tmp" "$Frd4/facts/requirements/tickets/README.md"
+  Srd4=$(tix_state "$Frd4")
+  sh "$Frd4/rules/implementation/scripts/ticket-ops.sh" "$Frd4" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/rd4.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$Srd4" = "$(tix_state "$Frd4")" ] && [ ! -f "$Frd4/facts/requirements/tickets/progress-current.md" ] && grep -q '目录清单表行' "$D/rd4.log"; then
+    ok '负例 N-rd4 README 目录清单表行零命中（缺表锚）open → exit 1 零写入（票 191 AC2）'
+  else
+    bad '负例 N-rd4 README 目录清单表行零命中（缺表锚）open → exit 1 零写入（票 191 AC2）' "exit=$rc $(head -n 2 "$D/rd4.log" | tr '\n' '|')"
   fi
 
   # N5：索引一条目一行排版破坏（条目缺 updated_at）→ 预检停止，零写入且无投影

@@ -10,7 +10,8 @@
 #         （type/pattern/enum/oneOf/additionalProperties/条件 required 依 schema 文件
 #         执行，票 152）＋理由非空断言（票 79，只 open 时点生效，存量零回扫）＋校验＋
 #         索引新增条目（status=ready）＋README 追加目录
-#         清单行＋账本追加行；take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
+#         清单行（`任务票 <NN>；` 锚点零命中方可追加，已在场即拒零写入）＋账本追加行；
+#         take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
 #         状态 token 替换＋账本追加行，flip 另做 task 票 actual_time 收口硬拦（票 100：
 #         票 JSON 本体 actual_time 须已填且非空，缺项即 exit 1 指名票 id 与缺项，request
 #         不校验）＋账本追加行；ledger＝无票账本行入口（票 100：不依赖 facts/requirements/tickets/index.json
@@ -21,7 +22,8 @@
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
 #      零外部依赖（仅 POSIX 标准工具与内建，无 jq；票 79 起 open 本体 schema 校验另用
 #      python3 标准库）；fail-closed：校验先于写入，
-#      索引排版破坏、README 行缺失或锚点不唯一、账本行不合键序、同 NN 异 slug 撞号
+#      索引排版破坏、README 行缺失或锚点不唯一（含 open 锚点已存在——追加语义要求
+#      零命中）、账本行不合键序、同 NN 异 slug 撞号
 #      （票 77）即停止不写；收尾生成器
 #      缺失或 --check 不过即整体失败退出非零，已写部分如实报告。运行时依赖定位（安装
 #      闭包）：open 的 schema 权威与 json-validator.py 校验器先取包基线布局
@@ -71,7 +73,8 @@ usage() {
                  additionalProperties 与条件 required 依 schema 执行（票 152），非空断言
                  同前，票 79；缺本体或校验不过即 fail-closed 零写入），再写索引条目
                  （status=ready）＋
-                 issues-README 目录清单追加行＋账本追加行，收尾投影再生＋--check。
+                 issues-README 目录清单追加行（`任务票 <NN>；` 锚点已在场即拒——追加
+                 语义要求零命中，不制造重复锚点）＋账本追加行，收尾投影再生＋--check。
                  选项（前四必选）:
                    --id <NN-slug>            票 id（^[0-9]{2,}-[a-z0-9-]+$；须不在索引中且 NN 段未被
                              占用——同 NN 异 slug 撞号拒开，票 77）
@@ -419,6 +422,25 @@ readme_row_check() {
   ' "${readme_file}"
 }
 
+readme_nn_check() {
+  # open 预检：`任务票 <NN>；` 锚点须零命中——open 是追加新行语义，锚点已在场即索引↔README
+  # 漂移（或号段复用残留行），照追加将制造重复锚点（take/flip 预检要求恰 1 行，重复后该票
+  # 永久卡死），故开票即拒零写入（fail-closed 前置，与 index_nn_check 同为 NN 唯一性门；
+  # 锚点不唯一时不猜测更新对象，先核对漂移或改号；多字节位置运算只用 index，口径同
+  # readme_token_check 注记）。
+  RD_NN_ANCHOR="任务票 ${nn}；" awk '
+    BEGIN { anchor = ENVIRON["RD_NN_ANCHOR"] }
+    index($0, anchor) > 0 { hits++ }
+    END {
+      if (hits > 0) {
+        printf "ticket-ops: FAIL: issues-README 锚点行已存在（open 追加语义要求零命中，命中 %d 行——先核对索引与 README 漂移或改号，不静默叠行）: %s\n", hits, anchor > "/dev/stderr"
+        exit 1
+      }
+      exit 0
+    }
+  ' "${readme_file}"
+}
+
 readme_token_check() {
   # take/flip 预检：`任务票 <NN>；` 锚点恰 1 行，且其后存在闭合的反引号状态 token
   # 实现注记：位置运算只用 index/substr（同一单位），不用 length——macOS awk 对多字节
@@ -543,6 +565,7 @@ if [ "${cmd}" = 'open' ]; then
   index_check open || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
   index_nn_check || die1 "NN 段预检未通过: ${issues_index_rel}——未产生任何写入"
   readme_row_check || die1 "issues-README 预检未通过: ${issues_readme_rel}——未产生任何写入"
+  readme_nn_check || die1 "issues-README 锚点预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
 elif [ "${cmd}" = 'ledger' ]; then
   : # 无票面：账本行形状校验已于公共段完成（票 100），无索引/README 预检
 else
