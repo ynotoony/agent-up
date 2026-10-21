@@ -522,7 +522,7 @@ check_s3() {
       0) : ;;
       1) emit_stale "$progress_current_rel" "投影与索引不一致或投影缺失（generate-progress --check exit 1）——运行生成器刷新投影（$progress_current_rel 为 Derived，生成器独占写）" ;;
       2) emit_stale "$issues_index_rel" '索引缺失、不可读或条目行不合预期（generate-progress --check exit 2）——真相源排版须修复或登记条目重新核对' ;;
-      *) emit_stale "$progress_current_rel" "投影一致性核对异常（generate-progress --check exit $_grc）——人工核对生成器输出" ;;
+      *) emit_stale "$progress_current_rel" "投影一致性核对异常（generate-progress --check exit ${_grc}）——人工核对生成器输出" ;;
     esac
     return 0
   fi

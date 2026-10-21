@@ -1135,7 +1135,7 @@ EOF
   sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' -e '/"profile"/d' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
   sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152t.log" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q '缺少 profile' "$D/v152t.log"; then
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q '要求字段: profile' "$D/v152t.log"; then
     ok '负例 N-152task task 缺条件 required profile → exit 1 零写入且报文指名（票 152 AC1）'
   else
     bad '负例 N-152task task 缺条件 required profile → exit 1 零写入且报文指名（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152t.log" | tr '\n' '|')"
@@ -2890,6 +2890,8 @@ suite_health() {
   ]
 }
 EOF
+  mkdir -p "$D/p6/repo/agent-up/scripts"
+  cp "$SCRIPT_DIR/json-helpers.sh" "$D/p6/repo/agent-up/scripts/"
   cp "$SCRIPT_DIR/generate-progress.sh" "$D/p6/repo/rules/implementation/scripts/"
   sh "$D/p6/repo/rules/implementation/scripts/generate-progress.sh" "$D/p6/repo" >/dev/null 2>&1
   hs_run "$D/p6" > "$D/p6.out" 2>&1
