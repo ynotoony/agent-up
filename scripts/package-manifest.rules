@@ -264,6 +264,7 @@ pm_capability vcs-read
 pm_capability vcs-write
 pm_capability_authority references/adapters/capability-contract.md
 pm_capability_target references/templates/agents-implementation.md.tmpl decl 'inspect,search,read,edit,write,execute'
+# agents-triage.md.tmpl 路由职责零运行时基元（模板能力声明节），不入 capability_target 比对面；未来若声明基元须补登行。
 pm_capability_target references/templates/agents-review.md.tmpl decl 'inspect,search,read,readonly-execute'
 pm_capability_target references/templates/agents-commit.md.tmpl decl 'inspect,vcs-read,vcs-write'
 pm_capability_target references/adapters/zcode.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'

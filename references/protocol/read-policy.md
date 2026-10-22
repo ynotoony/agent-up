@@ -79,12 +79,12 @@ depends_on: SPEC-02、SPEC-04（恢复顺序优先）、SPEC-05 §6（档位语�
 
 | ID | 冲突域 | Authority | Writer | Resolution | Template consumer |
 | --- | --- | --- | --- | --- | --- |
-| AW-01 | user-decision-runtime-facts | 用户决定以用户原始决定为权威；运行事实以实际文件、测试与 Git 观察为准 | 用户作决定；Triage 记录决定；产生运行证据的阶段角色记录其实际观察 | 决定冲突按权威层级停止并交用户裁决；运行事实冲突先核对实际文件、测试与 Git，再更正较低层记录 | project.md.tmpl;discipline.md.tmpl;AGENTS.md.tmpl |
-| AW-02 | ticket-index-progress | `facts/requirements/tickets/index.json` 是票状态真相源；`progress-current.md` 是其生成投影 | `ticket-ops.sh` 或获授权的收尾阶段执行体单写索引；`generate-progress.sh` 独占写投影 | 状态不一致以索引为准，并重生成、核对投影；禁止并发写索引 | project.md.tmpl;assessment.md.tmpl;agents-commit.md.tmpl;AGENTS.md.tmpl;agents-implementation.md.tmpl |
-| AW-03 | triage-intake | 目标项目流程权威定义 Intake 与 Triage 职责；若项目无等价条款，本协议按任务接收与后续治理协调区分 | Intake 仅创建新需求卡；Triage 负责定级、拆分和派发；二者只写各自职责范围 | 输入、分类或写入归属冲突时停止并报告；不得由 Intake 推进存量任务或由 Triage 覆盖原始用户输入 | project.md.tmpl;assessment.md.tmpl;discipline.md.tmpl;AGENTS.md.tmpl |
+| AW-01 | user-decision-runtime-facts | 用户决定以用户原始决定为权威；运行事实以实际文件、测试与 Git 观察为准 | 用户作决定；Triage 记录决定；产生运行证据的阶段角色记录其实际观察 | 决定冲突按权威层级停止并交用户裁决；运行事实冲突先核对实际文件、测试与 Git，再更正较低层记录 | project.md.tmpl;discipline.md.tmpl;AGENTS.md.tmpl ;agents-triage.md.tmpl |
+| AW-02 | ticket-index-progress | `facts/requirements/tickets/index.json` 是票状态真相源；`progress-current.md` 是其生成投影 | `ticket-ops.sh` 或获授权的收尾阶段执行体单写索引；`generate-progress.sh` 独占写投影 | 状态不一致以索引为准，并重生成、核对投影；禁止并发写索引 | project.md.tmpl;assessment.md.tmpl;agents-commit.md.tmpl;AGENTS.md.tmpl;agents-implementation.md.tmpl ;agents-triage.md.tmpl |
+| AW-03 | triage-intake | 目标项目流程权威定义 Intake 与 Triage 职责；若项目无等价条款，本协议按任务接收与后续治理协调区分 | Intake 仅创建新需求卡；Triage 负责定级、拆分和派发；二者只写各自职责范围 | 输入、分类或写入归属冲突时停止并报告；不得由 Intake 推进存量任务或由 Triage 覆盖原始用户输入 | project.md.tmpl;assessment.md.tmpl;discipline.md.tmpl;AGENTS.md.tmpl;agents-triage.md.tmpl |
 | AW-04 | review-checkpoint | 当前任务票的 Independent Review Checkpoint 是审查结论本体；run record 仅可保存指向该本体的引用 | Review 执行体唯一写审查结论；当前运行执行体只回填 run record 指针 | 指针与票内结论冲突时以票内 Review Checkpoint 为准；缺少结论本体不得提交 | project.md.tmpl;agents-review.md.tmpl |
 | AW-05 | commit-authorization | 主 agent 明列的提交合同定义本次授权范围，且必须存在适用的 Review PASS 证据 | Commit 执行体仅在授权与 Review 证据齐备后按白名单提交 | 授权或 PASS 缺失、白名单冲突时停止，不提交；push、deploy 仍需单独授权 | project.md.tmpl;discipline.md.tmpl;agents-commit.md.tmpl |
-| AW-06 | ticket-body-checkpoints | ticket-record schema 定义票本体形状；阶段合同定义各自 checkpoint 内容；索引定义任务状态 | Triage 维护任务合同；Implementation、Review、Commit 分别写各自 checkpoint；索引状态按 AW-02 写入 | 合同语义变更交 Triage；阶段 checkpoint 只由所属角色写；状态冲突按 AW-02，schema 形状冲突按 schema | project.md.tmpl;assessment.md.tmpl;discipline.md.tmpl;agents-implementation.md.tmpl;agents-commit.md.tmpl |
+| AW-06 | ticket-body-checkpoints | ticket-record schema 定义票本体形状；阶段合同定义各自 checkpoint 内容；索引定义任务状态 | Triage 维护任务合同；Implementation、Review、Commit 分别写各自 checkpoint；索引状态按 AW-02 写入 | 合同语义变更交 Triage；阶段 checkpoint 只由所属角色写；状态冲突按 AW-02，schema 形状冲突按 schema | project.md.tmpl;assessment.md.tmpl;discipline.md.tmpl;agents-implementation.md.tmpl;agents-commit.md.tmpl;agents-triage.md.tmpl |
 
 #### R-RP-002 冲突即停 `MUST`
 
