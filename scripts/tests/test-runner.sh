@@ -60,7 +60,10 @@
 #        序言收敛（检查 21→23——22＝规则块九字段格式（Level 受控四值/七字段齐备/块 ID
 #        全局唯一）、23＝索引节序言短指针（三宿主 §16 序言逐字等于 governance-format.md
 #        R-GF-011 定稿原句），check-package 套件金样串两形态计数 21→23 随动并补正例 P2
-#        三宿主序言断言＋负例 N34～N39）。
+#        三宿主序言断言＋负例 N34～N39）；票 196 新增 role-prompt 套件（角色合同/Prompt
+#        权威边界：四件角色合同模板权威面正例＋三件 Prompt 零合同正文扫描＋Triage 模板
+#        登记闭合＋占位符零漂移正例；duplicate-body Prompt/duplicate-rule/
+#        missing-permission/缺权限声明四负例均指名角色，夹具全 mktemp）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -116,6 +119,8 @@ export TEST_RECORD_SOURCE_ONLY
 . "$TESTS_DIR/suite-dispatch-contract.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
 . "$TESTS_DIR/suite-workflow-contract.sh"
+# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
+. "$TESTS_DIR/suite-role-prompt.sh"
 
 
 SUITE='all'
@@ -126,7 +131,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | authority-matrix | worktree | upgrade-check | absorption | health | install | dispatch-contract | workflow-contract | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | authority-matrix | worktree | upgrade-check | absorption | health | install | dispatch-contract | workflow-contract | role-prompt | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
@@ -145,7 +150,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|json-helpers|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|all) ;;
+  module-map|ticket-ops|progress|json-helpers|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -203,6 +208,7 @@ case $SUITE in
   install) suite_install ;;
   dispatch-contract) suite_dispatch_contract ;;
   workflow-contract) suite_workflow_contract ;;
+  role-prompt) suite_role_prompt ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -223,6 +229,7 @@ case $SUITE in
     suite_install
     suite_dispatch_contract
     suite_workflow_contract
+    suite_role_prompt
     self_check_injection
     ;;
 esac

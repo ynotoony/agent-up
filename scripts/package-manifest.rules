@@ -42,7 +42,7 @@
 #      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
 #      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
 #      一致性由 check-package.sh 检查 5/9 机械核对。短码登记以各目录 README 登记面为
-#      同源（templates：AG/DP/RQ/RI/RR/RC；protocol：GF/RP/CP；adapters：AT/CC/ZC/CL/
+#      同源（templates：AG/DP/RI/RR/RC/RT；protocol：GF/RP/CP；adapters：AT/CC/ZC/CL/
 #      CX/PI/DS，grep 实测全集）；platform 枚举自 capability-contract.md §2.5 与
 #      artifacts-yaml.tmpl platform 字段注释区迁入；模糊措辞词表与豁免、镜像
 #      登记的能力基元名单与检查目标、规则索引执行机制受控词表为后续扩节
@@ -134,7 +134,7 @@ pm_script scripts/upgrade-check.sh script '落地面升级对账器（已治理�
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
-pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋19 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
+pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋20 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
 pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAML workflow 定义驱动的流程执行器：条件跳过、工具调用、checkpoint 落盘、中断续传）'
@@ -149,6 +149,7 @@ pm_template CONTEXT.md.tmpl
 pm_template agents-commit.md.tmpl
 pm_template agents-implementation.md.tmpl
 pm_template agents-review.md.tmpl
+pm_template agents-triage.md.tmpl
 pm_template artifacts-yaml.tmpl
 pm_template assessment.md.tmpl
 pm_template delivery-rules.tmpl
@@ -169,6 +170,7 @@ pm_shortcode DP references/templates/project.md.tmpl
 pm_shortcode RI references/templates/agents-implementation.md.tmpl
 pm_shortcode RR references/templates/agents-review.md.tmpl
 pm_shortcode RC references/templates/agents-commit.md.tmpl
+pm_shortcode RT references/templates/agents-triage.md.tmpl
 pm_shortcode GF references/protocol/governance-format.md
 pm_shortcode RP references/protocol/read-policy.md
 pm_shortcode CP references/protocol/complexity-profile.md

@@ -17,6 +17,7 @@
 | `RI` | `agents-implementation.md.tmpl`（→ `rules/implementation/roles/implementation.md`） |
 | `RR` | `agents-review.md.tmpl`（→ `rules/implementation/roles/review.md`） |
 | `RC` | `agents-commit.md.tmpl`（→ `rules/implementation/roles/commit.md`） |
+| `RT` | `agents-triage.md.tmpl`（→ `rules/implementation/roles/triage.md`） |
 
 公开包 `../protocol/` 手册短码（`GF`、`RP`）见 `../protocol/governance-format.md`；`../adapters/` 手册短码（`CC`、`ZC`）见 `../adapters/capability-contract.md`，与模板短码互不重叠。
 
@@ -54,6 +55,7 @@
 | `agents-implementation.md.tmpl` | Roles | `rules/implementation/roles/implementation.md` | 所有项目初始化生成三阶段角色合同 | `RI` | 生成 Implementation 阶段平台无关角色合同（七节 + required_capabilities 能力基元声明 + 规则块 R-RI-001～003）。 |
 | `agents-review.md.tmpl` | Roles | `rules/implementation/roles/review.md` | 所有项目初始化生成三阶段角色合同 | `RR` | 生成 Review 阶段平台无关角色合同（七节 + 只读能力声明 + 降级记录规则块 R-RR-001～003）。 |
 | `agents-commit.md.tmpl` | Roles | `rules/implementation/roles/commit.md` | 所有项目初始化生成三阶段角色合同 | `RC` | 生成 Commit 阶段平台无关角色合同（七节 + 版本库能力声明 + 规则块 R-RC-001～003；Review pass 证据含车道两类形态：Independent Review Checkpoint / User Review Checkpoint 或机械门禁输出）。 |
+| `agents-triage.md.tmpl` | Roles | `rules/implementation/roles/triage.md` | 所有项目初始化生成角色合同（两层协作为固定规则，路由层合同与三阶段合同一并生成） | `RT` | 生成 Triage 路由层平台无关角色合同（七节 + 只读能力声明 + 派发边界规则块 R-RT-001～002；权威与写入边界引用 `../protocol/read-policy.md` §2.3.1 权威矩阵 AW-01/AW-02/AW-03/AW-06）。 |
 
 ## 取舍与过渡登记
 
@@ -76,3 +78,5 @@
 - 票/REQ 本体机器 schema 定稿落公开包 `../schemas/ticket-record.schema.json`（2026-09-18）：新开票/新 REQ 为过 schema 的 JSON 文件（task `<NN>-<slug>.json`、request `<REQ-id>.json`；无 `status` 字段，票状态真相源＝`docs/issues/index.json`），不以模板承载（沿状态索引 schema 先例，无 `ticket-record.tmpl`），本 manifest 成员清单与 `.tmpl` 计数（13）不变；schema 登记见 `../schemas/README.md`，协议权威文本＝SPEC-02 §5.1 与本模板/镜像 `development-process.md.tmpl` §5.2 开票形态注记、§12.5 承载注记（issues-README 状态列＝人工登记投影；道脚本安装清单含 `generate-progress.sh`）。
 - 回灌核对义务句为源仓专属条文、模板不携带（2026-09-20，用户裁决）：源仓镜像 `docs/development-process.md` §5.4 成文的"回灌核对义务：凡是某票改了本仓治理实例 X 的收口，必须核对 X 的模板对应物……"一句不随模板分发——生成项目是纯消费者（拿模板、不养模板），无模板维护义务，该义务方向仅适用于同时维护模板与治理实例的源仓；镜像保留、模板删句为登记在案的有意分歧（登记过的分歧不破坏镜像纪律——防无意识漂移，不防源仓特权条文）；未来镜像演化若需携带该句入模板，须经用户裁决与本登记更新。
 - `development-process.md.tmpl` 拆三为 `assessment.md.tmpl`／`discipline.md.tmpl`／`project.md.tmpl`（2026-10-01，流程权威拆三）：唯一流程事实源按评估面／执行纪律面／项目协议面拆三件，节号沿用拆分前统一编号、三件共享编号空间，跨件规则块按「定义于 <件名>」外定义形态互指、不在承载件索引表重复登记；规则块定义 33 与索引行 50 并集不变（拆分前单件索引 50 行＝拆三后三件 §16 索引并集），`DP` 短码沿用（R-DP 块分散三件，一码多件登记）；Emits 定稿为 `rules/assessment.md`、`rules/implementation/discipline.md`、`rules/project.md`，seed 扩为八件（rules/、facts/ 目录 README 与三件规则文件入 seed，见上方映射表）；manifest 成员 14→16、`.tmpl` 计数 13→15，`../../scripts/check-package.sh` 检查 5 计数与检查 15 语义（三件索引并集＝规则块全集）同步。
+- `agents-triage.md.tmpl` 纳入为路由层角色合同模板（2026-10-21，用户拍板角色合同/Prompt 权威去重）：两层协作为固定不裁剪规则（discipline.md.tmpl §6），路由层合同与三阶段合同并列生成，manifest 成员 16→17、`.tmpl` 计数 15→16；新短码 `RT`（规则块 R-RT-001～002），索引行入 `discipline.md.tmpl` §16（机制列约定——路由层零写入与派发边界无机械断言无阶段卡，宿主运行时自觉承载）；能力声明只用 §2.1 九基元内的只读三基元（inspect/search/read），派发是路由职责非能力基元，治理写入许可＝需求卡与任务合同（对齐 capability-contract.md §2.2 Planning/Triage 行）。
+- 角色合同/Prompt 权威去重定稿（2026-10-21，用户拍板）：角色合同模板（`agents-implementation/review/commit/triage.md.tmpl`）是 MUST 行为规则与写入权限正文的唯一承载面；`../prompts/` 三件派发 Prompt 收敛为只承载派发参数（占位符）、上下文（票信息与权威指针）和输出槽（输出格式指针），不再复制白名单清单、关键纪律正文与阶段出口——占位符全集不变（28 占位符比对面零漂移），派发 Prompt 与合同冲突时以合同为准；机械边界由记录层 harness 的 role-prompt 套件常驻断言（正例＝四件合同模板承载 MUST/权限面＋三件 Prompt 零合同正文，负例＝duplicate-body Prompt 夹具指名角色失败）。
