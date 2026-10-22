@@ -3,7 +3,7 @@
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
 #        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标/规则索引执行
 #        机制受控词表十节唯一承载点，票 57/58/59/60）。
-# Output: 二十一项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
+# Output: 二十三项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
 #         exit 1；检查 13 仓根无镜像落位目录时静默跳过无输出行；检查 19 非 git 语境静默
 #         跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
@@ -76,10 +76,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  二十一项检查全部通过
+  0  二十三项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-二十一项检查说明、例外登记与输出格式见同目录 README.md。
+二十三项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -1634,7 +1634,7 @@ fi
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
-n_total_checks=21
+n_total_checks=23
 n_mrow=0
 mech_m='机械'
 if [ "$n_idx" -eq 0 ]; then
@@ -2161,8 +2161,147 @@ else
   pass 21 "references 树成员闭合与导航（成员 ${n_ref_files} 件，链接 ${n_links} 个）"
 fi
 
+# 检查 22：规则块九字段格式（票 195 新增）。依 references/protocol/governance-format.md
+# §2.1 既有定义机械执行（本检查是该定义的执行面，非第二权威，字段集与 Level 枚举为检查
+# 语义常量，先例检查 19 的 kind 枚举）。扫描面＝包内全部 *.md 与 *.tmpl 的
+# `#### R-<短码>-<三位序号>` 规则块（标题行形态同检查 12 扫描窗口，含裸 ID 标题——
+# 标题无尾随文字同样落进 Level 核对）：
+#   ①标题行须以受控 Level 四值收尾（MUST/MUST NOT/SHOULD/MAY，反引号可选），缺失或
+#     自造级即 FAIL 指名 ID 与标题原文；
+#   ②块体（标题行起至下一标题行止，与检查 12 窗口同口径）七字段 When/Action/Forbidden/
+#     Stop if/Evidence/Owner/Authority 须以「- **字段**：」形态各至少一行，缺字段即
+#     FAIL 指名 ID 与缺失字段名（全量扫描不排除「解释与例外」节——规则块无处可藏）；
+#   ③块 ID 全局唯一（governance-format.md update_policy 定稿：ID 不得复用），跨行或
+#     跨文件重复即 FAIL 指名 ID 与各处文件:行号。
+problems=''
+rb_fields=$(mktemp "${t_dir%/}/ruleblock.XXXXXX")
+rb_dup=$(mktemp "${t_dir%/}/ruleblock.XXXXXX")
+awk_rc=0
+# shellcheck disable=SC2086  # $file_list 刻意分词——find 逐文件作 awk 多文件参数（包路径无空白，清单校验禁空白路径）
+LC_ALL=C awk -v pr="$pkg_root" '
+  BEGIN { nf = split("When×Action×Forbidden×Stop if×Evidence×Owner×Authority", FLD, "×") }
+  function report(   k, miss) {
+    miss = ""
+    for (k = 1; k <= nf; k++) if (!(FLD[k] in have)) miss = miss FLD[k] " "
+    if (miss != "") printf "MISSING\t%s\t%s\t%d\t%s\n", id, f, ln, miss
+    printf "BLOCK\t%s\t%s\t%d\n", id, f, ln
+    inblk = 0
+  }
+  /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]([ \t]|$)/ {
+    if (inblk) report()
+    id = $2
+    f = FILENAME
+    if (index(f, pr) == 1) f = substr(f, length(pr) + 2)
+    ln = FNR
+    t = $0
+    gsub(/`/, "", t)
+    if (t !~ /(MUST NOT|MUST|SHOULD|MAY)[ \t]*$/) printf "BADLEVEL\t%s\t%s\t%d\t%s\n", id, f, ln, t
+    delete have
+    inblk = 1
+    next
+  }
+  inblk && /^#/ { report(); next }
+  inblk && /^- \*\*/ {
+    line = $0
+    sub(/^- \*\*/, "", line)
+    sub(/\*\*：.*/, "", line)
+    have[line] = 1
+    next
+  }
+  END { if (inblk) report() }
+' $file_list > "$rb_fields" || awk_rc=$?
+if [ "$awk_rc" -ne 0 ]; then
+  printf 'check-package: 错误：检查 22 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
+  rm -f "$rb_fields" "$rb_dup"
+  exit 2
+fi
+n_blocks=$(LC_ALL=C awk -F'\t' '$1 == "BLOCK" { n++ } END { print n + 0 }' "$rb_fields")
+grep '^BADLEVEL' "$rb_fields" | LC_ALL=C cut -f2- > "$rb_dup"
+while IFS="$(printf '\t')" read -r _rb_id _rb_f _rb_ln _rb_t; do
+  [ -n "$_rb_id" ] || continue
+  add_problem "  - ${_rb_id} 标题行 Level 缺失或非法（须 MUST/MUST NOT/SHOULD/MAY，标题：${_rb_t}）"
+done < "$rb_dup"
+grep '^MISSING' "$rb_fields" | LC_ALL=C cut -f2- > "$rb_dup"
+while IFS="$(printf '\t')" read -r _rb_id _rb_f _rb_ln _rb_miss; do
+  [ -n "$_rb_id" ] || continue
+  add_problem "  - ${_rb_id} 块体缺字段（${_rb_f}:${_rb_ln} 起）: $(printf '%s' "$_rb_miss" | sed 's/ $//')"
+done < "$rb_dup"
+grep '^BLOCK' "$rb_fields" | LC_ALL=C cut -f2- > "$rb_dup"
+LC_ALL=C awk -F'\t' '{ c[$1] = c[$1] " " $2 ":" $3; n[$1]++ } END { for (i in n) if (n[i] > 1) printf "DUP\t%s\t%s\n", i, substr(c[i], 2) }' "$rb_dup" \
+  | LC_ALL=C sort > "$rb_fields"
+while IFS="$(printf '\t')" read -r _dup_tag _rb_id _rb_locs; do
+  [ -n "$_dup_tag" ] || continue
+  add_problem "  - 规则块 ID 重复（全局唯一，不得复用）: ${_rb_id}（${_rb_locs}）"
+done < "$rb_fields"
+rm -f "$rb_fields" "$rb_dup"
+if [ -n "$problems" ]; then
+  fail 22 "规则块九字段格式（块 ${n_blocks} 个，字段 7 项，级 4 值）" "$problems"
+else
+  pass 22 "规则块九字段格式（块 ${n_blocks} 个，字段 7 项，级 4 值）"
+fi
+
+# 检查 23：索引节序言短指针（票 195 新增；三份 §16 长序言收敛配套）。唯一权威＝
+# references/protocol/governance-format.md §2.7 R-GF-011 定稿短指针原句（引擎经「」
+# 引号窄锚点现场提取，零句子硬编码）。核对面＝清单 templates 节含「## 16. 规则索引」
+# 锚点的宿主（检查 15 同款宿主判定）：节首（锚点行后至「| ID |」表头行前）非空序言
+# 须恰一行且逐字等于权威定稿原句；缺序言、与原句不一致（含指向第二权威）或指针外
+# 多行散文即 FAIL 指名模板与原文。权威文件缺失报缺点名（检查 14 同款）；锚点失效或
+# 提取空句 exit 2 fail-closed（不产生部分结论）。
+problems=''
+n_hosts=0
+fmt_auth='references/protocol/governance-format.md'
+if [ ! -f "$pkg_root/$fmt_auth" ]; then
+  add_problem "  - 格式权威文件不存在: $fmt_auth"
+else
+  canon=$(LC_ALL=C awk '/索引节首序言只写一句短指针/ { print; exit }' "$pkg_root/$fmt_auth" \
+    | LC_ALL=C sed -e 's/（/(/g' -e 's/）/)/g' -e 's/「/(/g' -e 's/」/)/g' \
+    | LC_ALL=C awk '{
+        i = index($0, "(")
+        if (i > 0) {
+          rest = substr($0, i + 1)
+          j = index(rest, ")")
+          if (j > 1) { print substr(rest, 1, j - 1) }
+        }
+      }')
+  if [ -z "$canon" ] || ! printf '%s' "$canon" | grep -q 'governance-format\.md'; then
+    printf 'check-package: 错误：检查 23 权威原句提取失效（窄锚点未命中或句形不合预期，fail-closed）: %s\n' "$fmt_auth" >&2
+    exit 2
+  fi
+  while IFS= read -r t; do
+    idx_site="$templates_dir/$t"
+    [ -f "$idx_site" ] || continue  # 缺件由检查 5 指名，本项不重复报
+    grep -q '^## 16\. 规则索引' "$idx_site" 2>/dev/null || continue
+    n_hosts=$((n_hosts + 1))
+    pre=$(LC_ALL=C awk '
+      /^## 16\. 规则索引/ { insec = 1; next }
+      insec && (/^## / || /^\| ID \|/) { exit }
+      insec && NF { print }
+    ' "$idx_site")
+    if [ -z "$pre" ]; then
+      add_problem "  - $t §16 序言缺短指针（锚点行与索引表之间无非空序言行）"
+    else
+      pre_first=$(printf '%s\n' "$pre" | head -n 1)
+      pre_rest=$(printf '%s\n' "$pre" | tail -n +2)
+      if [ -n "$pre_rest" ]; then
+        # 花括号不可省略：全角字符相邻时防止变量名吞并（先例检查 5/12/17）
+        add_problem "  - $t §16 序言多行（短指针外不得另立散文）: $(printf '%s' "$pre_rest" | head -n 1)"
+      elif [ "$pre_first" != "$canon" ]; then
+        add_problem "  - $t §16 序言与唯一权威短指针不一致（须逐字等于 governance-format.md §2.7 定稿原句）: $pre_first"
+      fi
+    fi
+  done < "$pm_templates"
+  if [ "$n_hosts" -eq 0 ]; then
+    add_problem '  - 索引宿主零件（无模板命中锚点「## 16. 规则索引」），序言无从核对'
+  fi
+fi
+if [ -n "$problems" ]; then
+  fail 23 "索引节序言短指针（宿主 ${n_hosts} 件，权威定稿原句逐字核对）" "$problems"
+else
+  pass 23 "索引节序言短指针（宿主 ${n_hosts} 件，权威定稿原句逐字核对）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 21 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 23 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

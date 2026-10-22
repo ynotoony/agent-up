@@ -34,7 +34,8 @@
 #           名单须与名单全等。载入校验：预期名单逐名 ⊆ 名单且八目标并集 ⊇ 名单）；
 #         pm_mechanism <值>（规则索引执行机制受控值：rules 三件模板
 #           assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl §16 机制列取值 ⊆ 本节
-#           值集，检查 16；受控三值＝机械/门禁/约定，语义见模板 §16 节头）；
+#           值集，检查 16；受控三值＝机械/门禁/约定，语义唯一权威见
+#           references/protocol/governance-format.md §2.7）；
 #         pm_mechanism_marker <标记词>（外定义标记词，恰一行：模板 §16 中定义于模板外
 #           手册的规则块行须在机制列显式标注本标记词，未标注算漏行，检查 15/16）。
 # Pos: 包清单数据文件（先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
@@ -274,12 +275,11 @@ pm_capability_target references/adapters/dsh.md table 'inspect,search,read,edit,
 # ==== mechanism-vocab：规则索引执行机制受控词表（检查 15/16/17）====
 # 模板 rules 三件（assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl）§16 规则索引
 # 机制列取值 ⊆ 本节词表（受控三值＋外定义标记词）；引擎零词表零标记词硬编码。三值语义
-# （模板 §16 节头同款）：机械＝点名脚本/
-# 检查项现役断言在管；门禁＝阶段 checkpoint 卡（独立 Review Checkpoint、Commit 收尾
-# 核对、用户语义终审）；约定＝无机械无门禁，靠执行体自觉。外定义标记词＝定义于模板外
-# 手册（protocol/adapters）的规则块行在机制列的显式标注，未标注算漏行（检查 15）；
+# 唯一权威＝references/protocol/governance-format.md §2.7（机械＝点名脚本/
+# 检查项现役断言在管；门禁＝阶段检查点卡；约定＝无机械无门禁）。外定义标记词＝定义于
+# 模板外手册（protocol/adapters）的规则块行在机制列的显式标注，未标注算漏行（检查 15）；
 # 拆分产生的跨件规则块（定义于 rules/ 三件中另一件）在机制列标注外定义
-# （定义于 rules/<件名>）互指形态。
+# （定义于 rules/<件名>）互指形态；模板 §16 节首序言＝指向该权威的短指针原句（检查 23）。
 # 词表增删＝先改本节再改模板索引（数据先行），并同步 harness 夹具（红灯不隔票）。
 
 pm_mechanism 机械
