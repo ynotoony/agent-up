@@ -135,7 +135,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | authority-matrix | worktree | upgrade-check | absorption | health | install | dispatch-contract | workflow-contract | role-prompt | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | json-helpers | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
