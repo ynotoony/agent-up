@@ -44,6 +44,57 @@
       "pattern": "^D:(Required|Conditional|Advisory|N/A),B:(Required|Conditional|Advisory|N/A),I:(Required|Conditional|Advisory|N/A),U:(Required|Conditional|Advisory|N/A),S:(Required|Conditional|Advisory|N/A),M:(Required|Conditional|Advisory|N/A),O:(Required|Conditional|Advisory|N/A)$",
       "description": "七维紧凑记法字符串：固定序 D,B,I,U,S,M,O，维度以 , 分隔（不用 /，避免与取值 N/A 的斜杠冲突），形如 D:Required,B:Required,I:Required,U:N/A,S:N/A,M:Required,O:N/A；各维取值 Required/Conditional/Advisory/N/A；task 必备，request 省略（Profile 评估在 Triage 拆票后于任务票定义，历史口径）。"
     },
+    "profile_reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "D",
+        "B",
+        "I",
+        "U",
+        "S",
+        "M",
+        "O"
+      ],
+      "properties": {
+        "D": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+        },
+        "B": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+        },
+        "I": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+        },
+        "U": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+        },
+        "S": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+        },
+        "M": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+        },
+        "O": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+        }
+      },
+      "description": "七维 Requirement Profile 逐维 reason（存储合同单源之一，与 references/protocol/complexity-profile.md §2.2 存储合同互为镜像）：对象恰七键、无额外键，键＝维度代号固定集 D/B/I/U/S/M/O（与 profile 紧凑串的固定维度序一致），每键值＝非空字符串（机器面只断言非空白，reason 内容质量判断留人）。逐维值域语义按协议 §2.2 状态填法取内容：Required 写判定该维适用的依据、Conditional 写触发条件与本次是否触发、Advisory 写不设门禁的理由与实际核对范围、N/A 写不适用理由（不留空）。本字段承载 Profile 维度评估理由，与 verification 的纯记录例外理由（record_only.reason）语义独立，互不混用互不替代。新 task 开票时点机械强制（ticket-ops open 经 json-validator --new-ticket fail-closed：必备且逐键非空，缺项/越键/空白值即拒）；存量票零回扫零改写，读取面不要求本字段（开票校验与读取校验分层）；request 省略。"
+    },
     "blocked_by": {
       "type": "array",
       "items": {

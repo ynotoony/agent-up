@@ -13,11 +13,15 @@ fi
 # facts/project/changes.jsonl、脚本落位 rules/implementation/scripts/，金样预期串独立重建；
 # 票 191 README 状态列同步合同——状态迁移正例逐链断言 README token↔索引 status 跨载体相等
 # ＋状态列规范化前后逐字节相等，负例缺锚/重锚/锚点已在（open 拒开）/缺表锚均 fail-closed
-# 零写入）
+# 零写入；票 198 七维 Profile reason 存储合同——合同单源 schema profile_reason 恰七键
+# D/B/I/U/S/M/O＋协议 §2.2 存储合同与 verification reason 分立两正例、malformed 形态
+# 读取面四负例指名键（缺键/未知键/空白值/非对象）、存量票无 reason 读取兼容正例、
+# 新 task open 缺/invalid 拒零写入两负例＋valid 正开落地正例，夹具全 mktemp）
 # ============================================================
 
 tix_body() {
   # $1=本体落盘路径 $2=票 id：最小过 schema 的 task 票本体（含理由两字段，票 79 正例形态；
+  # 含七维 profile_reason 正例形态——新 task 开票门必备，恰七键逐键非空；
   # 字段各占一行便于负例 sed 逐字段破坏；无 actual_time——供 flip 硬拦负例使用）
   cat > "$1" <<EOF
 {
@@ -27,6 +31,7 @@ tix_body() {
   "created_at": "2026-09-19",
   "complexity": "C1",
   "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:N/A,O:N/A",
+  "profile_reason": {"D": "fixture D 维 reason", "B": "fixture B 维 reason", "I": "fixture I 维 reason", "U": "fixture U 维不适用 reason", "S": "fixture S 维不适用 reason", "M": "fixture M 维不适用 reason", "O": "fixture O 维不适用 reason"},
   "blocked_by": [],
   "scope": ["facts/requirements/tickets/"],
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
@@ -38,7 +43,7 @@ EOF
 
 tix_body_at() {
   # $1=本体落盘路径 $2=票 id：tix_body 同款＋actual_time 字段（票 100 flip 收口硬拦的
-  # 正例形态——flip 目标本体须带非空 actual_time）
+  # 正例形态——flip 目标本体须带非空 actual_time 方可通过）
   cat > "$1" <<EOF
 {
   "id": "$2",
@@ -47,6 +52,7 @@ tix_body_at() {
   "created_at": "2026-09-19",
   "complexity": "C1",
   "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:N/A,O:N/A",
+  "profile_reason": {"D": "fixture D 维 reason", "B": "fixture B 维 reason", "I": "fixture I 维 reason", "U": "fixture U 维不适用 reason", "S": "fixture S 维不适用 reason", "M": "fixture M 维不适用 reason", "O": "fixture O 维不适用 reason"},
   "blocked_by": [],
   "scope": ["facts/requirements/tickets/"],
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
@@ -988,6 +994,129 @@ EOF
     ok '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）'
   else
     bad '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）' "exit=$rc $(head -n 2 "$D/v152r.log" | tr '\n' '|')"
+  fi
+
+  # ---- 七维 Profile reason 存储合同断言（协议 §2.2＋schema profile_reason 属性单源，
+  # 与 verification reason 语义分立）----
+  # 独立夹具 fix198（免受前段状态影响）。AC1：形态/值域单源定义——schema profile_reason
+  # 属性恰七键 D/B/I/U/S/M/O、值非空字符串、禁额外键，协议 §2.2 同面承载且两处互指；
+  # malformed 形态读取面即拒且报文指名键；分立＝与 record_only.reason 两字段互不混用
+  # （协议分立声明在场断言）。AC2：新 task 开票（--new-ticket 链路）缺/invalid 拒且零
+  # 写入、valid 正开落地；存量票无 reason 读取兼容（缺省校验零命中——开票校验与读取
+  # 校验分层）。夹具全 mktemp。
+  SCHEMA198="$SCRIPT_DIR/../references/schemas/ticket-record.schema.json"
+  PROF198="$SCRIPT_DIR/../references/protocol/complexity-profile.md"
+  tix_build_fixture "$D/fix198"
+  F198=$D/fix198
+  PR198="$F198/facts/requirements/tickets/70-omega-reason.json"
+  TIX198="$F198/rules/implementation/scripts/ticket-ops.sh"
+
+  # 合同单源：schema profile_reason 恰七键（required＝D/B/I/U/S/M/O、additionalProperties
+  # 禁额外键、逐键非空字符串）
+  if python3 - "$SCHEMA198" <<'PYTHON'
+import json, sys
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+pr = schema['properties']['profile_reason']
+assert pr['type'] == 'object' and pr['additionalProperties'] is False
+assert pr['required'] == ['D', 'B', 'I', 'U', 'S', 'M', 'O']
+assert sorted(pr['properties']) == sorted(pr['required'])
+for rules in pr['properties'].values():
+    assert rules['type'] == 'string' and rules['minLength'] == 1 and 'pattern' in rules
+PYTHON
+  then
+    ok '正例 合同单源 schema profile_reason 恰七键 D/B/I/U/S/M/O 禁额外键逐键非空（AC1）'
+  else
+    bad '正例 合同单源 schema profile_reason 恰七键 D/B/I/U/S/M/O 禁额外键逐键非空（AC1）' 'schema profile_reason 形状漂移'
+  fi
+  if grep -q '七维 reason 存储合同' "$PROF198" && grep -q 'profile_reason' "$PROF198" && grep -q 'record_only.reason' "$PROF198"; then
+    ok '正例 协议 §2.2 存储合同与 verification reason 分立声明在场（两处单源互指，AC1）'
+  else
+    bad '正例 协议 §2.2 存储合同与 verification reason 分立声明在场（两处单源互指，AC1）' '协议缺存储合同节或分立声明'
+  fi
+
+  # 正例：七键齐逐键非空，读取面校验通过（tix_body 正例形态含 profile_reason）
+  tix_body "$PR198" 70-omega-reason
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCHEMA198" "$PR198" >/dev/null 2>&1; then
+    ok '正例 profile_reason 七键齐逐键非空 读取面校验通过（AC1 合法形态）'
+  else
+    bad '正例 profile_reason 七键齐逐键非空 读取面校验通过（AC1 合法形态）' 'exit 非 0'
+  fi
+
+  # AC1 负例：malformed 形态读取面即拒且报文指名键（缺键/未知键/空白值/非对象）
+  pr198_variant() {
+    # $1=variant $2=out：自 tix_body 正例基体派生各形态
+    tix_body "$2.base" 70-omega-reason
+    python3 - "$2.base" "$2" "$1" <<'PYTHON'
+import json, sys
+body = json.load(open(sys.argv[1], encoding='utf-8'))
+mode = sys.argv[3]
+pr = body['profile_reason']
+if mode == 'missing-key':
+    del pr['S']
+elif mode == 'unknown-key':
+    pr['X'] = 'fixture 未知维度'
+elif mode == 'blank-value':
+    pr['B'] = '   '
+elif mode == 'not-object':
+    body['profile_reason'] = 'D:七维散文误置（reason 不是对象）'
+elif mode == 'absent':
+    del body['profile_reason']
+with open(sys.argv[2], 'w', encoding='utf-8') as f:
+    json.dump(body, f)
+PYTHON
+  }
+  pr198_neg() {
+    # $1=负例名 $2=variant $3=报文必含片段：读取面（缺省校验）拒且指名
+    pr198_variant "$2" "$D/pr198-$2.json"
+    python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCHEMA198" "$D/pr198-$2.json" >"$D/pr198-$2.log" 2>&1
+    rc=$?
+    if [ "$rc" -eq 1 ] && grep -qF -- "$3" "$D/pr198-$2.log"; then
+      ok "负例 AC1 ${1} 读取面拒且报文指名键"
+    else
+      bad "负例 AC1 ${1} 读取面拒且报文指名键" "exit=$rc $(grep profile_reason "$D/pr198-$2.log" | head -n 1)"
+    fi
+  }
+  pr198_neg '缺维度键（S）' missing-key 'profile_reason 缺维度键: S'
+  pr198_neg '未知维度键（X）' unknown-key 'profile_reason 含未知维度键'
+  pr198_neg '空白值（B）' blank-value 'profile_reason.B 必须是非空字符串'
+  pr198_neg '非对象形态' not-object 'profile_reason 必须是对象'
+
+  # AC2 存量兼容：无 profile_reason 本体缺省校验（读取路径）通过——开票校验与读取校验分层
+  pr198_variant absent "$D/pr198-absent.json"
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCHEMA198" "$D/pr198-absent.json" >/dev/null 2>&1; then
+    ok '正例 存量票无 profile_reason 读取面零命中照常通过（AC2 兼容分层）'
+  else
+    bad '正例 存量票无 profile_reason 读取面零命中照常通过（AC2 兼容分层）' 'exit 非 0'
+  fi
+
+  # AC2 开票门（ticket-ops open → validator --new-ticket 链路）：缺/invalid 拒且零写入
+  mv "$D/pr198-absent.json" "$PR198"
+  S198=$(tix_state "$F198")
+  sh "$TIX198" "$F198" open --id 70-omega-reason --complexity C1 --title 'Omega fixture ticket' --ledger-line "$LED_OPEN" >"$D/pr198-open-absent.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S198" = "$(tix_state "$F198")" ] && grep -q 'profile_reason' "$D/pr198-open-absent.log"; then
+    ok '负例 AC2 新 task 缺 profile_reason open → exit 1 零写入且报文指名（开票门 fail-closed）'
+  else
+    bad '负例 AC2 新 task 缺 profile_reason open → exit 1 零写入且报文指名（开票门 fail-closed）' "exit=$rc $(head -n 2 "$D/pr198-open-absent.log" | tr '\n' '|')"
+  fi
+
+  pr198_variant missing-key "$PR198"
+  sh "$TIX198" "$F198" open --id 70-omega-reason --complexity C1 --title 'Omega fixture ticket' --ledger-line "$LED_OPEN" >"$D/pr198-open-missing.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S198" = "$(tix_state "$F198")" ] && grep -q 'profile_reason 缺维度键: S' "$D/pr198-open-missing.log"; then
+    ok '负例 AC2 新 task profile_reason 缺维度键 open → exit 1 零写入且报文指名键'
+  else
+    bad '负例 AC2 新 task profile_reason 缺维度键 open → exit 1 零写入且报文指名键' "exit=$rc $(head -n 2 "$D/pr198-open-missing.log" | tr '\n' '|')"
+  fi
+
+  # AC2 正例：valid 正开落地（索引落条目）
+  tix_body "$PR198" 70-omega-reason
+  sh "$TIX198" "$F198" open --id 70-omega-reason --complexity C1 --title 'Omega fixture ticket' --ledger-line "$LED_OPEN" >"$D/pr198-open-ok.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "70-omega-reason"' "$F198/facts/requirements/tickets/index.json"; then
+    ok '正例 AC2 新 task profile_reason 七键齐 open → exit 0 且索引落条目（valid 正开落地）'
+  else
+    bad '正例 AC2 新 task profile_reason 七键齐 open → exit 0 且索引落条目（valid 正开落地）' "exit=$rc $(head -n 2 "$D/pr198-open-ok.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'

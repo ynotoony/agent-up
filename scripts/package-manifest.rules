@@ -325,4 +325,4 @@ pm_layout_legacy_file references/old-project.md '旧项目路径手册（pm_entr
 
 pm_layout_compat_exempt references/upgrade.md 22 '布局判别信号行：新旧两套完整面路径并陈为升级判别语义本体（不单凭路径定轨的显式兼容面），非失效引用'
 pm_layout_compat_exempt references/protocol/complexity-profile.md 12 '契约头 Input 历史出处注记：docs/development-process.md 与 development-process.md.tmpl 指涉为拆三前历史事实，非现行路径指引'
-pm_layout_compat_exempt references/protocol/complexity-profile.md 150 '历史来源与旧代际评审注记：docs/development-process.md 指涉为拆三前历史事实（出处考证），非现行路径指引'
+pm_layout_compat_exempt references/protocol/complexity-profile.md 157 '历史来源与旧代际评审注记：docs/development-process.md 指涉为拆三前历史事实（出处考证），非现行路径指引'

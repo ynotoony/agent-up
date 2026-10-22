@@ -111,6 +111,28 @@ def validate_ticket(schema_path, ticket_path, new_ticket=False):
         if pat and not re.fullmatch(pat, body['profile']):
             errs.append(f"profile 不合 pattern: {body['profile']!r}")
 
+    # profile_reason shape (storage contract: exactly the seven dimension keys
+    # D/B/I/U/S/M/O, each a non-blank string; per-state reason semantics live in
+    # references/protocol/complexity-profile.md).  Shape is enforced whenever the
+    # field is present (read and open paths alike); presence for new task tickets
+    # is enforced further down, gated on new_ticket (legacy tickets have no such
+    # field and stay readable — open-time gate vs read-time shape, layered).
+    if 'profile_reason' in body and 'profile_reason' in props:
+        pr = body['profile_reason']
+        pr_rules = props['profile_reason']
+        pr_props = pr_rules.get('properties', {})
+        if not isinstance(pr, dict):
+            errs.append('profile_reason 必须是对象（七维 reason 存储形态：恰七键 D/B/I/U/S/M/O，值＝非空字符串）')
+        else:
+            for key in pr_rules.get('required', []):
+                if key not in pr:
+                    errs.append(f'profile_reason 缺维度键: {key}')
+            for key in pr:
+                if key not in pr_props:
+                    errs.append(f'profile_reason 含未知维度键（七维＝D/B/I/U/S/M/O）: {key}')
+                elif not schema_string_valid(pr[key], pr_props.get(key, {})):
+                    errs.append(f'profile_reason.{key} 必须是非空字符串')
+
     # blocked_by array items pattern
     if 'blocked_by' in body and 'blocked_by' in props:
         if not isinstance(body['blocked_by'], list):
@@ -129,6 +151,16 @@ def validate_ticket(schema_path, ticket_path, new_ticket=False):
         ver = body.get('verification')
         if not isinstance(ver, list) or not ver or not all(isinstance(item, dict) for item in ver):
             errs.append('新 task 票必须提供非空对象数组 verification；纯记录须使用 record_only.reason + verification="N/A"')
+
+    # Seven-dimension profile reason is mandatory for new task tickets at open
+    # time (fail-closed); existing tickets never carried this field and are not
+    # rescanned — the read path only checks its shape when present (see above).
+    if new_ticket and body.get('kind') == 'task' and 'profile_reason' not in body:
+        errs.append(
+            '新 task 票必须提供 profile_reason（七维逐维 reason 对象：键＝D/B/I/U/S/M/O，'
+            '每键非空字符串，存储合同见 ticket-record.schema.json profile_reason 属性与 '
+            'references/protocol/complexity-profile.md §2.2）；存量票读取面不要求本字段'
+        )
 
     if 'verification' in body and 'verification' in props:
         ver = body['verification']

@@ -3,14 +3,14 @@ id: protocol-complexity-profile
 kind: protocol
 authority: 权威层级第 4 级（流程规则）；复杂度与 Profile 语义上游为 SPEC-06 §4（第 3 级）
 lifecycle: Live
-read_when: 规划、拆票或写任务票前评估 Complexity 与 Requirement Profile 时；判定 C2/C3 触发矩阵命中、拆票与上下文策略或 Profile 七维证据时；Triage 声明分级交付道车道（快道准入判据）时
-trigger: C0-C3 触发条件、高风险面清单、拆票与上下文策略、Profile 七维含义或状态填法、分级交付道快道准入判据语义变化
+read_when: 规划、拆票或写任务票前评估 Complexity 与 Requirement Profile 时；判定 C2/C3 触发矩阵命中、拆票与上下文策略或 Profile 七维证据时；定义或核对七维 reason 存储形态与值域（profile_reason 合同）时；Triage 声明分级交付道车道（快道准入判据）时
+trigger: C0-C3 触发条件、高风险面清单、拆票与上下文策略、Profile 七维含义或状态填法、七维 reason 存储键集或逐维值域、分级交付道快道准入判据语义变化
 owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）
 update_policy: C0-C3 表、高风险面清单与七维 Profile 表为定稿基线；数值或语义变化须用户确认并同步上游规格与 rules/ 流程规则三件模板指引；规则块 ID 全局唯一不得复用
 depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPEC-02（格式协议；格式规范由 protocol-governance-format.md 承载）；被 agent-up/SKILL.md 按需手册表与 project.md.tmpl §5.2 指引依赖
 ---
 <!-- Input: 本仓库 docs/development-process.md §4/§5 既有 C0-C3 与七维 Profile 定稿语义、协调给定的旧版 SKILL 高风险面基线（旧版正文已重写且 Git 历史不可得）、development-process.md.tmpl §5.2/§8/§11/§12.4 的 C2/C3 与验证阶梯引用事实。 -->
-<!-- Output: Agent Up 复杂度分级与 Requirement Profile 的产品事实源：C0-C3 权威表（等级/触发条件/默认拆票与上下文策略/最低交付证据/高风险面清单）与 D/B/I/U/S/M/O 七维 Profile 权威表（含义/Required 最低证据/状态填法）、两者正交原则，以及分级交付道两快道（用户即 Review / 微任务道）准入判据。 -->
+<!-- Output: Agent Up 复杂度分级与 Requirement Profile 的产品事实源：C0-C3 权威表（等级/触发条件/默认拆票与上下文策略/最低交付证据/高风险面清单）与 D/B/I/U/S/M/O 七维 Profile 权威表（含义/Required 最低证据/状态填法/七维 reason 存储合同）、两者正交原则，以及分级交付道两快道（用户即 Review / 微任务道）准入判据。 -->
 <!-- Pos: 公开包 `references/protocol/` 手册之一，复杂度与 Profile 协议的产品事实源；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 复杂度与 Profile 协议
@@ -93,6 +93,13 @@ depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPE
 | `Conditional` | 是否适用取决于任务条件；写明触发条件与本次是否触发；触发时按 `Required` 最低证据执行 |
 | `Advisory` | 有价值但非本次门禁；写明 reason 与实际核对范围，不扩展为门禁 |
 | `N/A` | 本次不适用；写明 reason，不留空 |
+
+七维 reason 存储合同（机器面单源，与 `ticket-record.schema.json` 的 `profile_reason` 属性互为镜像、两处定义一致——语义权威＝本节，机器形态权威＝schema 属性）：
+
+- 存储键＝七维固定集 `D`/`B`/`I`/`U`/`S`/`M`/`O`（维度代号，与上表及 `profile` 紧凑串的固定维度序一致）；存储形态＝任务票 JSON 本体的 `profile_reason` 对象：恰七键、无额外键，每键值＝非空字符串。
+- 逐维值域语义按上表状态填法取 reason 内容：`Required` 写判定该维适用的依据；`Conditional` 写触发条件与本次是否触发；`Advisory` 写不设门禁的理由与实际核对范围；`N/A` 写不适用理由。机器面只断言键集与非空，reason 内容质量判断留人。
+- 分层强制：新 task 开票时点（ticket-ops open 经 json-validator `--new-ticket`）`profile_reason` 必备且逐键非空，缺项、越键或空白值即 fail-closed 拒开零写入；存量票零回扫零改写，读取面不要求本字段（开票校验与读取校验分层）；request 票省略。
+- 与 verification reason 分立：本字段承载七维 Profile 维度评估理由；票本体 `record_only.reason` 承载 `verification="N/A"` 的纯记录例外理由（显式纯记录例外合同的两个字段）。两个 reason 字段语义不同、互不混用、互不替代，评估与复核独立核对。
 
 #### R-CP-003 七维独立评估 `MUST`
 

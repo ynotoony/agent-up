@@ -8,7 +8,11 @@
 #        ——票 81，一行一事实，禁裸换行）。
 # Output: 协调层票务面写入——open＝新票本体 ticket-record.schema.json 全量校验
 #         （type/pattern/enum/oneOf/additionalProperties/条件 required 依 schema 文件
-#         执行，票 152）＋理由非空断言（票 79，只 open 时点生效，存量零回扫）＋校验＋
+#         执行，票 152）＋理由非空断言（票 79，只 open 时点生效，存量零回扫）＋七维
+#         profile reason 开票门（新 task 必备 profile_reason 对象且逐键非空，缺项/越键/
+#         空白值即 fail-closed 零写入；存储合同单源＝schema profile_reason 属性与
+#         references/protocol/complexity-profile.md §2.2，与 verification 的
+#         record_only.reason 语义分立；读取面不要求本字段，存量零回扫）＋校验＋
 #         索引新增条目（status=ready）＋README 追加目录
 #         清单行（`任务票 <NN>；` 锚点零命中方可追加，已在场即拒零写入）＋账本追加行；
 #         take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
@@ -74,7 +78,10 @@ usage() {
   open           开票：先过新票本体校验（facts/requirements/tickets/<id>.json 须已落位并过
                  ticket-record.schema.json 全量校验——type/pattern/enum/oneOf/
                  additionalProperties 与条件 required 依 schema 执行（票 152），非空断言
-                 同前，票 79；缺本体或校验不过即 fail-closed 零写入），再写索引条目
+                 同前，票 79；另强制新 task 七维 profile reason：profile_reason 对象
+                 恰七键 D/B/I/U/S/M/O 且逐键非空，存储合同见 schema 属性与
+                 complexity-profile.md §2.2；缺本体或校验不过即 fail-closed 零写入），
+                 再写索引条目
                  （status=ready）＋
                  issues-README 目录清单追加行（`任务票 <NN>；` 锚点已在场即拒——追加
                  语义要求零命中，不制造重复锚点）＋账本追加行，收尾投影再生＋--check。
@@ -500,7 +507,10 @@ ticket_body_check() {
   # 断言——票 152 起全量执行 schema 约束（不再只提取 required）：type/pattern/enum/oneOf/
   # additionalProperties 与 allOf 条件 required 均自 schema 文件现场执行（校验器＝在用
   # 约束词的机械执行子集，schema 为唯一权威）；非空＝字符串 strip 后非空（blocked_by 须
-  # 数组，空数组合法＝无依赖）；另断言本体 id 与 --id 一致（防校验错文件）。只读零写入；
+  # 数组，空数组合法＝无依赖）；另断言本体 id 与 --id 一致（防校验错文件）。新 task 七维
+  # profile reason 门（--new-ticket 路径）：profile_reason 必备且恰七键逐键非空，缺项/
+  # 越键/空白值即拒（存储合同单源＝schema profile_reason 属性与 complexity-profile.md
+  # §2.2；读取面不要求本字段，存量零回扫——开票校验与读取校验分层）。只读零写入；
   # 任何不过即 exit 1（报文指名缺失项）。
   command -v python3 >/dev/null 2>&1 || \
     die1 'python3 不可用——open 本体 schema 校验无法执行（fail-closed；票 79 起为本体校验依赖）'

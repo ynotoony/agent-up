@@ -63,7 +63,11 @@
 #        三宿主序言断言＋负例 N34～N39）；票 196 新增 role-prompt 套件（角色合同/Prompt
 #        权威边界：四件角色合同模板权威面正例＋三件 Prompt 零合同正文扫描＋Triage 模板
 #        登记闭合＋占位符零漂移正例；duplicate-body Prompt/duplicate-rule/
-#        missing-permission/缺权限声明四负例均指名角色，夹具全 mktemp）。
+#        missing-permission/缺权限声明四负例均指名角色，夹具全 mktemp）；票 198
+#        ticket-ops 套件增七维 Profile reason 存储合同断言十一项（合同单源 schema
+#        profile_reason 恰七键＋协议存储合同与 verification reason 分立声明两正例、
+#        七键齐读取面通过正例、malformed 读取面四负例指名键、存量票无 reason 读取兼容
+#        正例、open 缺/invalid 拒零写入两负例＋valid 正开落地正例；夹具全 mktemp）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内

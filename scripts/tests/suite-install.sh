@@ -205,6 +205,7 @@ suite_install() {
   "created_at": "2026-10-21",
   "complexity": "C0",
   "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:N/A,O:N/A",
+  "profile_reason": {"D": "fixture D 维 reason", "B": "fixture B 维 reason", "I": "fixture I 维 reason", "U": "fixture U 维不适用 reason", "S": "fixture S 维不适用 reason", "M": "fixture M 维不适用 reason", "O": "fixture O 维不适用 reason"},
   "blocked_by": [],
   "scope": ["facts/requirements/tickets/"],
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
