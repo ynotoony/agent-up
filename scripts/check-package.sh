@@ -3,7 +3,7 @@
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
 #        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标/规则索引执行
 #        机制受控词表十节唯一承载点，票 57/58/59/60）。
-# Output: 二十三项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
+# Output: 二十四项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
 #         exit 1；检查 13 仓根无镜像落位目录时静默跳过无输出行；检查 19 非 git 语境静默
 #         跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
@@ -76,10 +76,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  二十三项检查全部通过
+  0  二十四项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-二十三项检查说明、例外登记与输出格式见同目录 README.md。
+二十四项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -135,13 +135,18 @@ pm_captargets=''
 pm_mechs=''
 pm_mechmark=''
 pm_citeex=''
+pm_layoutface=''
+pm_layoutu=''
+pm_layoutlf=''
+pm_layoutce=''
 pm_idxmech=''
 pm_idxids=''
 pm_parsed=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
     "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
-    "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_idxmech" "$pm_idxids" "$pm_parsed"
+    "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_layoutface" "$pm_layoutu" \
+    "$pm_layoutlf" "$pm_layoutce" "$pm_idxmech" "$pm_idxids" "$pm_parsed"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -158,6 +163,10 @@ pm_captargets=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_mechs=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_mechmark=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_citeex=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_layoutface=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_layoutu=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_layoutlf=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_layoutce=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxmech=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxids=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_parsed=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -235,9 +244,9 @@ LC_ALL=C awk -v progin="$pm_rules" '
     }
     if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
     ar = -1
-    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word") ar = 1
-    else if (cmd == "pm_shortcode" || cmd == "pm_mirror") ar = 2
-    else if (cmd == "pm_script" || cmd == "pm_vague_exempt" || cmd == "pm_cite_exempt" || cmd == "pm_capability_target") ar = 3
+    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word" || cmd == "pm_layout_face") ar = 1
+    else if (cmd == "pm_shortcode" || cmd == "pm_mirror" || cmd == "pm_layout_universe" || cmd == "pm_layout_legacy_file") ar = 2
+    else if (cmd == "pm_script" || cmd == "pm_vague_exempt" || cmd == "pm_cite_exempt" || cmd == "pm_capability_target" || cmd == "pm_layout_compat_exempt") ar = 3
     if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
     if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
     print cmd "\t" substr(out, 1, length(out) - 1)
@@ -271,6 +280,10 @@ while IFS= read -r pm_dispatch_row; do
     pm_mechanism) printf '%s\n' "$pm_dispatch_rest" >> "$pm_mechs" ;;
     pm_mechanism_marker) printf '%s\n' "$pm_dispatch_rest" >> "$pm_mechmark" ;;
     pm_cite_exempt) printf '%s\n' "$pm_dispatch_rest" >> "$pm_citeex" ;;
+    pm_layout_face) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutface" ;;
+    pm_layout_universe) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutu" ;;
+    pm_layout_legacy_file) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutlf" ;;
+    pm_layout_compat_exempt) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutce" ;;
   esac
 done < "$pm_parsed"
 rm -f "$pm_parsed"; pm_parsed=''
@@ -287,6 +300,9 @@ rm -f "$pm_parsed"; pm_parsed=''
 [ -s "$pm_captargets" ] || pm_die '清单缺 capability targets 登记（零行）'
 [ -s "$pm_mechs" ] || pm_die '清单缺 mechanism-vocab 节（零行）'
 [ -s "$pm_mechmark" ] || pm_die '清单缺 mechanism 外定义标记词登记（零行）'
+[ -s "$pm_layoutface" ] || pm_die '清单缺 layout-face 节（零行）'
+[ -s "$pm_layoutu" ] || pm_die '清单缺 layout-universe 节（零行）'
+[ -s "$pm_layoutlf" ] || pm_die '清单缺 layout-legacy-file 节（零行）'
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
   function bad(msg) { printf "entry-files 节第 %d 行: %s\n", FNR, msg; n++ }
@@ -404,6 +420,61 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
   }
   END { if (n > 0) exit 1 }
 ' "$pm_citeex") || true
+pm_report "$pm_bad"
+
+# 布局引用分类四节结构校验（检查 24；face/universe/legacy-file 三节非空下限，
+# compat-exempt 可空＝显式兼容豁免零登记的合法形态，先例 ticket-citation-ban）。
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "layout-face 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($1 in seen) { bad("路径跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_layoutface") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "layout-universe 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 2) { bad("字段数 " NF "（预期 2：登记模板路径、提取锚点）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($2 !~ /^[A-Za-z0-9:_\/-]+$/) { bad("锚点须为受限字符集单 token（字母数字与冒号斜杠连字符下划线点）: " $2); next }
+    if ($1 in seen) { bad("登记模板路径跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_layoutu") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "layout-legacy-file 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 2) { bad("字段数 " NF "（预期 2：路径、理由）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($2 == "") { bad("缺理由（整文件合法保留须注记理由）"); next }
+    if ($1 in seen) { bad("路径跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_layoutlf") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "layout-compat-exempt 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 3) { bad("字段数 " NF "（预期 3：路径、行号、理由）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($2 !~ /^[0-9]+$/ || $2 + 0 <= 0) { bad("行号须正整数: " $2); next }
+    if ($3 == "") { bad("缺理由（兼容豁免须注记理由）"); next }
+    key = $1 "\t" $2
+    if (key in seen) { bad("路径+行号跨行重复: " $1 ":" $2) } else { seen[key] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_layoutce") || true
 pm_report "$pm_bad"
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
@@ -1634,7 +1705,7 @@ fi
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
-n_total_checks=23
+n_total_checks=24
 n_mrow=0
 mech_m='机械'
 if [ "$n_idx" -eq 0 ]; then
@@ -2300,8 +2371,157 @@ else
   pass 23 "索引节序言短指针（宿主 ${n_hosts} 件，权威定稿原句逐字核对）"
 fi
 
+# 检查 24：布局引用分类与失效检测（modern/legacy/compatibility 三分类）。扫描面＝清单
+# layout-face 节登记面：目录行递归取 *.md/*.tmpl（排除 README.md 叙事面，检查 12 同款
+# 口径），单文件行整件入面。分类口径：
+#   legacy        ＝清单 layout-legacy-file 节登记文件（旧项目路径手册等票卡定谳的合法
+#                   保留件），命中只计数不判罚；
+#   compatibility ＝清单 layout-compat-exempt 节登记行（路径＋行号＋理由，显式兼容豁免，
+#                   非隐式忽略；登记行无命中即失效豁免 FAIL，检查 12/18 同款防漂移口径）；
+#   modern        ＝其余命中：旧布局路径 token（docs/<path> 或 development-process，前邻
+#                   字符禁「/」与字母数字点连字符，避开 code.claude.com/docs/ 等外部 URL
+#                   形态）即 FAIL 指名文件:行号与命中 token。
+# ②modern 相对链接解析＝面内 *.tmpl 的 ](target) 行内链接：目标剥锚点与前导 ./ 后落
+#   rules/ 或 facts/（modern 布局）时须 ∈ 生成布局全集（清单 layout-universe 节登记模板
+#   按锚点提取的路径行并集，数据驱动）。与检查 21③ 关系（实证定谳）：21③ 对包内 *.md
+#   行内链接按包内树判定存在性，不适用于模板生成物相对链接（生成目标是消费项目布局）；
+#   modern 生成布局目标解析为其正交补面，故立本检查项而非泛化 21③；*.md 内行内链接
+#   存在性仍归 21③，本项不重复。
+problems=''
+n24_face=0
+n24_mod=0
+n24_legacy=0
+n24_compat=0
+n24_links=0
+n24_modlines=''
+layout24_files=$(mktemp "${t_dir%/}/layout24.XXXXXX")
+layout24_hits=$(mktemp "${t_dir%/}/layout24.XXXXXX")
+layout24_links=$(mktemp "${t_dir%/}/layout24.XXXXXX")
+layout24_univ=$(mktemp "${t_dir%/}/layout24.XXXXXX")
+# 面清单组装（face 行＝目录或单文件；登记面不存在即 FAIL，fail-closed 不静默缩面）
+while IFS= read -r l24_row; do
+  [ -n "$l24_row" ] || continue
+  if [ -d "$pkg_root/$l24_row" ]; then
+    (cd "$pkg_root" && find "$l24_row" -type f \( -name '*.md' -o -name '*.tmpl' \) ! -name 'README.md' 2>/dev/null) >> "$layout24_files" || true
+  elif [ -f "$pkg_root/$l24_row" ]; then
+    printf '%s\n' "$l24_row" >> "$layout24_files"
+  else
+    add_problem "  - layout-face 登记面不存在: $l24_row"
+  fi
+done < "$pm_layoutface"
+LC_ALL=C sort -u "$layout24_files" -o "$layout24_files"
+n24_face=$(wc -l < "$layout24_files" | tr -d ' ')
+# ①失效引用扫描（逐面文件 grep -noE，命中行落 <rel>:<ln>:<match>）
+layout24_pat='(^|[^/A-Za-z0-9._-])(docs/[A-Za-z0-9._/-]+|development-process)'
+OLDIFS=$IFS
+IFS='
+'
+while IFS= read -r l24_f; do
+  IFS=$OLDIFS
+  [ -n "$l24_f" ] || continue
+  LC_ALL=C grep -noE "$layout24_pat" "$pkg_root/$l24_f" 2>/dev/null \
+    | sed "s|^|$l24_f:|" >> "$layout24_hits" || true
+done < "$layout24_files"
+IFS=$OLDIFS
+# 命中三分类
+while IFS= read -r l24_h; do
+  [ -n "$l24_h" ] || continue
+  l24_rel=${l24_h%%:*}
+  l24_rest=${l24_h#*:}
+  l24_ln=${l24_rest%%:*}
+  l24_m=${l24_rest#*:}
+  case $l24_m in
+    docs/*|development-process*) l24_tok=$l24_m ;;
+    *) l24_tok=${l24_m#?} ;;
+  esac
+  if LC_ALL=C awk -F'\t' -v p="$l24_rel" 'BEGIN { ok = 0 } $1 == p { ok = 1 } END { exit ok ? 0 : 1 }' "$pm_layoutlf"; then
+    n24_legacy=$((n24_legacy + 1))
+    continue
+  fi
+  if grep -qF "$(printf '%s\t%s\t' "$l24_rel" "$l24_ln")" "$pm_layoutce"; then
+    n24_compat=$((n24_compat + 1))
+    continue
+  fi
+  case "
+$n24_modlines" in
+    *"
+$l24_rel:$l24_ln
+"*) : ;;
+    *)
+      n24_modlines="$n24_modlines$l24_rel:$l24_ln
+"
+      n24_mod=$((n24_mod + 1))
+      add_problem "  - $l24_rel:$l24_ln modern 布局面失效引用（分类 modern）: $l24_tok"
+      ;;
+  esac
+done < "$layout24_hits"
+# 失效豁免核对：登记行无命中即 FAIL（检查 12/18 同款，防漂移静默失效）
+while IFS= read -r l24_crow; do
+  [ -n "$l24_crow" ] || continue
+  l24_crel=${l24_crow%%"$TAB"*}
+  l24_crest=${l24_crow#*"$TAB"}
+  l24_cln=${l24_crest%%"$TAB"*}
+  if ! LC_ALL=C awk -F':' -v p="$l24_crel" -v l="$l24_cln" '$1 == p && $2 == l { f = 1 } END { exit f ? 0 : 1 }' "$layout24_hits"; then
+    add_problem "  - 失效豁免（登记行无 legacy 引用命中，须复核更新或删除登记）: $l24_crel:$l24_cln"
+  fi
+done < "$pm_layoutce"
+# ②modern 相对链接解析（面内 *.tmpl；生成布局全集提取与链接核对）
+while IFS= read -r l24_urow; do
+  [ -n "$l24_urow" ] || continue
+  l24_usrc=${l24_urow%%"$TAB"*}
+  l24_uanchor=${l24_urow#*"$TAB"}
+  if [ ! -f "$pkg_root/$l24_usrc" ]; then
+    add_problem "  - layout-universe 登记模板不存在: $l24_usrc"
+    continue
+  fi
+  LC_ALL=C sed -n "s/.*$l24_uanchor \([A-Za-z0-9._/-]*\).*/\1/p" "$pkg_root/$l24_usrc" >> "$layout24_univ" || true
+done < "$pm_layoutu"
+while IFS= read -r l24_f; do
+  IFS=$OLDIFS
+  [ -n "$l24_f" ] || continue
+  case $l24_f in
+    *.tmpl) : ;;
+    *) continue ;;
+  esac
+  LC_ALL=C grep -noE '\]\([^)]+\)' "$pkg_root/$l24_f" 2>/dev/null \
+    | sed "s|^|$l24_f:|" >> "$layout24_links" || true
+done < "$layout24_files"
+IFS=$OLDIFS
+while IFS= read -r l24_l; do
+  [ -n "$l24_l" ] || continue
+  l24_lrel=${l24_l%%:*}
+  l24_lrest=${l24_l#*:}
+  l24_lln=${l24_lrest%%:*}
+  l24_lm=${l24_lrest#*:}
+  l24_lt=${l24_lm#](}
+  l24_lt=${l24_lt%\)}
+  case $l24_lt in
+    *'://'*|mailto:*|'#'*) continue ;;
+  esac
+  l24_lt=${l24_lt%%#*}
+  [ -n "$l24_lt" ] || continue
+  case $l24_lt in
+    ./*) l24_lt=${l24_lt#./} ;;
+  esac
+  case $l24_lt in
+    rules/*|facts/*) : ;;
+    *) continue ;;
+  esac
+  n24_links=$((n24_links + 1))
+  # 成员判定＝整行精确相等（-x）：子串口径会让 rules/project 误配 rules/project.md
+  if ! grep -qsxF -- "$l24_lt" "$layout24_univ"; then
+    add_problem "  - $l24_lrel:$l24_lln modern 布局相对链接目标不在生成布局全集（分类 modern）: $l24_lt"
+  fi
+done < "$layout24_links"
+rm -f "$layout24_files" "$layout24_hits" "$layout24_links" "$layout24_univ"
+if [ -n "$problems" ]; then
+  fail 24 "布局引用分类与失效检测（面 ${n24_face} 件，modern 失效 ${n24_mod} 处，legacy ${n24_legacy} 处，compatibility ${n24_compat} 处，modern 链接 ${n24_links} 个）" "$problems"
+else
+  pass 24 "布局引用分类与失效检测（面 ${n24_face} 件，modern 失效 ${n24_mod} 处，legacy ${n24_legacy} 处，compatibility ${n24_compat} 处，modern 链接 ${n24_links} 个）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 23 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 24 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

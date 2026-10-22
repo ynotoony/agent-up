@@ -51,7 +51,9 @@
 #      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
 #      pm_shortcode 恰 2、pm_platform 恰 1、pm_vague_word 恰 1、pm_vague_exempt 恰 3、
 #      pm_mirror 恰 2、pm_capability 恰 1、pm_capability_authority 恰 1、
-#      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1，字段内
+#      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1、
+#      pm_layout_face 恰 1、pm_layout_universe 恰 2、pm_layout_legacy_file 恰 2、
+#      pm_layout_compat_exempt 恰 3，字段内
 #      禁制表符）；路径禁前导斜杠、空白与
 #      .. 段；pm_script 须 scripts/ 前缀加单段文件名；kind 枚举三值（见 Output）；
 #      pm_template 须单段 .tmpl 文件名；短码两字母大写且「短码+owner」对跨行唯一（一短码
@@ -62,9 +64,13 @@
 #      pm_capability 名须小写 token 且跨行唯一；pm_capability_authority 跨行恰一行；
 #      pm_capability_target 目标路径跨行唯一、kind ∈ decl/table、预期名单逐名 ⊆
 #      pm_capability 名单且并集 ⊇ 名单；pm_mechanism 值须非空且不含空白并跨行唯一；
-#      pm_mechanism_marker 跨行恰一行；各节内路径/文件名/值跨行不重复（shortcodes 节按
+#      pm_mechanism_marker 跨行恰一行；pm_layout_universe 锚点须受限字符集单 token 且
+#      登记模板跨行唯一；pm_layout_legacy_file 理由非空且路径跨行唯一；
+#      pm_layout_compat_exempt 行号须正整数、理由非空、路径+行号跨行唯一；
+#      各节内路径/文件名/值跨行不重复（shortcodes 节按
 #      「短码+owner」对判重，一短码多行 owner 为合法形态）；除
-#      vague-exemptions 节可空外，其余九节每节至少一行。检查 12 扫描窗口口径（本表注记）：
+#      vague-exemptions 与 ticket-citation-ban、layout-compat-exempt 节可空外，其余各节
+#      每节至少一行。检查 12 扫描窗口口径（本表注记）：
 #      包内全部 *.md 与 *.tmpl 的 R-<短码>-NNN 规则块体（块头行起至下一标题行止，块头
 #      本身不扫），排除「解释与例外」节与各 README 文件（叙事面）；本表自身词表行为
 #      .rules 数据文件，不在 md/tmpl 扫描文件面。本表、scripts/README.md 成员表与
@@ -288,3 +294,35 @@ pm_mechanism 机械
 pm_mechanism 门禁
 pm_mechanism 约定
 pm_mechanism_marker 外定义
+
+# ==== layout-face：布局引用分类扫描面（检查 24）====
+# 目录行＝递归取 *.md/*.tmpl（排除 README.md 叙事面，检查 12 同款口径）；单文件行＝
+# 整件入面。face 增删＝先改本节再动实物（数据先行），并同步 harness 夹具
+# （正例 PASS 行含面件数计数，预期串须随动）。
+
+pm_layout_face references/templates
+pm_layout_face references/protocol
+pm_layout_face references/old-project.md
+pm_layout_face references/upgrade.md
+
+# ==== layout-universe：modern 生成布局全集来源（检查 24②）====
+# 每行＝登记模板路径＋提取锚点：引擎按锚点从该模板提取路径行并集为「生成布局全集」，
+# 面内 *.tmpl 行内链接目标（剥锚点与前导 ./，落 rules/ 或 facts/）须 ∈ 全集。
+# 模板 path 行增删＝实物先行，本节登记面随之复核（锚点漂移即提取失效，须同步）。
+
+pm_layout_universe references/templates/artifacts-yaml.tmpl 'path:'
+
+# ==== layout-legacy-file：整文件合法保留面（检查 24；legacy 分类）====
+# 登记文件内的旧布局路径 token 只计数不判罚（旧项目路径手册等票卡定谳的合法保留件，
+# 理由必填）；增删＝先改本节再动实物，并同步 harness 夹具（PASS 行含 legacy 计数）。
+
+pm_layout_legacy_file references/old-project.md '旧项目路径手册（pm_entry 在册合法保留件）：旧布局落位表与补缺指引的承载面，旧布局路径引用为本手册语义本体'
+
+# ==== layout-compat-exempt：显式兼容豁免（检查 24；compatibility 分类）====
+# 行级豁免＝路径＋行号＋理由（理由必填，非隐式忽略）；登记行无命中即失效豁免 FAIL
+# （检查 12/18 同款防漂移口径），行号漂移须复核更新或删除登记。只豁免显式兼容语义与
+# 历史出处注记行，禁作漏登记旧布局引用的兜底（补登记须逐行给理由）。
+
+pm_layout_compat_exempt references/upgrade.md 22 '布局判别信号行：新旧两套完整面路径并陈为升级判别语义本体（不单凭路径定轨的显式兼容面），非失效引用'
+pm_layout_compat_exempt references/protocol/complexity-profile.md 12 '契约头 Input 历史出处注记：docs/development-process.md 与 development-process.md.tmpl 指涉为拆三前历史事实，非现行路径指引'
+pm_layout_compat_exempt references/protocol/complexity-profile.md 150 '历史来源与旧代际评审注记：docs/development-process.md 指涉为拆三前历史事实（出处考证），非现行路径指引'

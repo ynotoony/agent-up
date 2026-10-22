@@ -172,7 +172,7 @@
 | `facts/requirements/tickets/index.json`（票状态索引） | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接（与 `facts/requirements/tickets/` 同行集；Record 类真相源：JSON＋Schema，单文件一条目一行） |
 | `facts/project/changes.jsonl`（追加账本） | 记录层拍板后首条事实（懒创建；Record 类，一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加；行型扩展（2026-09-23 复盘 B 类候选，仅向前生效）：`kind=lesson` 必带第六键 `promoted_to`（枚举 `新票`/`rules`/`sop`/`validator`/`test`/`none`，填 `none` 亦算显式拍板）、`kind=replan` 必带 `replan_original`/`replan_replacement`/`replan_undone`（布尔），既有行零改写） |
 | `facts/requirements/research/` | 需要外部调研、方案对比或 spike |
-| `docs/adr/` | 决策难回退且缺少背景会困惑 |
+| `facts/project/adr/` | 决策难回退且缺少背景会困惑 |
 | `facts/project/architecture/` | 用户要求；C2/C3 跨模块；涉及多 Adapter |
 | `facts/requirements/runs/` | C2/C3；跨会话；发生中断；无 Git 基线；改动归属不明 |
 | 项目地图 | 跨模块导航需要；仓库规模大；用户要求；旧地图过期 |

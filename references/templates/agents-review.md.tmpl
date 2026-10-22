@@ -1,13 +1,13 @@
 ---
 id: role-review
 kind: process
-authority: 权威层级第 4 级（流程规则：Review 阶段角色合同）；阶段流程上游为目标项目 development-process，冲突以其为准
+authority: 权威层级第 4 级（流程规则：Review 阶段角色合同）；阶段流程上游为目标项目 rules/ 流程规则三件，冲突以其为准
 lifecycle: Live
 read_when: Implementation 交付后派发独立审查时；核对降级路径与 independent_review 记录时
 trigger: 七节合同、required_capabilities 或降级记录语义变化
 owner: Review 执行体（初始化生成为 rules/implementation/roles/review.md；维护限本合同允许范围，变更经 Review 门禁）
 update_policy: 七节结构与 required_capabilities 为定稿基线；降级路径语义对齐 SPEC-05 §5；平台工具映射不进本文件（由宿主适配层承载）
-depends_on: development-process（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
+depends_on: rules/ 流程规则三件（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 主 agent 的审查合同、Implementation 阶段交付报告、实际 diff 与规格/验收条件。 -->
 <!-- Output: 可复核的 pass/fail 审查报告与落盘的 Independent Review Checkpoint：检查范围、证据、问题定位、后续建议。 -->
@@ -17,7 +17,7 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 
 两层协作中的 Review 阶段执行体，独立于完成实现的执行体：对照合同、规格、验收条件与实际 diff 判断技术结果 pass 还是 fail。只读审查，一次审查针对一份完整交付；实现类任务交付后必派。
 
-适用范围注记（分级交付道，development-process §6 R-DP-031）：本合同适用于全三阶段车道；用户即 Review 车道（C0 且含语义判断）由用户本人在主对话裁决（capability-contract R-CC-002 路径 (c) 升格），裁决记录即 Review 证据；微任务道无独立 Review 阶段，pass 证据为道脚本机械门禁输出。
+适用范围注记（分级交付道，rules/assessment.md §6 R-DP-031）：本合同适用于全三阶段车道；用户即 Review 车道（C0 且含语义判断）由用户本人在主对话裁决（capability-contract R-CC-002 路径 (c) 升格），裁决记录即 Review 证据；微任务道无独立 Review 阶段，pass 证据为道脚本机械门禁输出。
 
 ## 1. 输入
 
@@ -68,7 +68,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`readonly
 - **Stop if**：审查必须以写入仓库文件的方式才能继续 → 停止并报告，不由本角色代做修复。
 - **Evidence**：审查过程无仓库文件改动记录；产出仅为审查报告与审查记录。
 - **Owner**：Review 执行体。
-- **Authority**：SPEC-05 §3（R-05-001）、目标项目 development-process 写入所有权矩阵。
+- **Authority**：SPEC-05 §3（R-05-001）、目标项目 rules/project.md 写入所有权矩阵。
 
 ## 4. 禁止行为
 
@@ -80,7 +80,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`readonly
 - **Stop if**：审查无法由独立于实现方之外的执行身份完成 → 走 R-RR-003 降级路径，不以自检默认继续。
 - **Evidence**：审查报告每项结论附 `文件:行号区间` 证据；未运行的检查写明"未运行"与原因。
 - **Owner**：Review 执行体。
-- **Authority**：SPEC-05 §5（R-05-004）、目标项目 development-process 门禁。
+- **Authority**：SPEC-05 §5（R-05-004）、目标项目 rules/implementation/discipline.md 三道门禁。
 
 #### R-RR-003 降级如实记录 `MUST`
 
@@ -100,7 +100,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`readonly
 
 ## 6. 输出格式
 
-报告不超过 60 行，必须以明确结论开头：`pass` 或 `fail`。改进建议（更好写法、可选优化）单列「建议」节，明示不阻塞、不计入 fail；建议级仅限不改变行为与验收结果的写法优化，涉及行为或验收结果的一律按 fail 报。依次包含：结论｜检查范围（对照合同逐项）｜每项验收条件的证据（`文件:行号区间`）｜发现的问题与定位｜后续建议。未运行的检查明确写"未运行"和原因，禁止用"应该可以"代替证据。报告须含一行 token 用量自报（宿主提供执行体用量遥测时如实填报数值与来源，不提供时记 N/A + reason）——记录义务非硬门禁，缺自报不阻塞交付（委派面遥测，代记与口径见 development-process §6 委派合同固定模板）。
+报告不超过 60 行，必须以明确结论开头：`pass` 或 `fail`。改进建议（更好写法、可选优化）单列「建议」节，明示不阻塞、不计入 fail；建议级仅限不改变行为与验收结果的写法优化，涉及行为或验收结果的一律按 fail 报。依次包含：结论｜检查范围（对照合同逐项）｜每项验收条件的证据（`文件:行号区间`）｜发现的问题与定位｜后续建议。未运行的检查明确写"未运行"和原因，禁止用"应该可以"代替证据。报告须含一行 token 用量自报（宿主提供执行体用量遥测时如实填报数值与来源，不提供时记 N/A + reason）——记录义务非硬门禁，缺自报不阻塞交付（委派面遥测，代记与口径见 rules/implementation/discipline.md §6 委派合同固定模板）。
 
 ## 7. 阶段出口
 

@@ -1,13 +1,13 @@
 ---
 id: role-commit
 kind: process
-authority: 权威层级第 4 级（流程规则：Commit 阶段角色合同）；阶段流程上游为目标项目 development-process，冲突以其为准
+authority: 权威层级第 4 级（流程规则：Commit 阶段角色合同）；阶段流程上游为目标项目 rules/ 流程规则三件，冲突以其为准
 lifecycle: Live
 read_when: Review pass 后派发收尾提交时；核对提交白名单与版本库状态时
 trigger: 七节合同、required_capabilities 或提交边界语义变化
 owner: Commit 执行体（初始化生成为 rules/implementation/roles/commit.md；维护限本合同允许范围，变更经 Review 门禁）
-update_policy: 七节结构与 required_capabilities 为定稿基线；提交边界对齐 development-process 门禁与用户授权；平台工具映射不进本文件（由宿主适配层承载）
-depends_on: development-process（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
+update_policy: 七节结构与 required_capabilities 为定稿基线；提交边界对齐 rules/implementation/discipline.md 门禁与用户授权；平台工具映射不进本文件（由宿主适配层承载）
+depends_on: rules/ 流程规则三件（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 主 agent 的提交合同（文件白名单、提交信息与记录翻转授权）、Review pass 结论（全三阶段车道为 Independent Review Checkpoint，快道车道为 User Review Checkpoint 或机械门禁输出）、版本库状态。 -->
 <!-- Output: 白名单核对结果、暂存与提交的提交 ID、实际提交文件清单，或停止条件报告。 -->
@@ -22,7 +22,7 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 提交授权来源、Review PASS 前置和停止处理引用 `read-policy.md` §2.3.1 **AW-05**；票状态及进度投影写入边界引用 **AW-02**；票本体与阶段 checkpoint owner 引用 **AW-06**。
 
 - 主 agent 的提交合同（文件白名单、提交信息与记录翻转授权）；**收到合同首步**：先跑 `sh rules/implementation/scripts/check-dispatch-contract.sh --check <合同文件>` 自查合同完整性（按合同类型必备字段核对），通过后再完整读取合同内容，执行提交。
-- Review pass 结论，两类形态（分级交付道，development-process §6 R-DP-031）：① 全三阶段车道——任务票 Independent Review Checkpoint 或其指针；② 快道车道——道脚本记录的 User Review Checkpoint（用户即 Review：用户裁决原文、时间与 diff 摘要）或道脚本机械门禁输出（微任务道）。
+- Review pass 结论，两类形态（分级交付道，rules/assessment.md §6 R-DP-031）：① 全三阶段车道——任务票 Independent Review Checkpoint 或其指针；② 快道车道——道脚本记录的 User Review Checkpoint（用户即 Review：用户裁决原文、时间与 diff 摘要）或道脚本机械门禁输出（微任务道）。
 - 版本库状态。
 
 ## 2. 所需能力
@@ -69,7 +69,7 @@ required_capabilities（运行时）：`inspect`、`vcs-read`、`vcs-write`；�
 - **Stop if**：白名单文件不存在或为空 → 停止并按 §6 输出格式报告，不创建空提交。
 - **Evidence**：白名单逐项核对记录（在/不在 diff 中）；提交 ID 可由 vcs-read 复核。
 - **Owner**：Commit 执行体。
-- **Authority**：SPEC-05 §3（R-05-001）、目标项目 development-process 三道门禁。
+- **Authority**：SPEC-05 §3（R-05-001）、目标项目 rules/implementation/discipline.md 三道门禁。
 
 ## 4. 禁止行为
 
@@ -81,7 +81,7 @@ required_capabilities（运行时）：`inspect`、`vcs-read`、`vcs-write`；�
 - **Stop if**：触发任一停止条件 → 报告触发了哪条，不创建提交。
 - **Evidence**：停止报告指明触发条件与当前版本库状态（vcs-read 输出）。
 - **Owner**：Commit 执行体。
-- **Authority**：SPEC-05 §4（R-05-002）、目标项目 development-process 提交规则。
+- **Authority**：SPEC-05 §4（R-05-002）、目标项目 rules/implementation/discipline.md 提交规则。
 
 #### R-RC-003 记录翻转例外 `MUST`
 
@@ -91,7 +91,7 @@ required_capabilities（运行时）：`inspect`、`vcs-read`、`vcs-write`；�
 - **Stop if**：合同未明列记录翻转而工作区存在记录改动 → 按停止条件报告。
 - **Evidence**：两类提交的提交 ID 与各自文件清单分列回报。
 - **Owner**：Commit 执行体。
-- **Authority**：目标项目 development-process 提交规则。
+- **Authority**：目标项目 rules/implementation/discipline.md 提交规则。
 
 ## 5. 验收条件
 

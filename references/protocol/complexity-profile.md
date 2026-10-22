@@ -6,8 +6,8 @@ lifecycle: Live
 read_when: 规划、拆票或写任务票前评估 Complexity 与 Requirement Profile 时；判定 C2/C3 触发矩阵命中、拆票与上下文策略或 Profile 七维证据时；Triage 声明分级交付道车道（快道准入判据）时
 trigger: C0-C3 触发条件、高风险面清单、拆票与上下文策略、Profile 七维含义或状态填法、分级交付道快道准入判据语义变化
 owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）
-update_policy: C0-C3 表、高风险面清单与七维 Profile 表为定稿基线；数值或语义变化须用户确认并同步上游规格与 development-process 模板指引；规则块 ID 全局唯一不得复用
-depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPEC-02（格式协议；格式规范由 protocol-governance-format.md 承载）；被 agent-up/SKILL.md 按需手册表与 development-process.md.tmpl §5.2 指引依赖
+update_policy: C0-C3 表、高风险面清单与七维 Profile 表为定稿基线；数值或语义变化须用户确认并同步上游规格与 rules/ 流程规则三件模板指引；规则块 ID 全局唯一不得复用
+depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPEC-02（格式协议；格式规范由 protocol-governance-format.md 承载）；被 agent-up/SKILL.md 按需手册表与 project.md.tmpl §5.2 指引依赖
 ---
 <!-- Input: 本仓库 docs/development-process.md §4/§5 既有 C0-C3 与七维 Profile 定稿语义、协调给定的旧版 SKILL 高风险面基线（旧版正文已重写且 Git 历史不可得）、development-process.md.tmpl §5.2/§8/§11/§12.4 的 C2/C3 与验证阶梯引用事实。 -->
 <!-- Output: Agent Up 复杂度分级与 Requirement Profile 的产品事实源：C0-C3 权威表（等级/触发条件/默认拆票与上下文策略/最低交付证据/高风险面清单）与 D/B/I/U/S/M/O 七维 Profile 权威表（含义/Required 最低证据/状态填法）、两者正交原则，以及分级交付道两快道（用户即 Review / 微任务道）准入判据。 -->
@@ -60,18 +60,18 @@ depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPE
 - **Forbidden**：未记录等级或命中理由即开工；自造等级（如 C4、"半级"）；用工作量或耗时替代触发条件判级。
 - **Stop if**：触发条件命中与否无法判定 → 列入待决项向用户确认后定级，不猜测。
 - **Evidence**：任务合同（任务票、规格或变更记录）含等级、命中理由与评估日期。
-- **Owner**：主 agent（规划与拆票，development-process 两层模型）。
+- **Owner**：主 agent（规划与拆票，rules/implementation/discipline.md 两层模型）。
 - **Authority**：本手册 §2.1；SPEC-06 §4（R-06-003）。
 
 #### R-CP-002 C3 拆票门禁 `MUST`
 
 - **When**：任一工作判级为 C3 时。
-- **Action**：停止实现；按 §2.1 拆票策略拆为 C0-C2 垂直票（垂直切片，按依赖顺序编号入 `docs/issues/`）或升级协调；拆票理由先更新规格或 `docs/changes.jsonl`。
+- **Action**：停止实现；按 §2.1 拆票策略拆为 C0-C2 垂直票（垂直切片，按依赖顺序编号入 `facts/requirements/tickets/`）或升级协调；拆票理由先更新规格或 `facts/project/changes.jsonl`。
 - **Forbidden**：C3 直接开工；拆出仍命中 C3 的票（IF 单票仍命中 C3 THEN 继续拆或升级协调）；把拆票伪装成单票加长验收清单。
 - **Stop if**：无法拆出可独立演示或验证的垂直票 → 停止并升级协调，不降级判级硬开工。
 - **Evidence**：C3 判级旁有拆票记录（新票编号或协调记录指针）。
 - **Owner**：主 agent（拆票与派发）。
-- **Authority**：本手册 §2.1；development-process §8（何时拆票与垂直切片方法权威）。
+- **Authority**：本手册 §2.1；rules/assessment.md §8（何时拆票与垂直切片方法权威）。
 
 ### 2.2 Requirement Profile 七维权威表
 
@@ -112,12 +112,12 @@ depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPE
 - **Stop if**：既有任务合同中两项互相推断（缺独立 reason）→ 记录为缺陷并退回重新独立评估，不就地默认有效。
 - **Evidence**：任务合同中复杂度命中理由与七维 reason 各自独立成文，互不引用对方作为唯一依据。
 - **Owner**：主 agent（评估）；Review 执行体（复核）。
-- **Authority**：本手册 §1/§2；本仓库 `docs/development-process.md` §4/§5 定稿语义（2026-09-03）。
+- **Authority**：本手册 §1/§2；本仓库 rules/ 流程规则三件定稿语义（2026-09-03 定稿于拆三前流程规则单件 §4/§5）。
 
 #### R-CP-005 目标项目等价权威优先 `MUST`
 
 - **When**：在已安装 Agent Up 的目标项目内评估复杂度与 Profile 时。
-- **Action**：IF 目标项目 development-process 或等价权威已定义复杂度/Profile 表 THEN 以该目标项目权威为准 ELSE 以本手册 §2.1/§2.2 为默认基线。
+- **Action**：IF 目标项目 rules/ 流程规则三件或等价权威已定义复杂度/Profile 表 THEN 以该目标项目权威为准 ELSE 以本手册 §2.1/§2.2 为默认基线。
 - **Forbidden**：目标项目已有权威表仍用包内手册覆盖之；把本手册的表写进目标项目并声称是目标项目自身的决策。
 - **Stop if**：目标项目权威表与本手册基线冲突且目标项目未声明以何者为准 → 按 read-policy R-RP-002 冲突即停处理。
 - **Evidence**：评估记录注明所依据的权威表位置（目标项目路径或包内手册）。
@@ -126,7 +126,7 @@ depends_on: SPEC-06（复杂度画像下沉与 SKILL 六类内容语义）、SPE
 
 ### 2.3 分级交付道快道准入判据
 
-三车道分级交付道（全三阶段 / 用户即 Review / 微任务道）的协议权威在 development-process（§6 分级交付道，R-DP-031）；本节只承载 Triage 声明快道时的准入判据。两条判据均以 §2.1 C0 判级成立为前提；判据外任务一律全三阶段，执行体无权自选车道。
+三车道分级交付道（全三阶段 / 用户即 Review / 微任务道）的协议权威在 rules/assessment.md（§6 分级交付道，R-DP-031）；本节只承载 Triage 声明快道时的准入判据。两条判据均以 §2.1 C0 判级成立为前提；判据外任务一律全三阶段，执行体无权自选车道。
 
 | 车道 | 准入判据（全部满足） |
 | --- | --- |
@@ -143,13 +143,13 @@ C0 修正类默认（用户即 Review 快道形态）：C0 修正类（修复既
 - **Stop if**：判据命中与否无法判定 → 按全三阶段处理并报告，不猜测。
 - **Evidence**：任务合同含车道声明与逐条判据命中理由，可静态检索。
 - **Owner**：主 agent（Triage 定级与车道声明）。
-- **Authority**：development-process §6 分级交付道（R-DP-031）；本手册 §2.3。
+- **Authority**：rules/assessment.md §6 分级交付道（R-DP-031）；本手册 §2.3。
 
 ## 3. 解释与例外
 
-- 数值基线来源：C0-C3 触发条件与最低证据逐条取自本仓库 `docs/development-process.md` §4/§5（Agent Up 自身初始化生成物的定稿语义，与本手册表逐条一致）；高风险面五项清单为协调给定的旧版 SKILL 语义基线——旧版 SKILL 正文已重写、本仓库 Git 历史不可得，原始行文无法从包内核验，按协调指令采用，不构成编造；本仓库 `docs/development-process.md` §8 的"数据迁移、权限、外部集成"三面枚举为旧代际窄化表述，生成项目以该项目 development-process 为准（R-CP-005）。
-- 本手册只承载两张表与正交原则；垂直切片拆票方法、委派合同与三道门禁的权威在 development-process（模板 §6/§8 与生成物对应节）；run record 生成条件语义权威在 development-process §12.4，其"C2/C3"引用以本手册 §2.1 判级为输入；C0/C1 不强制 run record，验证记录写任务票 Checkpoint。
-- 分级交付道两快道准入判据（§2.3）是 REQ-20260904-011 用户拍板语义的包内判据承载；三车道定义、道脚本与派生载体独占写的协议权威在 development-process（模板 §6 分级交付道、§12.5 道脚本承载注记），本手册不重复其语义。
-- 目标项目生成物的权威表位置由 development-process §5.2 的【按项目填写】指引声明；本手册是包内默认基线，不是对生成项目的直接约束（R-CP-005）。
+- 数值基线来源：C0-C3 触发条件与最低证据逐条取自本仓库 `docs/development-process.md` §4/§5（Agent Up 自身初始化生成物的定稿语义，与本手册表逐条一致）；高风险面五项清单为协调给定的旧版 SKILL 语义基线——旧版 SKILL 正文已重写、本仓库 Git 历史不可得，原始行文无法从包内核验，按协调指令采用，不构成编造；本仓库 `docs/development-process.md` §8 的"数据迁移、权限、外部集成"三面枚举为旧代际窄化表述，生成项目以该项目流程规则为准（R-CP-005）。
+- 本手册只承载两张表与正交原则；垂直切片拆票方法、委派合同与三道门禁的权威在 rules/ 流程规则三件（assessment §6/§8 与生成物对应节）；run record 生成条件语义权威在 rules/project.md §12.4，其"C2/C3"引用以本手册 §2.1 判级为输入；C0/C1 不强制 run record，验证记录写任务票 Checkpoint。
+- 分级交付道两快道准入判据（§2.3）是 REQ-20260904-011 用户拍板语义的包内判据承载；三车道定义、道脚本与派生载体独占写的协议权威在 rules/ 流程规则三件（assessment §6 分级交付道、project §12.5 道脚本承载注记），本手册不重复其语义。
+- 目标项目生成物的权威表位置由 rules/project.md §5.2 的【按项目填写】指引声明；本手册是包内默认基线，不是对生成项目的直接约束（R-CP-005）。
 - 本手册短码 `CP` 登记于 `protocol/README.md`；`governance-format.md` §2.1 正式表的补记与 `CC`/`ZC` 一并递延（该手册正文当前冻结，以目录 README 登记面承载）。
 - 本手册自身按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。

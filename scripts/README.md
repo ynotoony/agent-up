@@ -55,9 +55,9 @@ sh scripts/check-package.sh [package-root]
 - `-h` / `--help`：打印用法。
 - 脚本只读：除向 stdout/stderr 打印外无任何写操作；无网络依赖（不出网、无下载行为）。
 
-## 检查项（二十三项，清单数据驱动）
+## 检查项（二十四项，清单数据驱动）
 
-包结构清单的机器真相是数据文件 `package-manifest.rules`（十节，行格式与维护规则见下文专节）：检查 1/5/8 的清单与计数自数据读取，检查 9/10/11/12/13/14/15/16/17/21 以数据为比对基准核对登记面与使用面；本表为检查口径的人读说明，与数据表冲突时以数据表为机器真相。
+包结构清单的机器真相是数据文件 `package-manifest.rules`（十节，行格式与维护规则见下文专节）：检查 1/5/8 的清单与计数自数据读取，检查 9/10/11/12/13/14/15/16/17/21/24 以数据为比对基准核对登记面与使用面；本表为检查口径的人读说明，与数据表冲突时以数据表为机器真相。
 
 | # | 检查 | 实现 |
 | --- | --- | --- |
@@ -85,6 +85,7 @@ sh scripts/check-package.sh [package-root]
 | 21 | references 树成员闭合与导航 | 三段防线：①references 全树文件 ⊆ 清单登记——`find references/` 全部常规文件逐件核对在清单 `entry-files` 节、或属 `references/templates/` 下 `.tmpl` 且在 `templates` 节（检查 5 同源数据），未登记额外文件（成员增删漏登记、恶意投放、隐藏条目）即 FAIL 指名；②`references/README.md` 目录清单投影双向——`references/` 一级条目（文件与目录）与 README「## 目录清单」表首列反引号名单双向全等（表＝人读投影、数据与实物＝机器真相，先例检查 5/9 投影纪律），单侧缺名即 FAIL 指名，锚点未命中或零成员行判表结构漂移 FAIL；③包内 Markdown 行内链接目标存在——全部 `*.md` 文件的行内链接（方括号标签后紧跟圆括号目标的形态；外链含 `://` 与 `mailto:`、`#` 纯锚点不在口径），剥离锚点段后相对所在文件目录词法折叠（点段折叠，先例检查 20 词法判定形态），目标不存在或折出包根（含绝对路径目标）即 FAIL 指名文件:行号与目标。零 git 依赖。 |
 | 22 | 规则块九字段格式 | 依 `../references/protocol/governance-format.md` §2.1 既有定义机械执行（字段集与 Level 枚举为检查语义常量，非第二权威，先例检查 19 kind 枚举）。扫描面＝包内全部 `*.md` 与 `*.tmpl` 的 `#### R-<短码>-<三位序号>` 规则块（含裸 ID 标题）：①标题行须以受控 Level 四值（`MUST`/`MUST NOT`/`SHOULD`/`MAY`，反引号可选）收尾，缺失或自造级即 FAIL 指名 ID 与标题原文；②块体（标题行起至下一标题行止，与检查 12 窗口同口径）七字段 When/Action/Forbidden/Stop if/Evidence/Owner/Authority 须以「`- **字段**：`」形态各至少一行，缺字段即 FAIL 指名 ID 与缺失字段名（全量扫描不排除「解释与例外」节——规则块无处可藏）；③块 ID 全局唯一（governance-format.md update_policy 定稿），跨行或跨文件重复即 FAIL 指名 ID 与各处文件:行号。 |
 | 23 | 索引节序言短指针 | 三份 §16 长序言收敛配套：唯一权威＝`../references/protocol/governance-format.md` §2.7 R-GF-011 定稿短指针原句（引擎经「」窄锚点现场提取，零句子硬编码；权威文件缺失报缺点名，锚点失效或提取空句 exit 2 fail-closed）。核对面＝清单 `templates` 节含「## 16. 规则索引」锚点的宿主（检查 15 同款宿主判定）：节首（锚点行后至「\| ID \|」表头行前）非空序言须恰一行且逐字等于权威定稿原句；缺序言、与原句不一致（含指向第二权威）或指针外多行散文即 FAIL 指名模板与原文。 |
+| 24 | 布局引用分类与失效检测（modern/legacy/compatibility 三分类） | 扫描面＝清单 `layout-face` 节登记面（目录行递归取 `*.md`/`*.tmpl` 并排除 README.md 叙事面，检查 12 同款口径；单文件行整件入面；登记面不存在即 FAIL）。①失效引用三分类：旧布局路径 token（`docs/<path>` 或 `development-process`，前邻字符禁 `/` 与字母数字点连字符，避开 `code.claude.com/docs/` 等外部 URL 形态）——`legacy`＝`layout-legacy-file` 节登记文件（合法保留件，命中只计数不判罚）；`compatibility`＝`layout-compat-exempt` 节登记行（路径＋行号＋理由，显式豁免非隐式忽略；登记行无命中即失效豁免 FAIL，检查 12/18 同款防漂移口径）；`modern`＝其余命中即 FAIL 指名文件:行号与命中 token。②modern 相对链接解析＝面内 `*.tmpl` 行内链接（方括号标签后紧跟圆括号目标的形态，同检查 21③ 描述；外链与纯锚点不在口径）：目标剥锚点段与前导 `./` 后落 `rules/` 或 `facts/` 时须 ∈ 生成布局全集（`layout-universe` 节登记模板按锚点提取的路径行并集，数据驱动），全集外即 FAIL 指名文件:行号、目标与分类。与检查 21③ 关系（实证定谳）：21③ 对包内 `*.md` 行内链接按包内树判定存在性，不适用于模板生成物相对链接（生成目标是消费项目布局）；modern 生成布局目标解析为其正交补面，故立本检查项而非泛化 21③。零 git 依赖。 |
 
 ## 输出格式
 
@@ -96,20 +97,20 @@ FAIL: <编号> <描述> 详情：
 check-package: PASS
 ```
 
-- 二十三项检查逐项输出一行 PASS 或 FAIL（检查 13 例外：包根父目录无镜像落位目录（`scripts/` 与 `rules/implementation/scripts/` 皆无＝消费项目语境）时整项静默跳过，无输出行；检查 19 例外：包根非 git 语境时静默跳过，无输出行）；任一失败时结尾输出 `check-package: FAIL（N 项未通过，共 23 项）`，全部通过时结尾输出 `check-package: PASS`。
+- 二十四项检查逐项输出一行 PASS 或 FAIL（检查 13 例外：包根父目录无镜像落位目录（`scripts/` 与 `rules/implementation/scripts/` 皆无＝消费项目语境）时整项静默跳过，无输出行；检查 19 例外：包根非 git 语境时静默跳过，无输出行）；任一失败时结尾输出 `check-package: FAIL（N 项未通过，共 24 项）`，全部通过时结尾输出 `check-package: PASS`。
 - FAIL 详情为可定位信息：文件清单、命中行（`路径:行号:内容`）或计数差异。
 
 ## 退出码
 
 | 退出码 | 语义 |
 | --- | --- |
-| 0 | 二十三项检查全部通过。 |
+| 0 | 二十四项检查全部通过。 |
 | 1 | 存在未通过项（逐项 FAIL 行见输出）。 |
 | 2 | 用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等；数据校验 fail-closed，不产生部分结论）。 |
 
 ## package-manifest.rules（包清单数据表）
 
-包结构清单唯一承载点（单源化定稿；逐次扩节；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）。`check-package.sh` 启动时 source 本表（与脚本同目录），检查 1/5/8 的清单与计数、检查 9/10/11/12/13/14/15/16/17/21/23 的比对基准全部自数据读取，引擎零文件名零短码零枚举值零词表零基元名清单零机制词表——加成员、加短码、加 platform 值、加措辞词、加豁免、加镜像、加能力基元/目标、加机制词表值＝加一行数据＋改对应实物，零引擎改动。注意：引擎按自身所在目录加载本表（与脚本同目录），对包副本核对时以副本自带引擎＋副本 manifest 才能读到副本数据（harness 豁免负例即此口径）。
+包结构清单唯一承载点（单源化定稿；逐次扩节；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）。`check-package.sh` 启动时 source 本表（与脚本同目录），检查 1/5/8 的清单与计数、检查 9/10/11/12/13/14/15/16/17/21/23/24 的比对基准全部自数据读取，引擎零文件名零短码零枚举值零词表零基元名清单零机制词表——加成员、加短码、加 platform 值、加措辞词、加豁免、加镜像、加能力基元/目标、加机制词表值＝加一行数据＋改对应实物，零引擎改动。注意：引擎按自身所在目录加载本表（与脚本同目录），对包副本核对时以副本自带引擎＋副本 manifest 才能读到副本数据（harness 豁免负例即此口径）。
 
 ### 行格式（十节）
 
@@ -129,10 +130,14 @@ check-package: PASS
 | `pm_mechanism <值>` | 1 | 规则索引执行机制受控值（检查 16）：模板 rules 三件（assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl）§16 机制列取值 ⊆ 本节值集；受控三值＝机械（点名脚本/检查项现役断言在管）/门禁（阶段 checkpoint 卡）/约定（靠执行体自觉），语义唯一权威见 `../references/protocol/governance-format.md` §2.7；值须非空单 token，跨行唯一。 |
 | `pm_mechanism_marker <标记词>` | 1 | 外定义标记词（检查 15/16），跨行恰一行：模板 §16 中定义于模板外手册的规则块行须在机制列显式标注本标记词，未标注算漏行（豁免显式非静默）。 |
 | `pm_cite_exempt <pkg-rel-path> <行号> <理由>` | 3 | 包内票号索引禁令行级豁免（检查 18）；路径+行号跨行唯一，行号须正整数，理由必填；登记行无命中即失效豁免 FAIL；节可空（非空下限节之外的显式例外）。 |
+| `pm_layout_face <pkg-rel-path>` | 1 | 布局引用分类扫描面（检查 24）：目录行递归取 `*.md`/`*.tmpl` 并排除 README.md（叙事面，检查 12 同款），单文件行整件入面；跨行不重复。 |
+| `pm_layout_universe <pkg-rel-path> <锚点>` | 2 | modern 生成布局全集来源（检查 24②）：引擎按锚点从登记模板提取路径行并集；锚点须受限字符集单 token，登记模板跨行唯一。 |
+| `pm_layout_legacy_file <pkg-rel-path> <理由>` | 2 | 整文件合法保留面（检查 24 legacy 分类）：登记文件内旧布局路径引用只计数不判罚；理由必填，路径跨行唯一。 |
+| `pm_layout_compat_exempt <pkg-rel-path> <行号> <理由>` | 3 | 检查 24 行级显式兼容豁免：只收显式兼容语义与历史出处注记行，理由必填；登记行无命中即失效豁免 FAIL；节可空（先例同 `ticket-citation-ban`）。 |
 
 ### 结构校验（fail-closed）
 
-引擎加载时逐行核验，任一不合预期 exit 2，不产生部分结论：字段数恰如上表（字段内禁制表符）；路径禁前导斜杠、空白与 `..` 段，`pm_script` 须 `scripts/` 前缀单段名，`pm_template` 须单段 `.tmpl` 名，`pm_shortcode` 短码两字母大写且 owner 须 `references/` 前缀，`pm_platform` 值须小写 token，`pm_vague_word` 词须非空无空白，`pm_vague_exempt` 行号须正整数且理由非空，`pm_mirror` 须单段文件名且所有权类别 ∈ mirror/package-only/repo-only，`pm_capability` 名须小写 token 且跨行唯一，`pm_capability_authority` 跨行恰一行，`pm_capability_target` 目标路径跨行唯一且 kind ∈ decl/table，`pm_mechanism` 值须非空无空白且跨行唯一，`pm_mechanism_marker` 跨行恰一行；`kind` 枚举三值；各节内路径/文件名/短码/值/词/路径+行号跨行不重复；`pm_capability_target` 预期名单逐名 ⊆ 名单且全部目标并集 ⊇ 名单（名单与检查目标互恰）；除 `vague-exemptions` 节可空外，其余九节每节至少一行。
+引擎加载时逐行核验，任一不合预期 exit 2，不产生部分结论：字段数恰如上表（字段内禁制表符）；路径禁前导斜杠、空白与 `..` 段，`pm_script` 须 `scripts/` 前缀单段名，`pm_template` 须单段 `.tmpl` 名，`pm_shortcode` 短码两字母大写且 owner 须 `references/` 前缀，`pm_platform` 值须小写 token，`pm_vague_word` 词须非空无空白，`pm_vague_exempt` 行号须正整数且理由非空，`pm_mirror` 须单段文件名且所有权类别 ∈ mirror/package-only/repo-only，`pm_capability` 名须小写 token 且跨行唯一，`pm_capability_authority` 跨行恰一行，`pm_capability_target` 目标路径跨行唯一且 kind ∈ decl/table，`pm_mechanism` 值须非空无空白且跨行唯一，`pm_mechanism_marker` 跨行恰一行，`pm_layout_universe` 锚点须受限字符集单 token 且登记模板跨行唯一，`pm_layout_legacy_file` 理由非空且路径跨行唯一，`pm_layout_compat_exempt` 行号须正整数且理由非空且路径+行号跨行唯一；`kind` 枚举三值；各节内路径/文件名/短码/值/词/路径+行号跨行不重复；`pm_capability_target` 预期名单逐名 ⊆ 名单且全部目标并集 ⊇ 名单（名单与检查目标互恰）；除 `vague-exemptions` 与 `ticket-citation-ban`、`layout-compat-exempt` 节可空外，其余各节每节至少一行。
 
 ### 维护规则
 
@@ -143,6 +148,8 @@ vague-words 词表与 vague-exemptions 豁免维护：词表以 R-GF-010 原文�
 capability-primitives 名单与检查目标维护：九基元名以 `capability-contract.md` §2.1 权威表为唯一事实源，禁止单侧改——基元增删改名＝先改权威表，再同步本节 `pm_capability` 行与 `pm_capability_target` 预期名单，再改目标实物（角色合同声明行/适配文件对照表），最后同步 harness 夹具（check-package 套件 PASS 行含基元数与目标数计数，预期串须随动；注入/删名负例随名单语义复核）。新增检查目标＝加一行 `pm_capability_target`（预期名单现场转录自目标现行声明面/对照表）并确认并集 ⊇ 名单校验仍过；目标正文声明变化＝先改预期名单再改实物（数据先行）。解析锚点（声明行标记、对照表头列、权威表标题）为引擎窄锚点，目标文件锚点文本漂移即 exit 2，须同步引擎锚点与本注记。
 
 mechanism-vocab 词表与规则索引维护：受控三值与外定义标记词以本节为唯一承载点，引擎零词表硬编码；三值语义唯一权威＝`../references/protocol/governance-format.md` §2.7。词表增删值＝先改本节，再改模板 rules 三件 §16 机制列取值，并同步 harness 夹具（正例 PASS 行含机制值数与标记词数计数）。索引维护顺序＝先改模板 §16 索引表，再动规则块本体；反向（先加/改规则块后补索引行）由检查 15 拦截（全集 ID 缺索引行 FAIL）。模板 §16 节首序言＝指向 governance-format.md §2.7 的短指针原句，逐字由检查 23 核对，改原句须先改 R-GF-011 再同步三模板。机械行点名的脚本必须已在 `scripts` 节登记且真实存在（检查 17），新脚本先登记 `pm_script` 行再进索引机制列；点名的检查项号不得超过引擎检查总数，引擎扩项时同步 `n_total_checks` 与相关表述。
+
+layout-face/layout-universe/layout-legacy-file/layout-compat-exempt 四节维护（检查 24）：面清单与合法保留面变更＝先改本表再动实物（数据先行），并同步 harness 夹具（正例 PASS 行含面件数与 legacy 计数，预期串须随动）；`layout-universe` 登记模板的锚点路径行增删＝实物先行、全集随之（锚点或行形态漂移即提取失效，链接核对失准须同步本节）；`layout-compat-exempt` 只收显式兼容语义与历史出处注记行（逐行注记理由），禁作漏改旧布局引用的兜底；正文行增删使豁免行号漂移时检查 24 报失效豁免，处置＝复核后更新行号或删除登记，不得静默保留。旧布局引用清理顺序＝先逐条判适用布局（modern 面改写为现行路径与权威名，legacy 合法保留面与显式兼容段保留），逐条处置，禁全局替换。
 
 ## check-stale-claims.sh（易腐断言扫描器）
 

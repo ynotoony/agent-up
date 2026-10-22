@@ -1,13 +1,13 @@
 ---
 id: role-implementation
 kind: process
-authority: 权威层级第 4 级（流程规则：Implementation 阶段角色合同）；阶段流程上游为目标项目 development-process，冲突以其为准
+authority: 权威层级第 4 级（流程规则：Implementation 阶段角色合同）；阶段流程上游为目标项目 rules/ 流程规则三件，冲突以其为准
 lifecycle: Live
 read_when: Implementation 阶段任务派发或执行时；主 agent 核对委派合同完整性时
 trigger: 七节合同、required_capabilities 或阶段出口语义变化
 owner: Implementation 执行体（初始化生成为 rules/implementation/roles/implementation.md；维护限本合同允许范围，变更经 Review 门禁）
-update_policy: 七节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 development-process
-depends_on: development-process（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
+update_policy: 七节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 rules/ 流程规则三件
+depends_on: rules/ 流程规则三件（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 主 agent 的委派合同（16 个固定字段）、Context / Evidence 列出的文件、任务票与领域上下文。 -->
 <!-- Output: 合同 Scope 内的实现产物、修改文件清单、真实验证证据、Implementation Checkpoint、未解决问题与风险。 -->
@@ -17,13 +17,13 @@ depends_on: development-process（目标项目唯一流程权威）；被宿主�
 
 两层协作中的 Implementation 阶段执行体：按主 agent 派发的委派合同完成具体实现并运行实现相关验证。凡功能、修复、重构的实现任务，主 agent 一律派发本角色执行；只实现不自审。
 
-适用范围注记（分级交付道，development-process §6 R-DP-031）：微任务道由单执行体按本合同能力束完成实现与门禁重跑，vcs-write 仅微任务道持有且经道脚本由主 agent 调用行使，本执行体不组装提交合同、不自行执行 git 写，收尾白名单自主 agent 派发的提交合同转抄（git 写禁令不因车道放宽）；用户即 Review 车道实现完整交付后交用户在主对话裁决，OK 后至 Commit 零实现改动；C1+ 任务按本合同全流程执行。
+适用范围注记（分级交付道，rules/assessment.md §6 R-DP-031）：微任务道由单执行体按本合同能力束完成实现与门禁重跑，vcs-write 仅微任务道持有且经道脚本由主 agent 调用行使，本执行体不组装提交合同、不自行执行 git 写，收尾白名单自主 agent 派发的提交合同转抄（git 写禁令不因车道放宽）；用户即 Review 车道实现完整交付后交用户在主对话裁决，OK 后至 Commit 零实现改动；C1+ 任务按本合同全流程执行。
 
 ## 1. 输入
 
 - 主 agent 的委派合同，含 16 个固定字段；**收到合同首步**：先跑 `sh rules/implementation/scripts/check-dispatch-contract.sh --check <合同文件>` 自查合同完整性（按合同类型必备字段核对），通过后再完整读取合同和 Context / Evidence 列出的文件，再动手实现。
 - 当前任务票、相关规格与领域上下文。
-- 目标项目 development-process 的流程规则（读取阶梯、门禁、检查点纪律）。
+- 目标项目 rules/ 流程规则三件（读取阶梯、门禁、检查点纪律）。
 
 ## 2. 所需能力
 
@@ -71,7 +71,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 - **Stop if**：实现确需 Scope 外改动 → 停止并按 §6 输出格式报告，等待派发方扩大合同，不自行改动。
 - **Evidence**：修改文件清单与合同 Scope 白名单逐项对照记录。
 - **Owner**：Implementation 执行体。
-- **Authority**：SPEC-05 §4（R-05-002）、目标项目 development-process 委派合同。
+- **Authority**：SPEC-05 §4（R-05-002）、目标项目 rules/implementation/discipline.md 委派合同。
 
 ## 4. 禁止行为
 
@@ -83,7 +83,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 - **Stop if**：验证失败且无法在合同范围内修复 → 如实报告失败与定位，不交付虚假通过。
 - **Evidence**：报告含真实验证命令原文与结果；全文无 Review 结论性表述。
 - **Owner**：Implementation 执行体。
-- **Authority**：SPEC-05 §3（R-05-001）、目标项目 development-process 写入所有权矩阵。
+- **Authority**：SPEC-05 §3（R-05-001）、目标项目 rules/project.md 写入所有权矩阵。
 
 #### R-RI-003 阻塞即停 `MUST`
 
@@ -93,12 +93,12 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 - **Stop if**：无。
 - **Evidence**：阻塞报告含冲突双方、各自来源与可选项。
 - **Owner**：Implementation 执行体。
-- **Authority**：目标项目 development-process 冲突即停规则。
+- **Authority**：目标项目 rules/implementation/discipline.md 冲突即停规则。
 
 ## 5. 验收条件
 
 - 实现产物完整且限于合同 Scope；修改文件清单（绝对路径）逐项可对照白名单。
-- 验证优先复用仓库共享 harness（`rules/implementation/scripts/`，规则见 development-process）；没有适用的才新增脚本并当场登记；一次性脚本在 Checkpoint 标注"待沉淀"。
+- 验证优先复用仓库共享 harness（`rules/implementation/scripts/`，规则见 rules/implementation/discipline.md）；没有适用的才新增脚本并当场登记；一次性脚本在 Checkpoint 标注"待沉淀"。
 - 合同含内部检查点时，到达即运行相关测试并落盘 Implementation Checkpoint，再继续剩余范围。
 - 合同的 Budget / Checkpoints 未写明时默认 80 次工具调用；接近上限必须先落盘 Checkpoint 再继续。
 - 未解决问题与风险已列入报告。
@@ -106,7 +106,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 
 ## 6. 输出格式
 
-报告不超过 60 行，依次包含：修改文件清单（绝对路径）｜验证命令与真实结果｜已落盘的 Checkpoint 位置｜未解决问题与交给 Review 的上下文｜风险。不接受只有"完成"的摘要。代码证据只给 `文件:行号区间`。报告须含一行 token 用量自报（宿主提供执行体用量遥测时如实填报数值与来源，不提供时记 N/A + reason）——记录义务非硬门禁，缺自报不阻塞交付（委派面遥测，代记与口径见 development-process §6 委派合同固定模板）。
+报告不超过 60 行，依次包含：修改文件清单（绝对路径）｜验证命令与真实结果｜已落盘的 Checkpoint 位置｜未解决问题与交给 Review 的上下文｜风险。不接受只有"完成"的摘要。代码证据只给 `文件:行号区间`。报告须含一行 token 用量自报（宿主提供执行体用量遥测时如实填报数值与来源，不提供时记 N/A + reason）——记录义务非硬门禁，缺自报不阻塞交付（委派面遥测，代记与口径见 rules/implementation/discipline.md §6 委派合同固定模板）。
 
 ## 7. 阶段出口
 

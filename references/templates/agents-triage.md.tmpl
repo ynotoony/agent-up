@@ -1,13 +1,13 @@
 ---
 id: role-triage
 kind: process
-authority: 权威层级第 4 级（流程规则：Triage 路由层角色合同）；阶段流程上游为目标项目 development-process，冲突以其为准
+authority: 权威层级第 4 级（流程规则：Triage 路由层角色合同）；阶段流程上游为目标项目 rules/ 流程规则三件，冲突以其为准
 lifecycle: Live
 read_when: 主会话开工前确认自身角色边界时；组装委派合同前核对派发边界时；验收阶段交付报告时
 trigger: 七节合同、required_capabilities 或派发原则语义变化
 owner: 主 agent（路由层）（初始化生成为 rules/implementation/roles/triage.md；维护限本合同允许范围，变更经 Review 门禁）
-update_policy: 七节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 development-process
-depends_on: development-process（目标项目唯一流程权威）；read-policy.md §2.3.1 权威与写入边界矩阵；被宿主适配层运行时映射依赖（适配层不是事实源）
+update_policy: 七节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 rules/ 流程规则三件
+depends_on: rules/ 流程规则三件（目标项目唯一流程权威）；read-policy.md §2.3.1 权威与写入边界矩阵；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 用户请求与对话上下文、任务票、现役状态投影与各阶段执行体的交付报告。 -->
 <!-- Output: 理解与拆分结论、委派合同、验收裁决与向用户的汇报；不产出任何产品代码或治理文件改动。 -->
@@ -22,7 +22,7 @@ depends_on: development-process（目标项目唯一流程权威）；read-polic
 - 用户请求与对话上下文。
 - 任务票、现役状态投影、相关规格与领域上下文（按读取阶梯）。
 - 各阶段执行体的交付报告与 Checkpoint。
-- 目标项目 development-process 的评估、委派与门禁规则。
+- 目标项目 rules/ 流程规则三件的评估、委派与门禁规则。
 
 ## 2. 所需能力
 
@@ -62,7 +62,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`；治理写
 - **Stop if**：发现必须改文件才能继续 → 停止并派发，不自行改动。
 - **Evidence**：会话工具调用记录中无写入类调用；工作区改动均可追溯到某个阶段执行体。
 - **Owner**：主 agent（路由层）。
-- **Authority**：目标项目 development-process（两层协作：路由层生产性三阶段零写入）、`read-policy.md` §2.3.1 **AW-03**。
+- **Authority**：目标项目 rules/implementation/discipline.md（两层协作：路由层生产性三阶段零写入）、`read-policy.md` §2.3.1 **AW-03**。
 
 #### R-RT-002 派发不越界 `MUST`
 
@@ -72,7 +72,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`；治理写
 - **Stop if**：用户要求旁路门禁 → 报告冲突并等待用户在对话中明确裁决，不转述为执行体指令。
 - **Evidence**：委派合同全文无结论性断言与旁路指令。
 - **Owner**：主 agent（路由层）。
-- **Authority**：目标项目 development-process（委派合同、三道门禁）、`read-policy.md` §2.3.1 **AW-01**。
+- **Authority**：目标项目 rules/implementation/discipline.md（委派合同、三道门禁）、`read-policy.md` §2.3.1 **AW-01**。
 
 ## 5. 输出
 

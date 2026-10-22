@@ -136,7 +136,7 @@ depends_on: SPEC-02；被 read-policy.md 与模板、SKILL 重写依赖
 承载双轨：
 
 1. **YAML frontmatter（首选）**：文件以 `---` 围栏的 YAML 头开始，九字段按固定序以标量字符串书写；HTML 契约头（Input/Output/Pos）紧跟 frontmatter 之后。适用于 skill 文件与宿主支持 frontmatter 的文件。
-2. **等价头部块**：宿主不支持 frontmatter 的仓库治理 markdown，用 HTML 契约头注释 + `## 元数据` 键值表承载九字段，字段序与语义相同（本工作区 `docs/specs/` 现状即此形态）。
+2. **等价头部块**：宿主不支持 frontmatter 的仓库治理 markdown，用 HTML 契约头注释 + `## 元数据` 键值表承载九字段，字段序与语义相同。
 
 字段序（固定，不得重排）：`id`、`kind`、`authority`、`lifecycle`、`read_when`、`trigger`、`owner`、`update_policy`、`depends_on`。
 
@@ -171,14 +171,14 @@ depends_on: SPEC-02；被 read-policy.md 与模板、SKILL 重写依赖
 | 文件 | 格式定位 |
 | --- | --- |
 | `AGENTS.md` | 极短路由：入口与边界声明，不复制流程 |
-| `development-process.md` | 完整协议：三阶段、委派、门禁的唯一事实源 |
-| `docs/agent/artifacts.yaml` | 机器索引：产物清单与关系（SPEC-03） |
+| `rules/` 流程规则三件（assessment／implementation/discipline／project） | 完整协议：三阶段、委派、门禁的唯一事实源（拆三承载） |
+| `facts/project/artifacts.yaml` | 机器索引：产物清单与关系（SPEC-03） |
 | 任务票 | 元数据 + 固定区块 |
-| `docs/issues/index.json` | 票状态索引：JSON＋Schema（`agent-up/references/schemas/issue-index.schema.json`），状态机唯一真相源（单文件 JSON，一条目一行） |
+| `facts/requirements/tickets/index.json` | 票状态索引：JSON＋Schema（`agent-up/references/schemas/issue-index.schema.json`），状态机唯一真相源（单文件 JSON，一条目一行） |
 | `progress.md` | 冻结历史档案：指针注记后零写入（记录层终裁定稿；存量行零改写） |
-| `docs/progress-current.md` | 现役状态投影：Derived，generated_from＝`docs/issues/index.json`＋生成器，生成器独占写 |
+| `facts/requirements/tickets/progress-current.md` | 现役状态投影：Derived，generated_from＝`facts/requirements/tickets/index.json`＋生成器，生成器独占写 |
 | `changes.md` | 追加历史：只增不改 |
-| `docs/changes.jsonl` | 追加历史（新形态）：JSONL 一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加 |
+| `facts/project/changes.jsonl` | 追加历史（新形态）：JSONL 一行一事实，`kind` 受控五值 `decision`/`change`/`gate`/`export`/`record`，只追加 |
 | `CONTEXT.md` | 结构化词条 + 自然语言定义 |
 | 项目地图 | JSON |
 | 架构图 | diagram-as-code |
@@ -223,7 +223,7 @@ depends_on: SPEC-02；被 read-policy.md 与模板、SKILL 重写依赖
 ## 3. 解释与例外
 
 - SPEC-01 与既有 `changes.md`、`progress.md` 历史条目不追溯改写为规则块或 frontmatter 形态；本手册只约束新写与大改内容。
-- 本工作区既有治理文件（如根 `AGENTS.md`、`docs/development-process.md`）当前仅契约头、无九字段头，属等价头部块的过渡欠账，由公开包重组与模板重写统一收敛；收敛前不构成对既有文件的追溯判罚。
+- 本工作区既有治理文件（如根 `AGENTS.md`、`rules/` 流程规则三件）当前仅契约头、无九字段头，属等价头部块的过渡欠账，由公开包重组与模板重写统一收敛；收敛前不构成对既有文件的追溯判罚。
 - 本手册定义格式协议，不定义任何具体模板文件的内容；模板落地由公开包模板重构承担。
 - 元数据九字段适用于分工表所列治理文件与公开包 protocol 手册；`README.md` 是面向人的目录索引，只承载契约头，不强制九字段。
 - 本手册自身即自举合规样本：frontmatter 九字段按 §2.4 定稿形态书写，三层结构按 §2.3 组织，规则块用 `R-GF-` 前缀。

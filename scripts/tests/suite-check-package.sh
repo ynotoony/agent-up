@@ -27,7 +27,7 @@ fi
 # 扩五项（AGENTS.md/docs//rules//facts//.zcode/）；负例 N12/N13/N14/N15/N16/N17 注入目标
 # 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）；
 # delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户；票 141 requests 模板退役 16→15）
-# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）；票 190 检查 13 改跨树同名脚本所有权三分类（pm_mirror 两参数 mirror/package-only/repo-only：mirror 类 11 对逐对 cmp＋仓侧缺同名件报登记悬空；package-only 类 4 件不 cmp——仓侧同名实例属待升级流程同步过渡态不判差异；repo-only 类 4 件断言包内侧缺席；源仓语境门控＝包根父目录两落位目录任一在场，消费项目整项静默跳过）＋新增检查 21 references 树成员闭合与导航（全树文件 ⊆ entry-files∪templates、references/README.md 目录清单一级投影双向、包内 *.md 行内链接目标存在；预期串计数 20→21 翻值、检查 1 计数 18→35、检查 13 比对 9→11 对、正例补检查 21 PASS 行两形态；补负例 N28 references 子树未登记新件/N29 已登记成员删除缺件/N30 坏相对链接/N31 一级目录未入 README 投影/N32 mirror 登记悬空/N33 repo-only 件投放包内＋正例 P1 package-only 过渡态临时夹具（全 mktemp 源仓语境）；N16 注入项号检查 21→22 随总数同步）；票 192 解析器单源化随票修（新增 pm_script dp-load-rules.sh 与 pm_entry references/delivery-rules.md → 检查 1 计数 35→36、检查 8/19 计数 27→28、检查 20 一级 30→31；pm_mirror 两消费件 mirror 翻 package-only（仓侧旧版内嵌解析器副本为待升级流程收敛过渡态）→ 检查 13 比对 11→9 对、三分类夹具组清单随动；检查 21 成员 47→48）；票 193 账本行合同随票修（新增 pm_entry references/schemas/ledger-row.schema.json → 检查 1 计数 36→37、检查 21 成员 48→49）；票 195 规则块格式校验＋索引序言收敛随票修（新增检查 22 规则块九字段格式——Level 受控四值收尾/七字段齐备/块 ID 全局唯一，全量扫描含「解释与例外」节，负例缺字段/非法 Level/重复 ID 各指名字段或 ID；新增检查 23 索引节序言短指针——三宿主 §16 序言逐字等于 governance-format.md R-GF-011 定稿原句，「」窄锚点提取零句子硬编码，三模板 §16 长序言收敛为短指针；预期串计数 21→23 翻值、正例补检查 22/23 PASS 行两形态、N16 注入项号检查 22→24 随总数同步；补负例 N34 缺字段/N35 非法 Level/N36 重复 ID/N37 序言多行散文/N38 第二权威/N39 缺指针＋正例 P2 三宿主序言逐字断言；返工轮补负例 N40 权威文件缺失（检查 23 缺权威分支 n_hosts 未初始化——set -u 崩溃且 EXIT trap 吞状态 exit 0 假绿的回归钉死：断言 exit 1＋FAIL: 23 指名＋汇总行出现＋零 unbound variable，n_hosts 提前至分支外统一初始化）；票 196 Triage 模板入册随票修（新增 pm_template agents-triage.md.tmpl＋pm_shortcode RT 与 discipline.md.tmpl §16 R-RT-001～002 索引行 → 金样串四计数独立重建：检查 5 计数 15→16、检查 15 索引/全集 54→56、检查 21 成员 49→50、检查 22 块 93→95，四个金样块×两形态同步）
+# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）；票 190 检查 13 改跨树同名脚本所有权三分类（pm_mirror 两参数 mirror/package-only/repo-only：mirror 类 11 对逐对 cmp＋仓侧缺同名件报登记悬空；package-only 类 4 件不 cmp——仓侧同名实例属待升级流程同步过渡态不判差异；repo-only 类 4 件断言包内侧缺席；源仓语境门控＝包根父目录两落位目录任一在场，消费项目整项静默跳过）＋新增检查 21 references 树成员闭合与导航（全树文件 ⊆ entry-files∪templates、references/README.md 目录清单一级投影双向、包内 *.md 行内链接目标存在；预期串计数 20→21 翻值、检查 1 计数 18→35、检查 13 比对 9→11 对、正例补检查 21 PASS 行两形态；补负例 N28 references 子树未登记新件/N29 已登记成员删除缺件/N30 坏相对链接/N31 一级目录未入 README 投影/N32 mirror 登记悬空/N33 repo-only 件投放包内＋正例 P1 package-only 过渡态临时夹具（全 mktemp 源仓语境）；N16 注入项号检查 21→22 随总数同步）；票 192 解析器单源化随票修（新增 pm_script dp-load-rules.sh 与 pm_entry references/delivery-rules.md → 检查 1 计数 35→36、检查 8/19 计数 27→28、检查 20 一级 30→31；pm_mirror 两消费件 mirror 翻 package-only（仓侧旧版内嵌解析器副本为待升级流程收敛过渡态）→ 检查 13 比对 11→9 对、三分类夹具组清单随动；检查 21 成员 47→48）；票 193 账本行合同随票修（新增 pm_entry references/schemas/ledger-row.schema.json → 检查 1 计数 36→37、检查 21 成员 48→49）；票 195 规则块格式校验＋索引序言收敛随票修（新增检查 22 规则块九字段格式——Level 受控四值收尾/七字段齐备/块 ID 全局唯一，全量扫描含「解释与例外」节，负例缺字段/非法 Level/重复 ID 各指名字段或 ID；新增检查 23 索引节序言短指针——三宿主 §16 序言逐字等于 governance-format.md R-GF-011 定稿原句，「」窄锚点提取零句子硬编码，三模板 §16 长序言收敛为短指针；预期串计数 21→23 翻值、正例补检查 22/23 PASS 行两形态、N16 注入项号检查 22→24 随总数同步；补负例 N34 缺字段/N35 非法 Level/N36 重复 ID/N37 序言多行散文/N38 第二权威/N39 缺指针＋正例 P2 三宿主序言逐字断言；返工轮补负例 N40 权威文件缺失（检查 23 缺权威分支 n_hosts 未初始化——set -u 崩溃且 EXIT trap 吞状态 exit 0 假绿的回归钉死：断言 exit 1＋FAIL: 23 指名＋汇总行出现＋零 unbound variable，n_hosts 提前至分支外统一初始化）；票 196 Triage 模板入册随票修（新增 pm_template agents-triage.md.tmpl＋pm_shortcode RT 与 discipline.md.tmpl §16 R-RT-001～002 索引行 → 金样串四计数独立重建：检查 5 计数 15→16、检查 15 索引/全集 54→56、检查 21 成员 49→50、检查 22 块 93→95，四个金样块×两形态同步）；票 197 检查 23→24 增布局引用分类与失效检测（modern/legacy/compatibility 三分类＋面内 .tmpl modern 相对链接全集解析，与检查 21③ 包内相对口径正交互补；预期串计数 23→24 翻值、正例补检查 24 PASS 行两形态、N16 注入项号检查 24→25 随总数同步；补正例 P3 modern 链接/P4 legacy old-project/P5 显式兼容豁免＋非目标文件哨兵 cmp 与负例 N41 modern 坏链/N42 modern-stale-reference/N43 豁免不外溢非全局替换断言）
 # ============================================================
 
 suite_check_package() {
@@ -92,6 +92,7 @@ PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 �
 PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
+PASS: 24 布局引用分类与失效检测（面 21 件，modern 失效 0 处，legacy 13 处，compatibility 6 处，modern 链接 9 个）
 check-package: PASS
 EOF
   else
@@ -119,6 +120,7 @@ PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 �
 PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
+PASS: 24 布局引用分类与失效检测（面 21 件，modern 失效 0 处，legacy 13 处，compatibility 6 处，modern 链接 9 个）
 check-package: PASS
 EOF
   fi
@@ -155,7 +157,8 @@ PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 �
 PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
-check-package: FAIL（3 项未通过，共 23 项）
+PASS: 24 布局引用分类与失效检测（面 21 件，modern 失效 0 处，legacy 13 处，compatibility 6 处，modern 链接 9 个）
+check-package: FAIL（3 项未通过，共 24 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -193,7 +196,8 @@ PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 �
 PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
-check-package: FAIL（1 项未通过，共 23 项）
+PASS: 24 布局引用分类与失效检测（面 21 件，modern 失效 0 处，legacy 13 处，compatibility 6 处，modern 链接 9 个）
+check-package: FAIL（1 项未通过，共 24 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -411,14 +415,14 @@ EOF
   rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
 
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
-  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 195 后为 23；注入
-  # 检查 24＝超界一位，随总数同步）。
+  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 197 后为 24；注入
+  # 检查 25＝超界一位，随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 24） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 25） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 23 项）: 检查 24' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 24 项）: 检查 25' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -816,6 +820,92 @@ EOF
     ok '负例 N40 权威文件缺失 → exit 1 且 FAIL: 23 指名缺失件＋汇总行出现（unbound variable 假绿回归钉死）'
   else
     bad '负例 N40 权威文件缺失 → exit 1 且 FAIL: 23 指名缺失件＋汇总行出现（unbound variable 假绿回归钉死）' "exit=$rc"
+  fi
+
+  # 票 197 检查 24 布局引用分类与失效检测夹具组（modern/legacy/compatibility 三分类）。
+  # 正例 P3：modern 相对链接正例——AGENTS.md.tmpl 注入生成布局全集内目标（rules/project.md
+  # ∈ artifacts-yaml.tmpl path 行）→ exit 0 且 PASS: 24、modern 链接计数 9→10。
+  cp -R "$PKG_ROOT" "$D/pkgl1"
+  printf '\nharness fixture 注入行：见 [项目协议](rules/project.md)。\n' >> "$D/pkgl1/references/templates/AGENTS.md.tmpl"
+  sh "$D/pkgl1/scripts/check-package.sh" "$D/pkgl1" >"$D/act.p3" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 24 布局引用分类与失效检测' "$D/act.p3" \
+    && grep -q 'modern 链接 10 个' "$D/act.p3"; then
+    ok '正例 P3 modern 相对链接（全集内目标）注入 → exit 0 且 PASS: 24 链接计数随动'
+  else
+    bad '正例 P3 modern 相对链接（全集内目标）注入 → exit 0 且 PASS: 24 链接计数随动' "exit=$rc"
+  fi
+
+  # 负例 N41：modern 坏链——注入全集外 modern 目标 → exit 1 且 FAIL: 24 指名文件:行号、
+  # 目标与分类（modern）。
+  cp -R "$PKG_ROOT" "$D/pkgl2"
+  printf '\nharness fixture 坏链接注入行：见 [不存在件](rules/harness-fixture-gone.md)。\n' >> "$D/pkgl2/references/templates/AGENTS.md.tmpl"
+  sh "$D/pkgl2/scripts/check-package.sh" "$D/pkgl2" >"$D/act.n41" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 24 布局引用分类与失效检测' "$D/act.n41" \
+    && grep -q 'references/templates/AGENTS.md.tmpl:[0-9][0-9]* modern 布局相对链接目标不在生成布局全集（分类 modern）: rules/harness-fixture-gone.md' "$D/act.n41"; then
+    ok '负例 N41 modern 坏链（全集外目标）→ exit 1 且 FAIL: 24 指名文件:行号与目标（分类 modern）'
+  else
+    bad '负例 N41 modern 坏链（全集外目标）→ exit 1 且 FAIL: 24 指名文件:行号与目标（分类 modern）' "exit=$rc"
+  fi
+
+  # 负例 N42：modern-stale-reference——modern 面（read-policy.md）注入旧布局路径引用 →
+  # exit 1 且 FAIL: 24 指名文件:行号与命中 token（分类 modern）。
+  cp -R "$PKG_ROOT" "$D/pkgl3"
+  printf '\nharness fixture 失效引用注入行 docs/development-process.md\n' >> "$D/pkgl3/references/protocol/read-policy.md"
+  sh "$D/pkgl3/scripts/check-package.sh" "$D/pkgl3" >"$D/act.n42" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 24 布局引用分类与失效检测' "$D/act.n42" \
+    && grep -q 'references/protocol/read-policy.md:[0-9][0-9]* modern 布局面失效引用（分类 modern）: docs/development-process.md' "$D/act.n42"; then
+    ok '负例 N42 modern 面注入旧布局路径 → exit 1 且 FAIL: 24 指名文件:行号与 token（分类 modern）'
+  else
+    bad '负例 N42 modern 面注入旧布局路径 → exit 1 且 FAIL: 24 指名文件:行号与 token（分类 modern）' "exit=$rc"
+  fi
+
+  # 正例 P4：legacy 合法保留——old-project.md（layout-legacy-file 登记件）注入旧布局
+  # 路径引用 → exit 0（legacy 只计数不判罚，计数 13→14）。
+  cp -R "$PKG_ROOT" "$D/pkgl4"
+  printf '\nharness fixture legacy 注入行 docs/development-process.md\n' >> "$D/pkgl4/references/old-project.md"
+  sh "$D/pkgl4/scripts/check-package.sh" "$D/pkgl4" >"$D/act.p4" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 24 布局引用分类与失效检测（面 21 件，modern 失效 0 处，legacy 14 处' "$D/act.p4"; then
+    ok '正例 P4 legacy 件（old-project.md）注入旧布局引用 → exit 0 且 legacy 计数 13→14'
+  else
+    bad '正例 P4 legacy 件（old-project.md）注入旧布局引用 → exit 0 且 legacy 计数 13→14' "exit=$rc"
+  fi
+
+  # 正例 P5：显式兼容豁免——modern 面注入行经夹具 manifest 登记行级豁免 → 该行不报、
+  # exit 0（豁免生效，compatibility 计数随动）；并以哨兵 cmp 断言非目标文件未被改动
+  # （检查器只读；等价语义＝兼容豁免不伴随任何文件改写，非全局替换）。
+  cp -R "$PKG_ROOT" "$D/pkgl5"
+  cp "$D/pkgl5/references/upgrade.md" "$D/pkgl5.upgrade.sentinel"
+  printf '\nharness fixture 兼容注入行 docs/agent/artifacts.yaml\n' >> "$D/pkgl5/references/protocol/read-policy.md"
+  p5_ln=$(wc -l < "$D/pkgl5/references/protocol/read-policy.md" | tr -d ' ')
+  printf "pm_layout_compat_exempt references/protocol/read-policy.md %d 'harness fixture 兼容豁免正例（登记后该行不报）'\n" "$p5_ln" >> "$D/pkgl5/scripts/package-manifest.rules"
+  sh "$D/pkgl5/scripts/check-package.sh" "$D/pkgl5" >"$D/act.p5" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 24 布局引用分类与失效检测' "$D/act.p5" \
+    && grep -q 'compatibility 7 处' "$D/act.p5" && cmp -s "$D/pkgl5/references/upgrade.md" "$D/pkgl5.upgrade.sentinel"; then
+    ok '正例 P5 显式兼容豁免登记 → exit 0 且 compatibility 计数随动＋非目标文件哨兵 cmp 未被动'
+  else
+    bad '正例 P5 显式兼容豁免登记 → exit 0 且 compatibility 计数随动＋非目标文件哨兵 cmp 未被动' "exit=$rc"
+  fi
+
+  # 负例 N43：豁免不外溢（非全局替换断言）——两 modern 面各注入一行，只豁免其一 →
+  # exit 1 且 FAIL: 24 仅指名未豁免件，被豁免件不报（豁免逐行显式，无隐式全局忽略）。
+  cp -R "$PKG_ROOT" "$D/pkgl6"
+  printf '\nharness fixture 已豁免注入行 docs/agent/artifacts.yaml\n' >> "$D/pkgl6/references/protocol/read-policy.md"
+  n43_ln=$(wc -l < "$D/pkgl6/references/protocol/read-policy.md" | tr -d ' ')
+  printf '\nharness fixture 未豁免注入行 docs/issues/index.json\n' >> "$D/pkgl6/references/protocol/governance-format.md"
+  printf "pm_layout_compat_exempt references/protocol/read-policy.md %d 'harness fixture 豁免范围断言（仅罩本行）'\n" "$n43_ln" >> "$D/pkgl6/scripts/package-manifest.rules"
+  sh "$D/pkgl6/scripts/check-package.sh" "$D/pkgl6" >"$D/act.n43" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q 'references/protocol/governance-format.md:[0-9][0-9]* modern 布局面失效引用（分类 modern）: docs/issues/index.json' "$D/act.n43" \
+    && ! grep -q 'references/protocol/read-policy.md:'"$n43_ln"' modern 布局面失效引用' "$D/act.n43"; then
+    ok '负例 N43 豁免不外溢 → exit 1 且仅指名未豁免件（非全局替换等价断言）'
+  else
+    bad '负例 N43 豁免不外溢 → exit 1 且仅指名未豁免件（非全局替换等价断言）' "exit=$rc"
   fi
 
   suite_summary 'check-package'
