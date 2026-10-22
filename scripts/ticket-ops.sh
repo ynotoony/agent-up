@@ -16,9 +16,12 @@
 #         索引新增条目（status=ready）＋README 追加目录
 #         清单行（`任务票 <NN>；` 锚点零命中方可追加，已在场即拒零写入）＋账本追加行；
 #         take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
-#         状态 token 替换＋账本追加行，flip 另做 task 票 actual_time 收口硬拦（票 100：
-#         票 JSON 本体 actual_time 须已填且非空，缺项即 exit 1 指名票 id 与缺项，request
-#         不校验）＋账本追加行；ledger＝无票账本行入口（票 100：不依赖 facts/requirements/tickets/index.json
+#         状态 token 替换＋账本追加行；take 另做 blocked_by 领取完整性门（task 票本体
+#         blocked_by 逐项须在索引登记且 status=done，缺失或未完成即 exit 1 指名 blocker
+#         id 与其状态，零写入；request 无 blocked_by 不校验）；flip 至 done 另做 task 票
+#         actual_time 收口硬拦（票 100：票 JSON 本体 actual_time 须已填且非空，缺项即
+#         exit 1 指名票 id 与缺项；非 done 翻转不要求，request 不校验）＋账本追加行；
+#         ledger＝无票账本行入口（票 100：不依赖 facts/requirements/tickets/index.json
 #         条目 id，账本行形状校验先于写入，仅账本落行，不触索引/README/投影）；
 #         open/take/flip 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
 #         现役状态投影并 --check 核对（ledger 无索引面改动，不做投影再生）。
@@ -103,12 +106,16 @@ usage() {
                                              散文；字符串值不得内嵌引号或反斜杠）
                    [--blocked-by <id,id>]    逗号分隔 blocker id（缺省空数组）
   take           领取：--id --status --ledger-line 三项必选；--status 须为 in_progress。
+                 领取预检（blocked_by 完整性门）：task 票本体 blocked_by 逐项须在索引
+                 登记且 status=done，缺失（索引零命中）或未完成即 exit 1 指名 blocker
+                 id 与其状态（fail-closed 零写入）；request 票无 blocked_by 不校验。
   flip           收口/状态翻转：--id --status --ledger-line 三项必选；--status 为状态机
                  任意合法值（ready|in_progress|blocked|review_ready|review_pass|
-                 review_fail|done|superseded）。task 票收口硬拦（票 100）：本票 JSON
-                 本体（facts/requirements/tickets/<id>.json）须含 actual_time 字段且非空（净工时口径，
-                 会话段累计减中断段），缺项或空白即 exit 1 指名票 id 与缺项（fail-closed
-                 零写入）；request 票不校验。
+                 review_fail|done|superseded）。task 票 flip 至 done 的收口硬拦（票 100）：
+                 本票 JSON 本体（facts/requirements/tickets/<id>.json）须含 actual_time
+                 字段且非空（净工时口径，会话段累计减中断段），缺项或空白即 exit 1 指名
+                 票 id 与缺项（fail-closed 零写入）；非 done 翻转不要求 actual_time；
+                 request 票不校验。
                  take/flip 语义: 索引 id 锚点整行替换（仅改 status/updated_at 两值）→
                  README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token 替换（行内其余
                  文本不动）→ 账本追加行 → 投影再生＋--check。索引或 README 行缺失、锚点
@@ -333,13 +340,15 @@ esac
 
 nn=${id%%-*}
 
-# ---- actual_time 收口硬拦（票 100，flip 专属） ----
+# ---- actual_time 收口硬拦（票 100，flip 至 done 专属） ----
 
 actual_time_check() {
-  # flip 收口硬拦（票 100，决策 2 fail-closed）：task 票 JSON 本体须含 actual_time 字段
-  # 且非空（净工时口径，strip 后非空；schema 同款非空口径），缺项或空白即 exit 1 指名
-  # 票 id 与缺项，零写入。request 票不校验（open 时点已过 schema 校验的 kind 为准；
-  # 本体缺失不属本断言语义——由 open 时点保证存在，此处缺本体即报缺项指名票 id）。
+  # flip 收口硬拦（票 100，决策 2 fail-closed）：task 票 flip 至 done 时点，JSON 本体
+  # 须含 actual_time 字段且非空（净工时口径，strip 后非空；schema 同款非空口径），缺项
+  # 或空白即 exit 1 指名票 id 与缺项，零写入。调用点已条件化——仅 flip 目标 status=done
+  # 时执行，非 done 翻转不要求 actual_time（收口语义只属终态 done）。request 票不校验
+  # （open 时点已过 schema 校验的 kind 为准；本体缺失不属本断言语义——由 open 时点
+  # 保证存在，此处缺本体即报缺项指名票 id）。
   command -v python3 >/dev/null 2>&1 || \
     die1 'python3 不可用——flip actual_time 收口校验无法执行（fail-closed；票 100 起为 flip 校验依赖）'
   [ -r "${ticket_file}" ] || \
@@ -367,6 +376,76 @@ if body.get("kind") != "task":
 value = body.get("actual_time")
 if not isinstance(value, str) or not value.strip():
     sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：task 票收口须填 actual_time（净工时口径，实际完成时间；会话段累计减中断段，测量基础随票 Checkpoint 落盘）——票 100\n")
+    sys.exit(1)
+
+sys.exit(0)
+PYEOF
+}
+
+# ---- blocked_by 领取完整性门（take 专属） ----
+
+blocked_by_check() {
+  # take 领取预检（fail-closed 零写入）：task 票本体 blocked_by 数组逐项核对索引——每个
+  # 被依赖票 id 须在索引中登记（存在性）且 status=done（完成性，索引为状态真相源）；
+  # 缺失（索引零命中）或未完成（status 非 done）即 exit 1，逐项指名 blocker id 与其索引
+  # 状态，任何写入之前停止。request 票无 blocked_by（schema request 分支省略），不校验；
+  # 本体缺失不属本断言语义——由 open 时点保证存在，此处缺本体即报缺项指名票 id
+  # （口径同 actual_time 收口硬拦的本体缺失先例）。门仅限 take——flip 不做 blocked_by
+  # 核对。依赖 python3（JSON 解析，fail-closed）。
+  command -v python3 >/dev/null 2>&1 || \
+    die1 'python3 不可用——take blocked_by 完整性预检无法执行（fail-closed）'
+  [ -r "${ticket_file}" ] || \
+    die1 "票 ${id} 领取预检失败：票本体不可读: ${ticket_file}（blocked_by 完整性门须读本票声明的被依赖票清单）"
+  python3 - "${ticket_file}" "${index_file}" "${id}" <<'PYEOF'
+import json
+import sys
+
+ticket_path, index_path, tid = sys.argv[1], sys.argv[2], sys.argv[3]
+
+try:
+    with open(ticket_path, "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except (OSError, json.JSONDecodeError) as exc:
+    sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——blocked_by 完整性门\n")
+    sys.exit(1)
+
+if not isinstance(body, dict):
+    sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：票本体顶层须为 JSON object——blocked_by 完整性门\n")
+    sys.exit(1)
+
+if body.get("kind") != "task":
+    sys.exit(0)  # request 票无 blocked_by，不校验
+
+blocked = body.get("blocked_by")
+if not isinstance(blocked, list):
+    sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：task 票本体 blocked_by 须为数组（schema 口径）——blocked_by 完整性门\n")
+    sys.exit(1)
+
+try:
+    with open(index_path, "r", encoding="utf-8") as fh:
+        index = json.load(fh)
+except (OSError, json.JSONDecodeError) as exc:
+    sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：索引不可读或非合法 JSON: {index_path}（{exc}）——blocked_by 完整性门\n")
+    sys.exit(1)
+
+status_by_id = {}
+for entry in index.get("issues", []):
+    if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+        status_by_id[entry["id"]] = entry.get("status")
+
+problems = []
+for dep in blocked:
+    if not isinstance(dep, str):
+        continue
+    st = status_by_id.get(dep)
+    if st is None:
+        problems.append(f"blocked_by 引用票不存在（索引零命中）: {dep}")
+    elif st != "done":
+        problems.append(f"blocked_by 引用票未完成（status={st}）: {dep}")
+
+if problems:
+    for p in problems:
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取被拒：{p}——零写入（fail-closed，blocked_by 完整性门）\n")
     sys.exit(1)
 
 sys.exit(0)
@@ -606,7 +685,10 @@ elif [ "${cmd}" = 'ledger' ]; then
 else
   index_check flip || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
   readme_token_check || die1 "issues-README 预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
-  if [ "${cmd}" = 'flip' ]; then
+  if [ "${cmd}" = 'take' ]; then
+    blocked_by_check || die1 "blocked_by 领取预检未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（blocked_by 完整性门 fail-closed）"
+  fi
+  if [ "${cmd}" = 'flip' ] && [ "${status}" = 'done' ]; then
     actual_time_check || die1 "actual_time 收口校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（票 100 fail-closed）"
   fi
 fi

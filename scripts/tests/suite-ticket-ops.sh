@@ -16,7 +16,10 @@ fi
 # 零写入；票 198 七维 Profile reason 存储合同——合同单源 schema profile_reason 恰七键
 # D/B/I/U/S/M/O＋协议 §2.2 存储合同与 verification reason 分立两正例、malformed 形态
 # 读取面四负例指名键（缺键/未知键/空白值/非对象）、存量票无 reason 读取兼容正例、
-# 新 task open 缺/invalid 拒零写入两负例＋valid 正开落地正例，夹具全 mktemp）
+# 新 task open 缺/invalid 拒零写入两负例＋valid 正开落地正例，夹具全 mktemp）；
+# 状态跃迁门禁——take blocked_by 完整性门（missing/未 done blocker 拒绝零写入指名
+# blocker id 与状态、全 done 正例领取、flip 零误伤对照）＋actual_time 收口 done 条件化
+# （非 done 翻转无 actual_time 成功、done 缺 actual_time 拒绝、request 豁免维持）
 # ============================================================
 
 tix_body() {
@@ -1117,6 +1120,112 @@ PYTHON
     ok '正例 AC2 新 task profile_reason 七键齐 open → exit 0 且索引落条目（valid 正开落地）'
   else
     bad '正例 AC2 新 task profile_reason 七键齐 open → exit 0 且索引落条目（valid 正开落地）' "exit=$rc $(head -n 2 "$D/pr198-open-ok.log" | tr '\n' '|')"
+  fi
+
+  # ---- 状态跃迁门禁断言（take blocked_by 完整性门＋actual_time 收口 done 条件化）----
+  # 独立夹具 fix199（免受前段状态影响）。AC1：take 对 missing／未 done blocker 均拒绝——
+  # exit 1、四载体指纹零写入且无投影、报文指名 blocker id（missing 报索引零命中；pending
+  # 报其索引 status）；blocker 全 done 正例成功领取且索引单写；对照证明 flip 不做
+  # blocked_by 门（零误伤）。AC2：task 仅 flip 至 done 强制 actual_time——非 done 翻转无
+  # actual_time 照旧成功、done 缺 actual_time 仍 fail-closed 零写入指名缺项、request 翻转
+  # 豁免维持。夹具全 mktemp。
+  tix_build_fixture "$D/fix199"
+  F199=$D/fix199
+  # 索引整体重建（合法 JSON，一条目一行排版保持——被依赖票状态供 blocked_by 完整性门
+  # 读取面 python 解析；10=done 正例 blocker、20=ready 负例 blocker）
+  cat > "$F199/facts/requirements/tickets/index.json" <<'EOF'
+{
+  "issues": [
+    {"id": "10-alpha-first", "status": "done", "complexity": "C1", "blocked_by": [], "updated_at": "2026-09-19T10:00"},
+    {"id": "20-beta-second", "status": "ready", "complexity": "C2", "blocked_by": [], "updated_at": "2026-09-19T11:00"},
+    {"id": "30-dep-ghost", "status": "ready", "complexity": "C1", "blocked_by": ["99-ghost-none"], "updated_at": "2026-10-20T10:00"},
+    {"id": "31-dep-pending", "status": "ready", "complexity": "C1", "blocked_by": ["20-beta-second"], "updated_at": "2026-10-20T10:01"},
+    {"id": "32-dep-ok", "status": "ready", "complexity": "C1", "blocked_by": ["10-alpha-first"], "updated_at": "2026-10-20T10:02"},
+    {"id": "41-req-gate", "status": "ready", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-20T10:03"}
+  ]
+}
+EOF
+  # shellcheck disable=SC2129  # 连续追加同一 README 夹具（逐行带 SC2016 豁免，分组改写降低可读性）
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '| \`30-dep-ghost.json\` | 任务票 30；\`ready\`（2026-10-20 开票） | DEP ghost fixture |\n' >> "$F199/facts/requirements/tickets/README.md"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '| \`31-dep-pending.json\` | 任务票 31；\`ready\`（2026-10-20 开票） | DEP pending fixture |\n' >> "$F199/facts/requirements/tickets/README.md"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '| \`32-dep-ok.json\` | 任务票 32；\`ready\`（2026-10-20 开票） | DEP ok fixture |\n' >> "$F199/facts/requirements/tickets/README.md"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '| \`41-req-gate.json\` | 任务票 41；\`ready\`（2026-10-20 开票） | REQ gate fixture |\n' >> "$F199/facts/requirements/tickets/README.md"
+  tix_body "$F199/facts/requirements/tickets/30-dep-ghost.json" 30-dep-ghost
+  sed 's/"blocked_by": \[\]/"blocked_by": ["99-ghost-none"]/' "$F199/facts/requirements/tickets/30-dep-ghost.json" > "$F199/b199a.tmp" && mv "$F199/b199a.tmp" "$F199/facts/requirements/tickets/30-dep-ghost.json"
+  tix_body "$F199/facts/requirements/tickets/31-dep-pending.json" 31-dep-pending
+  sed 's/"blocked_by": \[\]/"blocked_by": ["20-beta-second"]/' "$F199/facts/requirements/tickets/31-dep-pending.json" > "$F199/b199b.tmp" && mv "$F199/b199b.tmp" "$F199/facts/requirements/tickets/31-dep-pending.json"
+  tix_body "$F199/facts/requirements/tickets/32-dep-ok.json" 32-dep-ok
+  sed 's/"blocked_by": \[\]/"blocked_by": ["10-alpha-first"]/' "$F199/facts/requirements/tickets/32-dep-ok.json" > "$F199/b199c.tmp" && mv "$F199/b199c.tmp" "$F199/facts/requirements/tickets/32-dep-ok.json"
+  cat > "$F199/facts/requirements/tickets/41-req-gate.json" <<'EOF'
+{
+  "id": "41-req-gate",
+  "kind": "request",
+  "title": "fixture request（actual_time 豁免维持）",
+  "created_at": "2026-10-20"
+}
+EOF
+  LED199='{"date": "2026-10-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture 199", "evidence_ref": "facts/requirements/tickets/README.md"}'
+
+  S199=$(tix_state "$F199")
+  sh "$F199/rules/implementation/scripts/ticket-ops.sh" "$F199" take --id 30-dep-ghost --status in_progress --ledger-line "$LED199" >"$D/g199a.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S199" = "$(tix_state "$F199")" ] && [ ! -f "$F199/facts/requirements/tickets/progress-current.md" ] && grep -q '99-ghost-none' "$D/g199a.log" && grep -q '不存在' "$D/g199a.log"; then
+    ok '负例 N-199a take missing blocker → exit 1 零写入且报文指名 blocker id（blocked_by 完整性门）'
+  else
+    bad '负例 N-199a take missing blocker → exit 1 零写入且报文指名 blocker id（blocked_by 完整性门）' "exit=$rc $(head -n 2 "$D/g199a.log" | tr '\n' '|')"
+  fi
+
+  sh "$F199/rules/implementation/scripts/ticket-ops.sh" "$F199" take --id 31-dep-pending --status in_progress --ledger-line "$LED199" >"$D/g199b.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S199" = "$(tix_state "$F199")" ] && [ ! -f "$F199/facts/requirements/tickets/progress-current.md" ] && grep -q '20-beta-second' "$D/g199b.log" && grep -q 'status=ready' "$D/g199b.log"; then
+    ok '负例 N-199b take 未 done blocker → exit 1 零写入且报文指名 blocker id 与其状态（blocked_by 完整性门）'
+  else
+    bad '负例 N-199b take 未 done blocker → exit 1 零写入且报文指名 blocker id 与其状态（blocked_by 完整性门）' "exit=$rc $(head -n 2 "$D/g199b.log" | tr '\n' '|')"
+  fi
+
+  sh "$F199/rules/implementation/scripts/ticket-ops.sh" "$F199" take --id 32-dep-ok --status in_progress --ledger-line "$LED199" >"$D/g199c.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "32-dep-ok", "status": "in_progress"' "$F199/facts/requirements/tickets/index.json"; then
+    ok '正例 P-199c blocker 全 done take → exit 0 且索引单写（blocked_by 完整性门零误伤）'
+  else
+    bad '正例 P-199c blocker 全 done take → exit 0 且索引单写（blocked_by 完整性门零误伤）' "exit=$rc $(head -n 2 "$D/g199c.log" | tr '\n' '|')"
+  fi
+
+  sh "$F199/rules/implementation/scripts/ticket-ops.sh" "$F199" flip --id 31-dep-pending --status in_progress --ledger-line "$LED199" >"$D/g199d.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "31-dep-pending", "status": "in_progress"' "$F199/facts/requirements/tickets/index.json"; then
+    ok '正例 P-199d 带未 done blocker 的票 flip → exit 0 且索引单写（门仅限 take 零误伤；非 done 翻转无 actual_time 照旧成功）'
+  else
+    bad '正例 P-199d 带未 done blocker 的票 flip → exit 0 且索引单写（门仅限 take 零误伤；非 done 翻转无 actual_time 照旧成功）' "exit=$rc $(head -n 2 "$D/g199d.log" | tr '\n' '|')"
+  fi
+
+  sh "$F199/rules/implementation/scripts/ticket-ops.sh" "$F199" flip --id 30-dep-ghost --status review_ready --ledger-line "$LED199" >"$D/g199e.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "30-dep-ghost", "status": "review_ready"' "$F199/facts/requirements/tickets/index.json"; then
+    ok '正例 P-199e task flip 至非 done 无 actual_time → exit 0 且索引单写（actual_time 仅 done 强制）'
+  else
+    bad '正例 P-199e task flip 至非 done 无 actual_time → exit 0 且索引单写（actual_time 仅 done 强制）' "exit=$rc $(head -n 2 "$D/g199e.log" | tr '\n' '|')"
+  fi
+
+  SNF199=$(tix_state "$F199")
+  sh "$F199/rules/implementation/scripts/ticket-ops.sh" "$F199" flip --id 32-dep-ok --status 'done' --ledger-line "$LED199" >"$D/g199f.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SNF199" = "$(tix_state "$F199")" ] && [ "$(tix_index_status "$F199/facts/requirements/tickets/index.json" 32-dep-ok)" = 'in_progress' ] && grep -q 'actual_time' "$D/g199f.log" && grep -q '32-dep-ok' "$D/g199f.log"; then
+    ok '负例 N-199f task flip 至 done 缺 actual_time → exit 1 零写入且指名票 id 与缺项（done 收口 fail-closed）'
+  else
+    bad '负例 N-199f task flip 至 done 缺 actual_time → exit 1 零写入且指名票 id 与缺项（done 收口 fail-closed）' "exit=$rc $(head -n 2 "$D/g199f.log" | tr '\n' '|')"
+  fi
+
+  sh "$F199/rules/implementation/scripts/ticket-ops.sh" "$F199" flip --id 41-req-gate --status in_progress --ledger-line "$LED199" >"$D/g199g.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "41-req-gate", "status": "in_progress"' "$F199/facts/requirements/tickets/index.json"; then
+    ok '正例 P-199g request 票 flip 至非 done 无 actual_time → exit 0 且索引单写（request 豁免维持）'
+  else
+    bad '正例 P-199g request 票 flip 至非 done 无 actual_time → exit 0 且索引单写（request 豁免维持）' "exit=$rc $(head -n 2 "$D/g199g.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'
