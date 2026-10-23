@@ -308,6 +308,10 @@ pm_layout_face references/templates
 pm_layout_face references/protocol
 pm_layout_face references/old-project.md
 pm_layout_face references/upgrade.md
+pm_layout_face references/adapters
+pm_layout_face references/README.md
+pm_layout_face references/templates/README.md
+pm_layout_face references/schemas/README.md
 
 # ==== layout-universe：modern 生成布局全集来源（检查 24②）====
 # 每行＝登记模板路径＋提取锚点：引擎按锚点从该模板提取路径行并集为「生成布局全集」，
@@ -330,3 +334,34 @@ pm_layout_legacy_file references/old-project.md '旧项目路径手册（pm_entr
 pm_layout_compat_exempt references/upgrade.md 22 '布局判别信号行：新旧两套完整面路径并陈为升级判别语义本体（不单凭路径定轨的显式兼容面），非失效引用'
 pm_layout_compat_exempt references/protocol/complexity-profile.md 12 '契约头 Input 历史出处注记：docs/development-process.md 与 development-process.md.tmpl 指涉为拆三前历史事实，非现行路径指引'
 pm_layout_compat_exempt references/protocol/complexity-profile.md 157 '历史来源与旧代际评审注记：docs/development-process.md 指涉为拆三前历史事实（出处考证），非现行路径指引'
+pm_layout_compat_exempt references/adapters/claude-code.md 13 '契约头 Input 历史出处注记：docs/research 调研报告为源仓拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/claude-code.md 19 '事实来源考证行：官方事实依据与取阅日期登记路径为拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/claude-code.md 74 '宿主映射双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
+pm_layout_compat_exempt references/adapters/codex.md 13 '契约头 Input 历史出处注记：docs/research 调研报告为源仓拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/codex.md 19 '事实来源考证行：官方事实依据与取阅日期登记路径为拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/codex.md 74 '宿主映射双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
+pm_layout_compat_exempt references/adapters/dsh.md 13 '契约头 Input 历史出处注记：docs/research 调研报告为源仓拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/dsh.md 19 '事实来源考证行：官方事实依据与取阅日期登记路径为拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/dsh.md 74 '宿主映射双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
+pm_layout_compat_exempt references/adapters/pi.md 13 '契约头 Input 历史出处注记：docs/research 调研报告为源仓拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/pi.md 19 '事实来源考证行：官方事实依据与取阅日期登记路径为拆分前旧布局存档（公开包外记录），非现行路径指引'
+pm_layout_compat_exempt references/adapters/pi.md 73 '宿主映射双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
+pm_layout_compat_exempt references/adapters/zcode.md 73 '宿主映射双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
+pm_layout_compat_exempt references/adapters/adapter-template.md 29 '结构基线双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
+pm_layout_compat_exempt references/README.md 19 'adapters 目录行宿主映射双布局契约语义：新布局缺省与旧项目兼容目录路径并陈（变量展开语义本体），非失效引用'
+pm_layout_compat_exempt references/schemas/README.md 16 'issue-index 登记行与 schema 正文 description 机器真相同款落位（schema 不在本票清理面）：改写将致 README 与 schema 单边漂移，存量读法注记保留'
+pm_layout_compat_exempt references/schemas/README.md 17 'ticket-record 登记行与 schema 正文 description 机器真相同款落位（schema 不在本票清理面）：改写将致 README 与 schema 单边漂移，存量读法注记保留'
+pm_layout_compat_exempt references/schemas/README.md 22 'request-index 退役 schema 存量读法语义本体（仅存量项目旧登记读法校验保留，冻结只读）：docs/requests 路径为该读法语义本体，非失效引用'
+pm_layout_compat_exempt references/templates/README.md 65 '取舍与过渡登记 I-04 历史条目（记录保护不改写）：历史记录曾以旧布局路径为 Emits 落位的当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 67 '取舍与过渡登记条件性模板收窄执行条目（2026-09-03，记录保护）：当时生成物规则权威命名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 68 '取舍与过渡登记 artifacts-yaml 契约头条目（2026-09-03，记录保护）：当时生成物落位路径历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 70 '取舍与过渡登记触发矩阵补 C2/C3 条目（2026-09-03，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 71 '取舍与过渡登记治理生成收敛增补条目（2026-09-04，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 72 '取舍与过渡登记分级交付道增补条目（2026-09-16，记录保护）：拆三前单件模板文件名与旧布局路径历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 73 '取舍与过渡登记两层协作回灌条目（2026-09-17，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 74 '取舍与过渡登记道脚本安装路径条目（2026-09-18，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 75 '取舍与过渡登记状态索引 schema 定稿条目（2026-09-18，记录保护）：旧落位与 specs 镜像当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 76 '取舍与过渡登记 progress/changes 退役删除条目（2026-09-18，记录保护）：条目自带按记录不改写纪律，旧布局路径为当时 seed 事实'
+pm_layout_compat_exempt references/templates/README.md 78 '取舍与过渡登记票/REQ schema 定稿条目（2026-09-18，记录保护）：旧落位当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 79 '取舍与过渡登记回灌核对义务条目（2026-09-20，记录保护）：源仓镜像拆三前文件名与节号当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 80 '取舍与过渡登记流程权威拆三条目（2026-10-01，记录保护）：拆三前单件模板文件名为条目主题历史事实，非现行指引'

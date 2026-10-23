@@ -26,7 +26,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - 独立执行体：官方 usage 文档自述不内置 sub-agents/MCP/permission popups 等；默认无独立执行体，降级路径为本文件强制项（§2.4）；扩展文档含 spawn sub-agents 示例，属扩展面可选能力，不视为核心能力。
 - 权限模型登记：官方 security 文档——以启动用户账户权限运行、无内置 sandbox、项目信任（project trust）控制项目本地资源加载且"not a sandbox"。
 - 许可证登记：工具 MIT（仓库 LICENSE 原文核验）；pi.dev 文档站点未标注独立许可证【待定注记】，详见调研报告 §3.3。
-- 规则权威始终在角色合同与 development-process；扩展的拦截/门控属宿主强制能力登记，不是门禁规则来源。
+- 规则权威始终在角色合同与 rules/ 流程规则三件；扩展的拦截/门控属宿主强制能力登记，不是门禁规则来源。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
 - 本文件规则块前缀 `R-PI-`；能力契约手册前缀 `R-CC-`。
 

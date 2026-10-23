@@ -34,7 +34,7 @@
 ## 契约头例外登记
 
 - JSON 不支持注释：schema JSON 文件以 `$id` / `title` / `description` 承载导航元数据（见 `run-record.schema.json` 与 `issue-index.schema.json` 的 description）；包完整性契约头检查（SPEC-06 §5 第 6 项）对本目录 JSON 文件按 `LICENSE` 同类例外处理。
-- run record 的生成条件与字段语义在目标项目 `development-process.md` §12.4（模板：`../templates/development-process.md.tmpl`）；本目录只承载机器格式，不承载流程规则。
-- 票状态索引的落点、写入机制与状态冲突裁决语义在 SPEC-02 §8 / R-02-014 与目标项目 `development-process.md` §5.2 触发矩阵、§12.5 道脚本承载注记（方案 C 终裁 T1/T2/T4/T10）；本目录只承载机器格式，不承载流程规则。
-- 票/REQ 本体的开票形态、文件命名与状态真相源语义在 SPEC-02 §5.1（R-02-013/R-02-014）与目标项目 `development-process.md` §5.2 开票形态注记（定稿，2026-09-18）；本目录只承载机器格式，不承载流程规则。
+- run record 的生成条件与字段语义在目标项目 `rules/project.md` §12.4（模板：`../templates/project.md.tmpl`）；本目录只承载机器格式，不承载流程规则。
+- 票状态索引的落点、写入机制与状态冲突裁决语义在 SPEC-02 §8 / R-02-014 与目标项目 `rules/project.md` §5.2 触发矩阵、§12.5 道脚本承载注记（方案 C 终裁 T1/T2/T4/T10）；本目录只承载机器格式，不承载流程规则。
+- 票/REQ 本体的开票形态、文件命名与状态真相源语义在 SPEC-02 §5.1（R-02-013/R-02-014）与目标项目 `rules/project.md` §5.2 开票形态注记（定稿，2026-09-18）；本目录只承载机器格式，不承载流程规则。
 - REQ 状态索引自退役（2026-10-14）：新项目不再生成需求登记册，新需求走卡片（任务票）；本 schema 仅为存量项目旧登记的读法校验保留，冻结只读。

@@ -25,7 +25,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 - 阶段表未列 read：edit/write/inspect 组合已蕴含所需读取面；平台无关角色合同把 read 显式列入 `required_capabilities` 是显式化，不是扩权。
 - `required_capabilities` 取值限于 §2.1 清单；核心协议与角色合同不得写死平台工具名或 frontmatter 方言。
 - 无独立 subagent 执行体时依序走降级路径 a/b/c，记录 `independent_review: unavailable`；同一执行体自检不得标 pass；三条路径均不可用停在 review_ready。
-- 分级交付道快道（C0，development-process §6 R-DP-031）：用户即 Review 车道内降级路径 (c) 升格为合法审查方式；微任务道能力束 = Implementation 束 + vcs-write（经道脚本行使），pass 证据 = 机械门禁输出。
+- 分级交付道快道（C0，rules/assessment.md §6 R-DP-031）：用户即 Review 车道内降级路径 (c) 升格为合法审查方式；微任务道能力束 = Implementation 束 + vcs-write（经道脚本行使），pass 证据 = 机械门禁输出。
 - capability profile 分 `minimum` / `full` 两档：minimum 为读取阶梯 L0-L2 最小集（定稿清单见 `read-policy.md` §2.4），full 按任务型范围执行并按需加载至 L4。
 - 档位只描述治理资源加载范围，不是宿主性能、可靠性或功能承诺。
 - platform 枚举已知集合 `neutral` / `zcode` / `claude-code` / `codex` / `pi` / `dsh`；新增宿主值先在 artifacts-yaml 模板 platform 注释区登记，再建 `adapters/<host>.md` 映射文件。
@@ -62,7 +62,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 
 注：本表未列 read——edit/write/inspect 组合已蕴含所需读取面（SPEC-05 §7）；平台无关角色合同可把 read 显式列入 `required_capabilities`，属显式化而非扩权，阶段表基线不变。
 
-微任务道能力束注记（分级交付道，development-process §6 R-DP-031）：准入判据内的微任务道由单执行体全程完成，能力束 = Implementation 束（inspect、search、edit、write、execute）+ vcs-write。vcs-write 经道脚本行使：调用权在主 agent，微执行体不组装提交合同、不自行执行 git 写；快道收尾（门禁重跑、白名单提交、记录翻转、账本落行）由道脚本按提交合同执行（development-process §12.5 道脚本承载注记），脚本权限边界 = 提交合同白名单。
+微任务道能力束注记（分级交付道，rules/assessment.md §6 R-DP-031）：准入判据内的微任务道由单执行体全程完成，能力束 = Implementation 束（inspect、search、edit、write、execute）+ vcs-write。vcs-write 经道脚本行使：调用权在主 agent，微执行体不组装提交合同、不自行执行 git 写；快道收尾（门禁重跑、白名单提交、记录翻转、账本落行）由道脚本按提交合同执行（rules/project.md §12.5 道脚本承载注记），脚本权限边界 = 提交合同白名单。
 
 #### R-CC-001 能力声明 `MUST`
 
@@ -88,7 +88,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 
 衔接（run record schema 定稿）：审查记录本体落任务票 `## Independent Review Checkpoint`（Review 唯一写入目标）；run record 的 `independent_review` 只承载机器可检索指针，不承载审查本体。
 
-车道衔接注记（分级交付道，development-process §6 R-DP-031）：用户即 Review 车道（C0 且含语义判断）内，自降级路径 (c)（用户本人执行 Review）升格为该车道的合法审查方式——用户在主对话对实际 diff 裁决，裁决原文、时间与 diff 摘要由道脚本落盘为 User Review Checkpoint；微任务道（C0 且全机械可验）内，pass 证据 = 道脚本机械门禁输出而非审查结论——"同一执行体自检不得标 pass"的禁令按车道语义重述为：门禁重跑输出可作 pass 证据，审查结论仍不得由微执行体自签；C1+ 任务降级路径与禁令不变。
+车道衔接注记（分级交付道，rules/assessment.md §6 R-DP-031）：用户即 Review 车道（C0 且含语义判断）内，自降级路径 (c)（用户本人执行 Review）升格为该车道的合法审查方式——用户在主对话对实际 diff 裁决，裁决原文、时间与 diff 摘要由道脚本落盘为 User Review Checkpoint；微任务道（C0 且全机械可验）内，pass 证据 = 道脚本机械门禁输出而非审查结论——"同一执行体自检不得标 pass"的禁令按车道语义重述为：门禁重跑输出可作 pass 证据，审查结论仍不得由微执行体自签；C1+ 任务降级路径与禁令不变。
 
 ### 2.4 capability profile 档位（定稿）
 
@@ -130,7 +130,7 @@ platform 取值描述产物或文件的平台绑定面：`neutral` 表示平台�
 
 ## 3. 解释与例外
 
-- 本文件位于 adapters/，承载能力契约与档位语义的包内登记；能力语义的规格上游是 SPEC-05，档位加载范围的精确清单权威是 `read-policy.md` §2.4——两者都不是本文件的派生物；核心流程权威（development-process、SPEC-04）不依赖本文件。
+- 本文件位于 adapters/，承载能力契约与档位语义的包内登记；能力语义的规格上游是 SPEC-05，档位加载范围的精确清单权威是 `read-policy.md` §2.4——两者都不是本文件的派生物；核心流程权威（rules/ 流程规则三件、SPEC-04）不依赖本文件。
 - 宿主映射文件（`zcode.md` 等）单向依赖本文件；本文件不引用任何宿主映射的工具对照内容。
 - 能力表未列 read 的蕴含说明（SPEC-05 §7）：Implementation 的 edit/write/inspect、Review 的 inspect 已蕴含所需读取面；角色合同显式声明 read 是把蕴含面写明，不改变 §2.2 阶段表基线。
 - 宿主本地适配层实例（如目标项目内 `.zcode/agents/` 目录）由宿主映射文件约定生成；其与 `<role-contract-dir>/` 角色合同冲突时以合同为准（SPEC-05 R-05-003）。

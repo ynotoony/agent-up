@@ -26,7 +26,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - 独立执行体：官方 sub-agents 文档登记 `.claude/agents/<name>.md` 子代理定义（frontmatter `name`/`description`/`tools`/`model`）——支持；不可用时按 §2.4 降级。
 - 权限模型登记：settings 分层文件 + `permissions.allow`/`ask`/`deny` 与 `permissions.defaultMode`；deny/ask 立即生效，allow 在目录受信后生效（官方 settings 文档）。
 - 许可证登记：工具为专有（已核验 2026-09-06）——仓库无开源 LICENSE 文件（`LICENSE` raw 路径 404），存在 `LICENSE.md` 专有声明（© Anthropic PBC，Use is subject to Anthropic's Commercial Terms of Service，raw 原文核验），非开源；官方文档未标注独立文档许可证，详见调研报告 §3.1。
-- 规则权威始终在角色合同与 development-process；hooks 属宿主强制能力登记，不是门禁规则来源。
+- 规则权威始终在角色合同与 rules/ 流程规则三件；hooks 属宿主强制能力登记，不是门禁规则来源。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
 - 无独立 subagent 执行体的降级路径见 capability-contract §2.3；本文件不承载流程规则。
 - 本文件规则块前缀 `R-CL-`；能力契约手册前缀 `R-CC-`。

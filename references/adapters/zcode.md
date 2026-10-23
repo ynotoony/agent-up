@@ -24,7 +24,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - 原宿主 frontmatter（name/color/tools 与描述内工具列举）自角色模板移入本文件（SPEC-06 §3 R-06-002 平台绑定出模板）。
 - 适配层与角色合同冲突 → 以合同为准，修正本文件并报告（SPEC-05 R-05-003）。
 - `required_capabilities` → 宿主工具清单按 §2.2 对照表逐能力展开；角色合同能力声明变化后须同步对照表与方言模板。
-- 运行时入口的 name/description 承载派发摘要；规则权威始终在角色合同与 development-process。
+- 运行时入口的 name/description 承载派发摘要；规则权威始终在角色合同与 rules/ 流程规则三件。
 - 九能力对照完整覆盖：inspect/search/read（盘点/检索/读取）、edit/write（修改/创建）、execute 与 readonly-execute（命令执行，只读性由调用方约束）、vcs-read/vcs-write（版本库只读/写命令）。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
 - 本宿主支持独立 subagent 执行体，独立 Review 默认由独立 subagent 执行；不支持或被裁剪时的降级路径见 §2.4 与 capability-contract §2.3。
