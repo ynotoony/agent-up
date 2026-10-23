@@ -9,7 +9,9 @@ fi
 
 # ============================================================
 # suite: progress（票 35 场景沉淀：生成/--check/篡改检出/fail-closed；票 113 波④夹具
-# 索引落 facts/requirements/tickets/，checkpoint_ref 数据值按 R25 翻 facts/requirements/runs/）
+# 索引落 facts/requirements/tickets/，checkpoint_ref 数据值按 R25 翻 facts/requirements/runs/；
+# 票 206 两布局（agent-up/scripts／rules/implementation/scripts）裸跑缺省根推导正例
+# ＋非标落位 fail-closed 负例）
 # ============================================================
 
 suite_progress() {
@@ -105,6 +107,52 @@ EOF
     ok '条目行缺必备字段（updated_at）→ exit 2'
   else
     bad '条目行缺必备字段（updated_at）→ exit 2' "exit=$rc"
+  fi
+
+  # ---- 票 206：两布局裸跑缺省根推导（真实脚本复制进临时仓，无参生成＋--check；
+  #      展开一律 ${} 花括号——全角标点紧邻时 bash UTF-8 locale 会把后续字节并入变量名）----
+  for prog206_layout in 'agent-up/scripts' 'rules/implementation/scripts'; do
+    prog206_root="${T}/prog206-$(printf '%s' "${prog206_layout}" | tr '/' '-')"
+    mkdir -p "${prog206_root}/${prog206_layout}" "${prog206_root}/facts/requirements/tickets"
+    cp "${SCRIPT_DIR}/generate-progress.sh" "${SCRIPT_DIR}/common-helpers.sh" "${SCRIPT_DIR}/json-helpers.sh" "${prog206_root}/${prog206_layout}/"
+    cat > "${prog206_root}/facts/requirements/tickets/index.json" <<'EOF'
+{
+  "issues": [
+    {"id": "01-alfa-only", "status": "ready", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-23T00:00"}
+  ]
+}
+EOF
+    sh "${prog206_root}/${prog206_layout}/generate-progress.sh" >"${prog206_root}/gen.log" 2>&1
+    prog206_rc=$?
+    if [ "${prog206_rc}" -eq 0 ]; then
+      ok "裸跑生成 exit 0（落位 ${prog206_layout}，无参缺省根推导）"
+    else
+      bad "裸跑生成 exit 0（落位 ${prog206_layout}，无参缺省根推导）" "exit=${prog206_rc} $(head -n 1 "${prog206_root}/gen.log")"
+    fi
+    if [ -f "${prog206_root}/facts/requirements/tickets/progress-current.md" ]; then
+      ok "投影落盘于推导根（落位 ${prog206_layout}）"
+    else
+      bad "投影落盘于推导根（落位 ${prog206_layout}）" "progress-current.md 未出现在夹具仓根"
+    fi
+    sh "${prog206_root}/${prog206_layout}/generate-progress.sh" --check >"${prog206_root}/chk.log" 2>&1
+    prog206_rc=$?
+    if [ "${prog206_rc}" -eq 0 ]; then
+      ok "裸跑 --check exit 0（落位 ${prog206_layout}）"
+    else
+      bad "裸跑 --check exit 0（落位 ${prog206_layout}）" "exit=${prog206_rc} $(head -n 1 "${prog206_root}/chk.log")"
+    fi
+  done
+
+  # ---- 票 206：非标落位裸跑，推导根无索引 → exit 2（fail-closed 语义保持）----
+  prog206_lonely="${T}/prog206-lonely/nested/deep"
+  mkdir -p "${prog206_lonely}"
+  cp "${SCRIPT_DIR}/generate-progress.sh" "${SCRIPT_DIR}/common-helpers.sh" "${SCRIPT_DIR}/json-helpers.sh" "${prog206_lonely}/"
+  sh "${prog206_lonely}/generate-progress.sh" >"${T}/prog206-lonely/err.log" 2>&1
+  prog206_rc=$?
+  if [ "${prog206_rc}" -eq 2 ]; then
+    ok '非标落位裸跑索引缺失 → exit 2（fail-closed 不写投影）'
+  else
+    bad '非标落位裸跑索引缺失 → exit 2（fail-closed 不写投影）' "exit=${prog206_rc} $(head -n 1 "${T}/prog206-lonely/err.log")"
   fi
 
   suite_summary 'progress'

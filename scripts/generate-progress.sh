@@ -1,7 +1,9 @@
 #!/bin/sh
 # Input: facts/requirements/tickets/index.json（票状态索引真相源，单文件一条目一行，票 33 终裁 T2）
 # projection-version: 1（投影列形态；机制版本注记）
-#        与可选参数：--check 开关、仓库根目录（缺省取脚本所在目录的上一级）。
+#        与可选参数：--check 开关、仓库根目录（缺省按脚本落位分派推导，票 206——
+#        agent-up/scripts/ 两层或 rules/implementation/scripts/ 三层布局可正确推导，
+#        其余落位 fail-closed 报错并指引显式传参）。
 # Output: facts/requirements/tickets/progress-current.md 现役状态投影——Derived 四标注头部（generated_from、
 #         生成时间、覆盖范围、失效条件）＋每票一行 `| id | status | checkpoint_ref | updated_at |`
 #         状态表，按 id 升序；--check 模式为 dry-run：生成结果与既有投影各自规范化
@@ -23,7 +25,8 @@ set -f  # 关闭文件名展开：脚本不依赖 glob
 
 # Determine script directory and repo root for helper loading
 _script_dir=$(cd "$(dirname "$0")" && pwd)
-# Repo root calculation: agent-up/scripts/ → ../.. ; rules/implementation/scripts/ → ../../..
+# Repo root calculation（票 206：同一推导兼作缺省 repo-root，消落位深度敏感）:
+# agent-up/scripts/ → ../.. ; rules/implementation/scripts/ → ../../..
 case "$_script_dir" in
   */agent-up/scripts) _repo_root=$(cd "$_script_dir/../.." && pwd) ;;
   */rules/implementation/scripts) _repo_root=$(cd "$_script_dir/../../.." && pwd) ;;
@@ -58,7 +61,8 @@ usage() {
 参数:
   --check       dry-run 模式：与既有 facts/requirements/tickets/progress-current.md 比对（规范化 generated_at
                 行后逐字节比对），一致 exit 0，不一致 exit 1；不写任何文件。
-  repo-root     仓库根目录；缺省取脚本所在目录的上一级。
+  repo-root     仓库根目录；缺省按脚本落位分派推导（agent-up/scripts/ 与
+                rules/implementation/scripts/ 两布局可正确推导，其余落位请显式传入）。
   -h / --help   打印本用法。
 退出码: 0 生成成功或 --check 一致；1 --check 不一致（投影 stale）或既有投影缺失；
         2 用法错误、索引文件缺失/不可读或条目行不合预期（fail-closed，不写投影）。
@@ -78,13 +82,15 @@ for arg in "$@"; do
 done
 
 if [ -z "$repo_root" ]; then
-  repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/../../.." && pwd)
+  # 缺省根＝落位分派推导（票 206 修复：原硬编码 ../../.. 仅适配 rules/implementation/scripts/
+  # 三层落位，agent-up/scripts/ 两层落位被推到仓库根上一级，裸跑 fail-closed 误拒）。
+  repo_root=$_repo_root
 fi
 
 index_file="$repo_root/$issues_index_rel"
 out_file="$repo_root/$progress_current_rel"
 
-[ -f "$index_file" ] || die2 "索引文件不存在: ${index_file}（现役状态投影真相源缺失，fail-closed 不生成）"
+[ -f "$index_file" ] || die2 "索引文件不存在: ${index_file}（现役状态投影真相源缺失，fail-closed 不生成；若脚本落位非上述两布局，请显式传入仓库根参数，用法见 -h）"
 [ -r "$index_file" ] || die2 "索引文件不可读: $index_file"
 
 # 条目提取依赖一条目一行排版（T2）：行含 `"id": "<数字开头 id>"` 锚点；
