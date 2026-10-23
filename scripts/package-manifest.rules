@@ -231,11 +231,15 @@ pm_mirror ticket-grade.sh mirror
 pm_mirror lane-commit.sh mirror
 pm_mirror check-gates.sh mirror
 pm_mirror upgrade-check.sh mirror
+pm_mirror dp-load-rules.sh mirror
+pm_mirror check-stale-claims.sh mirror
+pm_mirror worktree-add.sh mirror
+# 解析器单源化收敛：仓侧三份内嵌解析副本收编为同目录加载 dp-load-rules.sh（仓侧落位
+# 与包侧 cmp 零差），两消费件复册 mirror、共享解析库新册 mirror；check-payload-boundary.sh
+# 为镜像预册——仓侧同名件在场、包侧同名件落位前由检查 13 包侧缺件分支跳过不计数
+# （逐对 cmp 自包侧落位起自动生效），repo-only 撤册＝包侧收录方向已决。
+pm_mirror check-payload-boundary.sh mirror
 # -- package-only：包侧唯一维护权威（仓侧同名实例待升级流程同步的过渡态） --
-# 解析器单源化过渡态：包侧两消费件改写为 source 共享解析库 dp-load-rules.sh，与仓侧
-# 旧版内嵌解析器副本不再字节同构；仓侧同名实例为待升级流程收敛的过渡态（不判差异）。
-pm_mirror check-stale-claims.sh package-only
-pm_mirror worktree-add.sh package-only
 pm_mirror check-dispatch-contract.sh package-only
 pm_mirror test-checkpoint-recovery.sh package-only
 pm_mirror verify-contract.sh package-only
@@ -243,7 +247,6 @@ pm_mirror workflow-executor.sh package-only
 # -- repo-only：仅仓侧存在，包侧明确不收录 --
 pm_mirror merge-ticket.sh repo-only
 pm_mirror check-derived-freshness.sh repo-only
-pm_mirror check-payload-boundary.sh repo-only
 pm_mirror check-role-permissions.sh repo-only
 
 # ==== capability-primitives：能力基元名单与检查目标（检查 14）====

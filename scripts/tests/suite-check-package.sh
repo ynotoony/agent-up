@@ -27,7 +27,7 @@ fi
 # 扩五项（AGENTS.md/docs//rules//facts//.zcode/）；负例 N12/N13/N14/N15/N16/N17 注入目标
 # 改新三件索引宿主（assessment/discipline/project.md.tmpl）逐负例独立重推）；
 # delivery-rules.tmpl 模板入册后检查 5 计数 15→16（预期串三处独立重建，2026-10-09 用户；票 141 requests 模板退役 16→15）
-# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）；票 190 检查 13 改跨树同名脚本所有权三分类（pm_mirror 两参数 mirror/package-only/repo-only：mirror 类 11 对逐对 cmp＋仓侧缺同名件报登记悬空；package-only 类 4 件不 cmp——仓侧同名实例属待升级流程同步过渡态不判差异；repo-only 类 4 件断言包内侧缺席；源仓语境门控＝包根父目录两落位目录任一在场，消费项目整项静默跳过）＋新增检查 21 references 树成员闭合与导航（全树文件 ⊆ entry-files∪templates、references/README.md 目录清单一级投影双向、包内 *.md 行内链接目标存在；预期串计数 20→21 翻值、检查 1 计数 18→35、检查 13 比对 9→11 对、正例补检查 21 PASS 行两形态；补负例 N28 references 子树未登记新件/N29 已登记成员删除缺件/N30 坏相对链接/N31 一级目录未入 README 投影/N32 mirror 登记悬空/N33 repo-only 件投放包内＋正例 P1 package-only 过渡态临时夹具（全 mktemp 源仓语境）；N16 注入项号检查 21→22 随总数同步）；票 192 解析器单源化随票修（新增 pm_script dp-load-rules.sh 与 pm_entry references/delivery-rules.md → 检查 1 计数 35→36、检查 8/19 计数 27→28、检查 20 一级 30→31；pm_mirror 两消费件 mirror 翻 package-only（仓侧旧版内嵌解析器副本为待升级流程收敛过渡态）→ 检查 13 比对 11→9 对、三分类夹具组清单随动；检查 21 成员 47→48）；票 193 账本行合同随票修（新增 pm_entry references/schemas/ledger-row.schema.json → 检查 1 计数 36→37、检查 21 成员 48→49）；票 195 规则块格式校验＋索引序言收敛随票修（新增检查 22 规则块九字段格式——Level 受控四值收尾/七字段齐备/块 ID 全局唯一，全量扫描含「解释与例外」节，负例缺字段/非法 Level/重复 ID 各指名字段或 ID；新增检查 23 索引节序言短指针——三宿主 §16 序言逐字等于 governance-format.md R-GF-011 定稿原句，「」窄锚点提取零句子硬编码，三模板 §16 长序言收敛为短指针；预期串计数 21→23 翻值、正例补检查 22/23 PASS 行两形态、N16 注入项号检查 22→24 随总数同步；补负例 N34 缺字段/N35 非法 Level/N36 重复 ID/N37 序言多行散文/N38 第二权威/N39 缺指针＋正例 P2 三宿主序言逐字断言；返工轮补负例 N40 权威文件缺失（检查 23 缺权威分支 n_hosts 未初始化——set -u 崩溃且 EXIT trap 吞状态 exit 0 假绿的回归钉死：断言 exit 1＋FAIL: 23 指名＋汇总行出现＋零 unbound variable，n_hosts 提前至分支外统一初始化）；票 196 Triage 模板入册随票修（新增 pm_template agents-triage.md.tmpl＋pm_shortcode RT 与 discipline.md.tmpl §16 R-RT-001～002 索引行 → 金样串四计数独立重建：检查 5 计数 15→16、检查 15 索引/全集 54→56、检查 21 成员 49→50、检查 22 块 93→95，四个金样块×两形态同步）；票 197 检查 23→24 增布局引用分类与失效检测（modern/legacy/compatibility 三分类＋面内 .tmpl modern 相对链接全集解析，与检查 21③ 包内相对口径正交互补；预期串计数 23→24 翻值、正例补检查 24 PASS 行两形态、N16 注入项号检查 24→25 随总数同步；补正例 P3 modern 链接/P4 legacy old-project/P5 显式兼容豁免＋非目标文件哨兵 cmp 与负例 N41 modern 坏链/N42 modern-stale-reference/N43 豁免不外溢非全局替换断言）
+# 六条包改进拍板 issue 2 落地）；票 118 增 R-DP-038 后检查 15 索引 52→53（预期串三处独立重建，同批 issue 3/4 落地）；票 121 upgrade-check.sh 入册后检查 8 清单 16→17 与检查 19 mode 16→17（预期串独立重建，升级审计拍板落地）；票 123 检查 13 增新布局镜像探测（源仓倒挂拦截）后真包根语境产出 6 对比对行，金样串补该行（预期独立重建）；票 149 检查 19→20 增包闭合性与符号链接防护（scripts 一级闭合＋symlink 防外指＋登记面别名禁令；预期串计数 19→20 翻值、正例补检查 20 PASS 行、N16 注入项号检查 20→21；补负例 N24 未登记额外件/N25 symlink 混合面/N26 非 git 语境检查 20 照常运行）；票 190 检查 13 改跨树同名脚本所有权三分类（pm_mirror 两参数 mirror/package-only/repo-only：mirror 类 11 对逐对 cmp＋仓侧缺同名件报登记悬空；package-only 类 4 件不 cmp——仓侧同名实例属待升级流程同步过渡态不判差异；repo-only 类 4 件断言包内侧缺席；源仓语境门控＝包根父目录两落位目录任一在场，消费项目整项静默跳过）＋新增检查 21 references 树成员闭合与导航（全树文件 ⊆ entry-files∪templates、references/README.md 目录清单一级投影双向、包内 *.md 行内链接目标存在；预期串计数 20→21 翻值、检查 1 计数 18→35、检查 13 比对 9→11 对、正例补检查 21 PASS 行两形态；补负例 N28 references 子树未登记新件/N29 已登记成员删除缺件/N30 坏相对链接/N31 一级目录未入 README 投影/N32 mirror 登记悬空/N33 repo-only 件投放包内＋正例 P1 package-only 过渡态临时夹具（全 mktemp 源仓语境）；N16 注入项号检查 21→22 随总数同步）；票 192 解析器单源化随票修（新增 pm_script dp-load-rules.sh 与 pm_entry references/delivery-rules.md → 检查 1 计数 35→36、检查 8/19 计数 27→28、检查 20 一级 30→31；pm_mirror 两消费件 mirror 翻 package-only（仓侧旧版内嵌解析器副本为待升级流程收敛过渡态）→ 检查 13 比对 11→9 对、三分类夹具组清单随动；检查 21 成员 47→48）；票 193 账本行合同随票修（新增 pm_entry references/schemas/ledger-row.schema.json → 检查 1 计数 36→37、检查 21 成员 48→49）；票 195 规则块格式校验＋索引序言收敛随票修（新增检查 22 规则块九字段格式——Level 受控四值收尾/七字段齐备/块 ID 全局唯一，全量扫描含「解释与例外」节，负例缺字段/非法 Level/重复 ID 各指名字段或 ID；新增检查 23 索引节序言短指针——三宿主 §16 序言逐字等于 governance-format.md R-GF-011 定稿原句，「」窄锚点提取零句子硬编码，三模板 §16 长序言收敛为短指针；预期串计数 21→23 翻值、正例补检查 22/23 PASS 行两形态、N16 注入项号检查 22→24 随总数同步；补负例 N34 缺字段/N35 非法 Level/N36 重复 ID/N37 序言多行散文/N38 第二权威/N39 缺指针＋正例 P2 三宿主序言逐字断言；返工轮补负例 N40 权威文件缺失（检查 23 缺权威分支 n_hosts 未初始化——set -u 崩溃且 EXIT trap 吞状态 exit 0 假绿的回归钉死：断言 exit 1＋FAIL: 23 指名＋汇总行出现＋零 unbound variable，n_hosts 提前至分支外统一初始化）；票 196 Triage 模板入册随票修（新增 pm_template agents-triage.md.tmpl＋pm_shortcode RT 与 discipline.md.tmpl §16 R-RT-001～002 索引行 → 金样串四计数独立重建：检查 5 计数 15→16、检查 15 索引/全集 54→56、检查 21 成员 49→50、检查 22 块 93→95，四个金样块×两形态同步）；票 197 检查 23→24 增布局引用分类与失效检测（modern/legacy/compatibility 三分类＋面内 .tmpl modern 相对链接全集解析，与检查 21③ 包内相对口径正交互补；预期串计数 23→24 翻值、正例补检查 24 PASS 行两形态、N16 注入项号检查 24→25 随总数同步；补正例 P3 modern 链接/P4 legacy old-project/P5 显式兼容豁免＋非目标文件哨兵 cmp 与负例 N41 modern 坏链/N42 modern-stale-reference/N43 豁免不外溢非全局替换断言）；票 203 仓侧解析副本单源化收敛随票修（pm_mirror 两消费件复册 mirror＋dp-load-rules/check-payload-boundary 新册 mirror、package-only 两行撤册 → 检查 13 比对 9→12 对——check-payload-boundary 镜像预册、包侧同名件落位前由引擎包侧缺件分支跳过不计数，逐对 cmp 自包侧落位起自动生效；金样两形态同步；N7/N32/P1 夹具仓侧复制清单随 mirror 类 12 对随动、repo-only 四件退三件）
 # ============================================================
 
 suite_check_package() {
@@ -81,7 +81,7 @@ PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 9 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 12 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
@@ -109,7 +109,7 @@ PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 9 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 12 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个）
 PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
@@ -256,12 +256,14 @@ EOF
   fi
 
   # 票 58 检查 13 负例 N7：仓根 scripts/ 同名件单处篡改 → FAIL: 13 指名文件。
-  # 票 190：夹具仓根复制清单 mirror 类全十一对件（仅复制部分会令检查 13 对缺件报
-  # 镜像登记悬空、噪声淹没篡改信号——十一件全在位才只报篡改单点）＋仓侧四件 repo-only
+  # 票 190：夹具仓根复制清单 mirror 类全集（仅复制部分会令检查 13 对缺件报
+  # 镜像登记悬空、噪声淹没篡改信号——全集在位才只报篡改单点）＋仓侧 repo-only
   # 落位（消费项目语境无仓侧目录时 repo-only 行报登记悬空，不影响本负例指名断言）。
+  # 票 203：mirror 类 9→12 对（dp-load-rules/check-stale-claims/worktree-add 三件入
+  # 清单；check-payload-boundary 镜像预册、包侧落位前检查 13 不计数不查仓侧）。
   mkdir -p "$D/mrepo/scripts" "$D/mrepo/rules/implementation/scripts"
   cp -R "$PKG_ROOT" "$D/mrepo/agent-up"
-  for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh; do
+  for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh; do
     cp "$PKG_ROOT/scripts/$m" "$D/mrepo/scripts/$m"
   done
   if [ -d "$REPO_SIDE" ]; then
@@ -635,10 +637,11 @@ EOF
   # 消费项目语境该目录不存在，整组显式 SKIP 不计数，覆盖归源仓；全部夹具 mktemp 纪律）。
   if [ -d "$REPO_SIDE" ]; then
     # 负例 N32：mirror 登记悬空（仓侧少复制一件 health-summary.sh）→ exit 1 且 FAIL: 13
-    # 指名悬空件（mirror 类登记须两落位在场，缺件不得静默）。
+    # 指名悬空件（mirror 类登记须两落位在场，缺件不得静默；票 203 复制清单随 mirror
+    # 类 12 对随动——check-payload-boundary 包侧缺件不计数不入清单）。
     mkdir -p "$D/mrepo2/scripts" "$D/mrepo2/rules/implementation/scripts"
     cp -R "$PKG_ROOT" "$D/mrepo2/agent-up"
-    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh; do
+    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/mrepo2/scripts/$m"
     done
     for m in merge-ticket.sh check-derived-freshness.sh check-payload-boundary.sh check-role-permissions.sh; do
@@ -665,24 +668,25 @@ EOF
       bad '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）' "exit=$rc"
     fi
 
-    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：9 对 mirror 全 cmp＋
-    # 4 件 package-only 仓侧同名实例在场不判差异＋4 件 repo-only 包侧缺席）→ exit 0 且
-    # PASS: 13 比对 9 对（三分类登记与两侧实物全恰，含检查 21 同过）。
+    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：12 对 mirror 全 cmp＋
+    # 4 件 package-only 不判差异＋3 件 repo-only 包侧缺席；票 203 后 check-payload-boundary
+    # 为镜像预册——包侧落位前检查 13 包侧缺件分支跳过不计数）→ exit 0 且
+    # PASS: 13 比对 12 对（三分类登记与两侧实物全恰，含检查 21 同过）。
     mkdir -p "$D/porepo/scripts" "$D/porepo/rules/implementation/scripts"
     cp -R "$PKG_ROOT" "$D/porepo/agent-up"
-    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh; do
+    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/porepo/scripts/$m"
     done
-    for m in merge-ticket.sh check-derived-freshness.sh check-payload-boundary.sh check-role-permissions.sh; do
+    for m in merge-ticket.sh check-derived-freshness.sh check-role-permissions.sh; do
       cp "$REPO_SIDE/$m" "$D/porepo/rules/implementation/scripts/$m"
     done
     sh "$D/porepo/agent-up/scripts/check-package.sh" "$D/porepo/agent-up" >"$D/act.p1" 2>&1
     rc=$?
-    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 9 对）' "$D/act.p1" \
+    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 12 对）' "$D/act.p1" \
       && grep -q '^PASS: 21 references 树成员闭合与导航' "$D/act.p1"; then
-      ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 9 对'
+      ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 12 对'
     else
-      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 9 对' "exit=$rc"
+      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 12 对' "exit=$rc"
     fi
   else
     printf 'SKIP  [check-package] 仓侧 rules/implementation/scripts 不在场（消费项目语境）——检查 13 所有权三分类夹具组跳过，覆盖归源仓\n'
