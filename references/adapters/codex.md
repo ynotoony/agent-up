@@ -53,7 +53,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - **Action**：按本节对照表把 `required_capabilities` 展开为宿主工具口径（官方 config-advanced 文档登记的内部工具 `shell` 与 `apply_patch`，取阅 2026-09-06）；按 §2.3 方言模板生成入口配置；角色合同能力声明变化后同步对照表与模板。
 - **Forbidden**：对照表出现能力清单之外的工具语义；在角色合同内写平台工具名；宿主缺工具等价物时虚报兼容。
 - **Stop if**：某能力在宿主无等价工具 → 按 capability-contract R-CC-001 Stop if 走降级路径或明确阻塞，不降低阶段门禁。
-- **Evidence**：对照表覆盖九能力基元；入口配置与角色合同能力声明一一对应。
+- **Evidence**：对照表覆盖九能力基元且 readonly-execute 行含 `readonly_enforcement` 等级声明；入口配置与角色合同能力声明一一对应。
 - **Owner**：Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）。
 - **Authority**：SPEC-05 §2/§4（R-05-001、R-05-003）。
 
@@ -65,7 +65,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | edit | apply_patch | 补丁式修改既有文件 |
 | write | apply_patch | 补丁式创建文件 |
 | execute | shell | 可变更工作区状态的命令；受 `sandbox_mode` 与 `approval_policy` 约束 |
-| readonly-execute | shell | 仅只读命令；对应 `sandbox_mode = "read-only"` 口径 |
+| readonly-execute | shell | 仅只读命令；readonly_enforcement: runner-enforced（`sandbox_mode = "read-only"` 运行器沙箱口径，越界写被执行器拒绝；官方 security/config 文档登记，取阅 2026-09-06） |
 | vcs-read | shell | git status/log/diff 等只读命令 |
 | vcs-write | shell | git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力） |
 

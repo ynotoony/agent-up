@@ -53,7 +53,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - **Action**：按本节对照表把 `required_capabilities` 展开为宿主工具口径（取阅页可核验面：sdk-minimal 双工具栈——持久 bash/pwsh 与 str_replace_editor，取阅 2026-09-06）；按 §2.3 形态生成角色承载；角色合同能力声明变化后同步对照表。全量 profile 工具 roster 未核验【待定】，不得以本表冒充全量清单。
 - **Forbidden**：对照表出现能力清单之外的工具语义；在角色合同内写平台工具名；宿主缺工具等价物时虚报兼容。
 - **Stop if**：某能力在宿主无等价工具 → 按 capability-contract R-CC-001 Stop if 走降级路径或明确阻塞，不降低阶段门禁。
-- **Evidence**：对照表覆盖九能力基元且注明核验口径；角色承载与角色合同能力声明一一对应。
+- **Evidence**：对照表覆盖九能力基元、注明核验口径且 readonly-execute 行含 `readonly_enforcement` 等级声明；角色承载与角色合同能力声明一一对应。
 - **Owner**：Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）。
 - **Authority**：SPEC-05 §2/§4（R-05-001、R-05-003）。
 
@@ -65,7 +65,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | edit | str_replace_editor | 补丁式修改（sdk-minimal 口径核验） |
 | write | str_replace_editor | 补丁式创建（sdk-minimal 口径核验） |
 | execute | bash | 持久 shell（Linux/macOS；Windows 为 pwsh），300 秒超时、单 owner 终端；受 approval/policy seam 约束（profile 依赖） |
-| readonly-execute | bash | 仅只读命令；只读性由调用方约束，profile 默认不强制 |
+| readonly-execute | bash | 仅只读命令；readonly_enforcement: pending（只读性由调用方约束；approval/sandbox seam 为 profile 依赖配置面，dsh-base 与 sdk-minimal 档位口径未全量核验【待定：全量 roster】，核验后落定四级之一，落定前按 policy-only 从紧处理） |
 | vcs-read | bash | git status/log/diff 等只读命令 |
 | vcs-write | bash | git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力） |
 

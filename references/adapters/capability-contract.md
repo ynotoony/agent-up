@@ -4,13 +4,13 @@ kind: protocol
 authority: 权威层级第 4 级（流程规则：宿主能力契约）；能力语义上游为 SPEC-05（第 3 级）
 lifecycle: Live
 read_when: 评估宿主兼容性、编写或维护平台适配层、裁决 required_capabilities 冲突、登记新宿主或核对分级交付道快道能力束时
-trigger: 能力基元清单、阶段→能力表、降级路径、capability profile 档位、platform 枚举或分级交付道快道能力束语义变化
+trigger: 能力基元清单、阶段→能力表、降级路径、readonly_enforcement 等级、capability profile 档位、platform 枚举或分级交付道快道能力束语义变化
 owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）
 update_policy: 能力基元与阶段表对齐 SPEC-05 §2/§3；档位加载范围权威在 read-policy.md §2.4；语义变化须用户确认并同步 SPEC-05 与 read-policy.md；本文件是 adapters/ 内宿主映射文件的共同上游
 depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加载范围权威）；被 adapters/ 内宿主映射文件依赖
 ---
 <!-- Input: SPEC-05 §2-§7 能力协议、platform 枚举定稿（neutral/zcode）、independent_review 与 run record 指针字段定稿、read-policy.md 档位表。 -->
-<!-- Output: 宿主能力契约手册：九能力基元、四阶段→能力表（历史五阶段含 Intake 行，退役 2026-10-23）、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
+<!-- Output: 宿主能力契约手册：九能力基元、四阶段→能力表（历史五阶段含 Intake 行，退役 2026-10-23）、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、readonly_enforcement 只读约束等级模型（四级＋pending 标注）与只读约束降级路径、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
 <!-- Pos: 公开包 adapters/ 能力契约手册，adapters/ 内宿主映射文件的共同上游；能力语义上游为 SPEC-05；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 
 # 宿主能力契约
@@ -25,6 +25,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 - 阶段表未列 read：edit/write/inspect 组合已蕴含所需读取面；平台无关角色合同把 read 显式列入 `required_capabilities` 是显式化，不是扩权。
 - `required_capabilities` 取值限于 §2.1 清单；核心协议与角色合同不得写死平台工具名或 frontmatter 方言。
 - 无独立 subagent 执行体时依序走降级路径 a/b/c，记录 `independent_review: unavailable`；同一执行体自检不得标 pass；三条路径均不可用停在 review_ready。
+- readonly-execute 的只读约束按宿主声明的 `readonly_enforcement` 等级承载（host-enforced / runner-enforced / policy-only / unavailable，未核验标 pending）：仅 host/runner 级可作宿主保证的正式 Review 能力；policy-only 必须记录降级，unavailable 只能走独立 session、不同执行身份或用户 Review，pending 按 policy-only 从紧处理。
 - 分级交付道快道（C0，rules/assessment.md §6 R-DP-031）：用户即 Review 车道内降级路径 (c) 升格为合法审查方式；微任务道能力束 = Implementation 束 + vcs-write（经道脚本行使），pass 证据 = 机械门禁输出。
 - capability profile 分 `minimum` / `full` 两档：minimum 为读取阶梯 L0-L2 最小集（定稿清单见 `read-policy.md` §2.4），full 按任务型范围执行并按需加载至 L4。
 - 档位只描述治理资源加载范围，不是宿主性能、可靠性或功能承诺。
@@ -44,7 +45,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 | edit | 修改既有文件 |
 | write | 创建新文件 |
 | execute | 执行命令（可变更工作区状态） |
-| readonly-execute | 仅执行只读命令 |
+| readonly-execute | 执行命令，只读约束按 readonly_enforcement 等级保证（等级表见 §2.3） |
 | vcs-read | 读取版本库状态与历史 |
 | vcs-write | 创建提交等版本库写操作 |
 
@@ -59,7 +60,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 | Review | inspect、search、readonly-execute | 审查记录 |
 | Commit | inspect、vcs-read、vcs-write | 暂存/提交 |
 
-注：本表未列 read——edit/write/inspect 组合已蕴含所需读取面（SPEC-05 §7）；平台无关角色合同可把 read 显式列入 `required_capabilities`，属显式化而非扩权，阶段表基线不变。
+注：本表未列 read——edit/write/inspect 组合已蕴含所需读取面（SPEC-05 §7）；平台无关角色合同可把 read 显式列入 `required_capabilities`，属显式化而非扩权，阶段表基线不变。Review 行 readonly-execute 的正式保证力随宿主 `readonly_enforcement` 等级而定（§2.3 等级表）：仅 host/runner 级为宿主保证，policy-only/unavailable/pending 按降级记录处理。
 
 legacy 注记（单列，不混入当前流程）：历史 Intake 阶段（required_capabilities：inspect、search；治理写入许可：create-request）随 `create-request` 退役（2026-10-23）移出本表；新需求一律走任务票（卡片，Planning/Triage 开 task 票），不再创建 request（REQ）；存量 REQ 冻结只读。
 
@@ -75,21 +76,33 @@ legacy 注记（单列，不混入当前流程）：历史 Intake 阶段（requi
 - **Owner**：Implementation 执行体（经用户确认的方案）。
 - **Authority**：SPEC-05 §2/§3（R-05-001）。
 
-### 2.3 无 subagent 降级路径
+### 2.3 readonly_enforcement 等级与无 subagent 降级路径
 
-#### R-CC-002 降级与如实记录 `MUST`
+#### R-CC-002 只读约束等级与降级如实记录 `MUST`
 
-- **When**：宿主无独立 subagent 执行体，或独立 Review 无法由独立执行身份完成时。
-- **Action**：IF 无独立 subagent 执行体 THEN 依序尝试替代路径：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable`（含义：平台无独立 subagent 执行体）及实际所选替代路径 ELSE 使用独立 subagent 执行 Review。
-- **Forbidden**：把同一执行体的自检标记为 Review pass；静默跳过独立 Review；把降级路径说成"与独立 subagent 等价无差"。
-- **Stop if**：三条替代路径均不可用 → 任务停在 review_ready，记录阻塞，不进入 Commit。
-- **Evidence**：审查记录含 `independent_review` 字段与所选路径；run record 可选指针字段 `independent_review`（verdict / ticket_ref / checkpoint / at）在结论落盘后回填（schema：`../schemas/run-record.schema.json`）。
-- **Owner**：Review 执行体或主 agent（记录降级决定）。
+- **When**：宿主映射或使用 readonly-execute 能力时；宿主无独立 subagent 执行体，或独立 Review 无法由独立执行身份完成时。
+- **Action**：IF 宿主映射 readonly-execute THEN 在适配器能力对照表该行声明 `readonly_enforcement: <等级>` 及实施机制口径，等级取 §2.3 等级表四级之一，未核验处按 R-AT-001 标 pending 并注明未核验面，不虚构核验来源；IF 无独立 subagent 执行体 THEN 依序尝试替代路径：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable`（含义：平台无独立 subagent 执行体）及实际所选替代路径 ELSE 使用独立 subagent 执行 Review。
+- **Forbidden**：把同一执行体的自检标记为 Review pass；静默跳过独立 Review；把降级路径说成"与独立 subagent 等价无差"；把 policy-only/unavailable/pending 声明或当作宿主保证的只读能力；声明等级表之外的等级值。
+- **Stop if**：三条替代路径均不可用 → 任务停在 review_ready，记录阻塞，不进入 Commit；宿主 readonly_enforcement 非 host/runner 级且无法走已声明降级路径 → 停在 review_ready 记录阻塞，不以普通 execute 代行 Review 只读命令。
+- **Evidence**：各适配器 readonly-execute 行含 `readonly_enforcement` 等级与实施机制描述；审查记录含 `independent_review` 字段与所选路径，宿主非 host/runner 级时含 `readonly_enforcement` 值与降级原因；run record 可选指针字段 `independent_review`（verdict / ticket_ref / checkpoint / at）在结论落盘后回填（schema：`../schemas/run-record.schema.json`）。
+- **Owner**：Review 执行体或主 agent（记录降级决定）；宿主适配层（声明 readonly_enforcement 等级）。
 - **Authority**：SPEC-05 §5（R-05-004）。
+
+readonly_enforcement 等级表：
+
+| 等级 | 定义 | Review 审查方式 | 降级路径 |
+| --- | --- | --- | --- |
+| host-enforced | 宿主在命令执行层面强制只读约束（进程级/文件系统级隔离，工作区与外部状态不可变） | 可作宿主保证的正式 Review 能力 | 无降级；约束失效即停并记录 |
+| runner-enforced | 执行器在 readonly-execute 调用栈上强制只读约束（如 read-only 沙箱口径，越界调用被拒） | 可作宿主保证的正式 Review 能力 | 机制不可用时降级 policy-only 并记录 |
+| policy-only | 只读约束由调用者（角色/策略）自律维护；执行器同 execute，只读性不受宿主保证 | 不得作为正式 Review 保证；审查记录记 `readonly_enforcement: policy-only` 与降级原因 | 按下方降级路径 (a)/(b)/(c) 执行并记录原文 |
+| unavailable | 宿主无 readonly-execute 等价工具或能力 | 不得作为 Review 能力使用；Review 须走独立 session、不同执行身份或用户 Review | 按下方降级路径 (a)/(b)/(c) 执行并记录原文 |
+| pending | 等级未按官方文档或宿主实测核验（R-AT-001） | 按 policy-only 同等从紧处理：不得当作宿主保证，核验后落定 | 落定前按 policy-only 记录降级 |
+
+降级记录义务：`readonly_enforcement` 为 policy-only/unavailable/pending 时，审查记录必须记该值与降级原因（宿主无强制机制／配置关闭／核验缺失等）及实际所选审查方式；"只读"名义不提高其证据力上限。
 
 衔接（run record schema 定稿）：审查记录本体落任务票 `## Independent Review Checkpoint`（Review 唯一写入目标）；run record 的 `independent_review` 只承载机器可检索指针，不承载审查本体。
 
-车道衔接注记（分级交付道，rules/assessment.md §6 R-DP-031）：用户即 Review 车道（C0 且含语义判断）内，自降级路径 (c)（用户本人执行 Review）升格为该车道的合法审查方式——用户在主对话对实际 diff 裁决，裁决原文、时间与 diff 摘要由道脚本落盘为 User Review Checkpoint；微任务道（C0 且全机械可验）内，pass 证据 = 道脚本机械门禁输出而非审查结论——"同一执行体自检不得标 pass"的禁令按车道语义重述为：门禁重跑输出可作 pass 证据，审查结论仍不得由微执行体自签；C1+ 任务降级路径与禁令不变。
+车道衔接注记（分级交付道，rules/assessment.md §6 R-DP-031）：用户即 Review 车道（C0 且含语义判断）内，自降级路径 (c)（用户本人执行 Review）升格为该车道的合法审查方式——用户在主对话对实际 diff 裁决，裁决原文、时间与 diff 摘要由道脚本落盘为 User Review Checkpoint；微任务道（C0 且全机械可验）内，pass 证据 = 道脚本机械门禁输出而非审查结论——"同一执行体自检不得标 pass"的禁令按车道语义重述为：门禁重跑输出可作 pass 证据，审查结论仍不得由微执行体自签；C1+ 任务降级路径与禁令不变。readonly_enforcement 为 host/runner 级的宿主，readonly-execute 可作宿主保证的正式 Review 能力；policy-only/unavailable/pending 须按本节记录降级原文，任何车道不因等级标注放宽只读约束。
 
 ### 2.4 capability profile 档位（定稿）
 

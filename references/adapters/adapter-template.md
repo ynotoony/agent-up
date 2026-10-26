@@ -27,6 +27,7 @@ depends_on: adapter-capability-contract（能力契约与 R-CC-005 扩展登记�
 - 本模板自身是结构模板，不承载平台工具对照事实；平台专名只出现在各 `<host>.md` 与 R-CC-005 两处登记位。
 - 适配文件是运行时映射，不是事实源；与平台无关角色合同冲突时以合同为准。
 - 角色合同根以 `<role-contract-dir>` 表示；新项目默认 `rules/implementation/roles/`，旧项目兼容模式从登记面读取既有等价路径（通常为 `docs/agent/roles/`），生成宿主配置时必须展开变量。
+- 能力对照表 readonly-execute 行必须声明 `readonly_enforcement: <等级>`：四级 host-enforced / runner-enforced / policy-only / unavailable，未核验标 pending 并注明未核验面（等级语义唯一权威见 capability-contract §2.3 等级表，本模板不复述）。
 - 收益声明禁止：无实验数据不得写 token 节省、速度或可靠性提升（R-CC-004）。
 - 平台文档与方言随版本变化；适配文件触发条件声明方言变化时同步。
 
@@ -37,7 +38,7 @@ depends_on: adapter-capability-contract（能力契约与 R-CC-005 扩展登记�
 #### R-AT-001 三要素齐备 `MUST`
 
 - **When**：新建或修改任何 `adapters/<host>.md` 时。
-- **Action**：按本模板骨架产出：frontmatter 九字段 + 契约头三行（Input/Output/Pos）+ §1 快速摘要 + §2 可执行规则（含 R-<短码>-001 映射不是事实源、R-<短码>-002 能力映射与方言同步、R-<短码>-003 独立执行体声明与降级路径）+ §3 解释与例外；独立执行体声明与降级路径不得缺省。
+- **Action**：按本模板骨架产出：frontmatter 九字段 + 契约头三行（Input/Output/Pos）+ §1 快速摘要 + §2 可执行规则（含 R-<短码>-001 映射不是事实源、R-<短码>-002 能力映射与方言同步、R-<短码>-003 独立执行体声明与降级路径）+ §3 解释与例外；独立执行体声明与降级路径不得缺省；能力对照表 readonly-execute 行声明 `readonly_enforcement: <等级>`（四级＋pending，见 §1 快速摘要）。
 - **Forbidden**：缺三要素之一；引用未核验的第三方观察作为分类依据；写平台无关角色合同中禁止的平台专名。
 - **Stop if**：平台官方文档不可达或身份存疑 → 停止登记，写【待定】并报告，不虚构事实。
 - **Evidence**：适配文件可对照本模板逐段核对；三要素各有对应小节。
@@ -75,6 +76,7 @@ depends_on: adapter-capability-contract
 ### 2.2 能力→宿主工具对照
 #### R-<短码>-002 能力映射与方言同步 `MUST`
 <!-- 九能力基元逐行映射 + 方言模板；每行注明官方文档依据与取阅日期；未核验写【待定】。 -->
+<!-- readonly-execute 行须声明 readonly_enforcement: <等级>（host-enforced/runner-enforced/policy-only/unavailable；未核验标 pending 并注明未核验面）。 -->
 
 ### 2.3 独立执行体声明与降级路径
 #### R-<短码>-003 独立执行体与降级如实记录 `MUST`

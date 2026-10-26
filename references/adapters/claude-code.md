@@ -53,7 +53,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - **Action**：按本节对照表把 `required_capabilities` 展开为宿主工具清单（官方文档登记的内建工具，取阅 2026-09-06）；按 §2.3 方言模板生成入口文件；角色合同能力声明变化后同步对照表与模板。
 - **Forbidden**：对照表出现能力清单之外的工具语义；在角色合同内写平台工具名；宿主缺工具等价物时虚报兼容。
 - **Stop if**：某能力在宿主无等价工具 → 按 capability-contract R-CC-001 Stop if 走降级路径或明确阻塞，不降低阶段门禁。
-- **Evidence**：对照表覆盖九能力基元；入口文件 frontmatter 与角色合同能力声明一一对应。
+- **Evidence**：对照表覆盖九能力基元且 readonly-execute 行含 `readonly_enforcement` 等级声明；入口文件 frontmatter 与角色合同能力声明一一对应。
 - **Owner**：Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）。
 - **Authority**：SPEC-05 §2/§4（R-05-001、R-05-003）。
 
@@ -65,7 +65,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | edit | Edit | 修改既有文件 |
 | write | Write | 创建新文件 |
 | execute | Bash | 可变更工作区状态的命令；受 `permissions` 规则约束 |
-| readonly-execute | Bash | 仅只读命令 |
+| readonly-execute | Bash | 仅只读命令；readonly_enforcement: policy-only（permissions.allow/ask/deny 与 hooks 为调用面闸门与配置面护栏，官方 settings/hooks 文档取阅 2026-09-06；登记面无默认只读隔离，sandbox 类隔离能力未核验【待定】；只读性由调用方约束） |
 | vcs-read | Bash | git status/log/diff 等只读命令 |
 | vcs-write | Bash | git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力） |
 

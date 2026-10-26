@@ -32,6 +32,13 @@
 #           kind=decl 取角色合同 required_capabilities（运行时）行反引号名集合——预期
 #           名单为该行现场转录；kind=table 取「| 能力基元 |」对照表首列名集合——预期
 #           名单须与名单全等。载入校验：预期名单逐名 ⊆ 名单且八目标并集 ⊇ 名单）；
+#         pm_enforcement_level <值>（readonly-execute 只读约束等级受控值：四级
+#           host-enforced/runner-enforced/policy-only/unavailable ＋ pending 未核验
+#           标注，语义唯一权威见 references/adapters/capability-contract.md §2.3
+#           等级表，检查 14 扩展维度）；
+#         pm_enforcement_target <pkg-rel-path> <预期等级>（检查 14 扩展维度逐一核验
+#           目标：取「| 能力基元 |」对照表 readonly-execute 行 readonly_enforcement:
+#           值与预期等级全等比对，缺声明/词表外/不一致 FAIL 指名，行未命中 exit 2）；
 #         pm_mechanism <值>（规则索引执行机制受控值：rules 三件模板
 #           assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl §16 机制列取值 ⊆ 本节
 #           值集，检查 16；受控三值＝机械/门禁/约定，语义唯一权威见
@@ -52,6 +59,7 @@
 #      pm_shortcode 恰 2、pm_platform 恰 1、pm_vague_word 恰 1、pm_vague_exempt 恰 3、
 #      pm_mirror 恰 2、pm_capability 恰 1、pm_capability_authority 恰 1、
 #      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1、
+#      pm_enforcement_level 恰 1、pm_enforcement_target 恰 2、
 #      pm_layout_face 恰 1、pm_layout_universe 恰 2、pm_layout_legacy_file 恰 2、
 #      pm_layout_compat_exempt 恰 3，字段内
 #      禁制表符）；路径禁前导斜杠、空白与
@@ -63,7 +71,9 @@
 #      ∈ mirror/package-only/repo-only 且文件名跨行唯一；
 #      pm_capability 名须小写 token 且跨行唯一；pm_capability_authority 跨行恰一行；
 #      pm_capability_target 目标路径跨行唯一、kind ∈ decl/table、预期名单逐名 ⊆
-#      pm_capability 名单且并集 ⊇ 名单；pm_mechanism 值须非空且不含空白并跨行唯一；
+#      pm_capability 名单且并集 ⊇ 名单；pm_enforcement_level 值须小写 token 且跨行
+#      唯一；pm_enforcement_target 目标路径跨行唯一、预期等级 ∈ pm_enforcement_level
+#      词表；pm_mechanism 值须非空且不含空白并跨行唯一；
 #      pm_mechanism_marker 跨行恰一行；pm_layout_universe 锚点须受限字符集单 token 且
 #      登记模板跨行唯一；pm_layout_legacy_file 理由非空且路径跨行唯一；
 #      pm_layout_compat_exempt 行号须正整数、理由非空、路径+行号跨行唯一；
@@ -275,6 +285,25 @@ pm_capability_target references/adapters/claude-code.md table 'inspect,search,re
 pm_capability_target references/adapters/codex.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
 pm_capability_target references/adapters/pi.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
 pm_capability_target references/adapters/dsh.md table 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write'
+
+# ==== enforcement-levels：readonly-execute 只读约束等级词表与检查目标（检查 14 扩展维度）====
+# 词表＝四级＋pending 标注（语义唯一权威＝capability-contract.md §2.3 等级表，本表只登
+# 受控值）。targets 预期等级为五适配器对照表 readonly-execute 行现行声明现场转录（数据
+# 先行）：zcode/claude-code＝policy-only（宿主沙箱/权限面为护栏与闸门，登记面无默认只读
+# 强制）；codex＝runner-enforced（sandbox_mode read-only 运行器沙箱口径）；pi＝policy-only
+# （官方登记无内置 sandbox）；dsh＝pending（profile 依赖＋全量 roster 未核验，落定前按
+# policy-only 从紧）。等级声明变化＝先改本节预期值，再改对照表实物并同步 harness 夹具。
+
+pm_enforcement_level host-enforced
+pm_enforcement_level runner-enforced
+pm_enforcement_level policy-only
+pm_enforcement_level unavailable
+pm_enforcement_level pending
+pm_enforcement_target references/adapters/zcode.md policy-only
+pm_enforcement_target references/adapters/claude-code.md policy-only
+pm_enforcement_target references/adapters/codex.md runner-enforced
+pm_enforcement_target references/adapters/pi.md policy-only
+pm_enforcement_target references/adapters/dsh.md pending
 
 # ==== ticket-citation-ban：包内票号索引禁令豁免（检查 18）====
 # 扫描面＝包内全部 *.md / *.tmpl / *.json / *.rules（*.sh 代码面不扫——断言名/注释语境

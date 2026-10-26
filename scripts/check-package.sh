@@ -142,11 +142,14 @@ pm_layoutce=''
 pm_idxmech=''
 pm_idxids=''
 pm_parsed=''
+pm_enf=''
+pm_enfvocab=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
     "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
     "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_layoutface" "$pm_layoutu" \
-    "$pm_layoutlf" "$pm_layoutce" "$pm_idxmech" "$pm_idxids" "$pm_parsed"
+    "$pm_layoutlf" "$pm_layoutce" "$pm_idxmech" "$pm_idxids" "$pm_parsed" \
+    "$pm_enf" "$pm_enfvocab"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -170,6 +173,8 @@ pm_layoutce=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxmech=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_idxids=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_parsed=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_enf=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_enfvocab=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 
 pm_die() {
   printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
@@ -244,8 +249,8 @@ LC_ALL=C awk -v progin="$pm_rules" '
     }
     if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
     ar = -1
-    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word" || cmd == "pm_layout_face") ar = 1
-    else if (cmd == "pm_shortcode" || cmd == "pm_mirror" || cmd == "pm_layout_universe" || cmd == "pm_layout_legacy_file") ar = 2
+    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word" || cmd == "pm_layout_face" || cmd == "pm_enforcement_level") ar = 1
+    else if (cmd == "pm_shortcode" || cmd == "pm_mirror" || cmd == "pm_layout_universe" || cmd == "pm_layout_legacy_file" || cmd == "pm_enforcement_target") ar = 2
     else if (cmd == "pm_script" || cmd == "pm_vague_exempt" || cmd == "pm_cite_exempt" || cmd == "pm_capability_target" || cmd == "pm_layout_compat_exempt") ar = 3
     if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
     if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
@@ -284,6 +289,8 @@ while IFS= read -r pm_dispatch_row; do
     pm_layout_universe) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutu" ;;
     pm_layout_legacy_file) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutlf" ;;
     pm_layout_compat_exempt) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutce" ;;
+    pm_enforcement_level) printf '%s\n' "$pm_dispatch_rest" >> "$pm_enfvocab" ;;
+    pm_enforcement_target) printf '%s\n' "$pm_dispatch_rest" >> "$pm_enf" ;;
   esac
 done < "$pm_parsed"
 rm -f "$pm_parsed"; pm_parsed=''
@@ -298,6 +305,8 @@ rm -f "$pm_parsed"; pm_parsed=''
 [ -s "$pm_caps" ] || pm_die '清单缺 capability-primitives 节（零行）'
 [ -s "$pm_capauth" ] || pm_die '清单缺 capability authority 登记（零行）'
 [ -s "$pm_captargets" ] || pm_die '清单缺 capability targets 登记（零行）'
+[ -s "$pm_enfvocab" ] || pm_die '清单缺 enforcement 词表登记（零行）'
+[ -s "$pm_enf" ] || pm_die '清单缺 enforcement targets 登记（零行）'
 [ -s "$pm_mechs" ] || pm_die '清单缺 mechanism-vocab 节（零行）'
 [ -s "$pm_mechmark" ] || pm_die '清单缺 mechanism 外定义标记词登记（零行）'
 [ -s "$pm_layoutface" ] || pm_die '清单缺 layout-face 节（零行）'
@@ -528,6 +537,32 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
     if (n > 0) exit 1
   }
 ' "$pm_caps" "$pm_captargets") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "enforcement 词表行: %s\n", msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
+    if ($1 !~ /^[a-z][a-z-]*$/) { bad("等级值须小写 token（小写字母/连字符）: " $1); next }
+    if ($1 in seen) { bad("等级值跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_enfvocab") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "enforcement targets 行（%s）: %s\n", $1, msg; n++ }
+  FNR == NR { vocab[$1] = 1; next }
+  {
+    if (NF != 2) { bad("字段数 " NF "（预期 2：目标路径、预期等级）"); next }
+    if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) { bad("路径不合预期（禁前导斜杠、空白与特殊字符）: " $1); next }
+    if ($1 ~ /(^|\/)\.\.(\/|$)/) { bad("路径含 .. 段: " $1); next }
+    if ($1 in tseen) { bad("目标路径跨行重复: " $1); next }
+    tseen[$1] = 1
+    if (!($2 in vocab)) { bad("预期等级不在受控词表: " $2) }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_enfvocab" "$pm_enf") || true
 pm_report "$pm_bad"
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
@@ -1336,7 +1371,11 @@ fi
 # 名单双向全等，注入未登记名/删名/改名即 FAIL 指名文件），kind=table 取「| 能力基元 |」
 # 对照表首列名集合（与预期名单双向全等，预期名单经载入校验 ⊆ 名单且并集 ⊇ 名单）。
 # 表解析锚点失效即 exit 2 不静默过（检查 11 同款 fail-closed）；targets 均为包内文件，
-# 相对 $pkg_root 解析（--pkg-root 复制落位语境与镜像检查同口径）。
+# 相对 $pkg_root 解析（--pkg-root 复制落位语境与镜像检查同口径）。扩展维度：readonly-
+# execute 只读约束等级核对——清单 enforcement 词表节（pm_enforcement_level，受控值集）
+# 与 targets 节（pm_enforcement_target，适配文件+预期等级），逐适配器提取 readonly-
+# execute 行 readonly_enforcement: 值与预期全等比对（缺声明/词表外/不一致 FAIL 指名；
+# 行未命中 exit 2）。
 problems=''
 n_caps=$(wc -l < "$pm_caps" | tr -d ' ')
 n_captargets=$(wc -l < "$pm_captargets" | tr -d ' ')
@@ -1387,6 +1426,35 @@ cap_extract_auth() {
     inh && sep && $0 ~ /^\|/ { print firstcell($0) }
     inh && sep && $0 !~ /^\|/ { exit }
     END { if (!sep) exit 3 }
+  ' "$1"
+}
+enf_extract_decl() {
+  # $1=文件：「| 能力基元」对照表中 readonly-execute 行的 readonly_enforcement: 等级
+  # token；行未命中 exit 3（fail-closed），行在而声明缺失输出空（调用方报缺声明）。
+  LC_ALL=C awk -v mk='| 能力基元' '
+    function firstcell(line,   s) {
+      s = line
+      sub(/^\|[[:space:]]*/, "", s)
+      sub(/[[:space:]]*\|.*/, "", s)
+      return s
+    }
+    index($0, mk) == 1 { inh = 1; next }
+    inh && !sep && $0 ~ /^\|/ { c = firstcell($0); if (c ~ /^[-: ]+$/) sep = 1; next }
+    inh && sep && $0 ~ /^\|/ {
+      if (firstcell($0) == "readonly-execute") {
+        i = index($0, "readonly_enforcement:")
+        if (i > 0) {
+          rest = substr($0, i + length("readonly_enforcement:"))
+          sub(/^[[:space:]]+/, "", rest)
+          if (match(rest, /[a-z][a-z-]*/)) print substr(rest, RSTART, RLENGTH)
+        }
+        found = 1
+        exit
+      }
+      next
+    }
+    inh && sep && $0 !~ /^\|/ { exit }
+    END { if (!found) exit 3 }
   ' "$1"
 }
 cap_auth_path=$(cat "$pm_capauth")
@@ -1479,10 +1547,49 @@ while IFS= read -r cap_row; do
   fi
 done < "$pm_captargets"
 IFS=$OLDIFS
+# 检查 14 扩展维度（readonly-execute 只读约束等级）：词表受控（enforcement 词表节）＋
+# 逐适配器对照表 readonly-execute 行提取 readonly_enforcement: 等级 token，与登记预期
+# 值全等比对；预期/声明值不在词表、缺声明、值不一致即 FAIL 指名文件；readonly-execute
+# 行未命中（表锚点失效或行被删）即 exit 2 不静默过（本检查既有 fail-closed 同款）。
+n_enf=$(wc -l < "$pm_enf" | tr -d ' ')
+enf_vocab_sorted=$(LC_ALL=C sort -u "$pm_enfvocab")
+OLDIFS=$IFS
+IFS='
+'
+while IFS= read -r enf_row; do
+  IFS=$OLDIFS
+  [ -n "$enf_row" ] || continue
+  enf_rel=${enf_row%%"$TAB"*}
+  enf_exp=${enf_row#*"$TAB"}
+  enf_file="$pkg_root/$enf_rel"
+  if [ ! -f "$enf_file" ]; then
+    add_problem "  - enforcement 检查目标不存在: $enf_rel"
+    continue
+  fi
+  if ! printf '%s\n' "$enf_vocab_sorted" | grep -qx "$enf_exp"; then
+    add_problem "  - $enf_rel 登记预期等级不在受控词表: $enf_exp"
+    continue
+  fi
+  rc=0
+  enf_got=$(enf_extract_decl "$enf_file") || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf 'check-package: 错误：检查 14 enforcement 目标解析失效（readonly-execute 行未命中，fail-closed）: %s\n' "$enf_rel" >&2
+    exit 2
+  fi
+  if [ -z "$enf_got" ]; then
+    add_problem "  - $enf_rel readonly-execute 行缺 readonly_enforcement 声明"
+  elif ! printf '%s\n' "$enf_vocab_sorted" | grep -qx "$enf_got"; then
+    add_problem "  - $enf_rel readonly_enforcement 值不在受控词表: $enf_got"
+  elif [ "$enf_got" != "$enf_exp" ]; then
+    # 花括号不可省略：变量名后紧跟全角字符时，sh 会把多字节字符并入变量名（同款先例见检查 5/12）。
+    add_problem "  - $enf_rel readonly_enforcement 声明与登记预期不一致: ${enf_got}（期望 ${enf_exp}）"
+  fi
+done < "$pm_enf"
+IFS=$OLDIFS
 if [ -n "$problems" ]; then
-  fail 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个）" "$problems"
+  fail 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个，enforcement ${n_enf} 个）" "$problems"
 else
-  pass 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个）"
+  pass 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个，enforcement ${n_enf} 个）"
 fi
 
 # 检查 15：模板规则索引表与规则块全集全等（票 60 新增；流程权威拆三适配）。全集＝清单
