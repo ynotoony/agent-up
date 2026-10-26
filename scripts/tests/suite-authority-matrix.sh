@@ -14,7 +14,7 @@ authority_matrix_check() {
     BEGIN {
       expected_topic["AW-01"] = "user-decision-runtime-facts"
       expected_topic["AW-02"] = "ticket-index-progress"
-      expected_topic["AW-03"] = "triage-intake"
+      expected_topic["AW-03"] = "task-intake-boundary-retired"
       expected_topic["AW-04"] = "review-checkpoint"
       expected_topic["AW-05"] = "commit-authorization"
       expected_topic["AW-06"] = "ticket-body-checkpoints"

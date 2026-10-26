@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/ticket-record.schema.json",
   "title": "Agent Up ticket record schema",
-  "description": "任务票/请求（REQ）本体机器 schema（定稿，2026-09-18）。落盘位置：docs/issues/<NN>-<slug>.json（task）与 docs/issues/<REQ-id>.json（request，同目录承载）。自本 schema 定稿起新开票/新 REQ 以本 schema 的 JSON 文件为唯一本体形态；此前形态＝Markdown＋YAML frontmatter（SPEC-02 §5.1 历史形态），存量 Markdown 票与既有 REQ 冻结零改写。本 schema 不设 status 字段（task 与 request 一律）：票状态唯一真相源＝docs/issues/index.json（单写，一条目一行，schema 见同目录 issue-index.schema.json），票正文 Status 行由脚本自索引生成（投影打印件）、目录清单状态列为人工登记投影，状态冲突以索引为准；存量 REQ 的 frontmatter status 为历史形态保留。合同散文要素（goal/context/verification/output_contract 及 scope/acceptance 等数组元素）以 JSON 字符串承载，换行以 \\n 转义。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。2026-09-22 起 task 票另必备 complexity_reason/priority_reason（定级/优先级理由，非空断言由 ticket-ops open 机械强制——校验只 open 时点生效，存量票零回扫零改写；本 schema 的 required/allOf 集即 open 校验器的提取权威）。",
+  "description": "任务票本体机器 schema（定稿，2026-09-18；request 退役标注追加 2026-10-23）。落盘位置：docs/issues/<NN>-<slug>.json（task）。自本 schema 定稿起新开票以本 schema 的 JSON 文件为唯一本体形态；此前形态＝Markdown＋YAML frontmatter（SPEC-02 §5.1 历史形态），存量 Markdown 票冻结零改写。历史 request（REQ，kind=request）自 2026-10-23 退役：新需求一律走任务票（卡片），kind 枚举只留 task，开票脚本拒绝 kind=request 与 REQ-* 格式 id 且零写入；存量 REQ 冻结只读，读取校验（json-validator --ticket 不传 --new-ticket）仍接受 kind=request 与 REQ-* id 模式以兼容存量数据。本 schema 不设 status 字段（task 与 request 一律）：票状态唯一真相源＝docs/issues/index.json（单写，一条目一行，schema 见同目录 issue-index.schema.json），票正文 Status 行由脚本自索引生成（投影打印件）、目录清单状态列为人工登记投影，状态冲突以索引为准；存量 REQ 的 frontmatter status 为历史形态保留。合同散文要素（goal/context/verification/output_contract 及 scope/acceptance 等数组元素）以 JSON 字符串承载，换行以 \\n 转义。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。2026-09-22 起 task 票另必备 complexity_reason/priority_reason（定级/优先级理由，非空断言由 ticket-ops open 机械强制——校验只 open 时点生效，存量票零回扫零改写；本 schema 的 required/allOf 集即 open 校验器的提取权威）。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
     "id": {
       "type": "string",
       "pattern": "^(REQ-[0-9]{8}-[0-9]{3}|[0-9]{2,}-[a-z0-9-]+)$",
-      "description": "票/REQ 标识＝文件名去 .json 扩展名：task 为 <NN>-<slug>（如 05-governance-format），request 为 REQ id（如 REQ-20260904-012；对齐 SPEC-02 §5.1 历史口径）。"
+      "description": "票标识＝文件名去 .json 扩展名：task 为 <NN>-<slug>（如 05-governance-format）。历史 request id 模式 REQ-YYYYMMDD-NNN（如 REQ-20260904-012；对齐 SPEC-02 §5.1 历史口径）自 2026-10-23 退役：开票脚本拒绝 REQ-* 格式且零写入；存量 REQ 冻结只读，读取校验（不传 --new-ticket）仍接受 REQ-* 以兼容存量数据。"
     },
     "kind": {
       "type": "string",
@@ -27,7 +27,7 @@
         "task",
         "request"
       ],
-      "description": "受控枚举：task（任务票）/ request（请求）。"
+      "description": "受控枚举：task（任务票）/ request（请求，退役 2026-10-23）。开票脚本拒绝 kind=request 且零写入；存量 REQ 读取校验（不传 --new-ticket）仍接受以兼容历史数据。"
     },
     "complexity": {
       "type": "string",

@@ -193,6 +193,11 @@ case ${cmd} in
     case ${id} in
       '') die1 "缺少 --id" ;;
     esac
+    # open 命令禁 REQ-* id 格式（2026-10-23 退役：新需求走任务票，不创建 request；
+    # 存量 REQ 冻结只读，读取校验不经本门——json-validator ticket 不传 --new-ticket）
+    case ${cmd}-${id} in
+      open-REQ-*) die1 "REQ-* 格式 id 已退役（2026-10-23）：新需求一律走任务票 <NN>-<slug> 格式；存量 REQ 冻结只读" ;;
+    esac
     printf '%s' "${id}" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
       die1 "id 不合口径（^[0-9]{2,}-[a-z0-9-]+$）: ${id}"
     ;;

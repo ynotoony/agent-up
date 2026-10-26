@@ -87,17 +87,29 @@ def validate_ticket(schema_path, ticket_path, new_ticket=False):
                 if not schema_string_valid(item, item_rules):
                     errs.append(f'scope[{i}] 必须是非空字符串')
 
-    # id pattern
-    if 'id' in body and 'id' in props:
-        pat = props['id'].get('pattern')
-        if pat and not re.fullmatch(pat, body['id']):
-            errs.append(f"id 不合 pattern: {body['id']!r}")
-
     # kind enum
     if 'kind' in body and 'kind' in props:
         enum = props['kind'].get('enum', [])
         if enum and body['kind'] not in enum:
             errs.append(f"kind 不在枚举: {body['kind']!r}")
+        # new-ticket gate: reject kind=request (retired 2026-10-23)
+        if new_ticket and body['kind'] == 'request':
+            errs.append(
+                "kind=request 已退役（2026-10-23）：新需求一律走任务票（task），"
+                "不再创建 request（REQ）；存量 REQ 冻结只读"
+            )
+
+    # id pattern
+    if 'id' in body and 'id' in props:
+        pat = props['id'].get('pattern')
+        if pat and not re.fullmatch(pat, body['id']):
+            errs.append(f"id 不合 pattern: {body['id']!r}")
+        # new-ticket gate: reject REQ-* format (retired 2026-10-23)
+        if new_ticket and body['id'].startswith('REQ-'):
+            errs.append(
+                "REQ-* 格式 id 已退役（2026-10-23）：新需求一律走任务票 <NN>-<slug> 格式；"
+                "存量 REQ 冻结只读"
+            )
 
     # complexity enum
     if 'complexity' in body and 'complexity' in props:

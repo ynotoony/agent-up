@@ -157,7 +157,7 @@
 - **Forbidden**：删除或批量清理历史票（含按时间/不活跃自动关闭——documented 反模式）；把历史票说明当现行指令执行；`superseded_by` 指向不存在的票；收口时明知票面含现行依据级说明而留票内不搬。
 - **Stop if**：历史票内容与权威层冲突且执行中已引用 → 按 R-DP-002 停止报告；替代标记的指向票不在索引 → 修标不得硬登记。
 - **Evidence**：票面 category 声明；执行引用历史票时核对状态的记录；`superseded_by` 标记经 S7 断言输出；收口搬运的出处指针与提炼落点。
-- **Owner**：Triage/Intake（开票类别声明）；各阶段执行体（读取面纪律）；协调层（替代标记登记与收口搬运核对）。
+- **Owner**：Triage（开票类别声明；历史 Intake 已退役 2026-10-23）；各阶段执行体（读取面纪律）；协调层（替代标记登记与收口搬运核对）。
 - **Authority**：本文 §5.1（生命周期基线）。
 
 ### 5.2 条件产物触发矩阵
@@ -351,7 +351,7 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 7. Session 置 `recovering`，判定结论：`resume` / `blocked` / `conflict`；
 8. IF 中断发生在交付完成前 THEN 完整交付后重新独立 Review ELSE 按既有 Review 证据继续。
 
-恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。Intake Session（用户说"加需求"）只做需求接收与方案对话（需求工作三道，见 `rules/assessment.md` §4），不进入本流程。后台链接棒默认重开（CreateWorkflow 新 run）；Resume/Amend 续跑仅当票单与进度完全已知且需保序——换模型/换参数视为接棒即重开。升级质询的裁决必须同票 Checkpoint 落账（含 question-id 与裁决内容）——裁决不落盘即未裁决。
+恢复结论与重跑验证结果落盘到 Checkpoint 或 run record 后，才进入 Implementation。历史 Intake Session（用户说"加需求"）只做需求接收与方案对话（需求工作三道，见 `rules/assessment.md` §4；request 类别退役 2026-10-23 后归 Triage），不进入本流程。后台链接棒默认重开（CreateWorkflow 新 run）；Resume/Amend 续跑仅当票单与进度完全已知且需保序——换模型/换参数视为接棒即重开。升级质询的裁决必须同票 Checkpoint 落账（含 question-id 与裁决内容）——裁决不落盘即未裁决。
 
 **Workflow executor 恢复协议**：`<repo-root>/rules/implementation/scripts/workflow-executor.sh` 实现 workflow 级别的 checkpoint 读取与恢复执行。
 
@@ -419,17 +419,16 @@ Delivery Session（用户说"继续剩余任务"）启动或接管中断任务�
 
 ### 12.5 写入所有权矩阵
 
-本矩阵的票状态/进度、Intake/Triage、Review checkpoint、Commit 授权及票本体/checkpoint 边界分别引用 `read-policy.md` §2.3.1 的 **AW-02**、**AW-03**、**AW-04**、**AW-05**、**AW-06**；角色表只展开职责，不另立 authority。
+本矩阵的票状态/进度、历史 Intake/Triage 边界（**AW-03** legacy，request 类别退役 2026-10-23 后仅 Triage）、Review checkpoint、Commit 授权及票本体/checkpoint 边界分别引用 `read-policy.md` §2.3.1 的 **AW-02**、**AW-04**、**AW-05**、**AW-06**；角色表只展开职责，不另立 authority。
 
 | 会话/角色 | 允许写入 | 禁止 |
 | --- | --- | --- |
-| Intake | 新卡片文件（需求接收与方案对话产物） | 当前任务、progress、规格、票 |
 | Triage | 卡片定级与拆分、规格、任务票 | 产品实现文件、Implementation Checkpoint |
 | Delivery（Implementation） | 任务 Scope 内文件 + Implementation Checkpoint | Review 记录、Commit 操作 |
 | Review | 审查记录（任务票 Independent Review Checkpoint） | 修改被审内容 |
 | Commit | 暂存与提交记录 | 扩大范围、push、deploy |
 
-run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`independent_review` 指针回填同 owner。禁止两个 session 同时写 `facts/requirements/tickets/index.json` 与 `facts/requirements/tickets/progress-current.md`（现役状态投影由生成器独占写，索引条目按写入机制单写）。Intake 只写新卡片（需求接收），Delivery 推进存量卡（实施），两者写入目标不相交；冲突以更严格者为准。
+run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`independent_review` 指针回填同 owner。禁止两个 session 同时写 `facts/requirements/tickets/index.json` 与 `facts/requirements/tickets/progress-current.md`（现役状态投影由生成器独占写，索引条目按写入机制单写）。历史 Intake 只写新卡片（需求接收，request 类别退役 2026-10-23 后归 Triage），Delivery 推进存量卡（实施），写入目标不相交；冲突以更严格者为准。
 
 道脚本承载注记（分级交付道，R-DP-031）：快道收尾强制——白名单核对、验证重跑、提交、记录翻转、账本落行——由零依赖 POSIX sh 道脚本承载：`rules/implementation/scripts/check-gates.sh`（只读门禁核对：工作区改动 ⊆ 提交合同白名单、按合同重跑验证命令并记录退出码）与 `rules/implementation/scripts/lane-commit.sh`（读行式合同文件（临时输入，不落仓库）→ 门禁 → 白名单提交 → User Review Checkpoint 追加或微账本落行 → 状态翻转（单写 `facts/requirements/tickets/index.json` 状态条目 → 机械生成受影响票正文 Status 行 → 机械生成 `facts/requirements/tickets/progress-current.md` 现役状态投影等派生面）→ 记录翻转提交）。脚本权限边界 = 提交合同白名单：脚本不执行白名单外任何写入，门禁不过即停（fail-closed）。派生载体独占写：`facts/requirements/tickets/index.json` 是票状态唯一真相源（单写：快道由道脚本、非快道任务由对应阶段执行体）；`facts/requirements/tickets/progress-current.md` 现役状态投影由生成器独占写（generated_from＝`facts/requirements/tickets/index.json`＋生成器）；issues-README 状态列＝人工登记投影（agent 按索引登记，与索引冲突以索引为准；非道脚本写入面）；票正文 Status 行由脚本自索引生成（展示投影，stale 比对兜底、可重建）；状态冲突以索引为准。微账本 `facts/project/micro.jsonl`（Record 类，一行一操作）由道脚本懒创建，agent 不代写。道脚本安装路径：`rules/implementation/scripts/check-gates.sh`、`rules/implementation/scripts/lane-commit.sh` 与 `rules/implementation/scripts/generate-progress.sh` 由初始化/补缺按 §5.2 触发矩阵行复制落位目标项目 `rules/implementation/scripts/`（来源 agent-up 公开包 `scripts/`，逐件登记，可经包内 `scripts/install.sh` 执行），脚本本体以包内版本为生成基线，目标项目内演化按共享 harness 纪律登记；快道未启用则不复制，道脚本不可用的停止条件按 R-DP-031 兜底（fail-closed 不变）。
 

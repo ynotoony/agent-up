@@ -10,7 +10,7 @@ update_policy: 能力基元与阶段表对齐 SPEC-05 §2/§3；档位加载范�
 depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加载范围权威）；被 adapters/ 内宿主映射文件依赖
 ---
 <!-- Input: SPEC-05 §2-§7 能力协议、platform 枚举定稿（neutral/zcode）、independent_review 与 run record 指针字段定稿、read-policy.md 档位表。 -->
-<!-- Output: 宿主能力契约手册：九能力基元、五阶段→能力表、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
+<!-- Output: 宿主能力契约手册：九能力基元、四阶段→能力表（历史五阶段含 Intake 行，退役 2026-10-23）、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
 <!-- Pos: 公开包 adapters/ 能力契约手册，adapters/ 内宿主映射文件的共同上游；能力语义上游为 SPEC-05；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 
 # 宿主能力契约
@@ -20,8 +20,8 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 ## 1. 快速摘要
 
 - 运行时能力基元九个固定：inspect / search / read / edit / write / execute / readonly-execute / vcs-read / vcs-write。
-- `create-request` / `create-spec` / `create-task` 是治理写入许可，不是宿主运行时能力。
-- 阶段→能力表固定五阶段底线：Intake（inspect、search；create-request）、Planning/Triage（inspect、search；create-spec、create-task）、Implementation（inspect、search、edit、write、execute）、Review（inspect、search、readonly-execute）、Commit（inspect、vcs-read、vcs-write）。
+- `create-spec` / `create-task` 是治理写入许可，不是宿主运行时能力；历史治理写入许可 `create-request` 已退役（2026-10-23）：新需求一律走任务票（卡片），不再创建 request（REQ），存量 REQ 冻结只读。
+- 阶段→能力表固定四阶段底线（历史五阶段含 Intake 行，随 `create-request` 退役 2026-10-23 移除，见 §2.2 legacy 注记）：Planning/Triage（inspect、search；create-spec、create-task）、Implementation（inspect、search、edit、write、execute）、Review（inspect、search、readonly-execute）、Commit（inspect、vcs-read、vcs-write）。
 - 阶段表未列 read：edit/write/inspect 组合已蕴含所需读取面；平台无关角色合同把 read 显式列入 `required_capabilities` 是显式化，不是扩权。
 - `required_capabilities` 取值限于 §2.1 清单；核心协议与角色合同不得写死平台工具名或 frontmatter 方言。
 - 无独立 subagent 执行体时依序走降级路径 a/b/c，记录 `independent_review: unavailable`；同一执行体自检不得标 pass；三条路径均不可用停在 review_ready。
@@ -48,19 +48,20 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 | vcs-read | 读取版本库状态与历史 |
 | vcs-write | 创建提交等版本库写操作 |
 
-`create-request` / `create-spec` / `create-task` 是治理写入许可（允许创建哪类治理文件，对齐目标项目写入所有权矩阵），不是宿主运行时能力。
+`create-spec` / `create-task` 是治理写入许可（允许创建哪类治理文件，对齐目标项目写入所有权矩阵），不是宿主运行时能力。历史治理写入许可 `create-request` 自 2026-10-23 退役：新需求一律走任务票（卡片），不再创建 request（REQ）；存量 REQ 冻结只读（读取面兼容，见 `../schemas/ticket-record.schema.json` 退役标注）。
 
 ### 2.2 阶段→能力表
 
 | 阶段 | required_capabilities（运行时） | 治理写入许可 |
 | --- | --- | --- |
-| Intake | inspect、search | create-request |
 | Planning/Triage | inspect、search | create-spec、create-task |
 | Implementation | inspect、search、edit、write、execute | 任务 Scope 内文件 + Implementation Checkpoint |
 | Review | inspect、search、readonly-execute | 审查记录 |
 | Commit | inspect、vcs-read、vcs-write | 暂存/提交 |
 
 注：本表未列 read——edit/write/inspect 组合已蕴含所需读取面（SPEC-05 §7）；平台无关角色合同可把 read 显式列入 `required_capabilities`，属显式化而非扩权，阶段表基线不变。
+
+legacy 注记（单列，不混入当前流程）：历史 Intake 阶段（required_capabilities：inspect、search；治理写入许可：create-request）随 `create-request` 退役（2026-10-23）移出本表；新需求一律走任务票（卡片，Planning/Triage 开 task 票），不再创建 request（REQ）；存量 REQ 冻结只读。
 
 微任务道能力束注记（分级交付道，rules/assessment.md §6 R-DP-031）：准入判据内的微任务道由单执行体全程完成，能力束 = Implementation 束（inspect、search、edit、write、execute）+ vcs-write。vcs-write 经道脚本行使：调用权在主 agent，微执行体不组装提交合同、不自行执行 git 写；快道收尾（门禁重跑、白名单提交、记录翻转、账本落行）由道脚本按提交合同执行（rules/project.md §12.5 道脚本承载注记），脚本权限边界 = 提交合同白名单。
 

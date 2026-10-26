@@ -884,11 +884,82 @@ PYTHON
     '{"date": "2026-10-21", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "abc1234", "actual": ""}' \
     'lane,whitelist,gates,verify,commit,actual'
 
+  # ---- 票 207 断言：禁新建 request——kind=request 与 REQ-* id 格式拒绝且零写入 ----
+  # 独立夹具 fix207（三负例）：N-207a kind=request 但 id 为 task 格式拒开 exit 1 零写入且
+  # 报明退役；N-207b REQ-* id 拒开 exit 1 零写入且报明退役；N-207c kind=request＋REQ-* id
+  # 拒开（两拒绝面均命中）；正例 P207 存量 request 读取校验通过（读取面兼容）
+  tix_build_fixture "$D/fix207"
+  F207=$D/fix207
+  TIX207="$F207/rules/implementation/scripts/ticket-ops.sh"
+
+  # N-207a: kind=request 但 id 为 task 格式拒开（json-validator.py --new-ticket kind 门拦截）
+  BODY207_BAD_KIND="$F207/facts/requirements/tickets/40-bad-request.json"
+  cat > "$BODY207_BAD_KIND" <<'EOF'
+{
+  "id": "40-bad-request",
+  "kind": "request",
+  "title": "fixture request（kind 退役但 id 合 task 口径）",
+  "created_at": "2026-10-23"
+}
+EOF
+  LED207_RK='{"date": "2026-10-23", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture 207 kind=request", "evidence_ref": "facts/requirements/tickets/40-bad-request.json"}'
+  S207=$(tix_state "$F207")
+  sh "$TIX207" "$F207" open --id 40-bad-request --complexity C1 --title 'Request fixture' --ledger-line "$LED207_RK" >"$D/v207a.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S207" = "$(tix_state "$F207")" ] && grep -q '退役' "$D/v207a.log" && grep -q 'kind=request' "$D/v207a.log"; then
+    ok '负例 N-207a kind=request（task id 格式） → exit 1 零写入且报明退役（2026-10-23）'
+  else
+    bad '负例 N-207a kind=request（task id 格式） → exit 1 零写入且报明退役（2026-10-23）' "exit=$rc $(head -n 2 "$D/v207a.log" | tr '\n' '|')"
+  fi
+
+  # N-207b: REQ-* id 拒开（ticket-ops.sh open REQ- 专门门拦截）
+  BODY207_BAD_ID="$F207/facts/requirements/tickets/REQ-20261023-002.json"
+  tix_body "$BODY207_BAD_ID" REQ-20261023-002
+  LED207_RI='{"date": "2026-10-23", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture 207 REQ-* id", "evidence_ref": "facts/requirements/tickets/REQ-20261023-002.json"}'
+  sh "$TIX207" "$F207" open --id REQ-20261023-002 --complexity C1 --title 'REQ id fixture' --ledger-line "$LED207_RI" >"$D/v207b.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S207" = "$(tix_state "$F207")" ] && grep -q '退役' "$D/v207b.log" && grep -q 'REQ-\*' "$D/v207b.log"; then
+    ok '负例 N-207b REQ-* id → exit 1 零写入且报明退役（2026-10-23）'
+  else
+    bad '负例 N-207b REQ-* id → exit 1 零写入且报明退役（2026-10-23）' "exit=$rc $(head -n 2 "$D/v207b.log" | tr '\n' '|')"
+  fi
+
+  # N-207c: kind=request + REQ-* id（两拒绝面均命中，id 门先拦）
+  BODY207_BOTH="$F207/facts/requirements/tickets/REQ-20261023-003.json"
+  cat > "$BODY207_BOTH" <<'EOF'
+{
+  "id": "REQ-20261023-003",
+  "kind": "request",
+  "title": "fixture request（两退役面均命中）",
+  "created_at": "2026-10-23"
+}
+EOF
+  LED207_BOTH='{"date": "2026-10-23", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture 207 both", "evidence_ref": "facts/requirements/tickets/REQ-20261023-003.json"}'
+  sh "$TIX207" "$F207" open --id REQ-20261023-003 --complexity C1 --title 'Both fixture' --ledger-line "$LED207_BOTH" >"$D/v207c.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S207" = "$(tix_state "$F207")" ] && grep -q '退役' "$D/v207c.log"; then
+    ok '负例 N-207c kind=request＋REQ-* id → exit 1 零写入且报明退役（两拒绝面均命中）'
+  else
+    bad '负例 N-207c kind=request＋REQ-* id → exit 1 零写入且报明退役（两拒绝面均命中）' "exit=$rc $(head -n 2 "$D/v207c.log" | tr '\n' '|')"
+  fi
+
+  # P207：存量 request 读取校验通过（读取面兼容，不传 --new-ticket）
+  VAL207="$F207/agent-up/scripts/json-validator.py"
+  SCHEMA207="$F207/agent-up/references/schemas/ticket-record.schema.json"
+  python3 "$VAL207" ticket "$SCHEMA207" "$BODY207_BOTH" >"$D/v207d.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok '正例 P207 存量 request 读取校验通过（kind=request / REQ-* id 读取面兼容，不传 --new-ticket）'
+  else
+    bad '正例 P207 存量 request 读取校验通过（kind=request / REQ-* id 读取面兼容，不传 --new-ticket）' "exit=$rc $(head -n 2 "$D/v207d.log" | tr '\n' '|')"
+  fi
+
   # ---- 票 152 断言：open 本体 schema 全量校验（type/pattern/enum/oneOf/
   # additionalProperties/条件 required）----
   # 独立夹具 fix152（免受前段状态影响）：最小 task 本体照（tix_body 形态）重建后逐字段
-  # 破坏，各负例 exit 1、零写入（tix_state 指纹）且报文指名字段路径；正例 task/request
-  # 本体照旧 exit 0 全链落地（合法面零回归）；oneOf 零命中（verification 非 string 非
+  # 破坏，各负例 exit 1、零写入（tix_state 指纹）且报文指名字段路径；正例 task
+  # 本体照旧 exit 0 全链落地（合法面零回归；request 侧正例自票 207 起改读取面兼容形态，
+  # 见 P152r）；oneOf 零命中（verification 非 string 非
   # array）一并拒。风险注记（票 152 risks）：python3 依赖已由套件环境门承载（缺 python3
   # exit 2）；存量 JSON 兼容性＝校验只 open 时点生效、存量票零回扫（open 后本体不再校验，
   # 夹具 30 票 open 通过后前段断言照旧）。
@@ -982,21 +1053,23 @@ PYTHON
     bad '负例 N-152oneof verification oneOf 零命中（数字形态）→ exit 1 零写入（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152o.log" | tr '\n' '|')"
   fi
 
-  # 正例 P152r：request 本体（无 task 条件字段）open 照旧 exit 0（kind 分支合法面零回归）
-  cat > "$F152/facts/requirements/tickets/51-zeta-sixth.json" <<'EOF'
+  # 正例 P152r：request 本体已退役，测试转为存量 request 读取校验通过（票 207）
+  cat > "$F152/facts/requirements/tickets/REQ-20260919-001.json" <<'EOF'
 {
-  "id": "51-zeta-sixth",
+  "id": "REQ-20260919-001",
   "kind": "request",
-  "title": "fixture request（schema 全量校验正例）",
+  "title": "存量 request（读取面兼容）",
   "created_at": "2026-09-19"
 }
 EOF
-  sh "$TIX152" "$F152" open --id 51-zeta-sixth --complexity C1 --title z --ledger-line "$TIX152_LEDGER" >"$D/v152r.log" 2>&1
+  VAL152="$F152/agent-up/scripts/json-validator.py"
+  SCHEMA152="$F152/agent-up/references/schemas/ticket-record.schema.json"
+  python3 "$VAL152" ticket "$SCHEMA152" "$F152/facts/requirements/tickets/REQ-20260919-001.json" >"$D/v152r.log" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && grep -q '"id": "51-zeta-sixth"' "$F152/facts/requirements/tickets/index.json"; then
-    ok '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）'
+  if [ "$rc" -eq 0 ]; then
+    ok '正例 P152r 存量 request 读取校验通过（kind=request 读取面兼容，票 207 后测试改写）'
   else
-    bad '正例 P152r request 本体 open → exit 0 且索引落条目（kind 分支合法面零回归，票 152 AC2）' "exit=$rc $(head -n 2 "$D/v152r.log" | tr '\n' '|')"
+    bad '正例 P152r 存量 request 读取校验通过（kind=request 读取面兼容，票 207 后测试改写）' "exit=$rc $(head -n 2 "$D/v152r.log" | tr '\n' '|')"
   fi
 
   # ---- 七维 Profile reason 存储合同断言（协议 §2.2＋schema profile_reason 属性单源，
