@@ -89,6 +89,27 @@ suite_authority_matrix() {
     bad 'unique-authority 正例：六组 authority/writer/resolution 与模板引用逐项一致' "$(cat "$D/valid.out")"
   fi
 
+  # 目标类正例：用户决策定义目标状态；生成输入仅在用户未明确决定处降级到既有事实取信，
+  # 且用户已明确决定不被旧事实或模板静默覆盖（票 214 两套顺序拆分）。
+  if grep -q '用户决策定义目标状态' "$MATRIX" &&
+    grep -q '既有事实 > 模板 > 自动推断' "$MATRIX" &&
+    grep -q '不因旧事实或模板静默改写' "$MATRIX"; then
+    ok 'target-precedence 正例：用户决策定义目标，用户已明确决定不被旧事实或模板静默覆盖'
+  else
+    bad 'target-precedence 正例：用户决策定义目标，用户已明确决定不被旧事实或模板静默覆盖' 'read-policy.md 缺目标类拆分表述（目标定义句/降级阶梯/静默覆盖禁令）'
+  fi
+
+  # 状态类正例：运行事实以实际文件、测试与 Git 观察为准（当前状态权威），AW-01 行
+  # 目标/状态两半句在场；用户意图不得把运行事实写成已完成状态（票 214）。
+  aw01_row=$(grep '^| AW-01 |' "$MATRIX")
+  if printf '%s\n' "$aw01_row" | grep -q '用户决定以用户原始决定为权威' &&
+    printf '%s\n' "$aw01_row" | grep -q '运行事实以实际文件、测试与 Git 观察为准' &&
+    grep -q '实际文件、测试与 Git 观察定义当前状态' "$MATRIX"; then
+    ok 'state-facts 正例：AW-01 用户决定＝目标权威、运行事实＝当前状态权威两分在场'
+  else
+    bad 'state-facts 正例：AW-01 用户决定＝目标权威、运行事实＝当前状态权威两分在场' 'read-policy.md 缺状态类拆分表述或 AW-01 行目标/状态两半句缺失'
+  fi
+
   cp "$MATRIX" "$D/duplicate-authority.md"
   grep '^| AW-01 |' "$MATRIX" | sed 's/用户决定以用户原始决定为权威/重复来源为权威/' >> "$D/duplicate-authority.md"
   if authority_matrix_check "$D/duplicate-authority.md" >"$D/duplicate.out" 2>&1; then

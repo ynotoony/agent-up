@@ -20,7 +20,7 @@
 - 两套状态机取值固定：Session（active/interrupted/unknown/recovering/closed）、Task（ready/in_progress/blocked/review_ready/review_pass/review_fail/done）；写入所有权按五角色矩阵执行（需求登记册已退役，Request 状态机随之退出——存量项目旧登记冻结只读）。
 - C2/C3、跨会话、中断、无 Git 基线或归属不明时生成 run record（`facts/requirements/runs/<run-id>.json`，十三字段，机器 schema 见公开包 `references/schemas/run-record.schema.json`）；C0/C1 写任务票 Checkpoint；六条不变量是阶段出口硬门禁。
 - run record 收口必带用量遥测：seal 对缺 usage 或缺任一子字段的收口卡 fail-closed；两段式落齐（执行体自报 duration_seconds/source/at，协调层回填 tokens_total/requests）须在 seal 前完成（R-DP-034），存量无 usage 卡冻结零改写。
-- 生成类动作按六项收敛模式治理（§13）：盘点先于生成（Discovery Record，来源/冲突/未知登记）；取信按 既有事实 > 用户确认 > 模板 > 自动推断；capability manifest 按 minimum/full 档位标 enabled/excluded/pending；生成件登记并入 artifacts.yaml 单本账并 reconcile（六要素条目内可定位、幂等、漂移即停、备份可逆，字段映射见 §5.3.1）；检查点按 discovery → confirm → generate → verify → handoff 管线落盘；外部引用登记规范标识、许可证核验与侧通道文档化关闭开关。
+- 生成类动作按六项收敛模式治理（§13）：盘点先于生成（Discovery Record，来源/冲突/未知登记）；生成取信与权威裁决分立——用户未明确决定处按 既有事实 > 模板 > 自动推断 取信（模板只填补缺失结构，自动推断最低），冲突按 §2.3 权威层级即停交用户；capability manifest 按 minimum/full 档位标 enabled/excluded/pending；生成件登记并入 artifacts.yaml 单本账并 reconcile（六要素条目内可定位、幂等、漂移即停、备份可逆，字段映射见 §5.3.1）；检查点按 discovery → confirm → generate → verify → handoff 管线落盘；外部引用登记规范标识、许可证核验与侧通道文档化关闭开关。
 - 车道准入（分级交付道三车道）与拆票评估见 `rules/assessment.md`；三道门禁、委派合同、Git/worktree 与验证纪律见 `rules/implementation/discipline.md`，各自快速摘要随件承载，不在此复述。
 
 ## 2. 读取阶梯与权威层级
@@ -527,15 +527,15 @@ run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`in
 
 ### 13.2 precedence/trust 表（来源优先级与信任降级）
 
-生成取信按固定优先级排序：**既有事实 > 用户确认 > 模板 > 自动推断**。低优先级来源与高优先级冲突时以高者为准；不可信或未知来源只登记进 Discovery Record，不自动写入。本表约束生成内容的来源取舍，与 §2.3 权威层级（用户决策最高）一致；来源间冲突仍走 R-DP-002 冲突即停。
+生成取信与 §2.3 权威裁决是两套顺序，不混用。冲突裁决按 §2.3 权威层级执行：用户决策定义目标状态，实际文件、测试与 Git 观察定义当前状态，来源结论不一致即停交用户（R-DP-002；用户决定与运行事实的写入边界见 `read-policy.md` §2.3.1 AW-01），不以取信次序静默取舍。生成输入选择只在用户未就该项明确决定时生效：此时按 既有事实 > 模板 > 自动推断 取信——用户已明确决定处一律按用户决定，不因旧事实或模板静默改写；模板只填补缺失结构，不替代既定事实与用户决定；自动推断优先级最低，不可信或未知来源只登记进 Discovery Record，不自动写入。
 
 #### R-DP-023 来源优先级与信任降级 `MUST`
 
 - **When**：任何生成内容需要从多个来源取信时。
-- **Action**：按 既有事实 > 用户确认 > 模板 > 自动推断 取信；不可信或未知来源只登记不写入。
-- **Forbidden**：模板或自动推断覆盖既有事实与用户确认；隐式信任未核验来源。
-- **Stop if**：优先级无法判定 → 列待决项报告用户，不自行择优。
-- **Evidence**：生成内容可指出其来源层级。
+- **Action**：先判定该项用户是否已明确决定：已决定处按用户决定写入；未决定处按 既有事实 > 模板 > 自动推断 取信（模板只填补缺失结构，自动推断最低）；不可信或未知来源只登记不写入。
+- **Forbidden**：以旧事实或模板静默覆盖用户已明确决定；把用户意图写成已完成状态（运行事实以实际文件、测试与 Git 观察为准，AW-01）；模板或自动推断覆盖既有事实；隐式信任未核验来源。
+- **Stop if**：用户决定与既有事实冲突 → 按 §2.3 权威层级停止交用户裁决（R-DP-002），不按取信次序静默取舍。
+- **Evidence**：生成内容可指出其来源层级与该处用户是否已明确决定。
 - **Owner**：当前会话执行体。
 - **Authority**：本文 §13.2。
 
@@ -667,7 +667,7 @@ run record 由当前运行的 Implementation 执行体写入（R-DP-015）；`in
 | R-DP-020 | 禁 reset --hard、rm -rf、删未跟踪等破坏性恢复 | 约定 |
 | R-DP-021 | 六条不变量为阶段出口硬门禁，逐条核对 | 门禁 |
 | R-DP-022 | 生成动作写入前先落 Discovery Record（来源、冲突、未知） | 门禁 |
-| R-DP-023 | 取信按既有事实、用户确认、模板、自动推断次序降级 | 约定 |
+| R-DP-023 | 生成取信与权威裁决分立：用户已明确决定处按用户决定，未决处按既有事实、模板（只补缺失结构）、自动推断降级 | 约定 |
 | R-DP-024 | profile 档位确认与 capability manifest 逐项落盘 | 门禁 |
 | R-DP-026 | 治理任务按 discovery、confirm、generate、verify、handoff 五段落盘 | 门禁 |
 | R-DP-027 | 外部引用、许可证、侧通道按证据链登记并附关闭开关 | 约定 |
