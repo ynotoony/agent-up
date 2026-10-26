@@ -9,7 +9,8 @@ Entry points:
   script layer — the single JSON engine replacing embedded python heredocs and
   awk JSON parsing
 - workflow: workflow-executor.sh JSON operations (steps/state-machine parsing,
-  preflight, index status, checkpoint sidecar lifecycle)
+  preflight, index status, checkpoint sidecar lifecycle, state_to_ticket_status
+  mapping enforcement (票 221))
 - ticket-check: ticket-ops.sh gates (close/deps/open-body)
 - contract: dispatch-contract TICKET_ID extraction (worktree-add.sh)
 
@@ -741,6 +742,12 @@ def json_count_key(args):
 # 各操作与原 heredoc 逐行等价迁移，报文与退出码为执行器合同，勿改写)
 # ============================================================
 
+# issue-index 票状态枚举（Task 流转值，不含生命周期标签 superseded）；
+# pattern 与 issue-index.schema.json status pattern 同源（票 221 写票索引值域强制）。
+TICKET_STATUS_RE = re.compile(
+    r'(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done)')
+
+
 def wf_parse_steps(workflow_file):
     """Parse the simplified workflow YAML into a steps JSON array."""
     with open(workflow_file, 'r') as f:
@@ -809,12 +816,14 @@ def wf_parse_state_machine(workflow_file):
     state_machine = {
         "initial_state": "",
         "states": [],
-        "transitions": []
+        "transitions": [],
+        "state_to_ticket_status": {}
     }
 
     in_state_machine = False
     in_states = False
     in_transitions = False
+    in_mapping = False
     current_state = None
     current_transition = None
 
@@ -841,6 +850,15 @@ def wf_parse_state_machine(workflow_file):
             elif stripped.startswith('transitions:'):
                 in_transitions = True
                 in_states = False
+                in_mapping = False
+                continue
+
+            elif stripped.startswith('state_to_ticket_status:'):
+                # state_to_ticket_status 映射块（票 221：workflow_state→ticket_status
+                # 显式映射；解析为执行器映射强制的数据面）
+                in_mapping = True
+                in_states = False
+                in_transitions = False
                 continue
 
             elif in_states and re.match(r'^- name:', stripped):
@@ -871,6 +889,11 @@ def wf_parse_state_machine(workflow_file):
                 value = value.strip()
                 if key in ['to', 'condition', 'trigger']:
                     current_transition[key] = value
+
+            # 解析 state_to_ticket_status 映射键值（票 221）
+            elif in_mapping and ':' in stripped:
+                key, value = stripped.split(':', 1)
+                state_machine['state_to_ticket_status'][key.strip()] = value.strip()
 
     if current_state:
         state_machine['states'].append(current_state)
@@ -916,8 +939,37 @@ def wf_preflight(retry_step, raw_steps):
     return 0
 
 
+def wf_check_ticket_status(value):
+    """Exit 0 iff value is a legal issue-index ticket status (票 221 值域判定)."""
+    return 0 if TICKET_STATUS_RE.fullmatch(value) else 1
+
+
+def wf_map_status(raw_state_machine, to_state):
+    """Print state_to_ticket_status[to_state]（票 221 映射解析）.
+
+    Exit codes: 0 = mapped and target in ticket-status enum;
+    3 = unmapped (no key for to_state); 1 = mapped but target out of enum.
+    """
+    if raw_state_machine == '-':
+        state_machine = json.load(sys.stdin)
+    else:
+        state_machine = json.loads(raw_state_machine)
+    mapping = state_machine.get('state_to_ticket_status') or {}
+    value = mapping.get(to_state, '')
+    print(value)
+    if value == '':
+        return 3
+    return 0 if TICKET_STATUS_RE.fullmatch(value) else 1
+
+
 def wf_index_status(index_file, ticket_id, new_status):
     """Atomically update one ticket's status/updated_at in issues index.json."""
+    # 写票索引值域死守（票 221）：越枚举值零写入 fail-closed；workflow 私有状态
+    # 不经 state_to_ticket_status 映射不得到达本写面。
+    if TICKET_STATUS_RE.fullmatch(new_status) is None:
+        print(f'FAIL: {new_status!r} 不在 issue-index 票状态枚举（Task 流转值）内；拒绝写票索引', file=sys.stderr)
+        return 1
+
     with open(index_file, 'r') as f:
         data = json.load(f)
 
@@ -1362,9 +1414,10 @@ def print_usage():
       通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin）
       退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
 
-  workflow <steps|state-machine|preflight|index-status|checkpoint-init|
-            read-checkpoint|checkpoint-check|step-check|record-step> [args]
-      workflow-executor.sh 专用 JSON 操作（逐行等价迁移自原内嵌 heredoc）
+  workflow <steps|state-machine|map-status|check-status|preflight|index-status|
+            checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]
+      workflow-executor.sh 专用 JSON 操作（逐行等价迁移自原内嵌 heredoc；map-status/
+      check-status 为票 221 映射强制：map-status 退出码 0=映射合法/3=未映射/1=越枚举）
       退出码: 0=完成, 1=校验不过, 2=用法
 
   ticket-check <close|deps|open-body> [args]
@@ -1472,7 +1525,7 @@ def main():
 
     elif mode == 'workflow':
         if len(sys.argv) < 3:
-            print("用法: python3 json-validator.py workflow <steps|state-machine|preflight|index-status|checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]", file=sys.stderr)
+            print("用法: python3 json-validator.py workflow <steps|state-machine|map-status|check-status|preflight|index-status|checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]", file=sys.stderr)
             sys.exit(2)
         sub = sys.argv[2]
         try:
@@ -1480,6 +1533,10 @@ def main():
                 sys.exit(wf_parse_steps(sys.argv[3]))
             elif sub == 'state-machine' and len(sys.argv) == 4:
                 sys.exit(wf_parse_state_machine(sys.argv[3]))
+            elif sub == 'map-status' and len(sys.argv) == 5:
+                sys.exit(wf_map_status(sys.argv[3], sys.argv[4]))
+            elif sub == 'check-status' and len(sys.argv) == 4:
+                sys.exit(wf_check_ticket_status(sys.argv[3]))
             elif sub == 'preflight' and len(sys.argv) == 5:
                 sys.exit(wf_preflight(sys.argv[3], sys.argv[4]))
             elif sub == 'index-status' and len(sys.argv) == 6:

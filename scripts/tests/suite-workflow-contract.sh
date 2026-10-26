@@ -16,7 +16,9 @@ fi
 # 映射目标枚举（对 issue-index.schema.json Task 流转值逐键核对＋两 schema 映射
 # pattern 语料级漂移护栏）正负例常驻；executor 写面
 # 记录与文档三键语义逐键一致且 --resume 回读接受；unsupported-step 负例在
-# checkpoint sidecar 落盘与任何步骤副作用之前失败。夹具全 mktemp 自建不入
+# checkpoint sidecar 落盘与任何步骤副作用之前失败；executor 映射强制（票 221）
+# 运行时正负例常驻：合法映射按映射值端到端写票索引，未映射（implementation_done）
+# 与映射目标越票状态枚举拒绝转换且票索引零写入。夹具全 mktemp 自建不入
 # 仓，被测对象只读；YAML 解析为夹具专用极简块级解析器（映射/序列/纯量/引号
 # 纯量，不支持锚点、流集合与多行块标量），校验关键字覆盖 workflow.schema.json
 # 在用全集：type/required/properties/patternProperties/additionalProperties/
@@ -1041,6 +1043,147 @@ state_machine:
 EOF
   wf_expect_invalid 'N14 state_to_ticket_status 映射越票状态枚举被拒' '不匹配 pattern' \
     schema "$D/neg/n14-mapping-out-of-enum.yaml" "$SCHEMA"
+
+  # ---- executor 映射强制运行时正负例（票 221）：私有状态不直写票索引 ----
+  # 票索引夹具 mktemp 自建，经 issues_index_rel 指向，不触仓内真实 index.json。
+
+  wf_map_fixture() {
+    mkdir -p "$1"
+    cat > "$1/index.json" <<EOF
+{
+  "issues": [
+    {
+      "id": "wf-map-enforce-test",
+      "kind": "task",
+      "status": "$2",
+      "updated_at": "2026-10-26T00:00:00"
+    }
+  ]
+}
+EOF
+    cp "$1/index.json" "$1/index.before"
+    printf '{"id":"wf-map-enforce-test","kind":"task","title":"WF Map Enforce Test","created_at":"2026-10-26"}\n' > "$1/ticket.json"
+  }
+
+  # P15（AC4）：合法映射端到端写入——私有态 working 经映射写 in_progress（非私有状态名直写）
+  wf_map_fixture "$D/map/pos" ready
+  cat > "$D/map/pos/wf.yaml" <<'EOF'
+workflow:
+  name: contract-map-pos
+  description: 映射强制正例
+inputs:
+  sample_input:
+    type: string
+    required: false
+    description: 样例输入
+outputs:
+  sample_output:
+    type: string
+    description: 样例输出
+steps:
+  - id: map-step
+    type: command
+    description: 映射正例步骤
+    command: printf pos
+    checkpoint_field: checkpoint.map.pos
+state_machine:
+  initial_state: ready
+  states:
+    - name: ready
+      description: 初始
+    - name: working
+      description: 私有工作态
+  transitions:
+    - from: ready
+      to: working
+      condition: workflow_started
+  state_to_ticket_status:
+    working: in_progress
+EOF
+  issues_index_rel="$D/map/pos/index.json" sh "$EXECUTOR" "$D/map/pos/wf.yaml" \
+    --ticket-file "$D/map/pos/ticket.json" > "$D/map/pos/run.log" 2>&1
+  map_pos_rc=$?
+  if [ "$map_pos_rc" -eq 0 ] && python3 - "$D/map/pos" > /dev/null <<'PY'
+import json, sys
+
+base = sys.argv[1]
+with open(base + '/index.json', encoding='utf-8') as handle:
+    issue = next(i for i in json.load(handle)['issues'] if i['id'] == 'wf-map-enforce-test')
+assert issue['status'] == 'in_progress', f'状态漂移: {issue["status"]!r}（期望映射值 in_progress）'
+assert issue['status'] != 'working', '私有状态名 working 直写票索引'
+assert issue['updated_at'] != '2026-10-26T00:00:00', 'updated_at 未随写入更新'
+print('map-pos-ok')
+PY
+  then
+    ok 'P15 合法映射端到端写入：ready→working 按映射值写 in_progress（非私有状态名，updated_at 随动）'
+  else
+    bad 'P15 合法映射端到端写入：ready→working 按映射值写 in_progress（非私有状态名，updated_at 随动）' \
+      "exit=$map_pos_rc $(tail -n 3 "$D/map/pos/run.log" | tr '\n' '|')"
+  fi
+
+  # N15（AC1/AC3）：私有状态 implementation_done 无映射 → 拒绝转换、票索引零写入（回归负例常驻）
+  wf_map_fixture "$D/map/neg-unmapped" in_progress
+  cat > "$D/map/neg-unmapped/wf.yaml" <<'EOF'
+workflow:
+  name: contract-map-unmapped
+  description: 映射强制负例：目标状态未映射
+inputs:
+  sample_input:
+    type: string
+    required: false
+    description: 样例输入
+outputs:
+  sample_output:
+    type: string
+    description: 样例输出
+steps:
+  - id: done-step
+    type: command
+    description: 未映射负例步骤
+    command: printf done
+    checkpoint_field: checkpoint.map.done
+state_machine:
+  initial_state: in_progress
+  states:
+    - name: in_progress
+      description: 进行中
+    - name: implementation_done
+      description: 私有完成态
+  transitions:
+    - from: in_progress
+      to: implementation_done
+      condition: workflow_started
+  state_to_ticket_status:
+    in_progress: in_progress
+EOF
+  issues_index_rel="$D/map/neg-unmapped/index.json" sh "$EXECUTOR" "$D/map/neg-unmapped/wf.yaml" \
+    --ticket-file "$D/map/neg-unmapped/ticket.json" > "$D/map/neg-unmapped/run.log" 2>&1
+  map_unmapped_rc=$?
+  if [ "$map_unmapped_rc" -eq 0 ] \
+    && cmp -s "$D/map/neg-unmapped/index.json" "$D/map/neg-unmapped/index.before" \
+    && grep -q '未映射不写票索引: implementation_done' "$D/map/neg-unmapped/run.log"; then
+    ok 'N15 implementation_done 未映射：转换被拒、票索引 cmp 零差（私有状态不直写，回归负例）'
+  else
+    bad 'N15 implementation_done 未映射：转换被拒、票索引 cmp 零差（私有状态不直写，回归负例）' \
+      "exit=$map_unmapped_rc $(tail -n 3 "$D/map/neg-unmapped/run.log" | tr '\n' '|')"
+  fi
+
+  # N16（AC2）：映射目标越票状态枚举 → 拒绝转换、票索引零写入
+  wf_map_fixture "$D/map/neg-outofenum" in_progress
+  sed 's/    in_progress: in_progress/    implementation_done: implemented/' \
+    "$D/map/neg-unmapped/wf.yaml" | sed 's/name: contract-map-unmapped/name: contract-map-outofenum/' \
+    > "$D/map/neg-outofenum/wf.yaml"
+  issues_index_rel="$D/map/neg-outofenum/index.json" sh "$EXECUTOR" "$D/map/neg-outofenum/wf.yaml" \
+    --ticket-file "$D/map/neg-outofenum/ticket.json" > "$D/map/neg-outofenum/run.log" 2>&1
+  map_out_rc=$?
+  if [ "$map_out_rc" -eq 0 ] \
+    && cmp -s "$D/map/neg-outofenum/index.json" "$D/map/neg-outofenum/index.before" \
+    && grep -q '映射目标越票状态枚举，拒绝写票索引: implementation_done → implemented' "$D/map/neg-outofenum/run.log"; then
+    ok 'N16 映射目标 implemented 越票状态枚举：拒绝写票索引、票索引 cmp 零差'
+  else
+    bad 'N16 映射目标 implemented 越票状态枚举：拒绝写票索引、票索引 cmp 零差' \
+      "exit=$map_out_rc $(tail -n 3 "$D/map/neg-outofenum/run.log" | tr '\n' '|')"
+  fi
 
   suite_summary 'workflow-contract'
 }

@@ -121,7 +121,9 @@ python3 "$_engine_file" workflow preflight "$retry_step" "$steps_json" || die1 "
 
 state_machine_json=$(python3 "$_engine_file" workflow state-machine "$workflow_file") || die1 "State Machine 解析失败"
 
-printf 'workflow-executor: 解析到 state_machine 定义\n'
+mapping_count=$(printf '%s' "$state_machine_json" | python3 "$_engine_file" json len - state_to_ticket_status 0)
+
+printf 'workflow-executor: 解析到 state_machine 定义（票状态映射 %s 条）\n' "$mapping_count"
 
 # ---- State Machine Executor ----
 
@@ -145,6 +147,13 @@ get_current_status() {
     return "$_gcs_rc"
   fi
   printf '%s\n' "$_gcs_status"
+}
+
+# 校验值是否为 issue-index 票状态枚举合法值（Task 流转值，不含生命周期标签
+# superseded）。判定在唯一 JSON 引擎面 workflow check-status（票 221；pattern 与
+# issue-index.schema.json status pattern 同源）。
+is_valid_ticket_status() {
+  python3 "$_engine_file" workflow check-status "$1" >/dev/null 2>&1
 }
 
 # 验证状态转换是否合法（根据 state_machine 定义）
@@ -209,6 +218,10 @@ evaluate_condition() {
 }
 
 # 原子化更新票状态（使用临时文件 + mv；引擎侧原子写）
+# 原子化更新票状态（使用临时文件 + mv；引擎侧原子写）。
+# 写票索引前强制值域死守（票 221）：越枚举值零写入 fail-closed；workflow 私有
+# 状态不经 state_to_ticket_status 映射不得到达本函数写面（引擎 index-status 内
+# 另有同 pattern 二次校验，双层防御）。
 update_status() {
   ticket_id=$1
   new_status=$2
@@ -216,6 +229,10 @@ update_status() {
 
   if [ ! -f "$index_file" ]; then
     die1 "index.json 不存在: $index_file"
+  fi
+
+  if ! is_valid_ticket_status "$new_status"; then
+    die1 "拒绝写票索引: $new_status 不在 issue-index 票状态枚举（Task 流转值）内"
   fi
 
   printf '  状态转换: %s → %s\n' "$(get_current_status "$ticket_id")" "$new_status"
@@ -252,9 +269,21 @@ try_advance_state() {
 
         # 验证转换合法性
         if [ "$(validate_transition "$from_state" "$to_state")" = "valid" ]; then
-          # 执行状态转换
-          update_status "$ticket_id" "$to_state"
-          return 0
+          # 映射强制（票 221）：workflow 私有状态不直写票索引；每条转换到达时
+          # 查 state_to_ticket_status[to]，未映射或映射目标越票状态枚举 → 拒绝
+          # 转换且零写票索引；映射合法才按映射值写。
+          _ms_rc=0
+          mapped_status=$(printf '%s' "$state_machine_json" | \
+            python3 "$_engine_file" workflow map-status - "$to_state") || _ms_rc=$?
+          if [ "$_ms_rc" -eq 3 ]; then
+            printf '  未映射不写票索引: %s（state_to_ticket_status 无该状态映射）\n' "$to_state"
+          elif [ "$_ms_rc" -ne 0 ]; then
+            printf '  警告：映射目标越票状态枚举，拒绝写票索引: %s → %s\n' "$to_state" "$mapped_status" >&2
+          else
+            # 执行状态转换（写映射值，非私有状态名）
+            update_status "$ticket_id" "$mapped_status"
+            return 0
+          fi
         else
           printf '  警告：非法状态转换 %s → %s\n' "$from_state" "$to_state" >&2
         fi
