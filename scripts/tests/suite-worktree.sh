@@ -49,9 +49,9 @@ RULES
   rc=$?
   cd "$SAVED_PWD" || exit 1
   if [ "$rc" -eq 0 ] && [ ! -e "$D/p1/wt1/deploy" ] && [ ! -e "$D/p1/wt1/agent-up/scripts/export-payload.sh" ] && [ -f "$D/p1/wt1/agent-up/scripts/other.sh" ] && [ -f "$D/p1/wt1/docs/a.md" ]; then
-    ok '正例 P1 栅栏化创建 exit 0 且 main-only 路径物理不在场、其余件在场'
+    ok '正例 P1 旧接口栅栏化创建 exit 0 且 main-only 路径物理不在场、其余件在场'
   else
-    bad '正例 P1 栅栏化创建 exit 0 且 main-only 路径物理不在场、其余件在场' "exit=$rc $(tail -n 3 "$D/p1.out" | tr '
+    bad '正例 P1 旧接口栅栏化创建 exit 0 且 main-only 路径物理不在场、其余件在场' "exit=$rc $(tail -n 3 "$D/p1.out" | tr '
 ' '|')"
   fi
 
@@ -75,6 +75,41 @@ RULES
     ok '正例 P2 主检出零影响（main-only 件全在）'
   else
     bad '正例 P2 主检出零影响（main-only 件全在）' '主检出文件意外缺失'
+  fi
+
+  # 正例 P4：合同入口（JSON）——传合同文件即建站，站路径自 TICKET_ID 派生（仓库名取仓根 basename）且栅栏同效
+  wt_build_fixture "$D/p4/repo"
+  printf '{"TICKET_ID":"43-worktree-contract"}' > "$D/p4/contract.json"
+  cd "$D/p4/repo" || exit 1
+  sh "$WA" "$D/p4/contract.json" >"$D/p4.out" 2>&1
+  rc=$?
+  cd "$SAVED_PWD" || exit 1
+  if [ "$rc" -eq 0 ] && [ -d "$D/p4/repo-wt/wt43" ] && [ ! -e "$D/p4/repo-wt/wt43/deploy" ] && [ ! -e "$D/p4/repo-wt/wt43/agent-up/scripts/export-payload.sh" ] && [ -f "$D/p4/repo-wt/wt43/agent-up/scripts/other.sh" ]; then
+    ok '正例 P4 合同入口（JSON）传合同文件即建站：站路径自 TICKET_ID 派生且栅栏同效'
+  else
+    bad '正例 P4 合同入口（JSON）传合同文件即建站：站路径自 TICKET_ID 派生且栅栏同效' "exit=$rc $(tail -n 3 "$D/p4.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P4b：合同入口派生分支名＝ticket/<TICKET_ID>（调用方不传路径与分支名）
+  br=$(git -C "$D/p4/repo-wt/wt43" symbolic-ref --short HEAD 2>/dev/null)
+  if [ "$br" = "ticket/43-worktree-contract" ]; then
+    ok '正例 P4b 合同入口派生分支名＝ticket/<TICKET_ID>（调用方不传路径与分支名）'
+  else
+    bad '正例 P4b 合同入口派生分支名＝ticket/<TICKET_ID>（调用方不传路径与分支名）' "branch=$br"
+  fi
+
+  # 正例 P4c：合同入口（委派合同模板形态）——自 {{TICKET_ID}} 节次行抽取
+  wt_build_fixture "$D/p4c/repo"
+  printf '{{TASK_DESCRIPTION}}\n实施票 47-contract-template。\n\n{{TICKET_ID}}\n47-contract-template\n' > "$D/p4c/contract.txt"
+  cd "$D/p4c/repo" || exit 1
+  sh "$WA" "$D/p4c/contract.txt" >"$D/p4c.out" 2>&1
+  rc=$?
+  cd "$SAVED_PWD" || exit 1
+  br=$(git -C "$D/p4c/repo-wt/wt47" symbolic-ref --short HEAD 2>/dev/null)
+  if [ "$rc" -eq 0 ] && [ -d "$D/p4c/repo-wt/wt47" ] && [ "$br" = "ticket/47-contract-template" ] && [ ! -e "$D/p4c/repo-wt/wt47/deploy" ]; then
+    ok '正例 P4c 合同入口（委派合同模板）自 {{TICKET_ID}} 节派生分支与站路径且栅栏同效'
+  else
+    bad '正例 P4c 合同入口（委派合同模板）自 {{TICKET_ID}} 节派生分支与站路径且栅栏同效' "exit=$rc branch=$br $(tail -n 3 "$D/p4c.out" | tr '\n' '|')"
   fi
 
   # 负例 N1：分支名不合 ticket/<NN>-<slug> → exit 1
@@ -152,6 +187,32 @@ dp_mainonly deploy
   else
     bad '正例 P3 既有分支检出 → exit 0 且栅栏同效' "exit=$rc $(tail -n 3 "$D/p3.out" | tr '
 ' '|')"
+  fi
+
+  # 负例 N6：合同缺 TICKET_ID → exit 2 指名（合同入口 fail-closed）
+  wt_build_fixture "$D/n6/repo"
+  printf '{"OTHER":"x"}' > "$D/n6/contract.json"
+  cd "$D/n6/repo" || exit 1
+  sh "$WA" "$D/n6/contract.json" >"$D/n6.out" 2>&1
+  rc=$?
+  cd "$SAVED_PWD" || exit 1
+  if [ "$rc" -eq 2 ] && grep -q '缺 TICKET_ID' "$D/n6.out"; then
+    ok '负例 N6 合同缺 TICKET_ID → exit 2 指名'
+  else
+    bad '负例 N6 合同缺 TICKET_ID → exit 2 指名' "exit=$rc $(tail -n 3 "$D/n6.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N7：TICKET_ID 形态不合 → exit 2 指名
+  wt_build_fixture "$D/n7/repo"
+  printf '{{TICKET_ID}}\nnoticket\n' > "$D/n7/contract.txt"
+  cd "$D/n7/repo" || exit 1
+  sh "$WA" "$D/n7/contract.txt" >"$D/n7.out" 2>&1
+  rc=$?
+  cd "$SAVED_PWD" || exit 1
+  if [ "$rc" -eq 2 ] && grep -q 'TICKET_ID 不合' "$D/n7.out"; then
+    ok '负例 N7 TICKET_ID 形态不合 → exit 2 指名'
+  else
+    bad '负例 N7 TICKET_ID 形态不合 → exit 2 指名' "exit=$rc $(tail -n 3 "$D/n7.out" | tr '\n' '|')"
   fi
 
   suite_summary 'worktree'

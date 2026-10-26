@@ -1,8 +1,12 @@
 #!/bin/sh
-# Input: 位置参数 <path> <branch>（与 git worktree add 同序同义；path 仓库根相对或绝对，
-#        branch 须 ticket/<NN>-<slug> 形态），可选 --force（透传 git，同时放宽同名登记
-#        清理）；仓根 delivery.rules（main-only 节 dp_mainonly 排除清单，缺省禁跑见
-#        Output）。
+# Input: 合同入口（单位置参数）＝派发合同文件路径（JSON 含 "TICKET_ID" 键，或委派合同
+#        模板的 {{TICKET_ID}} 节）：脚本自抽 TICKET_ID（<NN>-<slug> 形态）派生分支名
+#        ticket/<TICKET_ID> 与站路径（仓库根兄弟目录 <仓库名>-wt/wt<NN>，NN 取自
+#        TICKET_ID 首段、仓库名取仓根 basename；站容器缺失自动创建）；旧接口（双位置
+#        参数）＝<path> <branch>（与 git worktree add 同序同义；branch 须
+#        ticket/<NN>-<slug> 形态），为无合同调用方保留。可选 --force（透传 git，同时
+#        放宽同名登记清理）；仓根 delivery.rules（main-only 节 dp_mainonly 排除清单，
+#        缺省禁跑见 Output）。
 # Output: 一票一 worktree 的栅栏化创建单命令——按 delivery.rules main-only 节逐条排除
 #         main-only 路径（目录或文件；sparse-checkout 非锥形模式，创建后该路径在工作树
 #         物理不在场：目录内文件不可写、直接运行不存在），输出排除清单行与完成行。
@@ -37,18 +41,25 @@ prog=worktree-add
 
 usage() {
   cat <<'USAGE'
-用法: sh worktree-add.sh [--force] <path> <branch>
+用法: sh worktree-add.sh [--force] <合同文件>
+      sh worktree-add.sh [--force] <path> <branch>
 参数:
-  --force  透传 git worktree add --force（目标已存在等场景）；不改变本脚本其余门禁。
-  <path>   worktree 路径（git worktree add 同义：仓库根相对或绝对路径）。
-  <branch> 新分支名，须匹配 ticket/<NN>-<slug>（NN 为数字；slug 为非空段）。
+  --force          透传 git worktree add --force（目标已存在等场景）；不改变本脚本其余门禁。
+  <合同文件>        合同入口（单参数）：派发合同文件路径（JSON 含 "TICKET_ID" 键，或委派合同
+                   模板的 {{TICKET_ID}} 节）；脚本自抽 TICKET_ID 派生分支与站路径，调用方
+                   不传路径与分支名。
+  <path> <branch>  旧接口（双参数）：worktree 路径（git worktree add 同义：仓库根相对或
+                   绝对路径）与新分支名（须匹配 ticket/<NN>-<slug>，NN 为数字；slug 为非空段）。
 行为:
   1. 主检出自拒：本脚本只在仓库主检出（git-dir ＝ git-common-dir）运行，链接 worktree
      内运行即拒（exit 1）。
   2. 读仓根 delivery.rules main-only 节（dp_mainonly 逐行一条排除路径；锚点缺失或文件
      缺失＝拒跑 exit 2，栅栏未知 fail-closed；锚点在场即已声明，空清单＝裸锚点＋注释
      条目（分发模板预期形态）；解析破坏 exit 2）。
-  3. git worktree add（--no-checkout）创建；对新区设 sparse-checkout 非锥形模式：
+  3. 合同入口派生：自合同抽 TICKET_ID（<NN>-<slug> 形态），分支名 ticket/<TICKET_ID>、
+     站路径 仓库根/../<仓库名>-wt/wt<NN>（NN 自 TICKET_ID 首段、仓库名取仓根 basename）
+     均自其派生；站容器目录在防撞闸过后按需自动创建。
+  4. git worktree add（--no-checkout）创建；对新区设 sparse-checkout 非锥形模式：
      '/*' 放行全部，再按 dp_mainonly 清单逐条 '!<路径>' 排除，reapply 生效；输出排除
      清单与完成行。
 退出码:
@@ -56,7 +67,7 @@ usage() {
   1  fail-closed（链接 worktree 内运行、分支名不合 ticket 形态、worktree add 失败、
      sparse-checkout 设置失败等）。
   2  用法或配置错误（参数不合、非 Git 工作区、delivery.rules 缺失或未声明 main-only
-     节或解析破坏）。
+     节或解析破坏、合同文件缺失/不可解析或 TICKET_ID 缺失/形态不合）。
 USAGE
 }
 
@@ -65,6 +76,8 @@ USAGE
 force=''
 path=''
 branch=''
+contract_file=''
+contract_mode=''
 for _arg in "$@"; do
   case $_arg in
     --force) force=1 ;;
@@ -76,13 +89,20 @@ for _arg in "$@"; do
       elif [ -z "$branch" ]; then
         branch=$_arg
       else
-        die2 '至多接受 <path> <branch> 两个位置参数（用法见 --help）'
+        die2 '至多接受 <合同文件> 或 <path> <branch>（用法见 --help）'
       fi
       ;;
   esac
 done
-[ -n "$path" ] || { usage >&2; die2 '缺少 <path> <branch> 位置参数'; }
-[ -n "$branch" ] || { usage >&2; die2 '缺少 <branch> 位置参数'; }
+
+# ---- 接口模式判别（单位置参数＝合同入口；双位置参数＝旧接口）----
+
+[ -n "$path" ] || { usage >&2; die2 '缺少参数（<合同文件> 或 <path> <branch>）'; }
+if [ -z "$branch" ]; then
+  contract_file=$path
+  path=''
+  contract_mode=1
+fi
 
 # ---- 主检出自拒（第一道闸：链接 worktree 内禁止运行）----
 
@@ -97,13 +117,6 @@ if [ "$_gd" != "$_gcd" ]; then
 fi
 
 repo_root=$(git rev-parse --show-toplevel)
-
-# ---- 分支名形态断言（ticket/<NN>-<slug>；git 分支名允许更宽，本命令收窄）----
-
-case $branch in
-  ticket/[0-9][0-9]*-*) ;;
-  *) die1 "分支名不合 ticket/<NN>-<slug> 形态: ${branch}（一票一 worktree 纪律，路径与分支共用票号）" ;;
-esac
 
 # ---- 配置加载（未声明 main-only 节＝栅栏未知，拒跑 exit 2 fail-closed）----
 # 共享解析器加载（dp_load_rules 唯一实现＝同目录 dp-load-rules.sh；缺件或版本漂移
@@ -130,10 +143,60 @@ if [ "${DP_MAINONLY_DECLARED:-0}" -ne 1 ]; then
   exit 2
 fi
 
+# ---- 合同入口派生（TICKET_ID → 分支名与站路径；旧接口跳过本节）----
+
+if [ -n "$contract_mode" ]; then
+  [ -f "$contract_file" ] || die2 "合同文件不存在: ${contract_file}"
+  # 抽 TICKET_ID：JSON（"TICKET_ID" 键）或委派合同模板（{{TICKET_ID}} 节取次行）；解析用
+  # python3 标准库（仓库脚本既有依赖），不可解析即拒跑不产生部分结论。
+  ticket_id=$(python3 - "$contract_file" <<'PY'
+import json, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+value = ""
+try:
+    data = json.loads(text)
+    if isinstance(data, dict):
+        value = str(data.get("TICKET_ID", "")).strip()
+except Exception:
+    pass
+if not value:
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() == "{{TICKET_ID}}" and i + 1 < len(lines):
+            value = lines[i + 1].strip()
+            break
+print(value)
+PY
+  ) || die2 "合同文件不可解析（须 UTF-8 文本）: ${contract_file}"
+  [ -n "$ticket_id" ] || die2 "合同缺 TICKET_ID（JSON \"TICKET_ID\" 键或 {{TICKET_ID}} 节）: ${contract_file}"
+  case $ticket_id in
+    [0-9][0-9]*-*) ;;
+    *) die2 "TICKET_ID 不合 <NN>-<slug> 形态: ${ticket_id}（合同: ${contract_file}）" ;;
+  esac
+  branch="ticket/${ticket_id}"
+  _nn=$(printf '%s' "$ticket_id" | sed 's/^\([0-9][0-9]*\)-.*/\1/')
+  _repo_name=$(basename "$repo_root")
+  _wt_parent=$(CDPATH='' cd "$repo_root/.." && pwd) || die2 "仓库根父目录不可进入: ${repo_root}/.."
+  path="${_wt_parent}/${_repo_name}-wt/wt${_nn}"
+fi
+
+# ---- 分支名形态断言（ticket/<NN>-<slug>；git 分支名允许更宽，本命令收窄；合同入口校验派生分支）----
+
+case $branch in
+  ticket/[0-9][0-9]*-*) ;;
+  *) die1 "分支名不合 ticket/<NN>-<slug> 形态: ${branch}（一票一 worktree 纪律，路径与分支共用票号）" ;;
+esac
+
 # ---- 目标防撞（同名目录已存在即停；--force 只透传 git 层）----
 
 if [ -e "$path" ] && [ -z "${force:-}" ]; then
   die1 "目标路径已存在: ${path}（先核对是否遗留 worktree：git worktree list；确认可弃再 --force）"
+fi
+
+# 站容器缺失自动创建（合同入口派生站；置于全部门禁之后——文件系统副作用不先于任何闸）
+
+if [ -n "$contract_mode" ] && [ ! -e "$(dirname "$path")" ]; then
+  mkdir -p "$(dirname "$path")" || die1 "站容器目录创建失败: $(dirname "$path")"
 fi
 
 # ---- 创建（--no-checkout）与栅栏设置（sparse-checkout 非锥形：放行全部＋逐条排除）----

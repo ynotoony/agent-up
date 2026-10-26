@@ -156,13 +156,7 @@ Scope:
 
 ## 9. Git 提交
 
-- 根目录只有一个 Git 仓库，默认分支 `main`；生产性工作按票采用**一票一 worktree 工作流**（用户裁决 2026-09-18）：
-  1. 票务与记录面（开票、领取、收口翻转、账本与投影维护）直接落 `main`；
-  2. 实施在独立 worktree 进行：经 `rules/implementation/scripts/worktree-add.sh ../<仓库名>-wt/wt<NN> ticket/<NN>-<slug>` 栅栏化创建（无栅栏配置的仓径用 `git worktree add` 同参数）——目录容器为仓库根兄弟目录 `<仓库名>-wt/`，worktree 目录名与分支名共用同一票号 NN；撞号让号时 worktree 目录随新票号（§9.4）；main-only 脚本（R-DP-036）由创建面栅栏自 worktree 排除（物理不在场）；实施执行体零 Git 写操作，交付以工作区改动呈现；
-  3. 独立 Review 通过后，协调层在分支提交，rebase `main`（在 worktree 内执行，防分支占用误切——worktree 接线教训）后 fast-forward 合并回 `main`，随即删除 worktree 与分支；
-  4. 多会话并行：派发前核对 `git worktree list` 与领取标记，撞号让号；
-  5. 全程零 push（对齐本节末条）。
-  小型单人工作经用户同意可直接在 `main`。
+- 根目录只有一个 Git 仓库，默认分支 `main`；生产性工作按票采用**一票一 worktree 工作流**（用户裁决 2026-09-18）：实施在独立 worktree 进行，站务由脚本自动处理——worktree 创建经栅栏化脚本完成，分支与站路径自票号派生，无需人工记忆命名规则（用户裁决 2026-10-24：编排下沉脚本，worktree 由「要记的规则」变为「脚本执行的产物」）；main-only 脚本（R-DP-036）由创建面栅栏自 worktree 排除（物理不在场）；票务与记录面（开票、领取、收口翻转、账本与投影维护）直接落 `main`；实施执行体零 Git 写操作，交付以工作区改动呈现；独立 Review 通过后，协调层在分支提交，rebase `main`（在 worktree 内执行，防分支占用误切——worktree 接线教训）后 fast-forward 合并回 `main`，随即删除 worktree 与分支；多会话并行：派发前核对 `git worktree list` 与领取标记；全程零 push（对齐本节末条）。小型单人工作经用户同意可直接在 `main`。
 - 提交格式 `<type>(<scope>): <结果>`，type 允许 `feat` `fix` `docs` `test` `refactor` `build` `chore`。
 - 一个提交是一个可解释的恢复点；不把多个任务塞进一个提交，不为"干净历史"重写或丢弃未确认归属的改动。
 - 公开载荷的发布走仓根 `delivery.rules` payload 节声明的导出形态，经 `export-payload.sh` 单命令完成（split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核）；命令永不 force——ff 断言不过即停手，远端恢复或覆盖须用户明确授权另票执行；载荷内容再变更须新票并重新导出推送。

@@ -31,7 +31,7 @@
 | `health-summary.sh` | 体系仪表盘 | 四分区只读汇总：打分趋势（lesson 九键行按 scope 最近分数）｜吸收候选（调用同目录 absorption-trigger.sh，口径单一承载）｜扫描报警（check-stale-claims gate STALE 计数含 S8）｜对账状态（提供包基线时出汇总行）；空源显示（无）不虚构；POSIX sh、全程只读零写入、零外部依赖。详见下文专节。 |
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，脚本件逐件 cp 自包 `scripts/` 至 `<target>/rules/implementation/scripts/`，数据件逐件 cp 自包内源路径至 `<target>/<行内落位路径>`（安装后运行时依赖闭包——schema/profile 等数据件随消费脚本同门控落位，消费脚本按自身落位形态邻接定位），并逐件 cmp 核验字节一致；预检先于复制（脚本件与数据件同口径核验源存在，删任一已登记依赖即安装明确失败指名路径；目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标目录缺失时创建并输出提示行（scripts 目录 README 生成归执行体，数据目录无 README 义务）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，脚本件 kind: script、数据件 kind: spec，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
-| `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建；分支名须 `ticket/<NN>-<slug>` 形态）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
+| `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→合同入口（单参数传派发合同文件）自抽 TICKET_ID 派生分支名与站路径（旧接口双参数传路径与分支名，形态要求见脚本 `--help`）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
 | `workflow-executor.sh` | Workflow 运行时执行器 | YAML workflow 定义驱动的流程执行器：按 `../references/schemas/workflow.schema.json` v2 的 `steps` 声明序执行 command/verification 步骤（agent 步骤在任何 checkpoint 落盘与步骤副作用之前 fail-closed）、步骤级 checkpoint 原子落盘、`--resume` 中断续传、`--retry` 幂等重试；实际支持子集与 checkpoint_field/sidecar 读写语义见 `../references/schemas/README.md`「workflow executor 支持子集」节（回归＝`tests/` 的 workflow-contract 套件）。POSIX sh＋python3（零外部包依赖）、fail-closed。 |
 | `verify-contract.sh` | 结构化验收谓词执行器 | 读取票面 `verification` 对象数组，逐条执行 `check` 并核对 `expect`/`expect_exit`；普通任务禁止空数组或缺失字段。纯记录例外必须显式提供 `record_only.reason` 与 `verification: "N/A"`，不得用空值绕过门禁；存量散文 verification 仅作票体兼容，不在此执行。依赖 jq，失败即非零。 |
 | `check-dispatch-contract.sh` | 派发合同校验器 | 双模式派发合同校验器：`--check-template` 模板漂移检查（schema 占位符全集与 `../references/prompts/` 三份派发合同模板占位符并集双向零差集）＋`--check <合同文件>` 执行体自查（按特征字段推断合同类型，对照 schema 该类型必备字段清单核对占位符完整性，缺失逐名报出）。POSIX sh＋awk、零外部依赖（无 jq/python）、全程只读。数据件＝`../references/schemas/dispatch-contract.schema.json`。详见下文专节。 |
@@ -724,10 +724,12 @@ sh scripts/export-payload.sh [--dry-run] [repo-root]
 ### 用法
 
 ```text
-sh scripts/worktree-add.sh [--force] <path> <branch>
+sh scripts/worktree-add.sh [--force] <合同文件>
+sh scripts/worktree-add.sh [--force] <path> <branch>   # 旧接口（兼容保留）
 ```
 
-- `<path>`：worktree 路径（git worktree add 同义）；`<branch>`：新分支名，须匹配 `ticket/<NN>-<slug>`（NN 两位数字起，与路径容器票号纪律同源）。
+- `<合同文件>`（合同入口，单参数）：派发合同文件路径（JSON 含 `TICKET_ID` 键，或委派合同模板的 `{{TICKET_ID}}` 节）。脚本自抽 TICKET_ID（票号-短名形态）派生分支名与站路径——分支名携带票号，站＝仓库根兄弟目录（目录容器以仓库名命名，取仓根 basename）下以票号命名的目录，目录名与分支共用同一票号；站容器目录缺失自动创建（在栅栏与防撞闸全过后）。调用方不再传路径与分支名。
+- `<path> <branch>`（旧接口，双参数）：worktree 路径（git worktree add 同义）与新分支名；参数形态要求见 `sh scripts/worktree-add.sh --help`。保留供无合同调用方使用（如测试套件与既有编排）。
 - `--force`：透传 git worktree add --force（目标已存在等场景）；不改变本脚本其余门禁。
 - `-h` / `--help`：打印用法。
 
@@ -736,8 +738,8 @@ sh scripts/worktree-add.sh [--force] <path> <branch>
 | 步骤 | 动作 | 失败行为 |
 | --- | --- | --- |
 | 1 主检出自拒 | `git rev-parse --absolute-git-dir` ≠ `--git-common-dir`＝链接 worktree，拒绝运行（worktree 创建属协调层职责） | exit 1 |
-| 2 配置加载 | 读 `<repo-root>/delivery.rules` main-only 节；main-only 锚点缺失或文件缺失＝栅栏未知，拒跑（如本仓无 main-only 脚本，登记空节或径用 `git worktree add`；拒跑输出附分发模板 `../references/templates/delivery-rules.tmpl` 最小示例）；锚点在场即已声明（含空清单——裸锚点＋注释条目＝空排除清单，模板分发语境预期形态）；解析破坏拒跑 | exit 2 |
-| 3 创建 | 分支存在即检出、不存在即 `-b` 创建；`--no-checkout` 延迟物化 | exit 1 |
+| 2 配置加载与合同派生 | 读 `<repo-root>/delivery.rules` main-only 节；main-only 锚点缺失或文件缺失＝栅栏未知，拒跑（如本仓无 main-only 脚本，登记空节或径用 `git worktree add`；拒跑输出附分发模板 `../references/templates/delivery-rules.tmpl` 最小示例）；锚点在场即已声明（含空清单——裸锚点＋注释条目＝空排除清单，模板分发语境预期形态）；解析破坏拒跑。合同入口另自派发合同抽 TICKET_ID（票号-短名形态）派生分支名与站路径（仓库名取仓根 basename），合同文件缺失/不可解析或 TICKET_ID 缺失/形态不合同 exit 2 | exit 2 |
+| 3 创建 | 分支形态断言（双接口同闸）→站容器缺失自动创建（合同入口；闸后落盘）→分支存在即检出、不存在即 `-b` 创建；`--no-checkout` 延迟物化 | exit 1 |
 | 4 栅栏设置与生效断言 | sparse-checkout 非锥形：`/*` 放行全部＋逐条 `!<路径>` 排除（不带尾斜杠，同型覆盖文件与目录）；`read-tree -mu HEAD` 按 sparse 模式物化（`--no-checkout` 空树上 reapply 不物化，实证）；断言首条排除路径在 worktree 内物理不在场 | exit 1（附删除该 worktree 重试指路） |
 
 - main-only 脚本自此在该 worktree 内不可运行（文件不在场——运行缺失文件与写入缺失目录均失败；绕过需显式 `sparse-checkout disable` 并重新物化，非静默动作）。
@@ -850,7 +852,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `append-only` |  | check-append-only.sh 正负例：changes.jsonl 尾部追加 exit 0（OK 行含追加计数）、micro.jsonl 同口径追加＋progress.md 零 diff exit 0、中间插入 exit 1 指名文件与首个违规行号、改写历史行／截断／工作树删除 exit 1、progress.md 篡改 exit 1、micro.jsonl 中间插入 exit 1（同口径）、无 Git 基线 WARN 退出 0、懒创建（新建账本 OK＋缺失 SKIP）exit 0、用法负例（无参数／多参数／非 Git 目录 exit 2）、迁移承继三例：迁移窗口 exit 0 双 OK（已迁移＋迁移承继）、迁移落位稳态 exit 0（后继 OK＋旧路径 SKIP）、承继不一致 exit 1 双 FAIL（后继新内容＋旧路径缺失） |  |
 | `health` | 会话健康汇总 | health-summary 四分区汇总正反例（打分/候选/报警/对账，含零写入复核与错误传播）。 |
 | `absorption` | 吸收触发扫描 | absorption-trigger 吸收候选触发面正反例（PROMOTE 候选判定与零写入复核）。 |
-| `worktree` |  | worktree-add.sh 栅栏化创建正负例（主检出语境）：正常创建→exit 0＋排除路径物理不在场；链接 worktree 内运行→exit 1 自拒；分支名不合 ticket 形态→exit 1；main-only 节缺失→exit 2 |  |
+| `worktree` |  | worktree-add.sh 栅栏化创建正负例（主检出语境）：正常创建→exit 0＋排除路径物理不在场；链接 worktree 内运行→exit 1 自拒；分支名不合 ticket 形态→exit 1；main-only 节缺失→exit 2；合同入口正负例（JSON 与委派合同模板两形态：传合同文件即建站、分支与站路径自 TICKET_ID 派生且栅栏同效；缺 TICKET_ID／形态不合→exit 2 指名） |  |
 | `upgrade-check` |  | modern 全布局；规则块缺失报具体 ID、多余块提示分歧候选；manifest Conditional README 已生成时存在性核对、目录未生成时 N/A、目录已生成而 README 缺失时报落后；delivery.rules 未启用 N/A、快道专属脚本已装而配置缺失报落后、票务道共享脚本不点亮快道（P6/N6）；旧布局脚本与 docs 条件 README 兼容；双布局冲突且逐份 cmp；单路径歧义 fail-closed；新旧治理面 mixed 明示 | 12 |
 | `shellcheck` |  | 脚本质量门禁面（静态分析）：被测目录全量 .sh 零告警（含 sh -n 同源面之上的风格与语义告警）＋豁免有证断言——`# shellcheck disable=SCxxxx` 指令须同行带理由注释，无证关检查即 FAIL 指名文件:行号；环境缺 shellcheck 时套件零断言跳过（NOTE 行明示，不制造假绿） | 2 |
 | `install` |  | install.sh 非执行式规则表解析正负例（合法表双门控安装全链＋幂等重跑零写入＋规则表缺失/结构破坏/恶意输入四形态 rc=2 零写入）＋安装后运行时依赖闭包（minimal target fixture：`--ticket-ops` 安装到干净临时目标后真实执行已安装 ticket-grade 与 ticket-ops open 并读取已安装 schema/profile——索引落条目且投影再生；missing-validator 与 missing-data 负例真走失败路径：运行时消费点删依赖指名 json-validator.py/ticket-record.schema.json、安装预检删依赖 exit 1 指名复制源缺失路径、包副本删 validator/schema/profile 由 check-package exit 1 指名缺失路径）＋共享解析器安装闭包三例（R4 `--fast-lane` 安装 dp-load-rules.sh 落位与包基线字节一致；R5 已安装 worktree-add 真实执行解析通过后未声明 main-only 节拒跑 exit 2 指名；R6 合法四节 rules 栅栏化创建 exit 0 且 main-only 路径物理不在场） | 21 |
