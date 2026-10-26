@@ -87,3 +87,11 @@ state_machine:
     - from: verifying
       to: failed
       condition: verification_failed
+  state_to_ticket_status:
+    pending: ready
+    parsing: in_progress
+    estimating: in_progress
+    writing: in_progress
+    verifying: review_ready
+    ready: ready
+    failed: blocked

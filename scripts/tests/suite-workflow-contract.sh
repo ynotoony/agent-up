@@ -11,7 +11,10 @@ fi
 # suite: workflow-contract（workflow schema、实例与执行子集合同正反例：
 # references/workflows/ 两实例与 checkpoint sidecar 夹具过同一 schema 子集
 # 校验；越 schema／越子集负例被拒且指名原因；checkpoint_field 的 schema
-# pattern 与 workflow-executor.sh 运行时正则做语料级等价核对；executor 写面
+# pattern 与 workflow-executor.sh 运行时正则做语料级等价核对；state_machine
+# 跨字段三校验（initial_state/transition from/to∈states）与 state_to_ticket_status
+# 映射目标枚举（对 issue-index.schema.json Task 流转值逐键核对＋两 schema 映射
+# pattern 语料级漂移护栏）正负例常驻；executor 写面
 # 记录与文档三键语义逐键一致且 --resume 回读接受；unsupported-step 负例在
 # checkpoint sidecar 落盘与任何步骤副作用之前失败。夹具全 mktemp 自建不入
 # 仓，被测对象只读；YAML 解析为夹具专用极简块级解析器（映射/序列/纯量/引号
@@ -25,6 +28,8 @@ fi
 #   classify <workflow.yaml>               按 executor 支持子集输出逐步骤分类 JSON
 #   sidecar <sidecar.json> <workflow.yaml> sidecar 合同校验＋与实例 checkpoint_field 交叉核对
 #   pattern-equiv <schema.json> <executor.sh>  checkpoint_field pattern 与运行时正则语料等价
+#   mapping-check <workflow.yaml> <schema.json> <issue-index.schema.json>
+#                                          state_to_ticket_status 映射目标枚举核对＋两 schema 映射 pattern 漂移护栏
 wf_emit_validator() {
   cat > "$1" <<'WFPY'
 import json
@@ -198,6 +203,61 @@ def validate(schema, value, path, errors):
             errors.append(f'{path}: oneOf 命中 {hits}（须恰 1）')
 
 
+def cross_check_state_machine(workflow, errors):
+    """schema 子集校验后的跨字段三校验：initial_state 与 transition from/to 必须∈states。"""
+    state_machine = workflow.get('state_machine', {})
+    if not isinstance(state_machine, dict):
+        return
+    state_names = {s['name'] for s in state_machine.get('states', []) if isinstance(s, dict) and 'name' in s}
+    initial = state_machine.get('initial_state')
+    if initial and initial not in state_names:
+        errors.append(f'$.state_machine.initial_state: 初始状态必须存在于 states 列表内: {initial!r}')
+    for idx, transition in enumerate(state_machine.get('transitions', [])):
+        if not isinstance(transition, dict):
+            continue
+        if transition.get('from') and transition['from'] not in state_names:
+            errors.append(f'$.state_machine.transitions[{idx}].from: 源状态必须存在于 states 列表内: {transition["from"]!r}')
+        if transition.get('to') and transition['to'] not in state_names:
+            errors.append(f'$.state_machine.transitions[{idx}].to: 目标状态必须存在于 states 列表内: {transition["to"]!r}')
+
+
+def mapping_check(workflow_path, schema_path, issue_index_path):
+    """state_to_ticket_status 映射合同：目标逐一过 issue-index 票状态枚举（Task 流转值），
+    且 workflow.schema 映射值 pattern 与 issue-index status pattern 做语料级漂移护栏
+    （Task 流转值同判，superseded 生命周期标签双侧排除）。"""
+    with open(issue_index_path, encoding='utf-8') as handle:
+        status_pattern = json.load(handle)['properties']['issues']['items']['properties']['status']['pattern']
+    with open(schema_path, encoding='utf-8') as handle:
+        mapping_schema = json.load(handle)['properties']['state_machine']['properties']['state_to_ticket_status']
+    mapping_pattern = mapping_schema['patternProperties']['^[a-z_]+$']['pattern']
+    corpus = [
+        'ready', 'in_progress', 'blocked', 'blocked: reason-1', 'blocked: x',
+        'review_ready', 'review_pass', 'review_fail', 'done', 'superseded',
+        'superseded: gone', 'invalid_status', 'BLOCKED', 'ready:', 'blocked:',
+    ]
+    drifted = [value for value in corpus
+               if (re.fullmatch(mapping_pattern, value) is not None)
+               != (value != 'superseded' and re.fullmatch(status_pattern, value) is not None)]
+    assert not drifted, f'workflow.schema 映射值 pattern 与 issue-index 票状态枚举漂移: {drifted}'
+    with open(workflow_path, encoding='utf-8') as handle:
+        workflow = yaml_load(handle.read())
+    mapping = (workflow.get('state_machine') or {}).get('state_to_ticket_status')
+    errors = []
+    if not isinstance(mapping, dict) or not mapping:
+        errors.append('$.state_machine.state_to_ticket_status: 缺显式映射声明（workflow_state→ticket_status）')
+    else:
+        for key in sorted(mapping):
+            value = mapping[key]
+            if value == 'superseded' or re.fullmatch(status_pattern, value) is None:
+                errors.append(f'$.state_machine.state_to_ticket_status.{key}: '
+                              f'映射目标 {value!r} 不在 issue-index 票状态枚举（Task 流转值）内')
+    for line in errors:
+        print(line)
+    if not errors:
+        print(f'mapping ok: {len(mapping)} 个映射目标均在 issue-index 票状态枚举内')
+    return 1 if errors else 0
+
+
 def valid_timestamp(value):
     if not isinstance(value, str) or TS_RE.fullmatch(value) is None:
         return False
@@ -321,7 +381,7 @@ def classify(workflow_path):
 
 def main(argv):
     if not argv:
-        print('用法: wfvalidate.py schema|classify|sidecar|pattern-equiv ...', file=sys.stderr)
+        print('用法: wfvalidate.py schema|classify|sidecar|pattern-equiv|mapping-check ...', file=sys.stderr)
         return 2
     mode = argv[0]
     if mode == 'schema':
@@ -331,12 +391,15 @@ def main(argv):
             document = yaml_load(handle.read())
         errors = []
         validate(schema, document, '$', errors)
+        cross_check_state_machine(document, errors)
         for line in errors:
             print(line)
         return 1 if errors else 0
     if mode == 'classify':
         classify(argv[1])
         return 0
+    if mode == 'mapping-check':
+        return mapping_check(argv[1], argv[2], argv[3])
     if mode == 'sidecar':
         with open(argv[1], encoding='utf-8') as handle:
             document = json.load(handle)
@@ -392,9 +455,10 @@ suite_workflow_contract() {
   mkdir -p "$D/inst" "$D/neg" "$D/sidecar" "$D/write" "$D/ac2"
   EXECUTOR="$SCRIPT_DIR/workflow-executor.sh"
   SCHEMA="$PKG_ROOT/references/schemas/workflow.schema.json"
+  INDEX_SCHEMA="$PKG_ROOT/references/schemas/issue-index.schema.json"
   WF_DIR="$PKG_ROOT/references/workflows"
 
-  if [ ! -f "$EXECUTOR" ] || [ ! -f "$SCHEMA" ] || [ ! -f "$WF_DIR/triage.yaml" ] || [ ! -f "$WF_DIR/implementation.yaml" ]; then
+  if [ ! -f "$EXECUTOR" ] || [ ! -f "$SCHEMA" ] || [ ! -f "$INDEX_SCHEMA" ] || [ ! -f "$WF_DIR/triage.yaml" ] || [ ! -f "$WF_DIR/implementation.yaml" ]; then
     bad '被测面齐备（executor/schema/两实例）' "executor=$EXECUTOR schema=$SCHEMA wf_dir=$WF_DIR"
     suite_summary 'workflow-contract'
     return 0
@@ -832,6 +896,151 @@ EOF
   else
     bad 'N10 拒绝报文指名 agent 适配器缺失（fail-closed 行为证据）' "$(tail -n 3 "$D/ac2/run.log" | tr '\n' '|')"
   fi
+
+  # ---- 状态映射契约（票 220）：两实例映射目标过 issue-index 票状态枚举＋三校验负例 ----
+
+  wf_expect_valid 'P13 triage 映射声明过 issue-index 票状态枚举核对（含两 schema 映射 pattern 漂移护栏）' \
+    mapping-check "$WF_DIR/triage.yaml" "$SCHEMA" "$INDEX_SCHEMA"
+  wf_expect_valid 'P14 implementation 映射声明过 issue-index 票状态枚举核对（含两 schema 映射 pattern 漂移护栏）' \
+    mapping-check "$WF_DIR/implementation.yaml" "$SCHEMA" "$INDEX_SCHEMA"
+
+  # N11：initial_state 不在 states 内 → 跨字段核对拒绝
+  cat > "$D/neg/n11-initial-out-of-states.yaml" <<'EOF'
+workflow:
+  name: contract-n11
+  description: 负例：initial_state 不在 states 内
+inputs:
+  sample_input:
+    type: string
+    required: true
+    description: 样例输入
+outputs:
+  sample_output:
+    type: string
+    description: 样例输出
+steps:
+  - id: base-step
+    type: command
+    description: 基底步骤
+    command: printf base
+    checkpoint_field: checkpoint.base.step
+state_machine:
+  initial_state: nonexistent
+  states:
+    - name: pending
+      description: 初始
+      terminal: true
+  transitions:
+    - from: pending
+      to: pending
+      condition: workflow_started
+EOF
+  wf_expect_invalid 'N11 initial_state 越 states 被拒' '初始状态必须存在于' \
+    schema "$D/neg/n11-initial-out-of-states.yaml" "$SCHEMA"
+
+  # N12：transition from 不在 states 内 → 跨字段核对拒绝
+  cat > "$D/neg/n12-transition-from-invalid.yaml" <<'EOF'
+workflow:
+  name: contract-n12
+  description: 负例：transition from 不在 states 内
+inputs:
+  sample_input:
+    type: string
+    required: true
+    description: 样例输入
+outputs:
+  sample_output:
+    type: string
+    description: 样例输出
+steps:
+  - id: base-step
+    type: command
+    description: 基底步骤
+    command: printf base
+    checkpoint_field: checkpoint.base.step
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+      terminal: true
+  transitions:
+    - from: nonexistent_from
+      to: pending
+      condition: workflow_started
+EOF
+  wf_expect_invalid 'N12 transition from 越 states 被拒' '源状态必须存在于' \
+    schema "$D/neg/n12-transition-from-invalid.yaml" "$SCHEMA"
+
+  # N13：transition to 不在 states 内 → 跨字段核对拒绝
+  cat > "$D/neg/n13-transition-to-invalid.yaml" <<'EOF'
+workflow:
+  name: contract-n13
+  description: 负例：transition to 不在 states 内
+inputs:
+  sample_input:
+    type: string
+    required: true
+    description: 样例输入
+outputs:
+  sample_output:
+    type: string
+    description: 样例输出
+steps:
+  - id: base-step
+    type: command
+    description: 基底步骤
+    command: printf base
+    checkpoint_field: checkpoint.base.step
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+      terminal: true
+  transitions:
+    - from: pending
+      to: nonexistent_to
+      condition: workflow_started
+EOF
+  wf_expect_invalid 'N13 transition to 越 states 被拒' '目标状态必须存在于' \
+    schema "$D/neg/n13-transition-to-invalid.yaml" "$SCHEMA"
+
+  # N14：state_to_ticket_status 映射目标越票状态枚举 → pattern 拒绝
+  cat > "$D/neg/n14-mapping-out-of-enum.yaml" <<'EOF'
+workflow:
+  name: contract-n14
+  description: 负例：映射目标越票状态枚举
+inputs:
+  sample_input:
+    type: string
+    required: true
+    description: 样例输入
+outputs:
+  sample_output:
+    type: string
+    description: 样例输出
+steps:
+  - id: base-step
+    type: command
+    description: 基底步骤
+    command: printf base
+    checkpoint_field: checkpoint.base.step
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+      terminal: true
+  transitions:
+    - from: pending
+      to: pending
+      condition: workflow_started
+  state_to_ticket_status:
+    pending: invalid_status
+EOF
+  wf_expect_invalid 'N14 state_to_ticket_status 映射越票状态枚举被拒' '不匹配 pattern' \
+    schema "$D/neg/n14-mapping-out-of-enum.yaml" "$SCHEMA"
 
   suite_summary 'workflow-contract'
 }

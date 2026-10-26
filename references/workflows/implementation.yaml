@@ -96,3 +96,9 @@ state_machine:
     - from: blocked
       to: in_progress
       condition: manual_retry
+  state_to_ticket_status:
+    pending: ready
+    in_progress: in_progress
+    implementation_done: review_ready
+    review_ready: review_ready
+    blocked: blocked

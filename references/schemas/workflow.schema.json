@@ -236,16 +236,17 @@
         "transitions"
       ],
       "additionalProperties": false,
-      "description": "状态机定义（ticket 生命周期状态转换）",
+      "description": "状态机定义（workflow 私有状态＋ticket 生命周期两概念）：workflow 定义的状态机为 workflow_state（workflow 私有，不直写票索引）；issue-index 票生命周期为 ticket_status，写票前必经 state_to_ticket_status 显式映射到票状态机合法值；未映射或映射越界不写票索引。",
       "properties": {
         "initial_state": {
           "type": "string",
-          "description": "初始状态（如 pending、draft）"
+          "pattern": "^[a-z_]+$",
+          "description": "初始状态名称（snake_case，如 pending、draft）；必须存在于 states 列表内"
         },
         "states": {
           "type": "array",
           "minItems": 1,
-          "description": "所有状态列表",
+          "description": "所有私有状态列表（workflow_state）",
           "items": {
             "type": "object",
             "required": [
@@ -257,7 +258,7 @@
               "name": {
                 "type": "string",
                 "pattern": "^[a-z_]+$",
-                "description": "状态名称（snake_case）"
+                "description": "状态名称（snake_case）；workflow 私有，不直写票索引"
               },
               "description": {
                 "type": "string",
@@ -286,11 +287,13 @@
             "properties": {
               "from": {
                 "type": "string",
-                "description": "源状态名称"
+                "pattern": "^[a-z_]+$",
+                "description": "源状态名称（snake_case）；必须存在于 states 列表内"
               },
               "to": {
                 "type": "string",
-                "description": "目标状态名称"
+                "pattern": "^[a-z_]+$",
+                "description": "目标状态名称（snake_case）；必须存在于 states 列表内"
               },
               "condition": {
                 "type": "string",
@@ -301,6 +304,18 @@
                 "type": "string",
                 "description": "触发步骤 id（可选）"
               }
+            }
+          }
+        },
+        "state_to_ticket_status": {
+          "type": "object",
+          "description": "workflow 状态到票生命周期状态的显式映射（workflow_state→ticket_status）。键＝workflow 私有状态名，值＝ticket_status；映射目标必须为 issue-index.schema.json 票状态机 Task 流转合法值（ready/in_progress/blocked[:原因]/review_ready/review_pass/review_fail/done，不含生命周期标签 superseded），未映射或映射越界不写票索引。",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z_]+$": {
+              "type": "string",
+              "pattern": "^(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done)$",
+              "description": "目标票状态（须在 issue-index 票状态枚举 Task 流转值内）"
             }
           }
         }
