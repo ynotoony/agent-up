@@ -46,6 +46,16 @@ facts_tree_rel='facts'
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
+# Source common helper functions（票 227 F4/F5：仓库根推导统一经 resolve_repo_root --layout）
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
+  . "$_helper_script"
+else
+  printf 'check-stale-claims: 错误：共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
+fi
+
 usage() {
   cat <<'USAGE'
 用法: sh check-stale-claims.sh [repo-root] [gate|session]
@@ -140,20 +150,14 @@ script_dir=$(prog_dir)
 if [ $# -ge 1 ]; then
   repo_root=$1
 else
-  # 缺省根推导（按脚本落位形态锚定，两落位收口）：
-  #   <root>/agent-up/scripts/ → 上两级（scripts/../.. ＝ root）
-  #   <root>/rules/implementation/scripts/ → 上三级（scripts/../../.. ＝ root）
-  # 非两落位形态 → fail-closed 报错退出 2（不静默错根：rules/ 下报假 STALE 教训）。
-  _up2=$(CDPATH='' cd "$script_dir/../.." 2>/dev/null && pwd) || _up2=''
-  _up3=$(CDPATH='' cd "$script_dir/../../.." 2>/dev/null && pwd) || _up3=''
-  case $script_dir in
-    */agent-up/scripts) repo_root=$_up2 ;;
-    */rules/implementation/scripts) repo_root=$_up3 ;;
-    *)
-      printf 'check-stale-claims: 错误：无法从脚本落位推导仓库根（%s）——两落位形态为 agent-up/scripts/ 与 rules/implementation/scripts/，其余语境请显式传 repo-root 参数\n' "$script_dir" >&2
-      exit 2
-      ;;
-  esac
+  # 缺省根推导（票 227 F4：统一经 resolve_repo_root --layout 严格两布局口径；
+  # 非两落位形态 → fail-closed 报错退出 2，不静默错根：rules/ 下报假 STALE 教训）。
+  _csc_rr=$(resolve_repo_root --layout) || _csc_rr=''
+  if [ -z "$_csc_rr" ]; then
+    printf 'check-stale-claims: 错误：无法从脚本落位推导仓库根（%s）——两落位形态为 agent-up/scripts/ 与 rules/implementation/scripts/，其余语境请显式传 repo-root 参数\n' "$script_dir" >&2
+    exit 2
+  fi
+  repo_root=$_csc_rr
 fi
 if [ ! -d "$repo_root" ]; then
   printf 'check-stale-claims: 错误：仓库根目录不存在：%s\n' "$repo_root" >&2

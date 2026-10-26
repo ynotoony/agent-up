@@ -9,17 +9,16 @@
 | 名字 | 地位 | 功能 |
 | --- | --- | --- |
 | `README.md` | 目录索引 | 说明脚本用途、用法、二十五项检查、包清单数据表格式、输出格式、退出码与维护联动规则。 |
-| `common-helpers.sh` | 共享错误处理库 | 提供 die1/die2/warn 函数，统一错误输出格式（脚本名自动提取）；被 12 个脚本 source 引用。 |
+| `common-helpers.sh` | 共享错误处理库 | 提供 die1/die2/warn 与 resolve_repo_root 函数——错误输出统一格式（脚本名自动提取）与仓库根推导唯一实现（缺省落位分派／--layout 严格两布局／--git 当前仓库顶层／--marker changes.jsonl 标记上溯，显式参数优先）；被 14 个脚本 source 引用（die 兜底副本已清零）。 |
 | `dp-load-rules.sh` | delivery.rules 共享解析库 | `dp_load_rules <repo-root> <错误前缀>` 唯一实现（fail-closed 六规则：未知指令/恰数违/枚举违/跨行重复/路径形态违/锚点重复或条目违属，任一命中返回 2 不产生部分结论）＋`DP_PARSER_VERSION` 单一版本来源；四消费件（check-artifacts.sh/check-stale-claims.sh/export-payload.sh/worktree-add.sh）同目录 source 加载，缺件或版本漂移 fail-closed exit 2 指名；文法与版本权威说明＝`../references/delivery-rules.md`，锚点表与分发模板 delivery-rules.tmpl 逐字一致；随 fast-lane 门控入安装闭包（`install-policy.rules`）。 |
-| `json-helpers.sh` | JSON 解析共享库 | 提供 json_extract_string/json_extract_number/json_validate_row 函数，POSIX shell 纯脚本 JSON 行解析能力（零外部依赖，无 jq）；被记录层脚本 source 引用（generate-progress.sh 使用）。 |
-| `json-validator.py` | Python JSON 校验模块 | 三类校验入口（ticket/grade/run）：票索引/定级输出/run record 的 JSON 行格式校验与 schema 核验；被 ticket-ops.sh/ticket-grade.sh/run-record.sh 调用；python3 标准库实现（无第三方依赖）。 |
+| `json-validator.py` | 唯一 JSON 引擎 | 脚本层全部 JSON 操作的单点承载（python3 标准库，无第三方依赖）：模式面＝ticket（schema 校验＋--new-ticket 开票门）/grade（复杂度定级）/run seal+stats（run record 封存与统计）/json（通用操作：get/fields/len/pick/count-key，供脚本层取代内嵌解释器代码与 awk 行解析）/workflow（workflow-executor 专用：steps/state-machine 解析、preflight、index-status、checkpoint sidecar 生命周期）/ticket-check（ticket-ops 收口/领取/开票三门）/contract ticket-id（worktree-add 合同入口提取）；被 ticket-ops.sh/ticket-grade.sh/run-record.sh/generate-progress.sh/workflow-executor.sh/worktree-add.sh 调用（同目录或安装闭包双布局定位）。详见下文「JSON 处理规范」专节。 |
 | `check-package.sh` | 包完整性检查 | 按二十五项检查核对包结构与文本事实（SPEC-06 §5 / R-06-004；检查 1/5/8 清单自 `package-manifest.rules` 数据读取，检查 9/10/11 以数据为比对基准；检查 12 规则块体模糊措辞扫描、检查 13 跨树同名脚本所有权三分类（mirror 逐对 cmp／package-only 过渡态不判／repo-only 包内侧缺席）；检查 14 能力映射一致性（含 readonly-execute 行 `readonly_enforcement` 只读约束等级 enforcement 维度：受控词表＋逐适配器声明与登记预期全等比对）；检查 15 模板规则索引与规则块全集全等、检查 16 索引机制列受控词表、检查 17 机械行点名出处存在、检查 19 scripts 节 mode 断言、检查 21 references 树成员闭合与导航、检查 22 规则块九字段格式（Level 受控四值收尾/七字段齐备/块 ID 全局唯一）、检查 23 索引节序言短指针（三宿主 §16 序言逐字等于 `governance-format.md` §2.7 定稿原句）、检查 24 布局引用分类与失效检测（modern/legacy/compatibility 三分类，legacy 计数、compatibility 行级豁免理由必填）、检查 25 待定规范声明检测（MUST/MUST NOT 规则块内【待定】来源标记禁令，扫描面 `references/adapters/*.md`，行级豁免标记 `pending-decl-exempt` 理由必填））；POSIX sh（`#!/bin/sh`、`set -eu`）、只读检查、零网络依赖。 |
 | `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（承接「Record 行级保护」候选口径）：`facts/project/changes.jsonl` 与 `facts/project/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`facts/project/archive/progress.md` 与 `facts/project/archive/changes.md` 冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（不硬猜基线先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
 | `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`facts/project/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed；`--fix` 修复形态（反向未登记 → 十三字段登记条目骨架，dry-run 缺省零写入、`--apply` 显式落盘且与预览逐字一致、与检测共用判定代码；正向缺失不修）。详见下文专节。 |
 | `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010；S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口；S4 计数漂移哨兵：README 锚点行数↔index 条目数相等断言＋「N～M 共」「共 N 量词」计数模式扫描；S5 方案结论标注句：结论行 file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面；S6 终态哨兵：索引 id 曾达 done/superseded 被改回非终态即 STALE 指名票 id 与跃迁方向，终态史取 Git 基线，对账分层＝一致性对账之外终态语义由 S6 承载；S7 替代标记存在性：索引条目 superseded_by 指向票必须真实存在（R-DP-039 替代标记面，悬挂/链环 STALE、非终态指向 WARN）；S8 复盘沉淀指针：lesson 行 promoted_to∈{rules,validator,test} 且指针可 grep 时核对文件存在＋锚点在场，缺失/丢失＝STALE（R-DP-041 检查面））；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
 | `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的只读门禁核对（REQ-20260904-011）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；POSIX sh、严格只读、零外部依赖。详见下文专节。 |
 | `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011；单写机制改造；微道预检两断言）：门禁 → 白名单产品提交 → 索引单写（`facts/requirements/tickets/index.json` 票状态真相源）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 追加或微账本（`facts/project/micro.jsonl`）落行 → 生成器投影再生并 `--check` 核对 → 记录提交（两段式，R-RC-003）；micro 道预检两断言（白名单 ≤3 条目、改动集零新建（??）零删除（D），违者 exit 1，user-review 道不受限）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
-| `generate-progress.sh` | 现役状态投影生成器 | 自 `facts/requirements/tickets/index.json`（票状态真相源，一条目一行）生成 `facts/requirements/tickets/progress-current.md` 现役状态投影（Derived，生成器独占写）；`--check` 为 dry-run 一致性核对；快道收尾由 `lane-commit.sh` 在索引单写后调用；运行时依赖定位（安装闭包）：common-helpers.sh 与 json-helpers.sh 先取包基线布局（`<repo-root>/agent-up/scripts/…`），缺失回退本脚本同目录（安装器随脚本同目录落位）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
+| `generate-progress.sh` | 现役状态投影生成器 | 自 `facts/requirements/tickets/index.json`（票状态真相源，一条目一行）生成 `facts/requirements/tickets/progress-current.md` 现役状态投影（Derived，生成器独占写）；`--check` 为 dry-run 一致性核对；快道收尾由 `lane-commit.sh` 在索引单写后调用；运行时依赖＝同目录 common-helpers.sh（die 与 resolve_repo_root）与 json-validator.py json fields 模式（条目字段解析唯一引擎，缺件 fail-closed 指名）；POSIX sh、fail-closed。详见下文专节。 |
 | `generate-module-map.sh` | 模块地图生成器 | 静态导入行提取生成 `<root>/facts/project/architecture/module-map.json` 检索索引（方案 A 静态导入行提取拍板；Rust 扩展、表驱动化、七语言批量扩展迭代）：Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌（R-DP-015 算法，输入排除本图自身）；repo-root 参数化（缺省 git toplevel）；引擎为通用规则解释器（加载规则表→发现源码→匹配捕获→策略产边→存在性过滤→组装 JSON），语言知识外置 `module-map.rules`（每语言一行，引擎零语言专名，加语言＝加规则行零引擎改动）；POSIX sh、无 jq/python（stat 与 SHA-256 工具依赖声明见专节）、fail-closed。详见下文专节。 |
 | `module-map.rules` | 模块地图语言规则表 | `generate-module-map.sh` 的语言提取规则唯一承载点（表驱动化定稿）：每语言一行 `mm_rule <lang> <exts> <pre_ops> <rules> <coverage> <limits>`；strategy 枚举 extension-map（扩展名 glob 语言绑定）/unresolved-node（未解析节点引用直出）/module-path（模块路径文本直出）/direct-file（声明文件候选边＋存在性过滤）；编码语义见本表头部注释与下文专节；规则表缺失或不合预期时引擎 exit 2（fail-closed）。 |
 | `install-policy.rules` | 安装政策数据表 | 安装政策映射唯一承载点（单源化定稿；先例 `module-map.rules`：外置数据＋引擎零专名）：门控定义行 `ip_gate <gate> <flag> <说明>`、每脚本件×每门控行 `ip_file <pkg-rel-path> <lifecycle> <gate> <说明>`（包内复制基线路径、登记 lifecycle 值、所属门控与角色说明；同一文件属多门控逐门控各一行，引擎按文件路径去重选取）与每数据件×每门控行 `ip_data <pkg-rel-path> <target-rel-path> <lifecycle> <gate> <说明>`（安装后运行时依赖闭包的 schema/profile 等数据件承载行：包内源路径、目标根相对落位路径、登记 lifecycle 值、所属门控与角色说明——随消费脚本同门控复制，落位路径须避开脚本落位目录）；`install.sh` 加载时结构校验（字段数、token/flag/lifecycle/路径形态、(文件/数据件,门控) 唯一、同文件 lifecycle 一致、未定义门控引用、零文件门控、数据件落位路径跨行唯一且同件一致），任一不合预期 exit 2（fail-closed）。 |
@@ -32,7 +31,7 @@
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，脚本件逐件 cp 自包 `scripts/` 至 `<target>/rules/implementation/scripts/`，数据件逐件 cp 自包内源路径至 `<target>/<行内落位路径>`（安装后运行时依赖闭包——schema/profile 等数据件随消费脚本同门控落位，消费脚本按自身落位形态邻接定位），并逐件 cmp 核验字节一致；预检先于复制（脚本件与数据件同口径核验源存在，删任一已登记依赖即安装明确失败指名路径；目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标目录缺失时创建并输出提示行（scripts 目录 README 生成归执行体，数据目录无 README 义务）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，脚本件 kind: script、数据件 kind: spec，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→合同入口（单参数传派发合同文件）自抽 TICKET_ID 派生分支名与站路径（旧接口双参数传路径与分支名，形态要求见脚本 `--help`）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
-| `workflow-executor.sh` | Workflow 运行时执行器 | YAML workflow 定义驱动的流程执行器：按 `../references/schemas/workflow.schema.json` v2 的 `steps` 声明序执行 command/verification 步骤（agent 步骤在任何 checkpoint 落盘与步骤副作用之前 fail-closed）、步骤级 checkpoint 原子落盘、`--resume` 中断续传、`--retry` 幂等重试；实际支持子集与 checkpoint_field/sidecar 读写语义见 `../references/schemas/README.md`「workflow executor 支持子集」节（回归＝`tests/` 的 workflow-contract 套件）。POSIX sh＋python3（零外部包依赖）、fail-closed。 |
+| `workflow-executor.sh` | Workflow 运行时执行器 | YAML workflow 定义驱动的流程执行器：按 `../references/schemas/workflow.schema.json` v2 的 `steps` 声明序执行 command/verification 步骤（agent 步骤在任何 checkpoint 落盘与步骤副作用之前 fail-closed）、步骤级 checkpoint 原子落盘、`--resume` 中断续传、`--retry` 幂等重试；实际支持子集与 checkpoint_field/sidecar 读写语义见 `../references/schemas/README.md`「workflow executor 支持子集」节（回归＝`tests/` 的 workflow-contract 套件）；YAML 解析与全部 step/checkpoint/index JSON 操作经同目录唯一 JSON 引擎 json-validator.py 的 workflow/json 模式承载（本件零内嵌解释器代码，引擎缺件 fail-closed 指名）。POSIX sh＋python3（零外部包依赖）、fail-closed。 |
 | `verify-contract.sh` | 结构化验收谓词执行器 | 读取票面 `verification` 对象数组，逐条执行 `check` 并核对 `expect`/`expect_exit`；普通任务禁止空数组或缺失字段。纯记录例外必须显式提供 `record_only.reason` 与 `verification: "N/A"`，不得用空值绕过门禁；存量散文 verification 仅作票体兼容，不在此执行。依赖 jq，失败即非零。 |
 | `check-dispatch-contract.sh` | 派发合同校验器 | 双模式派发合同校验器：`--check-template` 模板漂移检查（schema 占位符全集与 `../references/prompts/` 三份派发合同模板占位符并集双向零差集）＋`--check <合同文件>` 执行体自查（按特征字段推断合同类型，对照 schema 该类型必备字段清单核对占位符完整性，缺失逐名报出）。POSIX sh＋awk、零外部依赖（无 jq/python）、全程只读。数据件＝`../references/schemas/dispatch-contract.schema.json`。详见下文专节。 |
 | `test-checkpoint-recovery.sh` | Checkpoint 中断续传回归测试 | workflow-executor.sh 中断续传机制回归测试：模拟工作流中断后从 checkpoint 恢复继续执行的场景，验证 checkpoint 文件格式、恢复逻辑正确性；POSIX sh、mktemp 夹具 trap 清理、零工作区写入。供开发/升级时自检 checkpoint 机制。 |
@@ -843,7 +842,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `module-map` |  | 11 语言夹具正例（nodes 19／edges 50 逐一相等＋stdout 摘要计数）＋fp-v1 形状／稳定性／变更检出＋负例 3（规则表损坏 exit 2、无源码 exit 1、非 Git exit 2，均零地图写入） | 10 |
 | `ticket-ops` |  | 生成项目语境 open→take→flip 全链（索引／issues-README／投影全文件逐一相等＋账本行数；updated_at／开票日期捕获后校验形状重建预期）＋收尾投影 `--check`＋新 NN 正开正例＋负例（重复 id／未知 id／账本键序违规／take 非 in_progress／非法状态值／索引排版破坏／N7 同 NN 异 slug 拒开／N8 畸形 id（个位 NN 段）拒开／N-r1 本体缺 complexity_reason 拒开／N-r2 本体 priority_reason 空值拒开／N-r3 本体文件缺失拒开，均 exit 1 零写入）＋行型正例四（lesson promoted_to=sop open 收录／replan 三键齐 open 收录／lesson promoted_to=none 枚举边界 take 收录／对照组既有五键 kind=change 行 flip 照旧——向后兼容）＋负例四（lesson 缺 promoted_to／promoted_to 越枚举／replan 缺 replan_undone／条件键序破坏，均 exit 1 零写入）＋actual_time 收口硬拦与无票账本行入口（独立夹具：flip 本体 actual_time 空值／字段缺失／本体文件缺失均 exit 1 指名票 id 与缺项；request 票 flip 不校验照旧 exit 0；ledger 键序违规 exit 1 零写入／合法行 exit 0 账本收录无投影再生／缺省根语境同款）＋open 本体 schema 全量校验正负例（独立夹具：正例二——最小 task 本体／request 本体各 exit 0 且索引落条目，合法面零回归；负例七——本体 id 越 pattern／complexity 越枚举／profile 越七维 pattern／blocked_by 条目越 pattern／含 schema 未定义字段（additionalProperties）／task 缺条件 required／verification oneOf 零命中，均 exit 1 零写入且报文指名字段路径）＋README 状态列同步合同断言（状态迁移正例逐链：README token↔索引 status 跨载体相等＋take/flip 状态列规范化前后逐字节相等＋open 追加语义行数恰 +1 且既有行逐字节相等；负例四——README 缺该票行 flip／该票行重复 take／锚点已存在 open 拒开零写入附漂移行删除后同 id 正开零误伤正例控制／目录清单表行零命中 open——均 exit 1 零写入且报文指名锚点）＋七维 Profile reason 存储合同断言（独立夹具：合同单源 schema `profile_reason` 恰七键 D/B/I/U/S/M/O 禁额外键逐键非空＋协议存储合同与 verification reason 分立声明在场两正例；七键齐非空读取面校验通过正例；malformed 形态读取面四负例指名键——缺维度键／未知维度键／空白值／非对象；存量票无 `profile_reason` 读取面零命中照常通过正例——开票校验与读取校验分层；新 task open 缺 `profile_reason`／缺维度键拒开零写入两负例＋valid 正开索引落条目正例）＋状态跃迁门禁断言（独立夹具：take blocked_by 完整性门——missing blocker／未 done blocker 负例均 exit 1 零写入且报文指名 blocker id（missing 报索引零命中、pending 报其索引 status）、blocker 全 done 领取正例 exit 0 索引单写、带未 done blocker 的票 flip 照旧成功对照（门仅限 take 零误伤）；actual_time 收口 done 条件化——task flip 至非 done 无 actual_time 正例 exit 0 索引单写、done 缺 actual_time 负例 exit 1 零写入指名票 id 与缺项、request 票翻转豁免维持正例 exit 0） |  |
 | `progress` |  | 投影生成（乱序 id＋checkpoint_ref 列）全文件逐一相等、`--check` 一致 exit 0、篡改检出 exit 1、投影缺失 exit 1、索引缺失／条目行缺必备字段 exit 2 | 7 |
-| `json-helpers` | 共享解析夹具 | JSON 行解析函数夹具承载（json_extract_string/json_extract_number/json_validate_row 行为回归；由 runner 注入 TEST_RECORD_SOURCE_ONLY 后与其他套件同源加载）。 |
+| `json-engine` |  | 唯一 JSON 引擎通用操作面正负例（json fields/get/len/pick/count-key 含 stdin、缺路径 exit 3、default 回退、顶层非对象 exit 2）＋ticket-check 三门（close request 豁免/task 空白拒；deps 未完成拒/已完成放行；open-body id 不一致拒）＋contract ticket-id 两形态（JSON 键/模板节）；json-helpers.sh awk 行解析退役后由本套件承接解析层行为回归 | 19 |
 | `check-package` |  | 二十五项正例输出逐行逐一相等（检查 1～25 全项——检查 13 PASS 行＝仓根镜像在位语境比对 12 对）＋必需件缺失负例（mktemp 包副本删件）exit 1 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动（R-DP-004 点名 generate-progress.sh）＋检查 11 逐处全等负例（§2.5 单处删值，FAIL 行按行号指名）＋模糊措辞负例：检查 12 注入词表首词入规则块体 exit 1 指名文件:行号（词自夹具包 manifest 提取，harness 零词面字面量）、注入行登记行级豁免后不报 exit 0（豁免生效）、豁免登记行无命中报失效豁免 exit 1、检查 13 仓根镜像同名件篡改 exit 1 指名文件、仓根无 scripts/ 时静默跳过（无输出行）＋能力映射负例：检查 14 注入未登记基元名入角色声明行 exit 1 指名文件、删除一基元名出角色声明行 exit 1 指名文件＋规则索引负例：索引删一行 exit 1 指名缺行、索引加全集外 ID exit 1 指名多行、机制列写未登记值 exit 1 指名、机械行点名不存在脚本 exit 1 指名、机械行点名检查项号超界 exit 1 指名、外定义行删标记词 exit 1 算漏行、mechanism-vocab 词表损坏 exit 2、票号禁令三例（.md 文档面注入票号引用 exit 1 指名文件:行号；注入行登记行级豁免后不报 exit 0；豁免登记行无命中报失效豁免 exit 1）＋mode 断言三例（检查 19：非 git 副本语境静默跳过无输出行 exit 0；git 夹具语境 kind=script 置 644 且 kind=rules 置 755 exit 1 双断言同报指名期望 mode）＋闭合性三例（检查 20：scripts/ 一级未登记额外件含隐藏条目 exit 1 指名条目；symlink 混合面——scripts 外指 symlink 与 references 断链外指 exit 1 外指/别名双报；非 git 语境检查 20 照常运行 exit 0 且 PASS: 20 有输出行）＋references 闭合导航四负例（检查 21：子树新增未登记文件 exit 1 指名条目；已登记成员删除 exit 1 且 FAIL: 1 指名缺件；坏相对链接注入 exit 1 指名文件:行号与目标；一级新增目录未入 README 目录清单投影 exit 1 双报）＋检查 13 所有权三分类组（源仓语境＝仓侧 rules/implementation/scripts/ 在场，消费项目整组 SKIP）：mirror 登记悬空（仓侧缺同名件）exit 1 指名悬空件、repo-only 件投放包内 exit 1 指名、package-only 过渡态临时夹具正例（全 mktemp）exit 0 且 PASS: 13 比对 9 对）＋规则块格式与序言指针组（检查 22/23：三宿主 §16 序言逐字等于 R-GF-011 定稿短指针正例各一（锚点检测零宿主名硬编码）；缺九字段——删 Forbidden 行 exit 1 指名 ID 与缺失字段；非法 Level——改自造值 SHALL exit 1 指名 ID 与标题；重复 ID——整块复制 exit 1 指名 ID 与两处行号；序言多行散文 exit 1 指名模板与散文行；序言换第二权威指针 exit 1 指名模板与原文；序言整行删除 exit 1 缺短指针；权威文件缺失——governance-format.md 移出包外 exit 1 且 FAIL: 23 指名缺失件＋汇总行出现＋零 unbound variable（n_hosts 未初始化假绿回归钉死））＋待定规范声明检测三例（检查 25：MUST 块注入【待定】来源行 exit 1 指名文件:行号；命中行带 pending-decl-exempt 行内豁免标记 exit 0 且豁免计数 1→2；标记行无命中报失效豁免 exit 1） | 63 |
 | `check-artifacts` |  | check-artifacts.sh 正负例：全对账正例 exit 0（含懒创建面登记暂缺 SKIP 行与豁免命中不报）、登记目标缺失 exit 1 指名条目、受管文件未登记 exit 1 指名路径、豁免目录内未登记文件 exit 0 不报、校准豁免迁移三例（delivery.rules 声明 dp_artifact_exempt → generated 不报 exit 0；无 delivery.rules → 豁免消失按未登记 FAIL；delivery.rules 解析破坏 → exit 2）、登记解析破坏 exit 2 指名行与条目、无参数／repo-root 不存在 exit 2 | 11 |
 | `authority-matrix` | 权威矩阵合同 | read-policy §2.3.1 权威与写入边界矩阵一致性断言（六组 authority/writer/resolution 与模板引用双向相等）。 |
@@ -885,43 +884,35 @@ test-record-layer: FAIL（共 N 项断言，M 项失败）    # exit 1
 - 夹具不入仓：fixture 由 harness 运行时自建于 mktemp（每语言样例＋去重/注释/字符串负例，fixture 纪律），仓库零留样。
 - 复制落位（生成项目语境）随记录层工具同迁（同 `ticket-ops.sh` 落位口径，见 `../references/templates/scripts-README.md.tmpl` 自检工具落位句）；落位后缺省自测同目录包内脚本，包内/落位两语境同码。
 
-## JSON 处理规范（共享库）
+## JSON 处理规范（唯一 JSON 引擎）
 
-### json-helpers.sh（JSON 解析共享库）
+### json-validator.py（唯一 JSON 引擎）
 
-**用途**：为记录层脚本提供 POSIX shell 纯脚本 JSON 解析能力，消除内嵌 awk JSON 提取逻辑重复。零外部依赖（无 jq/python），适用于简单 JSON 行格式（一条目一行，非嵌套对象/数组）。
+**用途**：脚本层全部 JSON 操作的单点承载（基础库收敛 F3）——python3 标准库实现，无第三方依赖。脚本不再内嵌 python heredoc 或 awk JSON 解析副本；所有解析、校验与 JSON 读写经本引擎的模式面进行。
 
-**提供函数**：
+**模式面**：
 
-1. **json_extract_string**：从 JSON 行提取字符串值
-   - 参数：`$1=json_line`，`$2=key`
-   - 返回：提取的值（通过 stdout）；字段缺失或值为空字符串均返回空
-   - 用法：`value=$(json_extract_string "$line" "id")`
+1. **ticket**：`python3 json-validator.py ticket <schema> <ticket.json> [--new-ticket]`——票本体 schema 全量校验（`--new-ticket` 为开票门：kind 枚举收窄＋七维 profile reason 强制，语义归 ticket-ops open）。
+2. **grade**：`grade <profile.md> <ticket.json> [...]`——复杂度定级建议（ticket-grade.sh 直通）。
+3. **run seal / run stats**：run record 封存校验＋机械字段刷新、用量统计（run-record.sh 调用）。
+4. **json（通用操作面，src 为文件路径或 `-` 读 stdin）**：
+   - `json get <src> <path> [default]`——点路径取值（`steps.0.id` 形态；数组段为十进制下标）；字符串原样、容器紧凑 JSON、标量直出；路径缺失 exit 3，给 default 字面量则回退输出。
+   - `json fields <src> <field>...`——对象顶层多字段一行 TAB 分列输出（缺字段空单元格；数据面禁制表符；generate-progress 条目解析承载）。
+   - `json len <src> <path> [default]`——字符串/数组/对象长度；缺路径或不可取长度 exit 3。
+   - `json pick <src> <array_path> <k1> <v1> [... <kN> <vN>] [field]`——数组首元素多键全等匹配（值按 JSON 值或字符串形态比对）；尾随奇数参数为字段名（只输出该字段，命中元素缺该字段 exit 3），零命中 exit 3（workflow-executor 索引状态读取与状态机转换核对承载）。
+   - `json count-key <src> <key>`——对象键递归计数（checkpoint 完成步统计承载）。
+   - 退出码约定：0 完成；1 输入不可读或非合法 JSON；2 用法；3 路径/元素未命中。
+5. **workflow（workflow-executor.sh 专用操作，逐行等价迁移自原内嵌 heredoc）**：`steps`／`state-machine`（简化 YAML→JSON 解析）、`preflight`（step id 唯一性、checkpoint_field 格式与重叠、retry 存在性、类型支持、expect_exit 域）、`index-status`（索引状态原子单写）、`checkpoint-init`（sidecar 登记与 checkpoint_ref 锚定）、`read-checkpoint`、`checkpoint-check`（恢复前置校验＋retry 完成记录清除）、`step-check`（单步完成校验）、`record-step`（sidecar 两段原子写：先 checkpoint 后票指针）。报文与退出码为执行器合同输出，改写须随 workflow-contract 套件与 checkpoint-recovery harness 同步。
+6. **ticket-check（ticket-ops.sh 三门，报文含 ticket-ops 前缀＝合同输出）**：`close <ticket.json> <id>`（flip 至 done 的 actual_time 收口硬拦）、`deps <ticket.json> <index.json> <id>`（take 的 blocked_by 完整性门）、`open-body <ticket.json> <id>`（open 的本体 id 一致＋理由非空断言）。
+7. **contract ticket-id <contract-file>**——派发合同 TICKET_ID 提取（JSON `"TICKET_ID"` 键或 `{{TICKET_ID}}` 模板节次行；worktree-add.sh 合同入口承载；文件不可读 exit 1，值可能为空）。
 
-2. **json_extract_number**：从 JSON 行提取数值
-   - 参数：`$1=json_line`，`$2=key`
-   - 返回：提取的值（整数或小数）；字段缺失返回空
-   - 用法：`num=$(json_extract_number "$line" "complexity")`
+**引擎定位约定**：调用方同目录优先（安装器将引擎随脚本件同目录落位）；ticket-ops.sh/run-record.sh 另有包基线布局（`<repo-root>/agent-up/scripts/json-validator.py`）优先、同目录回退的双布局定位。缺件一律 fail-closed 指名路径。
 
-3. **json_validate_row**：验证 JSON 行包含所有必备字段且非空
-   - 参数：`$1=json_line`，`$2...$N=required_field_names`（空格分隔）
-   - 返回：exit 0 全部字段存在且非空；exit 1 任一字段缺失或为空（stderr 输出详情）
-   - 用法：`json_validate_row "$line" "id" "status" "updated_at" || die2 "验证失败"`
+**限制**：`json fields` 输出以 TAB 分列，字段值含制表符时不可分列（索引/schema 数据面禁 TAB）；`json pick` 为线性首匹配，非通用查询语言；workflow 模式各操作与 workflow-executor.sh 的 checkpoint 合同强耦合，不作为通用库复用。
 
-**限制**：仅支持简单 JSON 行格式（键值对平铺，值为字符串或数字）；不处理嵌套对象、数组、布尔值或 null；不做完整 JSON 语法校验（假定输入合法）。
+**测试套件**：`test-record-layer.sh --suite json-engine`（19 项断言覆盖通用操作面与三门正负例）；workflow 模式回归＝workflow-contract 套件与 `test-checkpoint-recovery.sh`。
 
-**使用场景**：
-- `generate-progress.sh`：从 `index.json` 提取票状态字段生成投影
-- `ticket-ops.sh`：读取票索引条目字段（可选改造）
-- 其他记录层脚本需解析简单 JSON 行时复用
-
-**测试套件**：`test-record-layer.sh --suite json-helpers`（10 项断言覆盖三函数正负例）。
-
-**Source 用法**：
-```sh
-. "$(dirname "$0")/common-helpers.sh"
-. "$(dirname "$0")/json-helpers.sh"
-```
+**调用形态**：`python3 "$(dirname "$0")/json-validator.py" <mode> [args]`（脚本层统一经 python3 显式调用，不依赖可执行位与 shebang 解析）。
 
 ## 维护联动
 

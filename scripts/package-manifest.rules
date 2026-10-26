@@ -134,8 +134,7 @@ pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾'
 pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（票收口拦截＋会话启动警告）'
 pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/warn 函数）'
 pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_load_rules 唯一实现＋DP_PARSER_VERSION 单一版本来源；四消费件同目录 source，缺件与版本漂移 fail-closed；文法说明 references/delivery-rules.md）'
-pm_script scripts/json-helpers.sh script 'JSON 解析共享库（json_extract_string/json_extract_number/json_validate_row 函数）'
-pm_script scripts/json-validator.py script 'Python JSON 校验模块（三类校验入口：ticket/grade/run）'
+pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip）'
@@ -244,6 +243,9 @@ pm_mirror upgrade-check.sh mirror
 pm_mirror dp-load-rules.sh mirror
 pm_mirror check-stale-claims.sh mirror
 pm_mirror worktree-add.sh mirror
+# die 兜底清零后仓侧脚本同目录加载 common-helpers.sh 为硬依赖：仓侧 rules/implementation/scripts/
+# 补落镜像件并册 mirror（byte 纪律同族；消费项目仓根无镜像落位目录时整项静默跳过）。
+pm_mirror common-helpers.sh mirror
 # 解析器单源化收敛：仓侧三份内嵌解析副本收编为同目录加载 dp-load-rules.sh（仓侧落位
 # 与包侧 cmp 零差），两消费件复册 mirror、共享解析库新册 mirror；check-payload-boundary.sh
 # 为镜像预册——仓侧同名件在场、包侧同名件落位前由检查 13 包侧缺件分支跳过不计数

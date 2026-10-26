@@ -32,7 +32,7 @@ lc_build_fixture() {
   R=$1
   rm -rf "$R"
   mkdir -p "$R/rules/implementation/scripts" "$R/facts/project"
-  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/generate-progress.sh" "$R/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$R/rules/implementation/scripts/"
   printf '{"date": "2026-09-28", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' > "$R/facts/project/micro.jsonl"
   printf 'seed\n' > "$R/a.txt"
   git -C "$R" init -q

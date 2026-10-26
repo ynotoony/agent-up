@@ -16,7 +16,7 @@ uc_build_fixture() {
   #                实例侧 repo/（含 rules/assessment.md）
   rm -rf "$1"
   mkdir -p "$1/pkg/references/templates" "$1/pkg/scripts" "$1/repo"
-  cp "$SCRIPT_DIR/upgrade-check.sh" "$1/pkg/scripts/upgrade-check.sh"
+  cp "$SCRIPT_DIR/upgrade-check.sh" "$SCRIPT_DIR/common-helpers.sh" "$1/pkg/scripts/"
   cp "$PKG_ROOT/scripts/generate-progress.sh" "$1/pkg/scripts/generate-progress.sh"
   printf "ip_gate fast-lane --fast-lane 'fixture fast lane'\nip_gate ticket-ops --ticket-ops 'fixture ticket ops'\nip_file agent-up/scripts/upgrade-check.sh Conditional fast-lane 'fixture checker'\nip_file agent-up/scripts/generate-progress.sh Conditional fast-lane 'fixture shared script'\nip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops 'fallback dependency'\n" > "$1/pkg/scripts/install-policy.rules"
   printf '# ==== payload：导出形态（export-payload.sh 读）====\n# ==== boundary：禁入名单（pre-push 安检读）====\n# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n# ==== main-only：worktree 排除清单（worktree-add.sh 读）====\n' > "$1/pkg/references/templates/delivery-rules.tmpl"

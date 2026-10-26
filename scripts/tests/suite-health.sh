@@ -16,7 +16,7 @@ hs_build_fixture() {
   # $1=夹具目录：repo/facts/project/changes.jsonl ＋ rules/implementation/scripts/ 三件单件
   rm -rf "$1"
   mkdir -p "$1/repo/facts/project" "$1/repo/rules/implementation/scripts"
-  cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/rules/implementation/scripts/"
 }
 
 hs_run() {
@@ -109,9 +109,7 @@ suite_health() {
   ]
 }
 EOF
-  mkdir -p "$D/p6/repo/agent-up/scripts"
-  cp "$SCRIPT_DIR/json-helpers.sh" "$D/p6/repo/agent-up/scripts/"
-  cp "$SCRIPT_DIR/generate-progress.sh" "$D/p6/repo/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/p6/repo/rules/implementation/scripts/"
   sh "$D/p6/repo/rules/implementation/scripts/generate-progress.sh" "$D/p6/repo" >/dev/null 2>&1
   hs_run "$D/p6" > "$D/p6.out" 2>&1
   rc=$?

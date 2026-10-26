@@ -22,7 +22,7 @@ inst_build_pkg() {
   P=$1
   rm -rf "$P"; mkdir -p "$P/scripts" "$P/references/schemas" "$P/references/protocol"
   cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/install-policy.rules" "$P/scripts/"
-  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-helpers.sh json-validator.py dp-load-rules.sh; do
+  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-validator.py dp-load-rules.sh; do
     if [ ! -f "$SCRIPT_DIR/$f" ]; then
       printf 'test-record-layer: 夹具依赖缺失: %s/%s（安装闭包登记源）\n' "$SCRIPT_DIR" "$f" >&2
       exit 2
@@ -186,7 +186,6 @@ suite_install() {
     && [ -f "$D/projr/rules/implementation/scripts/ticket-ops.sh" ] \
     && [ -f "$D/projr/rules/implementation/scripts/json-validator.py" ] \
     && [ -f "$D/projr/rules/implementation/scripts/common-helpers.sh" ] \
-    && [ -f "$D/projr/rules/implementation/scripts/json-helpers.sh" ] \
     && cmp -s "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$D/projr/rules/implementation/references/schemas/ticket-record.schema.json" \
     && cmp -s "$SCRIPT_DIR/../references/protocol/complexity-profile.md" "$D/projr/rules/implementation/references/protocol/complexity-profile.md"; then
     ok '闭包正例 R1 minimal target 安装 → exit 0 且入口/validator/helpers 脚本件与 schema/profile 数据件全落位（数据件与包基线字节一致）'

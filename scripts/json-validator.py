@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""JSON validation module for agent-up scripts.
+"""JSON engine for agent-up scripts (票 227 F3：脚本层唯一 JSON 引擎).
 
-Provides three validation entry points:
+Entry points:
 - ticket: Validate ticket JSON against schema
 - grade: Grade ticket complexity
 - run: Validate/seal run records and compute stats
+- json: Generic JSON operations (get/fields/len/pick/count-key) for the shell
+  script layer — the single JSON engine replacing embedded python heredocs and
+  awk JSON parsing
+- workflow: workflow-executor.sh JSON operations (steps/state-machine parsing,
+  preflight, index status, checkpoint sidecar lifecycle)
+- ticket-check: ticket-ops.sh gates (close/deps/open-body)
+- contract: dispatch-contract TICKET_ID extraction (worktree-add.sh)
 
 Exit codes:
-  0 = validation passed (ticket/run modes) or grading completed (grade mode)
-  1 = validation failed or invalid input
+  0 = operation completed
+  1 = validation failed or invalid input (3 = path/element miss for json ops)
   2 = usage error or missing dependencies
 """
 
@@ -16,6 +23,7 @@ import sys
 import os
 import json
 import re
+import tempfile
 from datetime import datetime
 from collections import defaultdict
 
@@ -520,6 +528,809 @@ def stats_run_records(records_dir):
 
 
 # ============================================================
+# Generic JSON operations (票 227 F3：唯一 JSON 引擎的通用操作面)
+# 供脚本层取代内嵌 python heredoc 与 awk JSON 解析；src='-' 读 stdin。
+# ============================================================
+
+_MISSING = object()
+
+
+def _load_json(src, what='JSON'):
+    """Load JSON from a file path or '-' (stdin). Exit 1 on failure."""
+    try:
+        if src == '-':
+            return json.load(sys.stdin)
+        with open(src, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f'json-validator: FAIL: 无法读取或解析{what}: {src}（{e}）', file=sys.stderr)
+        sys.exit(1)
+
+
+def _navigate(root, path):
+    """Navigate a dotted path; segments index dicts by key and lists by
+    non-negative decimal index. Returns _MISSING when the path does not exist."""
+    data = root
+    if path == '' or path is None:
+        return data
+    for part in path.split('.'):
+        if isinstance(data, dict):
+            if part not in data:
+                return _MISSING
+            data = data[part]
+        elif isinstance(data, list):
+            if not re.fullmatch(r'[0-9]+', part):
+                return _MISSING
+            idx = int(part)
+            if idx >= len(data):
+                return _MISSING
+            data = data[idx]
+        else:
+            return _MISSING
+    return data
+
+
+def _print_value(value):
+    """Print a scalar raw (strings unquoted) and containers as compact JSON."""
+    if isinstance(value, str):
+        print(value)
+    elif value is True:
+        print('true')
+    elif value is False:
+        print('false')
+    elif value is None:
+        print('null')
+    elif isinstance(value, (dict, list)):
+        print(json.dumps(value, ensure_ascii=False))
+    else:
+        print(value)
+
+
+def _parse_scalar(raw):
+    """Parse a shell-provided literal as JSON; fall back to a raw string."""
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return raw
+
+
+def json_get(args):
+    """json get <src> <path> [default]
+    Print the value at a dotted path. Strings print raw, containers as compact
+    JSON. Missing path exits 3, unless a default literal is provided."""
+    if len(args) not in (2, 3):
+        print('用法: json-validator.py json get <src|-> <path> [default]', file=sys.stderr)
+        sys.exit(2)
+    src, path = args[0], args[1]
+    data = _load_json(src)
+    value = _navigate(data, path)
+    if value is _MISSING:
+        if len(args) == 3:
+            _print_value(_parse_scalar(args[2]))
+            return 0
+        print(f'json-validator: FAIL: 路径不存在: {path}', file=sys.stderr)
+        return 3
+    _print_value(value)
+    return 0
+
+
+def json_fields(args):
+    """json fields <src|-> <field> [<field> ...]
+    Print top-level fields of an object joined by TAB on one line (missing
+    fields as empty cells). Data face must not contain TAB characters."""
+    if len(args) < 2:
+        print('用法: json-validator.py json fields <src|-> <field> [<field> ...]', file=sys.stderr)
+        sys.exit(2)
+    src = args[0]
+    data = _load_json(src)
+    if not isinstance(data, dict):
+        print(f'json-validator: FAIL: fields 要求顶层为对象: {src}', file=sys.stderr)
+        return 2
+    cells = []
+    for field in args[1:]:
+        value = data.get(field)
+        if value is None:
+            cells.append('')
+        elif isinstance(value, str):
+            cells.append(value)
+        elif isinstance(value, (dict, list)):
+            cells.append(json.dumps(value, ensure_ascii=False))
+        elif value is True:
+            cells.append('true')
+        elif value is False:
+            cells.append('false')
+        else:
+            cells.append(str(value))
+    print('\t'.join(cells))
+    return 0
+
+
+def json_len(args):
+    """json len <src|-> <path> [default]
+    Print the length of the string/array/object at a dotted path. Missing path
+    or non-lengthable value exits 3, unless a default number is provided."""
+    if len(args) not in (2, 3):
+        print('用法: json-validator.py json len <src|-> <path> [default]', file=sys.stderr)
+        sys.exit(2)
+    src, path = args[0], args[1]
+    data = _load_json(src)
+    value = _navigate(data, path)
+    if value is _MISSING or not isinstance(value, (str, list, dict)):
+        if len(args) == 3:
+            print(args[2])
+            return 0
+        print(f'json-validator: FAIL: 路径不存在或不可取长度: {path}', file=sys.stderr)
+        return 3
+    print(len(value))
+    return 0
+
+
+def json_pick(args):
+    """json pick <src|-> <array_path> <k1> <v1> [... <kN> <vN>] [field]
+    Print the first array element matching ALL key/value pairs (values compared
+    as JSON value or string form). With a trailing odd argument, print only that
+    field. No match exits 3."""
+    if len(args) < 4:
+        print('用法: json-validator.py json pick <src|-> <array_path> <k> <v> [...] [field]', file=sys.stderr)
+        sys.exit(2)
+    src, array_path = args[0], args[1]
+    rest = args[2:]
+    if len(rest) % 2 == 1:
+        field = rest[-1]
+        pairs = rest[:-1]
+    else:
+        field = None
+        pairs = rest
+    data = _load_json(src)
+    arr = _navigate(data, array_path)
+    if arr is _MISSING or not isinstance(arr, list):
+        print(f'json-validator: FAIL: 数组路径不存在或非数组: {array_path}', file=sys.stderr)
+        return 3
+    for element in arr:
+        if not isinstance(element, dict):
+            continue
+        matched = True
+        for i in range(0, len(pairs), 2):
+            key, want = pairs[i], pairs[i + 1]
+            have = element.get(key)
+            if have != want and str(have) != want:
+                matched = False
+                break
+        if not matched:
+            continue
+        if field is None:
+            _print_value(element)
+            return 0
+        value = element.get(field)
+        if field not in element:
+            print(f'json-validator: FAIL: 命中元素缺字段: {field}', file=sys.stderr)
+            return 3
+        _print_value(value)
+        return 0
+    return 3
+
+
+def json_count_key(args):
+    """json count-key <src|-> <key>
+    Count occurrences of a key in nested objects (recursive)."""
+    if len(args) != 2:
+        print('用法: json-validator.py json count-key <src|-> <key>', file=sys.stderr)
+        sys.exit(2)
+    data = _load_json(args[0])
+    key = args[1]
+    count = 0
+
+    def visit(node):
+        nonlocal count
+        if isinstance(node, dict):
+            if key in node:
+                count += 1
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(data)
+    print(count)
+    return 0
+
+
+# ============================================================
+# Workflow operations (票 227 F3：workflow-executor.sh 内嵌 python heredoc 收敛承载；
+# 各操作与原 heredoc 逐行等价迁移，报文与退出码为执行器合同，勿改写)
+# ============================================================
+
+def wf_parse_steps(workflow_file):
+    """Parse the simplified workflow YAML into a steps JSON array."""
+    with open(workflow_file, 'r') as f:
+        content = f.read()
+
+    steps = []
+    in_steps = False
+    current_step = None
+    indent_stack = []
+
+    for line in content.splitlines():
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+
+        if stripped.startswith('steps:'):
+            in_steps = True
+            indent_stack = [indent]
+            continue
+
+        if in_steps:
+            if re.match(r'^- id:', stripped):
+                if current_step:
+                    steps.append(current_step)
+                current_step = {}
+                indent_stack = [indent]
+                current_step['id'] = stripped.split(':', 1)[1].strip()
+
+            elif indent == 0 and stripped and not stripped.startswith('-'):
+                if current_step:
+                    steps.append(current_step)
+                    current_step = None
+                break
+
+            elif current_step is not None and stripped:
+                if ':' in stripped:
+                    key, value = stripped.split(':', 1)
+                    key = key.strip()
+                    value = value.strip()
+
+                    if key in ['type', 'description', 'checkpoint_field', 'agent', 'command']:
+                        current_step[key] = value
+                    elif key == 'verification':
+                        current_step['verification'] = []
+                    elif key in ['name', 'check', 'expect', 'expect_exit', 'fail_msg', 'description'] and 'verification' in current_step:
+                        if not current_step['verification'] or (key == 'name'):
+                            current_step['verification'].append({})
+                        if key == 'description':
+                            key = 'verify_description'
+                        if key == 'expect_exit' and re.fullmatch(r'-?[0-9]+', value):
+                            current_step['verification'][-1][key] = int(value)
+                        else:
+                            current_step['verification'][-1][key] = value
+
+    if current_step:
+        steps.append(current_step)
+
+    print(json.dumps(steps))
+    return 0
+
+
+def wf_parse_state_machine(workflow_file):
+    """Parse the simplified workflow YAML state_machine block into JSON."""
+    with open(workflow_file, 'r') as f:
+        content = f.read()
+
+    state_machine = {
+        "initial_state": "",
+        "states": [],
+        "transitions": []
+    }
+
+    in_state_machine = False
+    in_states = False
+    in_transitions = False
+    current_state = None
+    current_transition = None
+
+    for line in content.splitlines():
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+
+        if stripped.startswith('state_machine:'):
+            in_state_machine = True
+            continue
+
+        if in_state_machine:
+            if indent == 0 and stripped and not stripped.startswith(' '):
+                break
+
+            if stripped.startswith('initial_state:'):
+                state_machine['initial_state'] = stripped.split(':', 1)[1].strip()
+
+            elif stripped.startswith('states:'):
+                in_states = True
+                in_transitions = False
+                continue
+
+            elif stripped.startswith('transitions:'):
+                in_transitions = True
+                in_states = False
+                continue
+
+            elif in_states and re.match(r'^- name:', stripped):
+                if current_state:
+                    state_machine['states'].append(current_state)
+                current_state = {}
+                current_state['name'] = stripped.split(':', 1)[1].strip()
+
+            elif in_states and current_state is not None and ':' in stripped:
+                key, value = stripped.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+                if key in ['description', 'terminal']:
+                    if key == 'terminal':
+                        current_state[key] = value.lower() in ['true', 'yes']
+                    else:
+                        current_state[key] = value
+
+            elif in_transitions and re.match(r'^- from:', stripped):
+                if current_transition:
+                    state_machine['transitions'].append(current_transition)
+                current_transition = {}
+                current_transition['from'] = stripped.split(':', 1)[1].strip()
+
+            elif in_transitions and current_transition is not None and ':' in stripped:
+                key, value = stripped.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+                if key in ['to', 'condition', 'trigger']:
+                    current_transition[key] = value
+
+    if current_state:
+        state_machine['states'].append(current_state)
+    if current_transition:
+        state_machine['transitions'].append(current_transition)
+
+    print(json.dumps(state_machine))
+    return 0
+
+
+def wf_preflight(retry_step, raw_steps):
+    """Validate step ids, checkpoint fields, retry target and step support
+    before any checkpoint file is created or updated."""
+    steps = json.loads(raw_steps)
+    step_ids = [step.get('id', '') for step in steps]
+    if len(step_ids) != len(set(step_ids)):
+        raise SystemExit('workflow step id 必须唯一')
+    if retry_step and retry_step not in step_ids:
+        raise SystemExit(f"--retry 指定的 step 不存在: {retry_step}")
+    checkpoint_fields = []
+    for step in steps:
+        field = step.get('checkpoint_field', '')
+        if field:
+            if not re.fullmatch(r'checkpoint(?:\.[a-z_][a-z0-9_]*)+', field):
+                raise SystemExit(f"step {step.get('id', '')} 的 checkpoint_field 格式无效")
+            for prior_field, prior_step in checkpoint_fields:
+                if field == prior_field or field.startswith(prior_field + '.') or prior_field.startswith(field + '.'):
+                    raise SystemExit(f"step {step.get('id', '')} 与 step {prior_step} 的 checkpoint_field 重叠")
+            checkpoint_fields.append((field, step.get('id', '')))
+        if retry_step and step.get('id') != retry_step:
+            continue
+        step_type = step.get('type', '')
+        if step_type == 'agent':
+            raise SystemExit(f"step {step.get('id', '')} 需要宿主 agent 执行器，但当前执行器没有 agent 适配器")
+        if step_type not in ('command', 'verification'):
+            raise SystemExit(f"未知 step 类型: {step_type}")
+        if step_type == 'verification':
+            for item in step.get('verification', []):
+                value = item.get('expect_exit', 0)
+                if type(value) is not int or not 0 <= value <= 255:
+                    name = item.get('name', '')
+                    raise SystemExit(f"step {step.get('id', '')} verification {name} 的 expect_exit 必须是 0..255 整数")
+    return 0
+
+
+def wf_index_status(index_file, ticket_id, new_status):
+    """Atomically update one ticket's status/updated_at in issues index.json."""
+    with open(index_file, 'r') as f:
+        data = json.load(f)
+
+    found = False
+    for issue in data.get('issues', []):
+        if issue.get('id') == ticket_id:
+            issue['status'] = new_status
+            issue['updated_at'] = datetime.utcnow().strftime('%Y-%m-%dT%H:%M')
+            found = True
+            break
+
+    if not found:
+        print(f'FAIL: 票 {ticket_id} 不在索引中', file=sys.stderr)
+        return 1
+
+    index_dir = os.path.dirname(index_file)
+    with tempfile.NamedTemporaryFile('w', dir=index_dir, delete=False, suffix='.json') as tmp_f:
+        json.dump(data, tmp_f, indent=2, ensure_ascii=False)
+        tmp_f.write('\n')
+        tmp_name = tmp_f.name
+
+    os.rename(tmp_name, index_file)
+    print(f'状态已更新: {new_status}')
+    return 0
+
+
+def wf_checkpoint_init(ticket_file):
+    """Register the workflow checkpoint sidecar and anchor ticket checkpoint_ref."""
+    def atomic_write(path, document):
+        directory = os.path.dirname(path) or '.'
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile('w', dir=directory, delete=False, encoding='utf-8') as f:
+                json.dump(document, f, indent=2, ensure_ascii=False)
+                f.write('\n')
+                temporary = f.name
+            os.replace(temporary, path)
+        finally:
+            if temporary and os.path.exists(temporary):
+                os.unlink(temporary)
+
+    ticket_file = os.path.realpath(ticket_file)
+    with open(ticket_file, encoding='utf-8') as f:
+        ticket = json.load(f)
+    if not isinstance(ticket, dict):
+        raise SystemExit('票文件必须包含 JSON 对象')
+    if 'checkpoint' in ticket:
+        raise SystemExit('票文件含已废弃的顶层 checkpoint')
+    basename = os.path.basename(ticket_file) + '.workflow-checkpoint-v1.json'
+    expected_ref = 'workflow-checkpoint-v1:' + basename
+    ref = ticket.get('checkpoint_ref', '')
+    if not isinstance(ref, str):
+        raise SystemExit('checkpoint_ref 必须是字符串')
+    if ref and ref != expected_ref:
+        raise SystemExit('checkpoint_ref 不是 workflow-checkpoint-v1 固定同目录引用；拒绝解释旧锚点或任意路径')
+    path = os.path.join(os.path.dirname(ticket_file), basename)
+    if os.path.islink(path):
+        raise SystemExit('workflow checkpoint sidecar 不得是符号链接')
+    if os.path.lexists(path) and not os.path.isfile(path):
+        raise SystemExit('workflow checkpoint sidecar 必须是普通文件')
+    if os.path.isfile(path):
+        with open(path, encoding='utf-8') as f:
+            sidecar = json.load(f)
+        if not isinstance(sidecar, dict) or type(sidecar.get('version')) is not int or sidecar['version'] != 1:
+            raise SystemExit('workflow checkpoint sidecar version 必须为整数 1')
+        if not isinstance(sidecar.get('checkpoint'), dict):
+            raise SystemExit('workflow checkpoint sidecar 必须包含 checkpoint 对象')
+        if not ref:
+            if sidecar['checkpoint'] != {}:
+                raise SystemExit('发现无 checkpoint_ref 的非空 workflow checkpoint sidecar；拒绝恢复孤儿状态')
+            ticket['checkpoint_ref'] = expected_ref
+            atomic_write(ticket_file, ticket)
+    elif ref:
+        raise SystemExit('checkpoint_ref 指向的 sidecar 文件不存在')
+    else:
+        # Register an empty checkpoint before running steps. A crash before the
+        # ticket pointer is saved leaves only this safe, recoverable empty state.
+        atomic_write(path, {'version': 1, 'checkpoint': {}})
+        ticket['checkpoint_ref'] = expected_ref
+        atomic_write(ticket_file, ticket)
+    print(path)
+    return 0
+
+
+def wf_read_checkpoint(checkpoint_file):
+    """Read the checkpoint object from a sidecar document."""
+    with open(checkpoint_file, encoding='utf-8') as f:
+        document = json.load(f)
+    if not isinstance(document, dict) or not isinstance(document.get('checkpoint', {}), dict):
+        raise SystemExit('checkpoint 文件格式无效：需要对象中的 checkpoint 对象')
+    checkpoint = document.get('checkpoint', {})
+    print(json.dumps(checkpoint))
+    return 0
+
+
+def wf_checkpoint_check(checkpoint_file, raw_checkpoint, raw_steps, retry_step):
+    """Validate every checkpoint path this invocation may read or write before
+    the first workflow command can produce an external side effect. A retry
+    clears its prior completion record first, so a failed retry cannot look
+    completed."""
+    checkpoint = json.loads(raw_checkpoint)
+    steps = json.loads(raw_steps)
+    if not isinstance(checkpoint, dict):
+        raise SystemExit('checkpoint 根必须为对象')
+    missing = object()
+
+    selected_steps = [step for step in steps if not retry_step or step.get('id') == retry_step]
+    for step in selected_steps:
+        field = step.get('checkpoint_field', '')
+        if not field:
+            continue
+        if not re.fullmatch(r'checkpoint(?:\.[a-z_][a-z0-9_]*)+', field):
+            raise SystemExit(f"step {step.get('id', '')} 的 checkpoint_field 格式无效")
+        data = checkpoint
+        for part in field.split('.')[1:]:
+            if not isinstance(data, dict):
+                raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的字段路径中间节点必须为对象")
+            if part not in data:
+                data = missing
+                break
+            data = data[part]
+        if data is missing:
+            continue
+        if not isinstance(data, dict):
+            raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的完成记录必须为对象")
+        if data.get('step_name') != step.get('id'):
+            raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的完成记录 step_name 不匹配")
+        completed_at = data.get('completed_at')
+        if not isinstance(completed_at, str) or not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z', completed_at):
+            raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的完成记录 completed_at 格式无效")
+        try:
+            datetime.strptime(completed_at, '%Y-%m-%dT%H:%M:%SZ')
+        except ValueError:
+            raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的完成记录 completed_at 时间值无效")
+        if not isinstance(data.get('outputs'), str):
+            raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的完成记录 outputs 必须为字符串")
+
+    if retry_step and checkpoint_file:
+        step = next(step for step in steps if step.get('id') == retry_step)
+        field = step.get('checkpoint_field', '')
+        if field:
+            with open(checkpoint_file, encoding='utf-8') as f:
+                document = json.load(f)
+            current = document['checkpoint']
+            parts = field.split('.')[1:]
+            parents = []
+            for part in parts[:-1]:
+                if part not in current:
+                    current = None
+                    break
+                parents.append((current, part))
+                current = current[part]
+            leaf = parts[-1]
+            if current is not None and leaf in current:
+                del current[leaf]
+                for parent, key in reversed(parents):
+                    if parent[key] == {}:
+                        del parent[key]
+                    else:
+                        break
+                directory = os.path.dirname(checkpoint_file) or '.'
+                temporary = None
+                try:
+                    with tempfile.NamedTemporaryFile('w', dir=directory, delete=False, encoding='utf-8') as f:
+                        json.dump(document, f, indent=2, ensure_ascii=False)
+                        f.write('\n')
+                        temporary = f.name
+                    os.replace(temporary, checkpoint_file)
+                finally:
+                    if temporary and os.path.exists(temporary):
+                        os.unlink(temporary)
+    return 0
+
+
+def wf_step_check(raw_checkpoint, checkpoint_field, step_id):
+    """Resume-mode single-step completion check; prints true/false, fails
+    closed on invalid completion records."""
+
+    checkpoint = json.loads(raw_checkpoint)
+    field = checkpoint_field.split('.')
+    data = checkpoint
+    for key in field[1:]:
+        if not isinstance(data, dict):
+            raise SystemExit('checkpoint 路径中间节点必须为对象')
+        if key not in data:
+            print('false')
+            return 0
+        data = data[key]
+    else:
+        if not isinstance(data, dict):
+            raise SystemExit('完成记录必须为对象')
+        if data.get('step_name') != step_id:
+            raise SystemExit('完成记录 step_name 与当前 step 不匹配')
+        completed_at = data.get('completed_at')
+        if not isinstance(completed_at, str) or not completed_at:
+            raise SystemExit('完成记录 completed_at 必须为非空字符串')
+        if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z', completed_at):
+            raise SystemExit('完成记录 completed_at 格式无效')
+        try:
+            datetime.strptime(completed_at, '%Y-%m-%dT%H:%M:%SZ')
+        except ValueError:
+            raise SystemExit('完成记录 completed_at 时间值无效')
+        if not isinstance(data.get('outputs'), str):
+            raise SystemExit('完成记录 outputs 必须为字符串')
+        print('true')
+    return 0
+
+
+def wf_record_step(checkpoint_file, ticket_file, checkpoint_field, step_id,
+                   completed_at, step_outputs):
+    """Atomically record one step into the sidecar, then anchor the ticket's
+    checkpoint_ref (sidecar first, pointer second)."""
+    # 读取票文件；顶层 checkpoint 是旧格式，永不回写。
+    with open(ticket_file, encoding='utf-8') as f:
+        ticket = json.load(f)
+    if 'checkpoint' in ticket:
+        raise SystemExit('票文件含已废弃的顶层 checkpoint')
+
+    if os.path.exists(checkpoint_file):
+        with open(checkpoint_file, encoding='utf-8') as f:
+            document = json.load(f)
+        if not isinstance(document, dict) or type(document.get('version')) is not int or document['version'] != 1:
+            raise SystemExit('workflow checkpoint sidecar version 必须为整数 1')
+        if not isinstance(document.get('checkpoint'), dict):
+            raise SystemExit('workflow checkpoint sidecar 必须包含 checkpoint 对象')
+    else:
+        document = {'version': 1, 'checkpoint': {}}
+
+    # 解析 checkpoint_field 路径（如 checkpoint.implementation.ticket_parsed）
+    field_parts = checkpoint_field.split('.')
+    if len(field_parts) < 2 or field_parts[0] != 'checkpoint':
+        raise SystemExit('checkpoint_field 必须以 checkpoint. 开头')
+
+    # 从 checkpoint 根开始导航（跳过第一个 'checkpoint'）
+    current = document['checkpoint']
+
+    # 导航到目标位置的父节点
+    for part in field_parts[1:-1]:
+        if part not in current:
+            current[part] = {}
+        current = current[part]
+
+    # 写入步骤级 checkpoint
+    last_field = field_parts[-1]
+    current[last_field] = {
+        "step_name": step_id,
+        "completed_at": completed_at,
+        "outputs": step_outputs.strip() if step_outputs else ""
+    }
+
+    # 写回独立 checkpoint 文件（原子化：先写临时文件，再替换）。
+    checkpoint_dir = os.path.dirname(checkpoint_file) or '.'
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    with tempfile.NamedTemporaryFile('w', dir=checkpoint_dir, delete=False, encoding='utf-8') as tmp_f:
+        json.dump(document, tmp_f, indent=2, ensure_ascii=False)
+        tmp_f.write('\n')
+        checkpoint_tmp = tmp_f.name
+    os.replace(checkpoint_tmp, checkpoint_file)
+
+    # 票体只保存指针；保持其他字段原样。
+    ticket['checkpoint_ref'] = 'workflow-checkpoint-v1:' + os.path.basename(checkpoint_file)
+    ticket_dir = os.path.dirname(ticket_file) or '.'
+    with tempfile.NamedTemporaryFile('w', dir=ticket_dir, delete=False, encoding='utf-8') as tmp_f:
+        json.dump(ticket, tmp_f, indent=2, ensure_ascii=False)
+        tmp_f.write('\n')
+        ticket_tmp = tmp_f.name
+    os.replace(ticket_tmp, ticket_file)
+    print(f"Checkpoint 已写入外部文件: {checkpoint_file}#{checkpoint_field}")
+    return 0
+
+
+# ============================================================
+# Ticket gate operations (票 227 F3：ticket-ops.sh 内嵌 python heredoc 收敛承载；
+# 报文含调用方 ticket-ops 前缀，为 ticket-ops 合同输出，勿改写)
+# ============================================================
+
+def ticket_check_close(ticket_path, tid):
+    """flip-to-done gate: task ticket body must carry a non-empty actual_time."""
+    try:
+        with open(ticket_path, "r", encoding="utf-8") as fh:
+            body = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——票 100\n")
+        return 1
+
+    if not isinstance(body, dict):
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：票本体顶层须为 JSON object——票 100\n")
+        return 1
+
+    if body.get("kind") != "task":
+        return 0  # request 票不校验（票 100 AC2）
+
+    value = body.get("actual_time")
+    if not isinstance(value, str) or not value.strip():
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：task 票收口须填 actual_time（净工时口径，实际完成时间；会话段累计减中断段，测量基础随票 Checkpoint 落盘）——票 100\n")
+        return 1
+
+    return 0
+
+
+def ticket_check_deps(ticket_path, index_path, tid):
+    """take gate: task ticket blocked_by entries must exist in the index and be done."""
+    try:
+        with open(ticket_path, "r", encoding="utf-8") as fh:
+            body = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——blocked_by 完整性门\n")
+        return 1
+
+    if not isinstance(body, dict):
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：票本体顶层须为 JSON object——blocked_by 完整性门\n")
+        return 1
+
+    if body.get("kind") != "task":
+        return 0  # request 票无 blocked_by，不校验
+
+    blocked = body.get("blocked_by")
+    if not isinstance(blocked, list):
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：task 票本体 blocked_by 须为数组（schema 口径）——blocked_by 完整性门\n")
+        return 1
+
+    try:
+        with open(index_path, "r", encoding="utf-8") as fh:
+            index = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：索引不可读或非合法 JSON: {index_path}（{exc}）——blocked_by 完整性门\n")
+        return 1
+
+    status_by_id = {}
+    for entry in index.get("issues", []):
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+            status_by_id[entry["id"]] = entry.get("status")
+
+    problems = []
+    for dep in blocked:
+        if not isinstance(dep, str):
+            continue
+        st = status_by_id.get(dep)
+        if st is None:
+            problems.append(f"blocked_by 引用票不存在（索引零命中）: {dep}")
+        elif st != "done":
+            problems.append(f"blocked_by 引用票未完成（status={st}）: {dep}")
+
+    if problems:
+        for p in problems:
+            sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取被拒：{p}——零写入（fail-closed，blocked_by 完整性门）\n")
+        return 1
+
+    return 0
+
+
+def ticket_check_open_body(ticket_path, want_id):
+    """open gate: body id must match --id; reason fields must be non-empty."""
+    try:
+        with open(ticket_path, "r", encoding="utf-8") as f:
+            body = json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        sys.stderr.write(f"ticket-ops: FAIL: 无法读取文件: {e}\n")
+        return 1
+
+    problems = []
+
+    got_id = body.get("id", "")
+    if got_id != want_id:
+        problems.append(f"本体 id 字段（{got_id!r}）与 --id 参数（{want_id!r}）不一致（票 79 兜底，防校验错文件）")
+
+    reason_fields = ["complexity_reason", "priority_reason"]
+    for fld in reason_fields:
+        val = body.get(fld)
+        if val is not None:
+            if not isinstance(val, str) or not val.strip():
+                problems.append(f"{fld} 须为非空字符串（票 79 理由非空断言）: {val!r}")
+
+    if problems:
+        sys.stderr.write("ticket-ops: FAIL: " + "；".join(problems) + "\n")
+        return 1
+
+    sys.stderr.write(f"ticket-ops: OK: 本体校验通过（id={got_id}；理由非空通过）\n")
+    return 0
+
+
+# ============================================================
+# Dispatch contract helpers (票 227 F3：worktree-add.sh 合同入口 TICKET_ID 提取收敛)
+# ============================================================
+
+def contract_ticket_id(contract_file):
+    """Extract TICKET_ID from a dispatch contract (JSON "TICKET_ID" key or
+    {{TICKET_ID}} template section). Prints the value (possibly empty); exits 1
+    on unreadable/non-UTF-8 input."""
+    try:
+        with open(contract_file, encoding='utf-8') as f:
+            text = f.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f'json-validator: FAIL: 合同文件不可读或非 UTF-8 文本: {contract_file}（{exc}）', file=sys.stderr)
+        return 1
+    value = ""
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            value = str(data.get("TICKET_ID", "")).strip()
+    except Exception:
+        pass
+    if not value:
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            if line.strip() == "{{TICKET_ID}}" and i + 1 < len(lines):
+                value = lines[i + 1].strip()
+                break
+    print(value)
+    return 0
+
+
+# ============================================================
 # CLI interface
 # ============================================================
 
@@ -544,6 +1355,25 @@ def print_usage():
   run stats <records-dir>
       汇总运行记录统计
       退出码: 0=完成
+
+  json get <src|-> <path> [default] | json fields <src|-> <field>... |
+  json len <src|-> <path> [default] | json pick <src|-> <array_path> <k> <v> [...] [field] |
+  json count-key <src|-> <key>
+      通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin）
+      退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
+
+  workflow <steps|state-machine|preflight|index-status|checkpoint-init|
+            read-checkpoint|checkpoint-check|step-check|record-step> [args]
+      workflow-executor.sh 专用 JSON 操作（逐行等价迁移自原内嵌 heredoc）
+      退出码: 0=完成, 1=校验不过, 2=用法
+
+  ticket-check <close|deps|open-body> [args]
+      ticket-ops.sh 收口/领取/开票门（报文为 ticket-ops 合同输出）
+      退出码: 0=通过, 1=不过
+
+  contract ticket-id <contract-file>
+      派发合同 TICKET_ID 提取（JSON 键或 {{TICKET_ID}} 模板节）
+      退出码: 0=完成（值可能为空）, 1=文件不可读
 
 示例:
   python3 json-validator.py ticket \\
@@ -619,6 +1449,80 @@ def main():
             print(f"未知 run 子模式: {submode}", file=sys.stderr)
             print_usage()
             sys.exit(2)
+
+    elif mode == 'json':
+        if len(sys.argv) < 3:
+            print("用法: python3 json-validator.py json <get|fields|len|pick|count-key> [args]", file=sys.stderr)
+            sys.exit(2)
+        op = sys.argv[2]
+        if op == 'get':
+            sys.exit(json_get(sys.argv[3:]))
+        elif op == 'fields':
+            sys.exit(json_fields(sys.argv[3:]))
+        elif op == 'len':
+            sys.exit(json_len(sys.argv[3:]))
+        elif op == 'pick':
+            sys.exit(json_pick(sys.argv[3:]))
+        elif op == 'count-key':
+            sys.exit(json_count_key(sys.argv[3:]))
+        else:
+            print(f"未知 json 子命令: {op}", file=sys.stderr)
+            print_usage()
+            sys.exit(2)
+
+    elif mode == 'workflow':
+        if len(sys.argv) < 3:
+            print("用法: python3 json-validator.py workflow <steps|state-machine|preflight|index-status|checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]", file=sys.stderr)
+            sys.exit(2)
+        sub = sys.argv[2]
+        try:
+            if sub == 'steps' and len(sys.argv) == 4:
+                sys.exit(wf_parse_steps(sys.argv[3]))
+            elif sub == 'state-machine' and len(sys.argv) == 4:
+                sys.exit(wf_parse_state_machine(sys.argv[3]))
+            elif sub == 'preflight' and len(sys.argv) == 5:
+                sys.exit(wf_preflight(sys.argv[3], sys.argv[4]))
+            elif sub == 'index-status' and len(sys.argv) == 6:
+                sys.exit(wf_index_status(sys.argv[3], sys.argv[4], sys.argv[5]))
+            elif sub == 'checkpoint-init' and len(sys.argv) == 4:
+                sys.exit(wf_checkpoint_init(sys.argv[3]))
+            elif sub == 'read-checkpoint' and len(sys.argv) == 4:
+                sys.exit(wf_read_checkpoint(sys.argv[3]))
+            elif sub == 'checkpoint-check' and len(sys.argv) == 7:
+                sys.exit(wf_checkpoint_check(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
+            elif sub == 'step-check' and len(sys.argv) == 6:
+                sys.exit(wf_step_check(sys.argv[3], sys.argv[4], sys.argv[5]))
+            elif sub == 'record-step' and len(sys.argv) == 9:
+                sys.exit(wf_record_step(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8]))
+            else:
+                print(f"workflow {sub}: 参数个数不合合同", file=sys.stderr)
+                print_usage()
+                sys.exit(2)
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"workflow {sub}: 输入不可读或非合法 JSON: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+    elif mode == 'ticket-check':
+        if len(sys.argv) < 3:
+            print("用法: python3 json-validator.py ticket-check <close|deps|open-body> [args]", file=sys.stderr)
+            sys.exit(2)
+        sub = sys.argv[2]
+        if sub == 'close' and len(sys.argv) == 5:
+            sys.exit(ticket_check_close(sys.argv[3], sys.argv[4]))
+        elif sub == 'deps' and len(sys.argv) == 6:
+            sys.exit(ticket_check_deps(sys.argv[3], sys.argv[4], sys.argv[5]))
+        elif sub == 'open-body' and len(sys.argv) == 5:
+            sys.exit(ticket_check_open_body(sys.argv[3], sys.argv[4]))
+        else:
+            print(f"ticket-check {sub}: 参数个数不合合同", file=sys.stderr)
+            print_usage()
+            sys.exit(2)
+
+    elif mode == 'contract':
+        if len(sys.argv) == 4 and sys.argv[2] == 'ticket-id':
+            sys.exit(contract_ticket_id(sys.argv[3]))
+        print("用法: python3 json-validator.py contract ticket-id <contract-file>", file=sys.stderr)
+        sys.exit(2)
 
     elif mode in ['-h', '--help', 'help']:
         print_usage()

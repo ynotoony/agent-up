@@ -31,14 +31,14 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
-# Source common helper functions
+# Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh）
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
-  die1() { printf 'run-record: FAIL: %s\n' "$1" >&2; exit 1; }
-  die2() { printf 'run-record: %s\n' "$1" >&2; exit 2; }
+  printf 'run-record: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
 fi
 
 NL='
@@ -134,9 +134,14 @@ case $1 in
     ;;
 esac
 
-if [ -z "$repo_root" ]; then
-  repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/../../.." && pwd)
+# 仓库根推导统一经 resolve_repo_root（票 227 F4：显式参数 > 落位分派两布局）
+if [ -n "$repo_root" ]; then
+  _rr=$(resolve_repo_root "$repo_root") || _rr=''
+else
+  _rr=$(resolve_repo_root) || _rr=''
 fi
+[ -n "$_rr" ] || die2 '仓库根推导失败（脚本落位非两布局，请显式传入仓库根参数）'
+repo_root=$_rr
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
 git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1 || \
   die2 "仓库根不是 Git 仓库: $repo_root"

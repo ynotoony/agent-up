@@ -28,13 +28,14 @@ FACTS_ARCHIVE_CHANGES='facts/project/archive/changes.md'
 
 set -eu
 
-# Source common helper functions
+# Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh）
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
-  die2() { printf 'check-append-only: %s\n' "$1" >&2; exit 2; }
+  printf 'check-append-only: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
 fi
 
 fail1() {

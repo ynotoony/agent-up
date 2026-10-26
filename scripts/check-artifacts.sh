@@ -23,13 +23,14 @@
 set -eu
 set -f  # 关闭文件名展开：模式匹配只经 case，路径展开不可依赖
 
-# Source common helper functions
+# Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh）
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
-  die2() { printf 'check-artifacts: %s\n' "$1" >&2; exit 2; }
+  printf 'check-artifacts: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
 fi
 
 # ---- 路径常量区（票 111 波②建立；票 113 波④翻值 rules/facts 新形态：
@@ -82,9 +83,14 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ "$ca_apply" -eq 0 ] || [ "$ca_fix" -eq 1 ] || { usage >&2; die2 '--apply 仅与 --fix 同用'; }
-repo_root=$ca_pos
+# 仓库根参数规范化统一经 resolve_repo_root（票 227 F4：override 规范化为物理绝对路径；
+# repo-root 恰一为必选，缺参保底原样报错）
+if [ -n "$ca_pos" ]; then
+  repo_root=$(resolve_repo_root "$ca_pos") || repo_root=''
+else
+  repo_root=''
+fi
 [ -d "$repo_root" ] || die2 "仓库根不存在: $repo_root"
-repo_root=$(CDPATH='' cd "$repo_root" && pwd)
 yaml="$repo_root/$artifacts_yaml"
 [ -f "$yaml" ] || die2 "治理产物登记缺失: facts/project/artifacts.yaml（相对 ${repo_root}）"
 

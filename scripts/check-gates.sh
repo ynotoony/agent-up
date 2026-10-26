@@ -13,13 +13,14 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
-# Source common helper functions
+# Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh）
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
-  die2() { printf 'check-gates: %s\n' "$1" >&2; exit 2; }
+  printf 'check-gates: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
 fi
 
 NL='
@@ -49,7 +50,8 @@ case $# in
     case $1 in
       -h|--help) usage; exit 0 ;;
     esac
-    repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || die2 '当前目录不在 Git 仓库内，且未提供 repo-root'
+    # 仓库根推导统一经 resolve_repo_root（票 227 F4：--git 口径＝当前目录所在仓库顶层）
+    repo_root=$(resolve_repo_root --git) || die2 '当前目录不在 Git 仓库内，且未提供 repo-root'
     gates_file=$1
     ;;
   *)

@@ -645,7 +645,7 @@ EOF
   # ---- checkpoint_field 合同一致性：schema pattern 与运行时正则语料等价 ----
 
   wf_expect_valid 'P10 checkpoint_field schema pattern 与运行时正则语料级等价' \
-    pattern-equiv "$SCHEMA" "$EXECUTOR"
+    pattern-equiv "$SCHEMA" "$SCRIPT_DIR/json-validator.py"
 
   # ---- 实例执行分类：支持子集在两实例上的机械判读 ----
 

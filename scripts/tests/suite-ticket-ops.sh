@@ -73,8 +73,8 @@ tix_build_fixture() {
   F=$1
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project" "$F/agent-up/scripts"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$F/rules/implementation/scripts/"
-  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/agent-up/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/agent-up/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
   mkdir -p "$F/agent-up/references/schemas"
@@ -722,7 +722,7 @@ EOF
   # 缺省根＝脚本所在目录上三级，即仓根——账本落 facts/project/changes.jsonl，
   # 按引擎缺省根推导现值重述，票 158 修复）同款工作
   mkdir -p "$D/fix-l/rules/implementation/scripts" "$D/fix-l/facts/project"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$D/fix-l/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/fix-l/rules/implementation/scripts/"
   : > "$D/fix-l/facts/project/changes.jsonl"
   ( cd "$D/fix-l" && sh rules/implementation/scripts/ticket-ops.sh ledger --ledger-line "$LED_LEDGER_OK" ) >"$D/lg3.log" 2>&1
   rc=$?

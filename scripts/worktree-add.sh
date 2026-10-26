@@ -27,14 +27,14 @@
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
-# Source common helper functions
+# Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh）
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
-  die1() { printf '%s: FAIL: %s\n' "$prog" "$1" >&2; exit 1; }
-  die2() { printf '%s: 错误：%s\n' "$prog" "$1" >&2; exit 2; }
+  printf 'worktree-add: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
 fi
 
 prog=worktree-add
@@ -116,7 +116,9 @@ if [ "$_gd" != "$_gcd" ]; then
   die1 "主检出自拒：当前在链接 worktree（git-dir ${_gd} ≠ common-dir ${_gcd}）。worktree 创建属协调层职责，请在主检出运行本脚本。"
 fi
 
-repo_root=$(git rev-parse --show-toplevel)
+# 仓库根推导统一经 resolve_repo_root（票 227 F4：--git 口径＝当前目录所在仓库顶层——
+# 本命令操作用户所在仓库，语义保持 cwd 基准）
+repo_root=$(resolve_repo_root --git) || die2 '目标不是 Git 工作区（须在主检出运行）'
 
 # ---- 配置加载（未声明 main-only 节＝栅栏未知，拒跑 exit 2 fail-closed）----
 # 共享解析器加载（dp_load_rules 唯一实现＝同目录 dp-load-rules.sh；缺件或版本漂移
@@ -147,27 +149,14 @@ fi
 
 if [ -n "$contract_mode" ]; then
   [ -f "$contract_file" ] || die2 "合同文件不存在: ${contract_file}"
-  # 抽 TICKET_ID：JSON（"TICKET_ID" 键）或委派合同模板（{{TICKET_ID}} 节取次行）；解析用
-  # python3 标准库（仓库脚本既有依赖），不可解析即拒跑不产生部分结论。
-  ticket_id=$(python3 - "$contract_file" <<'PY'
-import json, sys
-text = open(sys.argv[1], encoding="utf-8").read()
-value = ""
-try:
-    data = json.loads(text)
-    if isinstance(data, dict):
-        value = str(data.get("TICKET_ID", "")).strip()
-except Exception:
-    pass
-if not value:
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        if line.strip() == "{{TICKET_ID}}" and i + 1 < len(lines):
-            value = lines[i + 1].strip()
-            break
-print(value)
-PY
-  ) || die2 "合同文件不可解析（须 UTF-8 文本）: ${contract_file}"
+  # 抽 TICKET_ID：JSON（"TICKET_ID" 键）或委派合同模板（{{TICKET_ID}} 节取次行）；解析由
+  # 唯一 JSON 引擎承载（票 227 F3：原内嵌 python heredoc 收敛改调 contract ticket-id；
+  # 引擎按需惰性定位——旧接口路径不依赖 python），不可解析即拒跑不产生部分结论。
+  _engine_file=$(dirname "$0")/json-validator.py
+  [ -f "$_engine_file" ] || \
+    die2 "唯一 JSON 引擎缺失: ${_engine_file}（json-validator.py 与本件同目录分发）"
+  ticket_id=$(python3 "$_engine_file" contract ticket-id "$contract_file") || \
+    die2 "合同文件不可解析（须 UTF-8 文本）: ${contract_file}"
   [ -n "$ticket_id" ] || die2 "合同缺 TICKET_ID（JSON \"TICKET_ID\" 键或 {{TICKET_ID}} 节）: ${contract_file}"
   case $ticket_id in
     [0-9][0-9]*-*) ;;

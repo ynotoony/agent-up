@@ -12,16 +12,21 @@
 # trigger-version: 1（窗口 3 连高/2 连低，阈值 80/40；机制版本注记，阈值可调）
 # 退出码: 0 正常（含有提示）；1 用法或环境错误（账本缺失不视为错误＝零输出）。
 
+# Source common helper functions（票 227 F4：仓库根推导统一经 resolve_repo_root --marker）
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
+  . "$_helper_script"
+else
+  printf 'absorption-trigger: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 1
+fi
+
 repo_root=${1:-}
 if [ -z "$repo_root" ]; then
-  # 缺省根推导：逐级向上找 facts/project/changes.jsonl（兼容两落位形态：
-  # rules/implementation/scripts/ 三层与 scripts/ 一层；找不到＝无从对账，退出）
-  _d=$(dirname "$0")
-  repo_root=''
-  for _i in 1 2 3 4; do
-    _d=$(CDPATH='' cd "$_d/.." && pwd)
-    [ -f "$_d/facts/project/changes.jsonl" ] && { repo_root=$_d; break; }
-  done
+  # 缺省根推导：自脚本位置逐级向上找 facts/project/changes.jsonl 标记（票 227 F4：
+  # 统一经 resolve_repo_root --marker；兼容两落位形态，找不到＝无从对账，退出）
+  repo_root=$(resolve_repo_root --marker) || repo_root=''
   if [ -z "$repo_root" ]; then
     exit 0
   fi

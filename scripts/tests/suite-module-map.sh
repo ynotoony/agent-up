@@ -258,7 +258,7 @@ suite_module_map() {
   # 负例 N1：规则表损坏 → exit 2 且不写地图（临时副本上结构破坏：mm_rule 参数数不合预期，
   # 被测本体零触碰；行为级破坏——label 漂移——由注入自检与边集断言承载）
   mkdir -p "$D/broken"
-  cp "$SCRIPT_DIR/generate-module-map.sh" "$D/broken/"
+  cp "$SCRIPT_DIR/generate-module-map.sh" "$SCRIPT_DIR/common-helpers.sh" "$D/broken/"
   cp "$SCRIPT_DIR/module-map.rules" "$D/broken/module-map.rules"
   printf "mm_rule 'bogus-lang' '*.py'\n" >> "$D/broken/module-map.rules"
   rm -rf "$D/repo2"; mm_build_fixture "$D/repo2"
@@ -294,7 +294,7 @@ suite_module_map() {
   # （命令替换/反引号/未知指令先于任何规则语义执行被拒——非执行式解析门禁）。
   for mm_i in 1 2 3; do
     mkdir -p "$D/mal$mm_i"
-    cp "$SCRIPT_DIR/generate-module-map.sh" "$D/mal$mm_i/"
+    cp "$SCRIPT_DIR/generate-module-map.sh" "$SCRIPT_DIR/common-helpers.sh" "$D/mal$mm_i/"
     cp "$SCRIPT_DIR/module-map.rules" "$D/mal$mm_i/module-map.rules"
     rm -rf "$D/mrepo$mm_i"; mm_build_fixture "$D/mrepo$mm_i"
     case $mm_i in

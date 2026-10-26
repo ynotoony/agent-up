@@ -3,14 +3,16 @@
 # projection-version: 1（投影列形态；机制版本注记）
 #        与可选参数：--check 开关、仓库根目录（缺省按脚本落位分派推导，票 206——
 #        agent-up/scripts/ 两层或 rules/implementation/scripts/ 三层布局可正确推导，
-#        其余落位 fail-closed 报错并指引显式传参）。
+#        其余落位兜底上两级；check-stale-claims 的严格两布局口径见其专节）。
 # Output: facts/requirements/tickets/progress-current.md 现役状态投影——Derived 四标注头部（generated_from、
 #         生成时间、覆盖范围、失效条件）＋每票一行 `| id | status | checkpoint_ref | updated_at |`
 #         状态表，按 id 升序；--check 模式为 dry-run：生成结果与既有投影各自规范化
 #         generated_at 行后逐字节比对，一致 exit 0，不一致 exit 1，不落盘不写任何文件。
 # Pos: 本仓记录层投影生成器（票 33 草案 §5.1.4 生成规则 / 票 35 落位；票 115 波⑤路径随 rules/facts 布局翻值）；生成器独占写
 #      facts/requirements/tickets/progress-current.md（流程权威 discipline.md §12.5 派生载体独占写），agent 不手写。
-#      POSIX sh、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）；fail-closed：索引缺失、
+#      POSIX sh；条目字段解析由唯一 JSON 引擎 json-validator.py 承载（票 227 F3：
+#      原 json-helpers.sh awk 行解析 retired，本件零内嵌 JSON 解析副本；引擎同目录分发，
+#      缺件 fail-closed 指名）；fail-closed：索引缺失、
 #      不可读或条目行不合预期即停止报告，不写投影。投影与索引不一致时以索引为准。
 
 # 用法与退出码见同目录 README.md。
@@ -23,36 +25,22 @@ gen_script_rel='rules/implementation/scripts/generate-progress.sh'
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
-# Determine script directory and repo root for helper loading
-_script_dir=$(cd "$(dirname "$0")" && pwd)
-# Repo root calculation（票 206：同一推导兼作缺省 repo-root，消落位深度敏感）:
-# agent-up/scripts/ → ../.. ; rules/implementation/scripts/ → ../../..
-case "$_script_dir" in
-  */agent-up/scripts) _repo_root=$(cd "$_script_dir/../.." && pwd) ;;
-  */rules/implementation/scripts) _repo_root=$(cd "$_script_dir/../../.." && pwd) ;;
-  *) _repo_root=$(cd "$_script_dir/../.." && pwd) ;;  # fallback: assume agent-up/scripts/
-esac
-
-# Source common helper functions (in agent-up/scripts/)
-# 安装闭包定位：先包基线布局（<repo-root>/agent-up/scripts/…），缺失回退本脚本同目录
-# （安装器将 helper 库随脚本同目录落位 rules/implementation/scripts/）。
-_helper_script="$_repo_root/agent-up/scripts/common-helpers.sh"
-[ -f "$_helper_script" ] || _helper_script="$_script_dir/common-helpers.sh"
+# Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh；
+# 同目录分发——安装器将 helper 库随脚本同目录落位）
+_helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
-  die1() { printf 'generate-progress: FAIL: %s\n' "$1" >&2; exit 1; }
-  die2() { printf 'generate-progress: %s\n' "$1" >&2; exit 2; }
+  printf 'generate-progress: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
 fi
 
-# Source JSON helper functions (in agent-up/scripts/)——回退定位同上（投影再生解析
-# 索引 JSON 依赖本库；缺失时 json_extract_* 未定义，条目解析 fail-closed 报错）。
-_json_helper_script="$_repo_root/agent-up/scripts/json-helpers.sh"
-[ -f "$_json_helper_script" ] || _json_helper_script="$_script_dir/json-helpers.sh"
-if [ -f "$_json_helper_script" ]; then
-  # shellcheck source=agent-up/scripts/json-helpers.sh  # 路径动态计算，显式声明基线位置
-  . "$_json_helper_script"
+# 唯一 JSON 引擎定位（票 227 F3：同目录分发，缺件 fail-closed 指名）
+_engine_file=$(dirname "$0")/json-validator.py
+if [ ! -f "$_engine_file" ]; then
+  printf 'generate-progress: FAIL: 唯一 JSON 引擎缺失: %s（json-validator.py 与本件同目录分发）\n' "$_engine_file" >&2
+  exit 2
 fi
 
 usage() {
@@ -62,7 +50,8 @@ usage() {
   --check       dry-run 模式：与既有 facts/requirements/tickets/progress-current.md 比对（规范化 generated_at
                 行后逐字节比对），一致 exit 0，不一致 exit 1；不写任何文件。
   repo-root     仓库根目录；缺省按脚本落位分派推导（agent-up/scripts/ 与
-                rules/implementation/scripts/ 两布局可正确推导，其余落位请显式传入）。
+                rules/implementation/scripts/ 两布局可正确推导，其余落位兜底上两级，
+                亦可显式传入）。
   -h / --help   打印本用法。
 退出码: 0 生成成功或 --check 一致；1 --check 不一致（投影 stale）或既有投影缺失；
         2 用法错误、索引文件缺失/不可读或条目行不合预期（fail-closed，不写投影）。
@@ -81,11 +70,19 @@ for arg in "$@"; do
   esac
 done
 
-if [ -z "$repo_root" ]; then
-  # 缺省根＝落位分派推导（票 206 修复：原硬编码 ../../.. 仅适配 rules/implementation/scripts/
-  # 三层落位，agent-up/scripts/ 两层落位被推到仓库根上一级，裸跑 fail-closed 误拒）。
-  repo_root=$_repo_root
+# 缺省根＝落位分派推导（票 206/227：仓库根推导统一经 resolve_repo_root）
+if [ -n "$repo_root" ]; then
+  _rr=$(resolve_repo_root "$repo_root") || _rr=''
+else
+  _rr=$(resolve_repo_root) || _rr=''
 fi
+if [ -z "$_rr" ]; then
+  if [ -n "$repo_root" ]; then
+    die2 "仓库根不可用: $repo_root"
+  fi
+  die2 '仓库根推导失败（脚本落位非两布局，请显式传入仓库根参数，用法见 -h）'
+fi
+repo_root=$_rr
 
 index_file="$repo_root/$issues_index_rel"
 out_file="$repo_root/$progress_current_rel"
@@ -100,14 +97,21 @@ entries=$(grep '"id": "[0-9]' "$index_file") || {
   exit 2
 }
 
-# 每条目行投影一行状态表；必备字段（id/status/complexity/updated_at）值均非空（schema minLength），
-# 故空值即判缺失；checkpoint_ref 可选（省略投影为空单元格）。
+# 每条目行投影一行状态表；字段解析经唯一 JSON 引擎 json fields（TAB 分列，一行一返回）；
+# 必备字段（id/status/updated_at）值均非空（schema minLength），故空值即判缺失；
+# checkpoint_ref 可选（省略投影为空单元格）。
+TAB=$(printf '\t')
 rows=''
 while IFS= read -r entry_line; do
-  id=$(json_extract_string "$entry_line" "id")
-  status=$(json_extract_string "$entry_line" "status")
-  updated_at=$(json_extract_string "$entry_line" "updated_at")
-  checkpoint_ref=$(json_extract_string "$entry_line" "checkpoint_ref")
+  # 一条目一行排版行尾带数组分隔逗号（除末条目），剥除后交引擎解析（引擎输入须为合法 JSON）
+  _entry_json=${entry_line%,}
+  _fields=$(printf '%s\n' "$_entry_json" | python3 "$_engine_file" json fields - id status updated_at checkpoint_ref) || {
+    printf 'generate-progress: FAIL: %s\n' "条目行不合 JSON 或缺字段: $entry_line" >&2
+    exit 2
+  }
+  IFS="$TAB" read -r id status updated_at checkpoint_ref <<EOF
+$_fields
+EOF
 
   if [ -z "$id" ] || [ -z "$status" ] || [ -z "$updated_at" ]; then
     die2 "条目行缺必备字段或不合预期: $entry_line"

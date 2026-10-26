@@ -6,13 +6,14 @@
 set -eu
 set -f
 
-# Source common helper functions
+# Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh）
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
   . "$_helper_script"
 else
-  die2() { printf '%s: 错误：%s\n' "$prog" "$1" >&2; exit 2; }
+  printf 'upgrade-check: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
 fi
 
 prog=upgrade-check
@@ -47,7 +48,8 @@ repo_root=$2
 [ -d "$pkg_dir" ] || die2 "包基线目录不存在: $pkg_dir"
 [ -d "$repo_root" ] || die2 "目标项目根不存在: $repo_root"
 pkg_dir=$(CDPATH='' cd "$pkg_dir" && pwd)
-repo_root=$(CDPATH='' cd "$repo_root" && pwd)
+# 目标项目根规范化统一经 resolve_repo_root（票 227 F4：override 规范化为物理绝对路径）
+repo_root=$(resolve_repo_root "$repo_root") || die2 "目标项目根不可用: $repo_root"
 
 policy="$pkg_dir/scripts/install-policy.rules"
 [ -f "$policy" ] || die2 "包基线缺 install-policy.rules: $policy"
