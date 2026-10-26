@@ -396,3 +396,4 @@ pm_layout_compat_exempt references/templates/README.md 76 '取舍与过渡登记
 pm_layout_compat_exempt references/templates/README.md 78 '取舍与过渡登记票/REQ schema 定稿条目（2026-09-18，记录保护）：旧落位当时事实，非现行指引'
 pm_layout_compat_exempt references/templates/README.md 79 '取舍与过渡登记回灌核对义务条目（2026-09-20，记录保护）：源仓镜像拆三前文件名与节号当时事实，非现行指引'
 pm_layout_compat_exempt references/templates/README.md 80 '取舍与过渡登记流程权威拆三条目（2026-10-01，记录保护）：拆三前单件模板文件名为条目主题历史事实，非现行指引'
+pm_mirror json-validator.py mirror
