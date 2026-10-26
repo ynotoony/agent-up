@@ -173,7 +173,7 @@ EOF
   assert_eq '负例输出逐一相等（fail-closed 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动＋检查 18 同步，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
 
   # 票 57 协调层改判随票修：检查 11 逐处全等——§2.5 单处删 pi（frontmatter 完整）
-  # 必须单独 FAIL 指名 :132（旧并集口径此场景漏检，回归钉死；行号随 capability-contract
+  # 必须单独 FAIL 指名 :133（旧并集口径此场景漏检，回归钉死；行号随 capability-contract
   # readonly_enforcement 扩写独立重建）。
   cp -R "$PKG_ROOT" "$D/pkgcopy2"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
@@ -189,7 +189,7 @@ PASS: 7 根治理文件不在包内
 PASS: 8 脚本必需件存在（28 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
-FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :132 登记与数据不一致：缺少 pi
+FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
 PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
