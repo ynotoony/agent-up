@@ -10,13 +10,13 @@ update_policy: 本文件只是运行时映射，不是事实源；与角色合�
 depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-003 适配层地位）；被目标项目宿主适配层实例依赖
 ---
 
-<!-- Input: adapter-capability-contract.md 能力契约、adapter-template.md 结构基线、Codex 官方文档（developers.openai.com/codex/{guides/agents-md,config-reference,config-advanced,skills,security}，取阅 2026-09-06）与 docs/research/2026-09-agent-host-adapters.md §3.2。 -->
+<!-- Input: adapter-capability-contract.md 能力契约、adapter-template.md 结构基线、Codex 官方文档（developers.openai.com/codex/{guides/agents-md,config-reference,config-advanced,skills,security}，取阅 2026-09-06）与 docs/research/2026-09-agent-host-adapters.md §3.2（historical 调研存档，non-normative，非运行时必读）。 -->
 <!-- Output: Codex 宿主运行时映射：能力→宿主工具对照、三角色配置方言模板、独立执行体声明与降级路径。 -->
 <!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 <role-contract-dir>/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # Codex 宿主适配层映射（运行时入口）
 
-本文件是平台适配层：把 capability-contract 的能力基元映射为 Codex 宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。官方事实依据与取阅日期登记于 `docs/research/2026-09-agent-host-adapters.md` §3.2（公开包外记录）。
+本文件是平台适配层：把 capability-contract 的能力基元映射为 Codex 宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。官方事实依据与取阅日期以各条目内官方文档取阅注记为准；`docs/research/2026-09-agent-host-adapters.md` §3.2 为 historical 调研存档（non-normative，非运行时必读，不作规范依据）。
 
 ## 1. 快速摘要
 
@@ -26,7 +26,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - 独立执行体：官方 config-reference 登记 `agents.enabled`（默认 true）、`agents.default_subagent_model` 与 `agents.<name>` 自定义角色——支持；被配置关闭时按 §2.4 降级。
 - 权限模型登记：`sandbox_mode`（read-only / workspace-write / danger-full-access）、`approval_policy` 与 permissions profiles（官方 security/config 文档）。
 - hooks 登记为辅助面：`hooks.json` 或 config.toml 内联 `[hooks]` 表（事件含 PreToolUse、PermissionRequest、SubagentStart/Stop 等）；项目级钩子仅在项目受信时加载。
-- 许可证登记：工具 Apache-2.0（仓库 LICENSE 原文核验）；官网页面文档许可证未标注【待定注记】，详见调研报告 §3.2。
+- 许可证登记：工具 Apache-2.0（仓库 LICENSE 原文核验）；官网页面文档许可证未标注（未核验项，状态 pending；historical 调研存档注记，non-normative，非运行时必读）。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
 - 无独立 subagent 执行体的降级路径见 capability-contract §2.3；本文件不承载流程规则。
 - 本文件规则块前缀 `R-CX-`；能力契约手册前缀 `R-CC-`。

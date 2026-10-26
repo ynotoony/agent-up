@@ -27,7 +27,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - 运行时入口的 name/description 承载派发摘要；规则权威始终在角色合同与 rules/ 流程规则三件。
 - 九能力对照完整覆盖：inspect/search/read（盘点/检索/读取）、edit/write（修改/创建）、execute 与 readonly-execute（命令执行，只读性由调用方约束）、vcs-read/vcs-write（版本库只读/写命令）。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
-- 本宿主支持独立 subagent 执行体，独立 Review 默认由独立 subagent 执行；不支持或被裁剪时的降级路径见 §2.4 与 capability-contract §2.3。
+- 本宿主独立 subagent 执行体状态＝local-observation（本地实跑观察；官方文档指针未核验，状态标 pending），独立 Review 默认由独立 subagent 执行；不可用或被裁剪时的降级路径见 §2.4 与 capability-contract §2.3。
 - 本文件规则块前缀 `R-ZC-`；能力契约手册前缀 `R-CC-`。
 
 ## 2. 可执行规则
@@ -64,7 +64,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | edit | Edit | 修改既有文件 |
 | write | Write | 创建新文件 |
 | execute | Bash | 可变更工作区状态的命令 |
-| readonly-execute | Bash | 仅只读命令；readonly_enforcement: policy-only（宿主默认沙箱为执行护栏——包外写入被拒、工作区内写入不拦截，宿主实测注记 2026-10-26；只读性由调用方约束，官方文档指针【待定】） |
+| readonly-execute | Bash | 仅只读命令；readonly_enforcement: policy-only（只读性由调用方约束；宿主默认沙箱行为未核验，观察状态标 local-observation——本地观察记录见 §3 注记，不作本行等级依据） |
 | vcs-read | Bash | git status/log/diff 等只读命令 |
 | vcs-write | Bash | git add/commit 等写命令 |
 
@@ -112,7 +112,7 @@ tools: [Read, Grep, Glob, Bash]
 #### R-ZC-003 独立执行体与降级如实记录 `MUST`
 
 - **When**：在 zcode 宿主派发独立 Review，或评估宿主独立执行体能力时。
-- **Action**：声明：本宿主支持独立 subagent 执行体（本仓库 `.zcode/agents/` 运行时入口按独立 subagent 会话形态派发执行；官方文档指针【待定】，按 R-AT-001 事实准入不虚构来源）；独立 Review 默认由独立 subagent 执行。宿主实测注记（2026-09-30）：钉模型的 agent 须显式声明思考档位——agent profile 的模型选择不继承会话档位，选中模型而档位缺失时 spawn 即报 reasoning-level-missing（注册表默认档位不自动落下）；声明语法＝frontmatter `model: provider/model$档位` 或独立字段 `thoughtLevel: <档位>`（来源＝宿主实装：模型选择分隔符常量与 agent profile 解析器，`model_fallback` 非宿主字段），适配层实例 frontmatter 已按 `$high` 补声明并移除死字段；agent profile 于会话启动时装载，会话中改写 frontmatter 不生效，补丁实弹验证归新会话首派发；验证通过前，general-purpose 子代理注入同内容角色合同仍为现行有效独立形态（落本条 (b)「不同执行身份」，独立性与只读边界由合同条款承载）。IF 部署裁剪或权限配置导致 subagent 不可用 THEN 按 capability-contract R-CC-002 依序尝试：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable` 及实际所选替代路径。
+- **Action**：声明：本宿主独立 subagent 执行体状态＝local-observation（本仓库 `.zcode/agents/` 运行时入口按独立 subagent 会话形态派发执行，实跑观察面；官方文档指针未核验，状态标 pending，按 R-AT-001 事实准入不虚构来源）；独立 Review 默认由独立 subagent 执行；本宿主方言与装载时序的本地观察记录见 §3 注记（非规范事实源，不充当本条支持声明依据）。IF 部署裁剪或权限配置导致 subagent 不可用 THEN 按 capability-contract R-CC-002 依序尝试：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable` 及实际所选替代路径。
 - **Forbidden**：把同一执行体的自检标记为 Review pass；静默跳过独立 Review；把降级路径说成"与独立 subagent 等价无差"。
 - **Stop if**：三条替代路径均不可用 → 任务停在 review_ready，记录阻塞，不进入 Commit。
 - **Evidence**：审查记录含 `independent_review` 字段与所选路径；run record 可选指针字段按 schema 回填。
@@ -125,3 +125,5 @@ tools: [Read, Grep, Glob, Bash]
 - 宿主本地适配层实例（目标项目内 `.zcode/agents/` 等目录）由本映射生成；其与 `<role-contract-dir>/` 合同冲突时以合同为准，并报告差异。
 - capability profile 档位与 platform 枚举扩展规则见 `capability-contract.md`；降级路径语义权威在其 §2.3（本文件 §2.4 只承载本宿主的执行体声明与衔接），不复述避免第二权威。
 - 本文件与 capability-contract 按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。
+- 本地观察注记（local-observation，2026-09-30 宿主实跑记录；非规范事实源，不作规则块支持声明依据）：钉模型的 agent 须显式声明思考档位——agent profile 的模型选择不继承会话档位，选中模型而档位缺失时 spawn 即报 reasoning-level-missing（注册表默认档位不自动落下）；声明语法＝frontmatter `model: provider/model$档位` 或独立字段 `thoughtLevel: <档位>`（来源＝宿主实装：模型选择分隔符常量与 agent profile 解析器，`model_fallback` 非宿主字段），适配层实例 frontmatter 已按 `$high` 补声明并移除死字段；agent profile 于会话启动时装载，会话中改写 frontmatter 不生效，补丁实弹验证归新会话首派发；验证通过前，general-purpose 子代理注入同内容角色合同仍为现行有效独立形态（落 R-ZC-003 降级路径 (b)「不同执行身份」，独立性与只读边界由角色合同条款承载）。
+- 本地观察注记（local-observation，2026-10-26 单机实测；非规范事实源）：宿主默认沙箱对包外写入拒绝、工作区内写入不拦截；官方文档对默认沙箱行为的指针未核验（pending），核验前 readonly-execute 行维持 policy-only 从紧口径，本记录不充当 host-enforced/runner-enforced 等级依据。

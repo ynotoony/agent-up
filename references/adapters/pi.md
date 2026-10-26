@@ -10,13 +10,13 @@ update_policy: 本文件只是运行时映射，不是事实源；与角色合�
 depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-003 适配层地位）；被目标项目宿主适配层实例依赖
 ---
 
-<!-- Input: adapter-capability-contract.md 能力契约、adapter-template.md 结构基线、Pi 官方文档（pi.dev/docs/latest/{usage,extensions,skills,security}，取阅 2026-09-06）与 docs/research/2026-09-agent-host-adapters.md §3.3。 -->
+<!-- Input: adapter-capability-contract.md 能力契约、adapter-template.md 结构基线、Pi 官方文档（pi.dev/docs/latest/{usage,extensions,skills,security}，取阅 2026-09-06）与 docs/research/2026-09-agent-host-adapters.md §3.3（historical 调研存档，non-normative，非运行时必读）。 -->
 <!-- Output: Pi 宿主运行时映射：能力→宿主工具对照、三角色承载形态、独立执行体声明与降级路径（Pi 默认无内置独立执行体）。 -->
 <!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 <role-contract-dir>/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # Pi 宿主适配层映射（运行时入口）
 
-本文件是平台适配层：把 capability-contract 的能力基元映射为 Pi 宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。官方事实依据与取阅日期登记于 `docs/research/2026-09-agent-host-adapters.md` §3.3（公开包外记录）。
+本文件是平台适配层：把 capability-contract 的能力基元映射为 Pi 宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。官方事实依据与取阅日期以各条目内官方文档取阅注记为准；`docs/research/2026-09-agent-host-adapters.md` §3.3 为 historical 调研存档（non-normative，非运行时必读，不作规范依据）。
 
 ## 1. 快速摘要
 
@@ -25,7 +25,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - platform 枚举值：`pi`；三类接入面归属：插件扩展代表（官方 extensions 文档：TypeScript 模块订阅生命周期事件、注册工具/命令、拦截或修改工具调用）；rules files 为辅（`AGENTS.md`/`CLAUDE.md` 项目上下文与 `~/.pi/agent/AGENTS.md` 全局指令）。
 - 独立执行体：官方 usage 文档自述不内置 sub-agents/MCP/permission popups 等；默认无独立执行体，降级路径为本文件强制项（§2.4）；扩展文档含 spawn sub-agents 示例，属扩展面可选能力，不视为核心能力。
 - 权限模型登记：官方 security 文档——以启动用户账户权限运行、无内置 sandbox、项目信任（project trust）控制项目本地资源加载且"not a sandbox"。
-- 许可证登记：工具 MIT（仓库 LICENSE 原文核验）；pi.dev 文档站点未标注独立许可证【待定注记】，详见调研报告 §3.3。
+- 许可证登记：工具 MIT（仓库 LICENSE 原文核验）；pi.dev 文档站点未标注独立许可证（未核验项，状态 pending；historical 调研存档注记，non-normative，非运行时必读）。
 - 规则权威始终在角色合同与 rules/ 流程规则三件；扩展的拦截/门控属宿主强制能力登记，不是门禁规则来源。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
 - 本文件规则块前缀 `R-PI-`；能力契约手册前缀 `R-CC-`。

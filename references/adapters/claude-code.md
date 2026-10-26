@@ -10,13 +10,13 @@ update_policy: 本文件只是运行时映射，不是事实源；与角色合�
 depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-003 适配层地位）；被目标项目宿主适配层实例依赖
 ---
 
-<!-- Input: adapter-capability-contract.md 能力契约、adapter-template.md 结构基线、Claude Code 官方文档（code.claude.com/docs/en/{hooks,sub-agents,settings}，取阅 2026-09-06）与 docs/research/2026-09-agent-host-adapters.md §3.1。 -->
+<!-- Input: adapter-capability-contract.md 能力契约、adapter-template.md 结构基线、Claude Code 官方文档（code.claude.com/docs/en/{hooks,sub-agents,settings}，取阅 2026-09-06）与 docs/research/2026-09-agent-host-adapters.md §3.1（historical 调研存档，non-normative，非运行时必读）。 -->
 <!-- Output: Claude Code 宿主运行时映射：能力→宿主工具对照、三角色 frontmatter 方言模板、独立执行体声明与降级路径。 -->
 <!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 <role-contract-dir>/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # Claude Code 宿主适配层映射（运行时入口）
 
-本文件是平台适配层：把 capability-contract 的能力基元映射为 Claude Code 宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。官方事实依据与取阅日期登记于 `docs/research/2026-09-agent-host-adapters.md` §3.1（公开包外记录）。
+本文件是平台适配层：把 capability-contract 的能力基元映射为 Claude Code 宿主运行时形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。官方事实依据与取阅日期以各条目内官方文档取阅注记为准；`docs/research/2026-09-agent-host-adapters.md` §3.1 为 historical 调研存档（non-normative，非运行时必读，不作规范依据）。
 
 ## 1. 快速摘要
 
@@ -25,7 +25,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - platform 枚举值：`claude-code`；三类接入面归属：shell hooks 代表（官方 hooks 文档登记 `PreToolUse` 可阻断工具调用）；plugins/subagents 为辅。
 - 独立执行体：官方 sub-agents 文档登记 `.claude/agents/<name>.md` 子代理定义（frontmatter `name`/`description`/`tools`/`model`）——支持；不可用时按 §2.4 降级。
 - 权限模型登记：settings 分层文件 + `permissions.allow`/`ask`/`deny` 与 `permissions.defaultMode`；deny/ask 立即生效，allow 在目录受信后生效（官方 settings 文档）。
-- 许可证登记：工具为专有（已核验 2026-09-06）——仓库无开源 LICENSE 文件（`LICENSE` raw 路径 404），存在 `LICENSE.md` 专有声明（© Anthropic PBC，Use is subject to Anthropic's Commercial Terms of Service，raw 原文核验），非开源；官方文档未标注独立文档许可证，详见调研报告 §3.1。
+- 许可证登记：工具为专有（已核验 2026-09-06）——仓库无开源 LICENSE 文件（`LICENSE` raw 路径 404），存在 `LICENSE.md` 专有声明（© Anthropic PBC，Use is subject to Anthropic's Commercial Terms of Service，raw 原文核验），非开源；官方文档未标注独立文档许可证（historical 调研存档注记，non-normative，非运行时必读）。
 - 规则权威始终在角色合同与 rules/ 流程规则三件；hooks 属宿主强制能力登记，不是门禁规则来源。
 - 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
 - 无独立 subagent 执行体的降级路径见 capability-contract §2.3；本文件不承载流程规则。
@@ -65,7 +65,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | edit | Edit | 修改既有文件 |
 | write | Write | 创建新文件 |
 | execute | Bash | 可变更工作区状态的命令；受 `permissions` 规则约束 |
-| readonly-execute | Bash | 仅只读命令；readonly_enforcement: policy-only（permissions.allow/ask/deny 与 hooks 为调用面闸门与配置面护栏，官方 settings/hooks 文档取阅 2026-09-06；登记面无默认只读隔离，sandbox 类隔离能力未核验【待定】；只读性由调用方约束） |
+| readonly-execute | Bash | 仅只读命令；readonly_enforcement: policy-only（permissions.allow/ask/deny 与 hooks 为调用面闸门与配置面护栏，官方 settings/hooks 文档取阅 2026-09-06；登记面无默认只读隔离，sandbox 类隔离能力未核验（状态 pending，不据此声明宿主强制隔离）；只读性由调用方约束） |
 | vcs-read | Bash | git status/log/diff 等只读命令 |
 | vcs-write | Bash | git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力） |
 
