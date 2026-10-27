@@ -10,7 +10,8 @@ Entry points:
   awk JSON parsing
 - workflow: workflow-executor.sh JSON operations (steps/state-machine parsing,
   preflight, index status, checkpoint sidecar lifecycle, state_to_ticket_status
-  mapping enforcement (票 221))
+  mapping enforcement (票 221), condition vocabulary check/evaluation over
+  structured step results (票 209))
 - ticket-check: ticket-ops.sh gates (close/deps/open-body)
 - contract: dispatch-contract TICKET_ID extraction (worktree-add.sh)
 
@@ -747,6 +748,19 @@ def json_count_key(args):
 TICKET_STATUS_RE = re.compile(
     r'(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done)')
 
+# 状态机转换条件可实现词表（票 209）：三个具名条件＋checkpoint.<路径> 形态；
+# 词表外条件（含已退役恒真词 workflow_started 与恒假词 verification_failed/
+# manual_retry）在 check-conditions 预检 fail-closed 拒绝，零副作用。
+CONDITION_ENUM = ('all_verifications_pass', 'any_verification_failed', 'manual_retry_requested')
+CHECKPOINT_CONDITION_RE = re.compile(r'checkpoint(?:\.[a-z_][a-z0-9_]*)+')
+
+# 步骤结构化结果 status 枚举（票 209）；skipped 为词表保留值，executor 写面
+# 当前零写入（保留给宿主 agent 适配器的跳过语义）。
+RESULT_STATUS = ('passed', 'failed', 'skipped')
+
+# verification_results 项键集（票 209）
+VERIFY_ITEM_KEYS = {'name', 'status', 'exit_code'}
+
 
 def wf_parse_steps(workflow_file):
     """Parse the simplified workflow YAML into a steps JSON array."""
@@ -782,6 +796,11 @@ def wf_parse_steps(workflow_file):
                 break
 
             elif current_step is not None and stripped:
+                # 序列项前缀剥离（票 209）：verification 子项以 `- name: ...` 起始，
+                # 不剥 `- ` 则键名带前缀（`- name`）被丢弃，逐项 name 恒缺——
+                # 结构化 verification_results 需要真实 name，此处统一剥前缀。
+                if stripped.startswith('- '):
+                    stripped = stripped[2:].strip()
                 if ':' in stripped:
                     key, value = stripped.split(':', 1)
                     key = key.strip()
@@ -942,6 +961,88 @@ def wf_preflight(retry_step, raw_steps):
 def wf_check_ticket_status(value):
     """Exit 0 iff value is a legal issue-index ticket status (票 221 值域判定)."""
     return 0 if TICKET_STATUS_RE.fullmatch(value) else 1
+
+
+def wf_check_conditions(raw_state_machine):
+    """Fail closed on any transition condition outside the implementable
+    vocabulary (票 209). Must run before any checkpoint file is created or any
+    step side effect happens; retired words (workflow_started/verification_failed/
+    manual_retry) are rejected by the same gate."""
+    if raw_state_machine == '-':
+        state_machine = json.load(sys.stdin)
+    else:
+        state_machine = json.loads(raw_state_machine)
+    for idx, transition in enumerate(state_machine.get('transitions', [])):
+        condition = transition.get('condition', '')
+        if condition in CONDITION_ENUM:
+            continue
+        if CHECKPOINT_CONDITION_RE.fullmatch(condition):
+            continue
+        raise SystemExit(
+            f"transition[{idx}] 条件 {condition!r} 不在可实现条件词表"
+            f"（all_verifications_pass|any_verification_failed|manual_retry_requested|"
+            f"checkpoint.<路径>）；拒绝执行（workflow_started/verification_failed/manual_retry 已退役）")
+    return 0
+
+
+def _wf_condition_record(checkpoint, field):
+    """Navigate a checkpoint.<a>.<b> style path from the checkpoint root;
+    returns None when any segment is missing or walks through a non-dict."""
+    data = checkpoint
+    for part in field.split('.')[1:]:
+        if not isinstance(data, dict) or part not in data:
+            return None
+        data = data[part]
+    return data
+
+
+def wf_eval_condition(condition, raw_checkpoint, raw_steps, retry_step):
+    """Evaluate one state-machine condition against structured step results
+    (票 209). Prints true/false; exit 0. Unknown conditions print a warning and
+    false (defense in depth — check-conditions rejects them before any run)."""
+    checkpoint = json.loads(raw_checkpoint) if raw_checkpoint.strip() else {}
+    steps = json.loads(raw_steps) if raw_steps.strip() else []
+    verdict = False
+    if condition == 'all_verifications_pass':
+        recorded = 0
+        verdict = True
+        for step in steps:
+            if step.get('type') != 'verification':
+                continue
+            field = step.get('checkpoint_field', '')
+            if not field:
+                continue
+            record = _wf_condition_record(checkpoint, field)
+            if not isinstance(record, dict):
+                verdict = False
+                break
+            recorded += 1
+            if record.get('status', 'passed') != 'passed':
+                verdict = False
+                break
+        if recorded == 0:
+            verdict = False
+    elif condition == 'any_verification_failed':
+        for step in steps:
+            if step.get('type') != 'verification':
+                continue
+            field = step.get('checkpoint_field', '')
+            if not field:
+                continue
+            record = _wf_condition_record(checkpoint, field)
+            if isinstance(record, dict) and record.get('status') == 'failed':
+                verdict = True
+                break
+    elif condition == 'manual_retry_requested':
+        verdict = bool(retry_step)
+    elif condition.startswith('checkpoint.'):
+        value = _wf_condition_record(checkpoint, condition)
+        verdict = value is not None and value is not False and value != '' and value != 0
+    else:
+        print(f'workflow-executor: 警告：未知条件 {condition}\n', file=sys.stderr)
+        verdict = False
+    print('true' if verdict else 'false')
+    return 0
 
 
 def wf_map_status(raw_state_machine, to_state):
@@ -1106,6 +1207,7 @@ def wf_checkpoint_check(checkpoint_file, raw_checkpoint, raw_steps, retry_step):
             raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的完成记录 completed_at 时间值无效")
         if not isinstance(data.get('outputs'), str):
             raise SystemExit(f"checkpoint 中 step {step.get('id', '')} 的完成记录 outputs 必须为字符串")
+        _wf_check_structured_keys(data, f"checkpoint 中 step {step.get('id', '')} 的完成记录")
 
     if retry_step and checkpoint_file:
         step = next(step for step in steps if step.get('id') == retry_step)
@@ -1144,9 +1246,42 @@ def wf_checkpoint_check(checkpoint_file, raw_checkpoint, raw_steps, retry_step):
     return 0
 
 
+def _wf_check_structured_keys(record, what):
+    """Validate the structured result keys of a completion record (票 209):
+    a leaf is either a legacy three-key record (no structured keys) or a full
+    six-key record (status/exit_code/verification_results all present and
+    valid); partial presence is rejected — no intermediate form."""
+    present = {'status', 'exit_code', 'verification_results'} & set(record)
+    if present and present != {'status', 'exit_code', 'verification_results'}:
+        raise SystemExit(f'{what}结构化键残缺（须 legacy 三键或新六键完整）：缺 {sorted({"status", "exit_code", "verification_results"} - present)}')
+    if 'status' in present:
+        if record['status'] not in RESULT_STATUS:
+            raise SystemExit(f'{what}status 越枚举（passed|failed|skipped）: {record["status"]!r}')
+    if 'exit_code' in present:
+        code = record['exit_code']
+        if type(code) is not int or isinstance(code, bool) or not 0 <= code <= 255:
+            raise SystemExit(f'{what}exit_code 须为 0..255 整数: {code!r}')
+    if 'verification_results' in present:
+        results = record['verification_results']
+        if not isinstance(results, list):
+            raise SystemExit(f'{what}verification_results 必须为数组')
+        for item in results:
+            if not isinstance(item, dict) or set(item) != VERIFY_ITEM_KEYS:
+                raise SystemExit(f'{what}verification_results 项须恰为键 {sorted(VERIFY_ITEM_KEYS)}')
+            if not isinstance(item['name'], str) or not item['name']:
+                raise SystemExit(f'{what}verification_results 项 name 须为非空字符串')
+            if item['status'] not in ('passed', 'failed'):
+                raise SystemExit(f'{what}verification_results 项 status 须为 passed|failed: {item["status"]!r}')
+            code = item['exit_code']
+            if type(code) is not int or isinstance(code, bool) or not 0 <= code <= 255:
+                raise SystemExit(f'{what}verification_results 项 exit_code 须为 0..255 整数: {code!r}')
+
+
 def wf_step_check(raw_checkpoint, checkpoint_field, step_id):
     """Resume-mode single-step completion check; prints true/false, fails
-    closed on invalid completion records."""
+    closed on invalid completion records. Completion for resume means status
+    passed (legacy records without status count as passed, 票 209 backward
+    compatibility); failed/skipped records are re-run."""
 
     checkpoint = json.loads(raw_checkpoint)
     field = checkpoint_field.split('.')
@@ -1174,14 +1309,41 @@ def wf_step_check(raw_checkpoint, checkpoint_field, step_id):
             raise SystemExit('完成记录 completed_at 时间值无效')
         if not isinstance(data.get('outputs'), str):
             raise SystemExit('完成记录 outputs 必须为字符串')
-        print('true')
+        _wf_check_structured_keys(data, '完成记录')
+        print('true' if data.get('status', 'passed') == 'passed' else 'false')
     return 0
 
 
+def _wf_parse_verify_items(encoded):
+    """Decode the executor's verification-result items encoding (票 209):
+    items separated by \\x1e, fields (name/status/exit_code) by \\x1f; empty
+    string means no items. Returns the validated JSON-ready list."""
+    items = []
+    if encoded == '':
+        return items
+    for chunk in encoded.split('\x1e'):
+        if chunk == '':
+            continue
+        parts = chunk.split('\x1f')
+        if len(parts) != 3:
+            raise SystemExit('verification_results 项编码字段数须为 3（name/status/exit_code）')
+        name, status, exit_code = parts
+        if not name:
+            raise SystemExit('verification_results 项 name 须非空')
+        if status not in ('passed', 'failed'):
+            raise SystemExit(f'verification_results 项 status 须为 passed|failed: {status!r}')
+        if not re.fullmatch(r'[0-9]+', exit_code) or int(exit_code) > 255:
+            raise SystemExit(f'verification_results 项 exit_code 须为 0..255 整数: {exit_code!r}')
+        items.append({'name': name, 'status': status, 'exit_code': int(exit_code)})
+    return items
+
+
 def wf_record_step(checkpoint_file, ticket_file, checkpoint_field, step_id,
-                   completed_at, step_outputs):
-    """Atomically record one step into the sidecar, then anchor the ticket's
-    checkpoint_ref (sidecar first, pointer second)."""
+                   completed_at, step_outputs, step_status, step_exit_code,
+                   verify_items_encoded):
+    """Atomically record one step (with its structured result, 票 209) into the
+    sidecar, then anchor the ticket's checkpoint_ref (sidecar first, pointer
+    second)."""
     # 读取票文件；顶层 checkpoint 是旧格式，永不回写。
     with open(ticket_file, encoding='utf-8') as f:
         ticket = json.load(f)
@@ -1203,6 +1365,14 @@ def wf_record_step(checkpoint_file, ticket_file, checkpoint_field, step_id,
     if len(field_parts) < 2 or field_parts[0] != 'checkpoint':
         raise SystemExit('checkpoint_field 必须以 checkpoint. 开头')
 
+    # 结构化结果值域死守（票 209）：status 枚举、exit_code 0..255、
+    # verification_results 项编码逐项校验后再落盘。
+    if step_status not in RESULT_STATUS:
+        raise SystemExit(f'step status 越枚举（passed|failed|skipped）: {step_status!r}')
+    if not re.fullmatch(r'[0-9]+', step_exit_code) or int(step_exit_code) > 255:
+        raise SystemExit(f'step exit_code 须为 0..255 整数: {step_exit_code!r}')
+    verify_items = _wf_parse_verify_items(verify_items_encoded)
+
     # 从 checkpoint 根开始导航（跳过第一个 'checkpoint'）
     current = document['checkpoint']
 
@@ -1212,12 +1382,15 @@ def wf_record_step(checkpoint_file, ticket_file, checkpoint_field, step_id,
             current[part] = {}
         current = current[part]
 
-    # 写入步骤级 checkpoint
+    # 写入步骤级 checkpoint（含结构化结果；写面恒六键，票 209）
     last_field = field_parts[-1]
     current[last_field] = {
         "step_name": step_id,
         "completed_at": completed_at,
-        "outputs": step_outputs.strip() if step_outputs else ""
+        "outputs": step_outputs.strip() if step_outputs else "",
+        "status": step_status,
+        "exit_code": int(step_exit_code),
+        "verification_results": verify_items
     }
 
     # 写回独立 checkpoint 文件（原子化：先写临时文件，再替换）。
@@ -1414,10 +1587,14 @@ def print_usage():
       通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin）
       退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
 
-  workflow <steps|state-machine|map-status|check-status|preflight|index-status|
-            checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]
+  workflow <steps|state-machine|map-status|check-status|check-conditions|
+            eval-condition|preflight|index-status|checkpoint-init|read-checkpoint|
+            checkpoint-check|step-check|record-step> [args]
       workflow-executor.sh 专用 JSON 操作（逐行等价迁移自原内嵌 heredoc；map-status/
-      check-status 为票 221 映射强制：map-status 退出码 0=映射合法/3=未映射/1=越枚举）
+      check-status 为票 221 映射强制：map-status 退出码 0=映射合法/3=未映射/1=越枚举；
+      check-conditions/eval-condition 为票 209 条件词表预检与结构化结果求值：
+      eval-condition 打印 true/false，record-step 含 status/exit_code/
+      verification_results 结构化结果）
       退出码: 0=完成, 1=校验不过, 2=用法
 
   ticket-check <close|deps|open-body> [args]
@@ -1537,6 +1714,10 @@ def main():
                 sys.exit(wf_map_status(sys.argv[3], sys.argv[4]))
             elif sub == 'check-status' and len(sys.argv) == 4:
                 sys.exit(wf_check_ticket_status(sys.argv[3]))
+            elif sub == 'check-conditions' and len(sys.argv) == 4:
+                sys.exit(wf_check_conditions(sys.argv[3]))
+            elif sub == 'eval-condition' and len(sys.argv) == 7:
+                sys.exit(wf_eval_condition(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
             elif sub == 'preflight' and len(sys.argv) == 5:
                 sys.exit(wf_preflight(sys.argv[3], sys.argv[4]))
             elif sub == 'index-status' and len(sys.argv) == 6:
@@ -1549,8 +1730,10 @@ def main():
                 sys.exit(wf_checkpoint_check(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
             elif sub == 'step-check' and len(sys.argv) == 6:
                 sys.exit(wf_step_check(sys.argv[3], sys.argv[4], sys.argv[5]))
-            elif sub == 'record-step' and len(sys.argv) == 9:
-                sys.exit(wf_record_step(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8]))
+            elif sub == 'record-step' and len(sys.argv) == 12:
+                sys.exit(wf_record_step(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6],
+                                        sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10],
+                                        sys.argv[11]))
             else:
                 print(f"workflow {sub}: 参数个数不合合同", file=sys.stderr)
                 print_usage()

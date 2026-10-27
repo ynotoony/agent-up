@@ -15,10 +15,17 @@ fi
 # 跨字段三校验（initial_state/transition from/to∈states）与 state_to_ticket_status
 # 映射目标枚举（对 issue-index.schema.json Task 流转值逐键核对＋两 schema 映射
 # pattern 语料级漂移护栏）正负例常驻；executor 写面
-# 记录与文档三键语义逐键一致且 --resume 回读接受；unsupported-step 负例在
+# 记录与文档六键语义逐键一致（三键基础＋三键结构化结果，票 209）且 --resume
+# 回读接受、legacy 三键读面兼容；unsupported-step 负例在
 # checkpoint sidecar 落盘与任何步骤副作用之前失败；executor 映射强制（票 221）
 # 运行时正负例常驻：合法映射按映射值端到端写票索引，未映射（implementation_done）
-# 与映射目标越票状态枚举拒绝转换且票索引零写入。夹具全 mktemp 自建不入
+# 与映射目标越票状态枚举拒绝转换且票索引零写入；条件语义结构化（票 209）
+# 正负例常驻：可实现条件词表（all_verifications_pass/any_verification_failed/
+# manual_retry_requested/checkpoint.<路径>）schema pattern 与引擎词表语料级
+# 等价、已退役恒真／恒假词 schema 与 executor 双层拒绝（先于 sidecar 落盘）、
+# 空 checkpoint 不为 all_verifications_pass（AC1 回归）、验证失败落结构化
+# failed 记录并进 blocked（AC2）、manual_retry_requested 仅显式 --retry 生效
+# 且重试推进可达（AC3）。夹具全 mktemp 自建不入
 # 仓，被测对象只读；YAML 解析为夹具专用极简块级解析器（映射/序列/纯量/引号
 # 纯量，不支持锚点、流集合与多行块标量），校验关键字覆盖 workflow.schema.json
 # 在用全集：type/required/properties/patternProperties/additionalProperties/
@@ -41,6 +48,7 @@ from datetime import datetime
 
 TS_RE = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z')
 RECORD_KEYS = {'step_name', 'completed_at', 'outputs'}
+STRUCT_KEYS = {'status', 'exit_code', 'verification_results'}
 
 
 def scalar(text):
@@ -276,15 +284,41 @@ def node_check(node, path, errors):
         return
     keys = set(node)
     if RECORD_KEYS <= keys:
-        extra = keys - RECORD_KEYS
+        struct_present = STRUCT_KEYS & keys
+        extra = keys - RECORD_KEYS - struct_present
         if extra:
             errors.append(f'{path}: 记录含未定义键 {sorted(extra)}')
+        if struct_present and struct_present != STRUCT_KEYS:
+            errors.append(f'{path}: 结构化键残缺（须 legacy 三键或六键完整）: {sorted(node)}')
+            return
         if not isinstance(node.get('step_name'), str) or not node['step_name']:
             errors.append(f'{path}: step_name 必须为非空字符串')
         if not valid_timestamp(node.get('completed_at')):
             errors.append(f'{path}: completed_at 必须为合法 UTC 时刻（YYYY-MM-DDTHH:MM:SSZ）')
         if not isinstance(node.get('outputs'), str):
             errors.append(f'{path}: outputs 必须为字符串')
+        if struct_present:
+            if node['status'] not in ('passed', 'failed', 'skipped'):
+                errors.append(f'{path}: status 须为 passed|failed|skipped: {node["status"]!r}')
+            code = node['exit_code']
+            if type(code) is not int or isinstance(code, bool) or not 0 <= code <= 255:
+                errors.append(f'{path}: exit_code 须为 0..255 整数: {code!r}')
+            results = node['verification_results']
+            if not isinstance(results, list):
+                errors.append(f'{path}: verification_results 必须为数组')
+            else:
+                for index, item in enumerate(results):
+                    item_path = f'{path}.verification_results[{index}]'
+                    if not isinstance(item, dict) or set(item) != {'name', 'status', 'exit_code'}:
+                        errors.append(f'{item_path}: 项须恰为 name/status/exit_code 三键')
+                        continue
+                    if not isinstance(item['name'], str) or not item['name']:
+                        errors.append(f'{item_path}.name: 须为非空字符串')
+                    if item['status'] not in ('passed', 'failed'):
+                        errors.append(f'{item_path}.status: 须为 passed|failed: {item["status"]!r}')
+                    item_code = item['exit_code']
+                    if type(item_code) is not int or isinstance(item_code, bool) or not 0 <= item_code <= 255:
+                        errors.append(f'{item_path}.exit_code: 须为 0..255 整数: {item_code!r}')
         return
     if RECORD_KEYS & keys:
         errors.append(f'{path}: 记录键残缺: {sorted(node)}')
@@ -506,7 +540,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: workflow_started
+      condition: checkpoint.base.step
       trigger: base-step
 EOF
   wf_expect_valid 'P3 基底夹具过同一 schema 子集校验（负例对照基底）' \
@@ -539,7 +573,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: workflow_started
+      condition: checkpoint.base.step
       trigger: base-step
 EOF
   wf_expect_invalid 'N1 inputs 序列形态被拒（schema 须对象）' 'inputs: 期望类型 object' \
@@ -586,7 +620,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: workflow_started
+      condition: checkpoint.base.step
       trigger: base-step
 EOF
   wf_expect_invalid 'N4 步骤额外字段被拒' '不允许的额外字段' \
@@ -629,7 +663,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: workflow_started
+      condition: all_verifications_pass
 EOF
   wf_expect_invalid 'N6 expect_exit 越过 maximum 255 被拒' '大于 maximum' \
     schema "$D/neg/n6-exit-range.yaml" "$SCHEMA"
@@ -717,7 +751,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: manual_retry
+      condition: manual_retry_requested
 EOF
   cat > "$D/sidecar/ticket.json" <<'EOF'
 {"id":"wf-contract-resume-test","kind":"task","title":"WF Contract Resume Test","created_at":"2026-10-21","checkpoint_ref":"workflow-checkpoint-v1:ticket.json.workflow-checkpoint-v1.json"}
@@ -741,7 +775,7 @@ EOF
   wf_expect_valid 'P6 运行后 sidecar 仍过合同校验（双记录＋step_name 交叉核对）' \
     sidecar "$D/sidecar/ticket.json.workflow-checkpoint-v1.json" "$D/sidecar/wf-resume.yaml"
 
-  # ---- executor 写面：记录恰三键且与文档语义逐键一致 ----
+  # ---- executor 写面：记录恒六键（三键基础＋三键结构化结果，票 209）且与文档语义逐键一致 ----
 
   cat > "$D/write/wf-write.yaml" <<'EOF'
 workflow:
@@ -770,7 +804,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: manual_retry
+      condition: manual_retry_requested
 EOF
   cat > "$D/write/ticket.json" <<'EOF'
 {"id":"wf-contract-write-test","kind":"task","title":"WF Contract Write Test","created_at":"2026-10-21"}
@@ -792,7 +826,7 @@ if set(document) != {'version', 'checkpoint'}:
 if type(document['version']) is not int or document['version'] != 1:
     sys.exit('sidecar version 类型或取值漂移')
 record = document['checkpoint']['write']['rec']
-if set(record) != {'step_name', 'completed_at', 'outputs'}:
+if set(record) != {'step_name', 'completed_at', 'outputs', 'status', 'exit_code', 'verification_results'}:
     sys.exit(f'记录键漂移: {sorted(record)}')
 if record['step_name'] != 'write-step':
     sys.exit(f'step_name 漂移: {record["step_name"]!r}')
@@ -802,12 +836,18 @@ if not isinstance(completed_at, str) or re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2
 datetime.strptime(completed_at, '%Y-%m-%dT%H:%M:%SZ')
 if record['outputs'] != '':
     sys.exit(f'outputs 漂移: {record["outputs"]!r}')
+if record['status'] != 'passed':
+    sys.exit(f'status 漂移: {record["status"]!r}')
+if record['exit_code'] != 0:
+    sys.exit(f'exit_code 漂移: {record["exit_code"]!r}')
+if record['verification_results'] != []:
+    sys.exit(f'verification_results 漂移: {record["verification_results"]!r}')
 print('record-ok')
 PY
   then
-    ok 'P7 executor 写面记录恰三键且逐键语义一致（step_name/completed_at UTC/outputs）'
+    ok 'P7 executor 写面记录恒六键且逐键语义一致（三键基础＋status=passed/exit_code=0/verification_results 空表）'
   else
-    bad 'P7 executor 写面记录恰三键且逐键语义一致（step_name/completed_at UTC/outputs）' \
+    bad 'P7 executor 写面记录恒六键且逐键语义一致（三键基础＋status=passed/exit_code=0/verification_results 空表）' \
       "exit=$write_rc $(tail -n 3 "$D/write/run1.log" | tr '\n' '|')"
   fi
 
@@ -874,7 +914,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: manual_retry
+      condition: manual_retry_requested
 EOF
   cat > "$D/ac2/ticket.json" <<'EOF'
 {"id":"wf-contract-ac2-test","kind":"task","title":"WF Contract AC2 Test","created_at":"2026-10-21"}
@@ -935,7 +975,7 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: workflow_started
+      condition: checkpoint.base.step
 EOF
   wf_expect_invalid 'N11 initial_state 越 states 被拒' '初始状态必须存在于' \
     schema "$D/neg/n11-initial-out-of-states.yaml" "$SCHEMA"
@@ -969,7 +1009,7 @@ state_machine:
   transitions:
     - from: nonexistent_from
       to: pending
-      condition: workflow_started
+      condition: checkpoint.base.step
 EOF
   wf_expect_invalid 'N12 transition from 越 states 被拒' '源状态必须存在于' \
     schema "$D/neg/n12-transition-from-invalid.yaml" "$SCHEMA"
@@ -1003,7 +1043,7 @@ state_machine:
   transitions:
     - from: pending
       to: nonexistent_to
-      condition: workflow_started
+      condition: checkpoint.base.step
 EOF
   wf_expect_invalid 'N13 transition to 越 states 被拒' '目标状态必须存在于' \
     schema "$D/neg/n13-transition-to-invalid.yaml" "$SCHEMA"
@@ -1037,12 +1077,18 @@ state_machine:
   transitions:
     - from: pending
       to: pending
-      condition: workflow_started
+      condition: checkpoint.base.step
   state_to_ticket_status:
     pending: invalid_status
 EOF
   wf_expect_invalid 'N14 state_to_ticket_status 映射越票状态枚举被拒' '不匹配 pattern' \
     schema "$D/neg/n14-mapping-out-of-enum.yaml" "$SCHEMA"
+
+  # N17（票 209）：已退役恒假词 verification_failed 越可实现条件词表 → pattern 拒绝
+  sed 's/      condition: checkpoint.base.step/      condition: verification_failed/' \
+    "$D/neg/base.yaml" > "$D/neg/n17-retired-condition.yaml"
+  wf_expect_invalid 'N17 已退役恒假词 verification_failed 越条件词表被拒' '不匹配 pattern' \
+    schema "$D/neg/n17-retired-condition.yaml" "$SCHEMA"
 
   # ---- executor 映射强制运行时正负例（票 221）：私有状态不直写票索引 ----
   # 票索引夹具 mktemp 自建，经 issues_index_rel 指向，不触仓内真实 index.json。
@@ -1096,7 +1142,7 @@ state_machine:
   transitions:
     - from: ready
       to: working
-      condition: workflow_started
+      condition: checkpoint.map.pos
   state_to_ticket_status:
     working: in_progress
 EOF
@@ -1152,7 +1198,7 @@ state_machine:
   transitions:
     - from: in_progress
       to: implementation_done
-      condition: workflow_started
+      condition: checkpoint.map.done
   state_to_ticket_status:
     in_progress: in_progress
 EOF
@@ -1183,6 +1229,290 @@ EOF
   else
     bad 'N16 映射目标 implemented 越票状态枚举：拒绝写票索引、票索引 cmp 零差' \
       "exit=$map_out_rc $(tail -n 3 "$D/map/neg-outofenum/run.log" | tr '\n' '|')"
+  fi
+
+  # ---- 条件语义结构化运行时正负例（票 209）：词表求值、退役词双层拒绝、
+  # ---- AC1 空 checkpoint 不恒真、AC2 失败进 blocked、AC3 retry 门控 ----
+
+  # P16（AC2）：验证失败先落结构化 failed 记录（六键）再进 blocked（端到端）
+  mkdir -p "$D/blocked"
+  cat > "$D/blocked/wf.yaml" <<'EOF'
+workflow:
+  name: contract-blocked
+  description: 验证失败进入 blocked（票 209 AC2）
+steps:
+  - id: fail-step
+    type: verification
+    description: 必失败的验证步骤
+    checkpoint_field: checkpoint.blocked.verify
+    verification:
+      - name: probe
+        check: exit 3
+        expect: unreachable
+state_machine:
+  initial_state: in_progress
+  states:
+    - name: in_progress
+      description: 实施中
+    - name: blocked
+      description: 阻塞
+  transitions:
+    - from: in_progress
+      to: blocked
+      condition: any_verification_failed
+  state_to_ticket_status:
+    blocked: blocked
+EOF
+  cat > "$D/blocked/index.json" <<'EOF'
+{"issues":[{"id":"wf-cond-blocked-test","kind":"task","status":"in_progress","updated_at":"2026-10-26T00:00:00"}]}
+EOF
+  cp "$D/blocked/index.json" "$D/blocked/index.before"
+  printf '{"id":"wf-cond-blocked-test","kind":"task","title":"WF Cond Blocked Test","created_at":"2026-10-26"}\n' > "$D/blocked/ticket.json"
+  issues_index_rel="$D/blocked/index.json" sh "$EXECUTOR" "$D/blocked/wf.yaml" \
+    --ticket-file "$D/blocked/ticket.json" > "$D/blocked/run.log" 2>&1
+  blocked_rc=$?
+  if [ "$blocked_rc" -eq 1 ] && python3 - "$D/blocked" > /dev/null <<'PY'
+import json, sys
+
+base = sys.argv[1]
+with open(base + '/index.json', encoding='utf-8') as handle:
+    issue = next(i for i in json.load(handle)['issues'] if i['id'] == 'wf-cond-blocked-test')
+assert issue['status'] == 'blocked', f'状态漂移: {issue["status"]!r}（验证失败应进入 blocked）'
+with open(base + '/ticket.json.workflow-checkpoint-v1.json', encoding='utf-8') as handle:
+    record = json.load(handle)['checkpoint']['blocked']['verify']
+assert set(record) == {'step_name', 'completed_at', 'outputs', 'status', 'exit_code', 'verification_results'}, sorted(record)
+assert record['status'] == 'failed', record
+assert record['exit_code'] == 3, record
+assert record['verification_results'] == [{'name': 'probe', 'status': 'failed', 'exit_code': 3}], record
+print('blocked-ok')
+PY
+  then
+    ok 'P16 AC2 端到端：验证失败先落六键 failed 记录（exit_code=3＋逐项结果）再进 blocked'
+  else
+    bad 'P16 AC2 端到端：验证失败先落六键 failed 记录（exit_code=3＋逐项结果）再进 blocked' \
+      "exit=$blocked_rc $(tail -n 3 "$D/blocked/run.log" | tr '\n' '|')"
+  fi
+
+  # P17：条件求值与词表预检单元正负例（AC1/AC3/AC4 求值语义；退役词预检拒绝）
+  if python3 - "$SCRIPT_DIR/json-validator.py" > "$D/cond-unit.log" 2>&1 <<'PY'
+import json
+import re
+import subprocess
+import sys
+
+engine = sys.argv[1]
+
+
+def ev(condition, checkpoint, steps, retry=''):
+    proc = subprocess.run(
+        [sys.executable, engine, 'workflow', 'eval-condition', condition, checkpoint, steps, retry],
+        capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout.strip()
+
+
+steps = json.dumps([{'id': 'v', 'type': 'verification', 'checkpoint_field': 'checkpoint.a.b'}])
+passed = json.dumps({'a': {'b': {'step_name': 'v', 'completed_at': '2026-10-20T00:00:00Z', 'outputs': '',
+                                 'status': 'passed', 'exit_code': 0, 'verification_results': []}}})
+failed = json.dumps({'a': {'b': {'step_name': 'v', 'completed_at': '2026-10-20T00:00:00Z', 'outputs': '',
+                                 'status': 'failed', 'exit_code': 3,
+                                 'verification_results': [{'name': 'v', 'status': 'failed', 'exit_code': 3}]}}})
+legacy = json.dumps({'a': {'b': {'step_name': 'v', 'completed_at': '2026-10-20T00:00:00Z', 'outputs': ''}}})
+commands_only = json.dumps([{'id': 'c', 'type': 'command'}])
+
+# AC1：空 checkpoint／零验证记录不再恒真（回归钉死「checkpoint 串非空即真」）
+assert ev('all_verifications_pass', '{}', steps) == 'false'
+assert ev('all_verifications_pass', '{}', '[]') == 'false'
+assert ev('all_verifications_pass', '{}', commands_only) == 'false'
+assert ev('all_verifications_pass', passed, steps) == 'true'
+assert ev('all_verifications_pass', legacy, steps) == 'true', 'legacy 缺 status 应按 passed 解释'
+assert ev('all_verifications_pass', failed, steps) == 'false'
+assert ev('any_verification_failed', failed, steps) == 'true'
+assert ev('any_verification_failed', passed, steps) == 'false'
+assert ev('any_verification_failed', '{}', steps) == 'false'
+# AC3：manual_retry_requested 仅显式 --retry
+assert ev('manual_retry_requested', '{}', steps) == 'false'
+assert ev('manual_retry_requested', '{}', steps, 'v') == 'true'
+# checkpoint.<路径> 正负例
+assert ev('checkpoint.a.b', '{}', steps) == 'false'
+assert ev('checkpoint.a.b', passed, steps) == 'true'
+assert ev('checkpoint.a.b', legacy, steps) == 'true'
+assert ev('checkpoint.a.missing', passed, steps) == 'false'
+
+# 词表预检：词表内全过；已退役词与未知词拒绝
+good_sm = {'transitions': [{'from': 'a', 'to': 'b', 'condition': c} for c in
+                           ['all_verifications_pass', 'any_verification_failed',
+                            'manual_retry_requested', 'checkpoint.a.b']]}
+proc = subprocess.run([sys.executable, engine, 'workflow', 'check-conditions', json.dumps(good_sm)],
+                      capture_output=True, text=True)
+assert proc.returncode == 0, proc.stderr
+for retired in ('workflow_started', 'verification_failed', 'manual_retry', 'totally_unknown'):
+    bad_sm = {'transitions': [{'from': 'a', 'to': 'b', 'condition': retired}]}
+    proc = subprocess.run([sys.executable, engine, 'workflow', 'check-conditions', json.dumps(bad_sm)],
+                          capture_output=True, text=True)
+    assert proc.returncode != 0, retired
+    assert '不在可实现条件词表' in proc.stderr, (retired, proc.stderr)
+print('cond-unit-ok')
+PY
+  then
+    ok 'P17 条件求值与词表预检单元正负例：AC1 空 checkpoint 不恒真／AC3 retry 门控／词表外拒绝'
+  else
+    bad 'P17 条件求值与词表预检单元正负例：AC1 空 checkpoint 不恒真／AC3 retry 门控／词表外拒绝' \
+      "$(tail -n 4 "$D/cond-unit.log" | tr '\n' '|')"
+  fi
+
+  # P18：schema 条件 pattern 与引擎词表（CONDITION_ENUM＋CHECKPOINT_CONDITION_RE）语料级等价
+  if python3 - "$SCHEMA" "$SCRIPT_DIR/json-validator.py" > "$D/cond-equiv.log" 2>&1 <<'PY'
+import json
+import re
+import sys
+
+schema_path, engine_path = sys.argv[1], sys.argv[2]
+with open(engine_path, encoding='utf-8') as handle:
+    source = handle.read()
+enum_match = re.search(r"CONDITION_ENUM = \(([^)]*)\)", source)
+assert enum_match, '引擎源中未找到 CONDITION_ENUM'
+words = set(re.findall(r"'([^']+)'", enum_match.group(1)))
+cre_match = re.search(r"CHECKPOINT_CONDITION_RE = re\.compile\(r'([^']+)'\)", source)
+assert cre_match, '引擎源中未找到 CHECKPOINT_CONDITION_RE'
+checkpoint_re = cre_match.group(1)
+with open(schema_path, encoding='utf-8') as handle:
+    schema = json.load(handle)
+pattern = schema['properties']['state_machine']['properties']['transitions']['items']['properties']['condition']['pattern']
+corpus = [
+    'all_verifications_pass', 'any_verification_failed', 'manual_retry_requested',
+    'workflow_started', 'verification_failed', 'manual_retry',
+    'checkpoint.a', 'checkpoint.a.b', 'checkpoint.triage.parse_requirement', 'checkpoint._x',
+    'checkpoint', 'checkpoint.', 'checkpoint.a.', 'checkpoint.A', 'checkpoint.1a',
+    'checkpoint.a-b', 'checkpoint.a..b', 'checkpoint.a b', 'checkpoint.a/b',
+    'ALL_VERIFICATIONS_PASS', 'unknown_condition', '',
+]
+for candidate in corpus:
+    engine_verdict = candidate in words or re.fullmatch(checkpoint_re, candidate) is not None
+    schema_verdict = re.fullmatch(pattern, candidate) is not None
+    assert engine_verdict == schema_verdict, (candidate, engine_verdict, schema_verdict)
+for candidate in ('all_verifications_pass', 'any_verification_failed', 'manual_retry_requested', 'checkpoint.a.b'):
+    assert re.fullmatch(pattern, candidate) is not None, candidate
+print(f'condition pattern 等价: schema vs engine corpus={len(corpus)}')
+PY
+  then
+    ok 'P18 schema 条件词表 pattern 与引擎词表语料级等价（退役词双侧同拒，漂移护栏）'
+  else
+    bad 'P18 schema 条件词表 pattern 与引擎词表语料级等价（退役词双侧同拒，漂移护栏）' \
+      "$(tail -n 4 "$D/cond-equiv.log" | tr '\n' '|')"
+  fi
+
+  # N18：词表外条件（退役恒真词 workflow_started）在 sidecar 落盘与副作用之前拒绝执行
+  mkdir -p "$D/condneg"
+  cat > "$D/condneg/wf.yaml" <<'EOF'
+workflow:
+  name: contract-condneg
+  description: 退役条件词拒绝夹具（票 209）
+steps:
+  - id: probe-step
+    type: command
+    description: 副作用探针
+    command: printf ran >> "$WF_CONDNEG_MARK"
+    checkpoint_field: checkpoint.condneg.probe
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+  transitions:
+    - from: pending
+      to: pending
+      condition: workflow_started
+EOF
+  printf '{"id":"wf-condneg-test","kind":"task","title":"WF Condneg Test","created_at":"2026-10-26"}\n' > "$D/condneg/ticket.json"
+  WF_CONDNEG_MARK="$D/condneg/marker" sh "$EXECUTOR" "$D/condneg/wf.yaml" \
+    --ticket-file "$D/condneg/ticket.json" > "$D/condneg/run.log" 2>&1
+  condneg_rc=$?
+  if [ "$condneg_rc" -ne 0 ] \
+    && [ ! -e "$D/condneg/marker" ] \
+    && [ ! -e "$D/condneg/ticket.json.workflow-checkpoint-v1.json" ] \
+    && grep -q '不在可实现条件词表' "$D/condneg/run.log"; then
+    ok 'N18 退役条件词 workflow_started：exit 非零且先于副作用——探针未执行、零 sidecar、报文指名词表'
+  else
+    bad 'N18 退役条件词 workflow_started：exit 非零且先于副作用——探针未执行、零 sidecar、报文指名词表' \
+      "exit=$condneg_rc marker=$([ -e "$D/condneg/marker" ] && echo present || echo absent) $(tail -n 3 "$D/condneg/run.log" | tr '\n' '|')"
+  fi
+
+  # P19（AC3 正例）：blocked 票经显式 --retry 重试成功 → manual_retry_requested 推进回 in_progress
+  mkdir -p "$D/retry/pos"
+  cat > "$D/retry/wf.yaml" <<'EOF'
+workflow:
+  name: contract-retry
+  description: manual_retry_requested 仅显式 --retry 生效（票 209 AC3）
+steps:
+  - id: retry-step
+    type: command
+    description: 重试目标步骤
+    command: printf retried >> "$WF_RETRY_MARK"
+    checkpoint_field: checkpoint.retry.step
+state_machine:
+  initial_state: blocked
+  states:
+    - name: blocked
+      description: 阻塞
+    - name: in_progress
+      description: 实施中
+  transitions:
+    - from: blocked
+      to: in_progress
+      condition: manual_retry_requested
+  state_to_ticket_status:
+    in_progress: in_progress
+EOF
+  cat > "$D/retry/pos/index.json" <<'EOF'
+{"issues":[{"id":"wf-cond-retry-test","kind":"task","status":"blocked","updated_at":"2026-10-26T00:00:00"}]}
+EOF
+  printf '{"id":"wf-cond-retry-test","kind":"task","title":"WF Cond Retry Test","created_at":"2026-10-26","checkpoint_ref":"workflow-checkpoint-v1:ticket.json.workflow-checkpoint-v1.json"}\n' > "$D/retry/pos/ticket.json"
+  cat > "$D/retry/pos/ticket.json.workflow-checkpoint-v1.json" <<'EOF'
+{"version":1,"checkpoint":{"retry":{"step":{"step_name":"retry-step","completed_at":"2026-10-20T00:00:00Z","outputs":"","status":"failed","exit_code":1,"verification_results":[]}}}}
+EOF
+  WF_RETRY_MARK="$D/retry/pos/marker" issues_index_rel="$D/retry/pos/index.json" \
+    sh "$EXECUTOR" "$D/retry/wf.yaml" --ticket-file "$D/retry/pos/ticket.json" \
+    --retry retry-step > "$D/retry/pos/run.log" 2>&1
+  retry_pos_rc=$?
+  if [ "$retry_pos_rc" -eq 0 ] && python3 - "$D/retry/pos" > /dev/null <<'PY'
+import json, sys
+
+base = sys.argv[1]
+with open(base + '/index.json', encoding='utf-8') as handle:
+    issue = next(i for i in json.load(handle)['issues'] if i['id'] == 'wf-cond-retry-test')
+assert issue['status'] == 'in_progress', f'状态漂移: {issue["status"]!r}（显式 retry 应推进 blocked→in_progress）'
+with open(base + '/ticket.json.workflow-checkpoint-v1.json', encoding='utf-8') as handle:
+    record = json.load(handle)['checkpoint']['retry']['step']
+assert record['status'] == 'passed', record
+assert record['exit_code'] == 0, record
+print('retry-pos-ok')
+PY
+  then
+    ok 'P19 AC3 正例：显式 --retry 重试成功后 manual_retry_requested 推进 blocked→in_progress（旧 failed 记录被清除重写为 passed）'
+  else
+    bad 'P19 AC3 正例：显式 --retry 重试成功后 manual_retry_requested 推进 blocked→in_progress（旧 failed 记录被清除重写为 passed）' \
+      "exit=$retry_pos_rc $(tail -n 3 "$D/retry/pos/run.log" | tr '\n' '|')"
+  fi
+
+  # N19（AC3 负例）：同一 workflow 无 --retry 正常执行 → manual_retry_requested 为假、票索引零写入
+  mkdir -p "$D/retry/neg"
+  cat > "$D/retry/neg/index.json" <<'EOF'
+{"issues":[{"id":"wf-cond-retry-test","kind":"task","status":"blocked","updated_at":"2026-10-26T00:00:00"}]}
+EOF
+  cp "$D/retry/neg/index.json" "$D/retry/neg/index.before"
+  printf '{"id":"wf-cond-retry-test","kind":"task","title":"WF Cond Retry Test","created_at":"2026-10-26"}\n' > "$D/retry/neg/ticket.json"
+  WF_RETRY_MARK="$D/retry/neg/marker" issues_index_rel="$D/retry/neg/index.json" \
+    sh "$EXECUTOR" "$D/retry/wf.yaml" --ticket-file "$D/retry/neg/ticket.json" > "$D/retry/neg/run.log" 2>&1
+  retry_neg_rc=$?
+  if [ "$retry_neg_rc" -eq 0 ] \
+    && [ "$(cat "$D/retry/neg/marker")" = "retried" ] \
+    && cmp -s "$D/retry/neg/index.json" "$D/retry/neg/index.before" \
+    && grep -q '无可用状态转换' "$D/retry/neg/run.log"; then
+    ok 'N19 AC3 负例：无 --retry 时 manual_retry_requested 为假——步骤照跑、票索引 cmp 零差（blocked 不被穿越）'
+  else
+    bad 'N19 AC3 负例：无 --retry 时 manual_retry_requested 为假——步骤照跑、票索引 cmp 零差（blocked 不被穿越）' \
+      "exit=$retry_neg_rc $(tail -n 3 "$D/retry/neg/run.log" | tr '\n' '|')"
   fi
 
   suite_summary 'workflow-contract'

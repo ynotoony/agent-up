@@ -33,10 +33,13 @@ steps:
     command: echo "步骤3完成 - 卡面生成" && echo '{"test":"ticket"}' > /tmp/test-ticket-$$.json
 
   - id: verify-card
-    type: command
+    type: verification
     description: 验证——检查票文件格式和必需字段
     checkpoint_field: checkpoint.triage.verify_card
-    command: echo "步骤4完成 - 卡面验证"
+    verification:
+      - name: card-json-format
+        check: printf '{"test":"ticket"}' | python3 -m json.tool
+        expect: '"test": "ticket"'
 
   - id: register-ticket
     type: command
@@ -66,27 +69,27 @@ state_machine:
   transitions:
     - from: pending
       to: parsing
-      condition: workflow_started
+      condition: checkpoint.triage.parse_requirement
       trigger: parse-requirement
     - from: parsing
       to: estimating
-      condition: checkpoint.triage.parse_requirement
+      condition: checkpoint.triage.estimate_complexity
       trigger: estimate-complexity
     - from: estimating
       to: writing
-      condition: checkpoint.triage.estimate_complexity
+      condition: checkpoint.triage.write_card
       trigger: write-card
     - from: writing
       to: verifying
-      condition: checkpoint.triage.write_card
+      condition: checkpoint.triage.verify_card
       trigger: verify-card
     - from: verifying
       to: ready
-      condition: checkpoint.triage.verify_card
+      condition: checkpoint.triage.register_ticket
       trigger: register-ticket
-    - from: verifying
+    - from: writing
       to: failed
-      condition: verification_failed
+      condition: any_verification_failed
   state_to_ticket_status:
     pending: ready
     parsing: in_progress

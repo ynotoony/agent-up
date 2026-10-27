@@ -298,7 +298,8 @@
               "condition": {
                 "type": "string",
                 "minLength": 1,
-                "description": "转换条件（机器可判定的表达式，如 'all_verifications_pass'、'checkpoint.implementation.completed'）"
+                "pattern": "^(all_verifications_pass|any_verification_failed|manual_retry_requested|checkpoint(\\.[a-z_][a-z0-9_]*)+)$",
+                "description": "转换条件——可实现条件词表（executor 启动预检同词表 fail-closed）：all_verifications_pass＝全部 verification 步骤的结构化结果 status=passed 且至少一步在册（空 checkpoint／零验证记录不为真）；any_verification_failed＝任一 verification 步骤结构化结果 status=failed；manual_retry_requested＝本次执行带显式 --retry（仅重试路径为真）；checkpoint.<路径>＝sidecar 中该路径记录存在且值非空（路径段形态同 checkpoint_field）。词表外条件（含已退役的恒真词 workflow_started 与恒假词 verification_failed/manual_retry）schema 即拒，executor 在任何副作用前拒绝执行。"
               },
               "trigger": {
                 "type": "string",

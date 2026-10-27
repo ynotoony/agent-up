@@ -7,6 +7,11 @@
 #      JSON 层唯一引擎（票 227 F3）：YAML 解析、step/checkpoint/index 的全部 JSON 操作
 #      改调同目录 json-validator.py（workflow/json 模式；原内嵌 python heredoc 已收敛 retired），
 #      本件零内嵌解释器代码；引擎缺件 fail-closed 指名。
+#      条件语义结构化（票 209）：每步写结构化结果（status/exit_code/
+#      verification_results，写面恒六键；存量 legacy 三键叶读面兼容，缺 status
+#      按 passed 解释），失败步骤先落 sidecar 再终局；状态机条件为可实现词表
+#      （all_verifications_pass/any_verification_failed/manual_retry_requested/
+#      checkpoint.<路径>），词表外条件在任何副作用之前预检拒绝。
 
 set -eu
 
@@ -36,8 +41,10 @@ usage() {
   --param <key=value>     输入参数（可多次指定）
   --ticket-file <path>    票文件路径（用于保存 checkpoint_ref）
   --resume                从 checkpoint 恢复（跳过已完成的 steps）
-  --retry <step_id>       重试指定 step（幂等重新执行）
+  --retry <step_id>       重试指定 step（幂等重新执行；manual_retry_requested 条件仅在此生效）
   -h / --help             打印本用法
+状态机条件词表: all_verifications_pass | any_verification_failed |
+  manual_retry_requested | checkpoint.<路径>（词表外条件启动前拒绝执行）
 退出码: 0 成功；1 执行失败；2 用法错误
 USAGE
 }
@@ -125,6 +132,12 @@ mapping_count=$(printf '%s' "$state_machine_json" | python3 "$_engine_file" json
 
 printf 'workflow-executor: 解析到 state_machine 定义（票状态映射 %s 条）\n' "$mapping_count"
 
+# 转换条件词表预检（票 209）：词表外条件（含已退役恒真词 workflow_started 与
+# 恒假词 verification_failed/manual_retry）在任何 checkpoint 落盘与步骤副作用
+# 之前 fail-closed 拒绝。
+python3 "$_engine_file" workflow check-conditions "$state_machine_json" || \
+  die1 "状态机含词表外转换条件；拒绝执行"
+
 # ---- State Machine Executor ----
 
 # 读取当前票状态（从 index.json）
@@ -170,51 +183,19 @@ validate_transition() {
   fi
 }
 
-# 评估转换条件是否满足
+# 评估转换条件是否满足（票 209：结构化结果词表求值收敛唯一 JSON 引擎；
+# 词表外条件已在 check-conditions 预检拒绝，此处对未知条件兜底为假）
 evaluate_condition() {
   condition=$1
 
-  # 机械化条件判定
-  case $condition in
-    workflow_started)
-      # workflow 已启动（总是 true）
-      echo "true"
-      ;;
-    all_verifications_pass)
-      # 所有验证通过（检查最近的 verification step 是否通过）
-      # 这里简化实现：如果有 checkpoint 记录说明通过
-      if [ -n "$checkpoint_data" ]; then
-        echo "true"
-      else
-        echo "false"
-      fi
-      ;;
-    checkpoint.*)
-      # 检查 checkpoint 字段是否存在（数据面为步骤完成记录对象；缺路径/空值＝false）
-      field_path=$condition
-      _ec_rc=0
-      result=$(printf '%s' "$checkpoint_data" | python3 "$_engine_file" json get - "${field_path#checkpoint.}" 'null') || _ec_rc=$?
-      case $result in
-        ''|'null'|'false'|'0'|'""') result='false' ;;
-        *) result='true' ;;
-      esac
-      if [ "$_ec_rc" -ne 0 ]; then result='false'; fi
-      echo "$result"
-      ;;
-    verification_failed)
-      # 验证失败（与 all_verifications_pass 相反）
-      echo "false"
-      ;;
-    manual_retry)
-      # 手动重试（由用户触发，这里默认 false）
-      echo "false"
-      ;;
-    *)
-      # 未知条件，默认 false
-      printf 'workflow-executor: 警告：未知条件 %s\n' "$condition" >&2
-      echo "false"
-      ;;
-  esac
+  _ecv_rc=0
+  _ecv_result=$(python3 "$_engine_file" workflow eval-condition \
+    "$condition" "$checkpoint_data" "$steps_json" "$retry_step") || _ecv_rc=$?
+  if [ "$_ecv_rc" -ne 0 ]; then
+    printf 'false\n'
+    return 0
+  fi
+  printf '%s\n' "$_ecv_result"
 }
 
 # 原子化更新票状态（使用临时文件 + mv；引擎侧原子写）
@@ -295,6 +276,39 @@ try_advance_state() {
 
   printf '  无可用状态转换\n'
   return 1
+}
+
+# 失败步骤收尾（票 209）：先把结构化失败记录（status=failed、exit_code、
+# verification_results）原子写入 sidecar 并刷新 checkpoint 数据，再尝试状态机
+# 推进（any_verification_failed→blocked 转换由此可达），最后按原语义以 1 退出。
+# 无 checkpoint_field 或尚无 sidecar 时跳过落盘直接失败。
+record_failure_and_die() {
+  _rf_step_id=$1
+  _rf_field=$2
+  _rf_exit_code=$3
+  _rf_items=$4
+  _rf_msg=$5
+
+  if [ -n "$_rf_field" ] && [ -n "$checkpoint_file" ]; then
+    _rf_completed_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    printf '  写入失败记录: %s (status=failed)\n' "$_rf_field"
+
+    python3 "$_engine_file" workflow record-step "$checkpoint_file" "$ticket_file" \
+      "$_rf_field" "$_rf_step_id" "$_rf_completed_at" "$step_outputs" \
+      failed "$_rf_exit_code" "$_rf_items" || die1 "checkpoint 写入失败"
+
+    checkpoint_data=$(read_checkpoint)
+
+    if [ -n "$ticket_file" ]; then
+      _rf_ticket_id=$(python3 "$_engine_file" json get "$ticket_file" id "$(basename "$ticket_file" .json)")
+      if [ -n "$_rf_ticket_id" ]; then
+        try_advance_state "$_rf_ticket_id" || true
+      fi
+    fi
+  fi
+
+  die1 "$_rf_msg"
 }
 
 # ---- Checkpoint 读取与恢复 ----
@@ -397,6 +411,8 @@ while [ "$i" -lt "$steps_count" ]; do
   # 执行步骤（根据类型）
   step_outputs=""
   step_exit_code=0
+  verify_items_enc=''   # 逐项验证结果编码（\x1e 分项、\x1f 分字段；引擎侧解码校验）
+  first_fail_exit=''
 
   case $step_type in
     command)
@@ -407,7 +423,8 @@ while [ "$i" -lt "$steps_count" ]; do
 
       if [ $step_exit_code -ne 0 ]; then
         printf 'workflow-executor: 命令执行失败 (退出码 %d)\n' $step_exit_code >&2
-        die1 "step $step_id 失败"
+        record_failure_and_die "$step_id" "$checkpoint_field" "$step_exit_code" '' \
+          "step $step_id 失败"
       fi
       ;;
 
@@ -439,6 +456,7 @@ while [ "$i" -lt "$steps_count" ]; do
         printf '  验证 %d/%d: %s\n' $((j + 1)) "$verification_count" "$verify_name"
 
         verify_exit_code=0
+        item_status=passed
         actual_output=$(eval "$verify_check" 2>&1) || verify_exit_code=$?
 
         # 移除 expect 中的引号（支持 "PASS" 和 PASS 两种写法）
@@ -448,6 +466,7 @@ while [ "$i" -lt "$steps_count" ]; do
           printf '    ✗ 失败（退出码 %d，期望 %s）\n' "$verify_exit_code" "$verify_expect_exit" >&2
           printf '    实际: %s\n' "$actual_output" >&2
           all_pass=false
+          item_status=failed
         elif echo "$actual_output" | grep -qF "$expect_clean"; then
           printf '    ✓ 通过\n'
         else
@@ -455,13 +474,21 @@ while [ "$i" -lt "$steps_count" ]; do
           printf '    期望: %s\n' "$expect_clean" >&2
           printf '    实际: %s\n' "$actual_output" >&2
           all_pass=false
+          item_status=failed
         fi
+
+        # 结构化逐项结果（票 209）：name/status/exit_code 以 \x1f 分字段、\x1e 分项累积
+        if [ "$item_status" = failed ] && [ -z "$first_fail_exit" ]; then
+          first_fail_exit=$verify_exit_code
+        fi
+        verify_items_enc="$verify_items_enc$(printf '%s\037%s\037%s\036' "$verify_name" "$item_status" "$verify_exit_code")"
 
         j=$((j + 1))
       done
 
       if [ "$all_pass" = false ]; then
-        die1 "step $step_id 验证失败"
+        record_failure_and_die "$step_id" "$checkpoint_field" "$first_fail_exit" "$verify_items_enc" \
+          "step $step_id 验证失败"
       fi
       ;;
 
@@ -485,7 +512,9 @@ while [ "$i" -lt "$steps_count" ]; do
     printf '  写入 checkpoint: %s\n' "$checkpoint_field"
 
     # 先原子写独立 checkpoint，再原子更新票的 checkpoint_ref（引擎侧两段原子写）。
-    python3 "$_engine_file" workflow record-step "$checkpoint_file" "$ticket_file" "$checkpoint_field" "$step_id" "$completed_at" "$step_outputs" || \
+    # 结构化结果（票 209）：成功步恒 status=passed、exit_code=步骤退出码（成功为 0）、
+    # verification_results＝逐项结果编码（command 步为空表）。
+    python3 "$_engine_file" workflow record-step "$checkpoint_file" "$ticket_file" "$checkpoint_field" "$step_id" "$completed_at" "$step_outputs" passed "$step_exit_code" "$verify_items_enc" || \
       die1 "checkpoint 写入失败"
 
     # 重新读取 checkpoint（用于状态机条件判定）
@@ -494,9 +523,18 @@ while [ "$i" -lt "$steps_count" ]; do
 
   printf '  ✓ step 完成\n'
 
-  # 幂等重试模式：完成目标 step 后立即退出
+  # 幂等重试模式：完成目标 step 后先尝试状态机推进（manual_retry_requested 条件
+  # 仅在此路径为真——票 209 AC3 的可达面），再以 0 退出。
   if [ -n "$retry_step" ] && [ "$step_id" = "$retry_step" ]; then
     printf '\nworkflow-executor: step %s 执行完成（幂等重试）\n' "$step_id"
+    if [ -n "$ticket_file" ]; then
+      _tid_default=$(basename "$ticket_file" .json)
+      ticket_id=$(python3 "$_engine_file" json get "$ticket_file" id "$_tid_default")
+
+      if [ -n "$ticket_id" ]; then
+        try_advance_state "$ticket_id" || true
+      fi
+    fi
     exit 0
   fi
 
