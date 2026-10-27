@@ -19,12 +19,18 @@ fi
 # 新 task open 缺/invalid 拒零写入两负例＋valid 正开落地正例，夹具全 mktemp）；
 # 状态跃迁门禁——take blocked_by 完整性门（missing/未 done blocker 拒绝零写入指名
 # blocker id 与状态、全 done 正例领取、flip 零误伤对照）＋actual_time 收口 done 条件化
-# （非 done 翻转无 actual_time 成功、done 缺 actual_time 拒绝、request 豁免维持）
+# （非 done 翻转无 actual_time 成功、done 缺 actual_time 拒绝、request 豁免维持）；
+# 票 230 dispatch 节开票门——新 task 必备三阶段派发合同数据节（缺节/缺阶段对象/缺键/越键/
+# 空白值五形态拒开零写入且报文指名 dispatch 路径）＋存量无节票 flip 读取面兼容正例
+# （开票校验与读取校验分层，存量零回扫；tix_body 正例形态带全节、tix_body_at 保留无节
+# 存量形态供 flip 兼容面）
 # ============================================================
 
 tix_body() {
   # $1=本体落盘路径 $2=票 id：最小过 schema 的 task 票本体（含理由两字段，票 79 正例形态；
   # 含七维 profile_reason 正例形态——新 task 开票门必备，恰七键逐键非空；
+  # 含 dispatch 三阶段正例形态——票 230 开票门必备，键集与 contract_fields 恰等逐键非空，
+  # TICKET_ID 随 $2 同步供 sed 派生夹具一致改写；
   # 字段各占一行便于负例 sed 逐字段破坏；无 actual_time——供 flip 硬拦负例使用）
   cat > "$1" <<EOF
 {
@@ -39,14 +45,20 @@ tix_body() {
   "scope": ["facts/requirements/tickets/"],
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
   "complexity_reason": "fixture 定级理由（正例，非空）",
-  "priority_reason": "fixture 优先级理由（正例，非空）"
+  "priority_reason": "fixture 优先级理由（正例，非空）",
+  "dispatch": {
+    "implementation": {"REPOSITORY_PATH": "fixture repo root", "TASK_DESCRIPTION": "fixture task", "GOAL": "fixture goal", "SCOPE_TREE": "fixture scope tree", "OUT_OF_SCOPE": "fixture out of scope", "CONTEXT_EVIDENCE": "fixture context", "CONSTRAINTS": "fixture constraints", "FORBIDDEN_CHANGES": "fixture forbidden", "ACCEPTANCE_CRITERIA": "fixture acceptance", "VERIFICATION_COMMANDS": "fixture verification", "DEPENDENCIES_BLOCKERS": "fixture deps", "RISKS": "fixture risks", "BUDGET_CHECKPOINTS": "80 calls", "ESTIMATED_TIME": "0.5d", "ACTUAL_TIME": "by coordinator", "TICKET_ID": "$2"},
+    "review": {"REVIEW_SCOPE": "fixture review scope", "IMPLEMENTATION_SUMMARY": "fixture summary", "ACCEPTANCE_CRITERIA": "fixture acceptance", "DIFF_LOCATION": "fixture worktree", "REVIEW_DIMENSIONS": "fixture dimensions", "TICKET_ID": "$2"},
+    "commit": {"REVIEW_PASS_CHECKPOINT": "fixture checkpoint", "FILE_WHITELIST": "fixture whitelist", "COMMIT_MESSAGE": "fixture message", "RECORD_FLIP_AUTHORIZATION": "fixture authorization", "SCOPE_CHECK_COMMAND": "fixture command", "TICKET_ID": "$2"}
+  }
 }
 EOF
 }
 
 tix_body_at() {
   # $1=本体落盘路径 $2=票 id：tix_body 同款＋actual_time 字段（票 100 flip 收口硬拦的
-  # 正例形态——flip 目标本体须带非空 actual_time 方可通过）
+  # 正例形态——flip 目标本体须带非空 actual_time 方可通过）；无 dispatch 节＝存量票
+  # 形态（票 230 起兼任存量无节票读取面兼容正例载体——flip 读取面不要求 dispatch）
   cat > "$1" <<EOF
 {
   "id": "$2",
@@ -79,6 +91,10 @@ tix_build_fixture() {
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
   mkdir -p "$F/agent-up/references/schemas"
   cp "$SCHEMA_SRC" "$F/agent-up/references/schemas/ticket-record.schema.json"
+  # 票 230：dispatch 节开票门的键集权威（open 时点双布局第二候选即包基线布局本件）
+  DISPATCH_SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/dispatch-contract.schema.json"
+  [ -f "$DISPATCH_SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open dispatch 节键集权威）\n' "$DISPATCH_SCHEMA_SRC" >&2; exit 2; }
+  cp "$DISPATCH_SCHEMA_SRC" "$F/agent-up/references/schemas/dispatch-contract.schema.json"
   cat > "$F/facts/requirements/tickets/index.json" <<'EOF'
 {
   "issues": [
@@ -1373,6 +1389,66 @@ EOF
     ok '负例 N-228f flip-index 锚点零命中 → exit 1 零写入（fail-closed）'
   else
     bad '负例 N-228f flip-index 锚点零命中 → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n6.log" | tr '\n' '|')"
+  fi
+
+  # ---- dispatch 节开票门断言（票 230：新开票强制三阶段派发合同数据节，AC1 常驻负例）----
+  # 独立夹具 fix230（免受前段状态影响）。缺节／缺阶段对象／缺键／越键／空白值五形态
+  # open 均 exit 1、四载体指纹零写入且无投影、报文指名 dispatch 路径（键集恰等＝
+  # dispatch-contract.schema.json contract_fields 现场提取，与 contract-build 渲染读取面
+  # 同源）；读取面兼容：存量无节票（tix_body_at 形态）flip 照旧 exit 0——开票校验与
+  # 读取校验分层，存量零回扫。夹具全 mktemp。
+  tix_build_fixture "$D/fix230"
+  F230=$D/fix230
+  TIX230="$F230/rules/implementation/scripts/ticket-ops.sh"
+  PR230="$F230/facts/requirements/tickets/80-dispatch-gate.json"
+  dc230_variant() {
+    # $1=variant $2=out：自 tix_body 正例基体派生各形态（python3 json 原子改写）
+    tix_body "$2.base" 80-dispatch-gate
+    python3 - "$2.base" "$2" "$1" <<'PYTHON'
+import json, sys
+body = json.load(open(sys.argv[1], encoding='utf-8'))
+mode = sys.argv[3]
+dp = body['dispatch']
+if mode == 'absent':
+    del body['dispatch']
+elif mode == 'missing-stage':
+    del dp['commit']
+elif mode == 'missing-key':
+    del dp['implementation']['GOAL']
+elif mode == 'extra-key':
+    dp['review']['EXTRA_KEY'] = 'fixture 越键'
+elif mode == 'blank-value':
+    dp['review']['TICKET_ID'] = '   '
+with open(sys.argv[2], 'w', encoding='utf-8') as f:
+    json.dump(body, f, ensure_ascii=False)
+PYTHON
+  }
+  dc230_neg() {
+    # $1=负例名 $2=variant $3=报文必含片段：open 拒且零写入指名 dispatch 路径
+    dc230_variant "$2" "$D/dc230-$2.json"
+    mv "$D/dc230-$2.json" "$PR230"
+    S230=$(tix_state "$F230")
+    sh "$TIX230" "$F230" open --id 80-dispatch-gate --complexity C1 --title 'Dispatch fixture ticket' --ledger-line "$LED_OPEN" >"$D/dc230-$2.log" 2>&1
+    rc=$?
+    if [ "$rc" -eq 1 ] && [ "$S230" = "$(tix_state "$F230")" ] && [ ! -f "$F230/facts/requirements/tickets/progress-current.md" ] && grep -qF -- "$3" "$D/dc230-$2.log"; then
+      ok "负例 AC1 dispatch 门 ${1} → exit 1 零写入且报文指名"
+    else
+      bad "负例 AC1 dispatch 门 ${1} → exit 1 零写入且报文指名" "exit=$rc $(head -n 2 "$D/dc230-$2.log" | tr '\n' '|')"
+    fi
+  }
+  dc230_neg '缺 dispatch 节' absent '缺 dispatch.implementation 阶段对象'
+  dc230_neg '缺 commit 阶段对象' missing-stage '缺 dispatch.commit 阶段对象'
+  dc230_neg '缺键（implementation.GOAL）' missing-key 'dispatch.implementation 键集与必备字段清单不恰等'
+  dc230_neg '越键（review.EXTRA_KEY）' extra-key 'dispatch.review 键集与必备字段清单不恰等'
+  dc230_neg '空白值（review.TICKET_ID）' blank-value 'dispatch.review.TICKET_ID 须为非空白字符串'
+  # 读取面兼容正例：存量无节票（tix_body_at 形态）flip 照旧——开票校验与读取校验分层
+  tix_body_at "$F230/facts/requirements/tickets/20-beta-second.json" 20-beta-second
+  sh "$TIX230" "$F230" flip --id 20-beta-second --status in_progress --ledger-line "$LED_FLIP" >"$D/dc230-flip.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "20-beta-second", "status": "in_progress"' "$F230/facts/requirements/tickets/index.json"; then
+    ok '正例 存量无节票 flip → exit 0 且索引单写（读取面不要求 dispatch，存量零回扫）'
+  else
+    bad '正例 存量无节票 flip → exit 0 且索引单写（读取面不要求 dispatch，存量零回扫）' "exit=$rc $(head -n 2 "$D/dc230-flip.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'

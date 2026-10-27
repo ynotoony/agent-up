@@ -39,5 +39,41 @@
     "样例占位风险一条（非真实风险登记）"
   ],
   "complexity_reason": "C2 样例占位：涉及多文件协同改造且需扩展校验逻辑（占位理由，非真实定级）",
-  "priority_reason": "中优先级样例占位：影响新票开票流程但不阻塞存量票（占位理由，非真实优先级）"
+  "priority_reason": "中优先级样例占位：影响新票开票流程但不阻塞存量票（占位理由，非真实优先级）",
+  "dispatch": {
+    "implementation": {
+      "REPOSITORY_PATH": "/abs/path/to/repo（样例占位：派发目标仓库根）",
+      "TASK_DESCRIPTION": "样例占位：实施本卡（派发任务一句话说明）",
+      "GOAL": "样例占位：与卡面 goal 同源转写",
+      "SCOPE_TREE": "样例占位：与卡面 scope 树同源转写",
+      "OUT_OF_SCOPE": "样例占位：与卡面 out_of_scope 同源转写",
+      "CONTEXT_EVIDENCE": "样例占位：与卡面 context 同源转写",
+      "CONSTRAINTS": "样例占位：与卡面 constraints 同源转写",
+      "FORBIDDEN_CHANGES": "样例占位：与卡面 forbidden 同源转写",
+      "ACCEPTANCE_CRITERIA": "样例占位：与卡面 acceptance 同源转写",
+      "VERIFICATION_COMMANDS": "样例占位：与卡面 verification 同源转写",
+      "DEPENDENCIES_BLOCKERS": "样例占位：依赖说明或无阻塞",
+      "RISKS": "样例占位：与卡面 risks 同源转写",
+      "BUDGET_CHECKPOINTS": "80 次工具调用（样例占位）",
+      "ESTIMATED_TIME": "0.5d（样例占位）",
+      "ACTUAL_TIME": "收口时由协调层补记，实施不填（样例占位）",
+      "TICKET_ID": "42-example-ticket-slug"
+    },
+    "review": {
+      "REVIEW_SCOPE": "样例占位：审阅范围（改动文件清单与核对面）",
+      "IMPLEMENTATION_SUMMARY": "样例占位：实现摘要（由实施阶段回填）",
+      "ACCEPTANCE_CRITERIA": "样例占位：与卡面 acceptance 同源转写",
+      "DIFF_LOCATION": "样例占位：diff 位置（分支/工作区路径）",
+      "REVIEW_DIMENSIONS": "样例占位：审阅维度清单",
+      "TICKET_ID": "42-example-ticket-slug"
+    },
+    "commit": {
+      "REVIEW_PASS_CHECKPOINT": "样例占位：Review 通过检查点指针",
+      "FILE_WHITELIST": "样例占位：提交白名单路径清单",
+      "COMMIT_MESSAGE": "样例占位：提交信息",
+      "RECORD_FLIP_AUTHORIZATION": "样例占位：记录翻转授权说明",
+      "SCOPE_CHECK_COMMAND": "样例占位：范围核对命令",
+      "TICKET_ID": "42-example-ticket-slug"
+    }
+  }
 }

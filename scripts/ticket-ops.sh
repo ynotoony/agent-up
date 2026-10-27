@@ -17,7 +17,12 @@
 #         profile reason 开票门（新 task 必备 profile_reason 对象且逐键非空，缺项/越键/
 #         空白值即 fail-closed 零写入；存储合同单源＝schema profile_reason 属性与
 #         references/protocol/complexity-profile.md §2.2，与 verification 的
-#         record_only.reason 语义分立；读取面不要求本字段，存量零回扫）＋校验＋
+#         record_only.reason 语义分立；读取面不要求本字段，存量零回扫）＋dispatch 节
+#         开票门（2026-10-26 起：新开票必备 dispatch 对象——三阶段 implementation/
+#         review/commit 键集与 references/schemas/dispatch-contract.schema.json
+#         contract_fields 必备字段清单恰等且逐键非空白，缺节/缺阶段/缺键/多键/空白值
+#         即 fail-closed 拒开零写入；键集自该 schema 现场提取，与 contract-build.sh
+#         渲染读取面同源；存量票零回扫，读取面与 take/flip 不要求本节）＋校验＋
 #         索引新增条目（status=ready）＋README 追加目录
 #         清单行（`任务票 <NN>；` 锚点零命中方可追加，已在场即拒零写入）＋账本追加行；
 #         take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
@@ -91,7 +96,12 @@ usage() {
                  additionalProperties 与条件 required 依 schema 执行（票 152），非空断言
                  同前，票 79；另强制新 task 七维 profile reason：profile_reason 对象
                  恰七键 D/B/I/U/S/M/O 且逐键非空，存储合同见 schema 属性与
-                 complexity-profile.md §2.2；缺本体或校验不过即 fail-closed 零写入），
+                 complexity-profile.md §2.2；另强制新 task dispatch 节：三阶段
+                 implementation/review/commit 对象键集与 references/schemas/
+                 dispatch-contract.schema.json contract_fields 必备字段清单恰等且逐键
+                 非空白，缺节/缺阶段/缺键/多键/空白值即拒（存储合同见 schema dispatch
+                 属性；存量票读取面不要求，缺节拒开零写入）；缺本体或校验不过即
+                 fail-closed 零写入），
                  再写索引条目
                  （status=ready）＋
                  issues-README 目录清单追加行（`任务票 <NN>；` 锚点已在场即拒——追加
@@ -350,6 +360,12 @@ ticket_file="${repo_root}/${issues_dir_rel}/${id}.json"
 schema_file_pkg="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
 schema_file="${schema_file_pkg}"
 [ -f "${schema_file}" ] || schema_file="${_self_dir}/../references/schemas/ticket-record.schema.json"
+# dispatch 节开票门的键集权威（2026-10-26 起；安装闭包定位同 schema 权威双布局口径：
+# 先包基线布局，缺失回退本脚本邻接 references/schemas/——与 contract-build.sh 渲染
+# 读取面同源同文件）。
+dispatch_schema_pkg="${repo_root}/agent-up/references/schemas/dispatch-contract.schema.json"
+dispatch_schema="${dispatch_schema_pkg}"
+[ -f "${dispatch_schema}" ] || dispatch_schema="${_self_dir}/../references/schemas/dispatch-contract.schema.json"
 
 # 票 100：flip 收口硬拦载体定位（actual_time 校验用）；ledger 无票面，不要求票本体。
 case ${cmd} in
@@ -568,6 +584,55 @@ ticket_body_check() {
   python3 "${_engine}" ticket-check open-body "${ticket_file}" "${id}"
 }
 
+# ---- dispatch 节开票门（open 专属，2026-10-26 起） ----
+
+dispatch_check() {
+  # open 专属预检：新开票强制 dispatch 节（三阶段派发合同数据节）——缺节/缺阶段对象/
+  # 阶段键集与必备字段清单不恰等（缺键或多键）/逐键空白即 exit 1 指名，fail-closed
+  # 零写入。键集唯一权威＝references/schemas/dispatch-contract.schema.json
+  # contract_fields（纯 awk 现场提取，与 check-dispatch-contract.sh --check 及
+  # contract-build.sh 渲染读取面同源同法；键数恰等＋必备键逐一在场＝键集恰等）；值面
+  # 唯一 JSON 引擎承载（json len 数键、json get 取值）。仅 open 时点生效：存量票零
+  # 回扫——take/flip 与读取面不要求 dispatch 节（开票校验与读取校验分层，先例
+  # profile_reason 七维 reason 门）。request 票不达本门（open 时点已被引擎 --new-ticket
+  # kind 门拒绝）。
+  command -v python3 >/dev/null 2>&1 || \
+    die1 'python3 不可用——open dispatch 节校验无法执行（fail-closed）'
+  [ -r "${ticket_file}" ] || \
+    die1 "票 ${id} dispatch 门预检失败：票本体不可读: ${ticket_file}（dispatch 门须读本票 dispatch 节）"
+  [ -f "${dispatch_schema}" ] || \
+    die1 "dispatch-contract.schema.json 不存在（安装闭包双布局定位均未命中: ${dispatch_schema_pkg} 与 ${dispatch_schema}）（open dispatch 节校验 fail-closed；键集权威＝Agent Up 包内 references/schemas/dispatch-contract.schema.json）"
+  [ -f "${_engine}" ] || \
+    die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
+  _dc_stage=''
+  for _dc_stage in implementation review commit; do
+    _dc_required=$(LC_ALL=C awk -v sect="\"${_dc_stage}\":" '
+      index($0, sect) > 0 && /\[/ { in_block=1; next }
+      in_block && /\]/ { in_block=0; next }
+      in_block && /"[A-Z_]+"/ {
+        line=$0
+        gsub(/[",]/, "", line)
+        gsub(/^[[:space:]]+/, "", line)
+        gsub(/[[:space:]]+$/, "", line)
+        if (line ~ /^[A-Z_]+$/) print line
+      }
+    ' "${dispatch_schema}")
+    [ -n "${_dc_required}" ] || \
+      die1 "dispatch-contract.schema.json 无 ${_dc_stage} 阶段必备字段定义（键集权威文件损坏或漂移，fail-closed）"
+    _dc_nkeys=$(python3 "${_engine}" json len "${ticket_file}" "dispatch.${_dc_stage}" 2>/dev/null) || \
+      die1 "票 ${id} 缺 dispatch.${_dc_stage} 阶段对象（新开票须自带 dispatch 节：三阶段对象各承载该阶段派发合同字段实值，键集＝dispatch-contract.schema.json contract_fields；缺节拒开零写入）"
+    _dc_nreq=$(printf '%s\n' "${_dc_required}" | wc -l | tr -d ' ')
+    [ "${_dc_nkeys}" -eq "${_dc_nreq}" ] || \
+      die1 "票 ${id} dispatch.${_dc_stage} 键集与必备字段清单不恰等（期望 ${_dc_nreq} 键、实际 ${_dc_nkeys} 键——缺键或多键均拒；键集＝dispatch-contract.schema.json contract_fields ${_dc_stage} 清单）"
+    for _dc_key in ${_dc_required}; do
+      _dc_val=$(python3 "${_engine}" json get "${ticket_file}" "dispatch.${_dc_stage}.${_dc_key}" 2>/dev/null) || \
+        die1 "票 ${id} dispatch.${_dc_stage} 缺必备字段: ${_dc_key}"
+      [ -n "$(printf '%s' "${_dc_val}" | tr -d ' \t\r\n')" ] || \
+        die1 "票 ${id} dispatch.${_dc_stage}.${_dc_key} 须为非空白字符串（strip 后非空，同 schema 非空口径）"
+    done
+  done
+}
+
 # 生成器定位（收尾投影再生必需；同目录优先，PATH 回退；缺失即预检停止）
 # ledger（票 100 无票账本行入口）不触投影面，不要求生成器在位。
 gen_cmd=''
@@ -599,6 +664,7 @@ fi
 
 if [ "${cmd}" = 'open' ]; then
   ticket_body_check || die1 "新票本体校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入"
+  dispatch_check || die1 "dispatch 节开票门未通过: ${issues_dir_rel}/${id}.json——未产生任何写入"
   index_check open || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
   index_nn_check || die1 "NN 段预检未通过: ${issues_index_rel}——未产生任何写入"
   readme_row_check || die1 "issues-README 预检未通过: ${issues_readme_rel}——未产生任何写入"

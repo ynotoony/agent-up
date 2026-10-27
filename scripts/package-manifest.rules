@@ -175,6 +175,7 @@ pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇
 pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAML workflow 定义驱动的流程执行器：条件跳过、工具调用、checkpoint 落盘、中断续传）'
 pm_script scripts/verify-contract.sh script '结构化验收谓词执行器（verification 对象数组逐条执行与断言；普通任务禁止空验证，纯记录须显式 record-only）'
 pm_script scripts/check-dispatch-contract.sh script '双模式派发合同校验器（--check-template 模板零漂移核对＋--check 合同文件自查；schema 数据件在 references/schemas/）'
+pm_script scripts/contract-build.sh script '派发合同渲染器（<stage> <NN>：票 JSON dispatch 节→stdout 派发合同，纯函数零落盘；输出前自调 check-dispatch-contract.sh --check 自校验，不过零输出；安装闭包随 ticket-ops 门控）'
 pm_script scripts/test-checkpoint-recovery.sh test-harness 'Checkpoint 中断续传回归测试（workflow-executor.sh 中断续传机制自检）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
@@ -274,6 +275,9 @@ pm_mirror ledger-append.sh mirror
 # 为镜像预册——仓侧同名件在场、包侧同名件落位前由检查 13 包侧缺件分支跳过不计数
 # （逐对 cmp 自包侧落位起自动生效），repo-only 撤册＝包侧收录方向已决。
 pm_mirror check-payload-boundary.sh mirror
+# 派发合同渲染器：包侧新建即两侧同步落位（仓侧 rules/implementation/scripts/
+# 补镜像件，byte 纪律同族）。
+pm_mirror contract-build.sh mirror
 # -- package-only：包侧唯一维护权威（仓侧同名实例待升级流程同步的过渡态） --
 pm_mirror check-dispatch-contract.sh package-only
 pm_mirror test-checkpoint-recovery.sh package-only

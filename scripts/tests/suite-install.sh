@@ -12,7 +12,11 @@ fi
 # 安装全链＋幂等跳过＋规则表缺失/损坏 fail-closed＋恶意输入四形态 rc=2 零写入；
 # 本票新增安装后运行时依赖闭包：minimal target fixture 真实执行已安装
 # ticket-grade/ticket-ops 并读取已安装 schema/profile，missing-validator 与
-# missing-data 负例真走失败路径，包副本删依赖由安装预检与 check-package 双层指名）
+# missing-data 负例真走失败路径，包副本删依赖由安装预检与 check-package 双层指名；
+# 票 230 派发合同链随票修——ticket-ops 门控扩六件（contract-build.sh＋
+# check-dispatch-contract.sh 脚本件＋dispatch-contract.schema.json＋三模板数据件），
+# P1/P2 金样 15→21 件（脚本 13→15＋数据 2→6），R1 闭包断言扩渲染器面，
+# open 夹具票本体补 dispatch 节（开票门强制））
 # ============================================================
 
 inst_build_pkg() {
@@ -20,16 +24,16 @@ inst_build_pkg() {
   # ＋references/ 数据件源（ticket-record.schema.json／complexity-profile.md，ip_data
   # 行的解析基準＝脚本目录上一级，夹具布局与包内 agent-up/ 前缀剥离后同构）
   P=$1
-  rm -rf "$P"; mkdir -p "$P/scripts" "$P/references/schemas" "$P/references/protocol"
+  rm -rf "$P"; mkdir -p "$P/scripts" "$P/references/schemas" "$P/references/protocol" "$P/references/prompts"
   cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/install-policy.rules" "$P/scripts/"
-  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh ledger-append.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-validator.py dp-load-rules.sh; do
+  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh ledger-append.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-validator.py dp-load-rules.sh contract-build.sh check-dispatch-contract.sh; do
     if [ ! -f "$SCRIPT_DIR/$f" ]; then
       printf 'test-record-layer: 夹具依赖缺失: %s/%s（安装闭包登记源）\n' "$SCRIPT_DIR" "$f" >&2
       exit 2
     fi
     cp "$SCRIPT_DIR/$f" "$P/scripts/$f"
   done
-  for f in references/schemas/ticket-record.schema.json references/protocol/complexity-profile.md; do
+  for f in references/schemas/ticket-record.schema.json references/protocol/complexity-profile.md references/schemas/dispatch-contract.schema.json references/prompts/implementation-prompt.md references/prompts/review-prompt.md references/prompts/commit-prompt.md; do
     if [ ! -f "$SCRIPT_DIR/../$f" ]; then
       printf 'test-record-layer: 夹具依赖缺失: %s/../%s（安装闭包 ip_data 数据件源）\n' "$SCRIPT_DIR" "$f" >&2
       exit 2
@@ -96,22 +100,25 @@ suite_install() {
     return 0
   fi
 
-  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 16 件（脚本 14＋数据 2；stdout 摘要行计数）
+  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 22 件（脚本 16＋数据 6；stdout 摘要行计数）
   # （json-helpers.sh 退役并入唯一 JSON 引擎后：脚本件 13＝原 14 撤 json-helpers，数据件 2 不变；
-  # 票 228：ledger-append.sh 入 ticket-ops 门控闭包 → 脚本件 14）
+  #   票 228：ledger-append.sh 入 ticket-ops 门控闭包 → 脚本件 14；
+  #   票 230 派发合同链随票修：脚本件 16＝14＋contract-build/check-dispatch-contract，
+  #   数据件 6＝2＋dispatch-contract.schema＋三模板——ticket-ops 门控安装闭包）
   # install.sh 的 R-DP-036 worktree 自拒按调用 cwd 判定（非 Git 语境放行）：夹具安装
   # 从 harness 的 mktemp 非 Git 目录调用，避免 harness 在 worktree 内跑时栅栏误拦夹具。
   inst_build_pkg "$D/pkg1"; mkdir -p "$D/proj1"
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p1.out" 2>&1
   rc=$?
   p1_n=$(grep -c '^install: OK:' "$D/p1.out")
-  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 16 ] && grep -q '^install: DONE: 复制 16 件（脚本 14＋数据 2）、幂等跳过 0 件' "$D/p1.out" \
+  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 22 ] && grep -q '^install: DONE: 复制 22 件（脚本 16＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
     && [ -f "$D/proj1/rules/implementation/scripts/check-gates.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-ops.sh" ] \
-    && [ -f "$D/proj1/rules/implementation/scripts/ledger-append.sh" ]; then
-    ok '正例 P1 合法表双门控安装 → exit 0 复制 16 件（脚本 14＋数据 2）落位'
+    && [ -f "$D/proj1/rules/implementation/scripts/ledger-append.sh" ] \
+    && [ -f "$D/proj1/rules/implementation/scripts/contract-build.sh" ]; then
+    ok '正例 P1 合法表双门控安装 → exit 0 复制 22 件（脚本 16＋数据 6）落位'
   else
-    bad '正例 P1 合法表双门控安装 → exit 0 复制 16 件（脚本 14＋数据 2）落位' "exit=$rc ok_lines=$p1_n"
+    bad '正例 P1 合法表双门控安装 → exit 0 复制 22 件（脚本 16＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
   fi
 
   # 正例 P2：幂等重跑 → 逐件 SKIP exit 0 零新写入（文件集与首跑逐一相等）
@@ -119,11 +126,11 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p2.out" 2>&1
   rc=$?
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
-  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 16 件' "$D/p2.out" \
+  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 22 件' "$D/p2.out" \
     && cmp -s "$D/p2.tree.before" "$D/p2.tree.after"; then
-    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 16 件（文件集零变化）'
+    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 22 件（文件集零变化）'
   else
-    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 16 件（文件集零变化）' "exit=$rc"
+    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 22 件（文件集零变化）' "exit=$rc"
   fi
 
   # 负例 N1：规则表缺失 → exit 2 零写入
@@ -190,11 +197,17 @@ suite_install() {
     && [ -f "$D/projr/rules/implementation/scripts/ledger-append.sh" ] \
     && [ -f "$D/projr/rules/implementation/scripts/json-validator.py" ] \
     && [ -f "$D/projr/rules/implementation/scripts/common-helpers.sh" ] \
+    && [ -f "$D/projr/rules/implementation/scripts/contract-build.sh" ] \
+    && [ -f "$D/projr/rules/implementation/scripts/check-dispatch-contract.sh" ] \
     && cmp -s "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$D/projr/rules/implementation/references/schemas/ticket-record.schema.json" \
-    && cmp -s "$SCRIPT_DIR/../references/protocol/complexity-profile.md" "$D/projr/rules/implementation/references/protocol/complexity-profile.md"; then
-    ok '闭包正例 R1 minimal target 安装 → exit 0 且入口/validator/helpers/账本写入方脚本件与 schema/profile 数据件全落位（数据件与包基线字节一致）'
+    && cmp -s "$SCRIPT_DIR/../references/protocol/complexity-profile.md" "$D/projr/rules/implementation/references/protocol/complexity-profile.md" \
+    && cmp -s "$SCRIPT_DIR/../references/schemas/dispatch-contract.schema.json" "$D/projr/rules/implementation/references/schemas/dispatch-contract.schema.json" \
+    && cmp -s "$SCRIPT_DIR/../references/prompts/implementation-prompt.md" "$D/projr/rules/implementation/references/prompts/implementation-prompt.md" \
+    && cmp -s "$SCRIPT_DIR/../references/prompts/review-prompt.md" "$D/projr/rules/implementation/references/prompts/review-prompt.md" \
+    && cmp -s "$SCRIPT_DIR/../references/prompts/commit-prompt.md" "$D/projr/rules/implementation/references/prompts/commit-prompt.md"; then
+    ok '闭包正例 R1 minimal target 安装 → exit 0 且入口/validator/helpers/账本写入方/渲染器/校验器脚本件与 schema/profile/dispatch schema/三模板数据件全落位（数据件与包基线字节一致，票 228 单写方＋票 230 渲染闭包）'
   else
-    bad '闭包正例 R1 minimal target 安装 → exit 0 且入口/validator/helpers/账本写入方脚本件与 schema/profile 数据件全落位（数据件与包基线字节一致）' "exit=$rc out=$(tail -n 1 "$D/r1.out")"
+    bad '闭包正例 R1 minimal target 安装 → exit 0 且入口/validator/helpers/账本写入方/渲染器/校验器脚本件与 schema/profile/dispatch schema/三模板数据件全落位（数据件与包基线字节一致，票 228 单写方＋票 230 渲染闭包）' "exit=$rc out=$(tail -n 1 "$D/r1.out")"
   fi
 
   # 闭包正例 R2：已安装 ticket-grade 真实执行 → exit 0 出定级建议（同目录 validator
@@ -213,7 +226,12 @@ suite_install() {
   "scope": ["facts/requirements/tickets/"],
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
   "complexity_reason": "fixture 定级理由（非空）",
-  "priority_reason": "fixture 优先级理由（非空）"
+  "priority_reason": "fixture 优先级理由（非空）",
+  "dispatch": {
+    "implementation": {"REPOSITORY_PATH": "fixture repo root", "TASK_DESCRIPTION": "fixture task", "GOAL": "fixture goal", "SCOPE_TREE": "fixture scope", "OUT_OF_SCOPE": "fixture oos", "CONTEXT_EVIDENCE": "fixture context", "CONSTRAINTS": "fixture constraints", "FORBIDDEN_CHANGES": "fixture forbidden", "ACCEPTANCE_CRITERIA": "fixture acceptance", "VERIFICATION_COMMANDS": "fixture verification", "DEPENDENCIES_BLOCKERS": "fixture deps", "RISKS": "fixture risks", "BUDGET_CHECKPOINTS": "80 calls", "ESTIMATED_TIME": "0.5d", "ACTUAL_TIME": "by coordinator", "TICKET_ID": "40-grade-fixture"},
+    "review": {"REVIEW_SCOPE": "fixture review scope", "IMPLEMENTATION_SUMMARY": "fixture summary", "ACCEPTANCE_CRITERIA": "fixture acceptance", "DIFF_LOCATION": "fixture worktree", "REVIEW_DIMENSIONS": "fixture dimensions", "TICKET_ID": "40-grade-fixture"},
+    "commit": {"REVIEW_PASS_CHECKPOINT": "fixture checkpoint", "FILE_WHITELIST": "fixture whitelist", "COMMIT_MESSAGE": "fixture message", "RECORD_FLIP_AUTHORIZATION": "fixture authorization", "SCOPE_CHECK_COMMAND": "fixture command", "TICKET_ID": "40-grade-fixture"}
+  }
 }
 EOF
   ( cd "$D/projr" && sh "$D/projr/rules/implementation/scripts/ticket-grade.sh" "$D/tix/40-grade-fixture.json" ) >"$D/r2.out" 2>&1
