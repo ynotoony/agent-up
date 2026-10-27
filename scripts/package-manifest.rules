@@ -1,8 +1,8 @@
 # Input: 包清单事实（单源化拍板；历次扩节）：必需入口文件、脚本必需件、.tmpl 模板清单、
 #        规则块短码登记、platform 枚举、模糊措辞词表与豁免、镜像脚本、能力基元名单与检查
-#        目标、规则索引执行机制受控词表——十节唯一承载点；
+#        目标、规则索引执行机制受控词表、平台适配注册表——十一节唯一承载点；
 #        check-package.sh 检查 1/5/8 的清单与计数自本表读取（引擎内硬编码清单废止），检查
-#        9/10/11/12/13/14/15/16/17/21 以本表为比对基准。
+#        9/10/11/12/13/14/15/16/17/21/24/25/26 以本表为比对基准。
 # Output: check-package.sh 引擎启动时 source 本表——每行一个 pm_* 调用：
 #         pm_entry <pkg-rel-path>（必需入口文件，包根相对路径）；
 #         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
@@ -39,6 +39,18 @@
 #         pm_enforcement_target <pkg-rel-path> <预期等级>（检查 14 扩展维度逐一核验
 #           目标：取「| 能力基元 |」对照表 readonly-execute 行 readonly_enforcement:
 #           值与预期等级全等比对，缺声明/词表外/不一致 FAIL 指名，行未命中 exit 2）；
+#         pm_adapter <platform> <shortcode> <adapter_file> <capability_coverage>
+#           <role_mapping> <evidence_status>（平台适配注册表行，检查 26：宿主绑定事实
+#           六字段单源登记面——platform 须小写 token 且 ∈ platform-enum 节宿主值
+#           （neutral 平台无关不入注册表）；adapter_file 须 references/adapters/ 前缀
+#           单段 .md 名且与 platform 同名（adapter-template.md 基线：文件名与枚举值
+#           一致）；capability_coverage 逗号分隔基元名单逐名 ⊆ capability-primitives
+#           节；role_mapping＝宿主三角色承载形态 token（现行值：frontmatter 方言
+#           模板／config-table config.toml agents 表／skills skills/ SKILL.md 承载/
+#           cordis-yml cordis.yml 注册承载）；evidence_status＝适配证据核验状态
+#           token（现行值：verified＝适配面官方登记取阅核验在册（行内未核验子面按
+#           R-AT-001 状态词表在适配文件内标注），pending＝官方指针未核验或面未全量
+#           核验；语义同 R-AT-001 状态词表 pending））；
 #         pm_mechanism <值>（规则索引执行机制受控值：rules 三件模板
 #           assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl §16 机制列取值 ⊆ 本节
 #           值集，检查 16；受控三值＝机械/门禁/约定，语义唯一权威见
@@ -49,11 +61,14 @@
 #      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
 #      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
 #      一致性由 check-package.sh 检查 5/9 机械核对。短码登记以各目录 README 登记面为
-#      同源（templates：AG/DP/RI/RR/RC/RT；protocol：GF/RP/CP；adapters：AT/CC/ZC/CL/
-#      CX/PI/DS，grep 实测全集）；platform 枚举自 capability-contract.md §2.5 与
+#      同源（templates：AG/DP/RI/RR/RC/RT；protocol：GF/RP/CP，grep 实测全集）；
+#      adapters 五宿主短码（ZC/CL/CX/PI/DS）自适配器注册表单源化起以 adapter-registry
+#      节为单源
+#      （shortcodes 节行与两 README 投影由检查 26 对注册表闭合，不另立登记事实）；
+#      platform 枚举自 capability-contract.md §2.5 与
 #      artifacts-yaml.tmpl platform 字段注释区迁入；模糊措辞词表与豁免、镜像
-#      登记的能力基元名单与检查目标、规则索引执行机制受控词表为后续扩节
-#      新增节。结构校验口径
+#      登记的能力基元名单与检查目标、规则索引执行机制受控词表、平台适配注册表为
+#      后续扩节新增节。结构校验口径
 #      （check-package.sh 加载时逐行核验，任一不合预期即 exit 2 fail-closed，不产生
 #      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
 #      pm_shortcode 恰 2、pm_platform 恰 1、pm_vague_word 恰 1、pm_vague_exempt 恰 3、
@@ -73,7 +88,11 @@
 #      pm_capability_target 目标路径跨行唯一、kind ∈ decl/table、预期名单逐名 ⊆
 #      pm_capability 名单且并集 ⊇ 名单；pm_enforcement_level 值须小写 token 且跨行
 #      唯一；pm_enforcement_target 目标路径跨行唯一、预期等级 ∈ pm_enforcement_level
-#      词表；pm_mechanism 值须非空且不含空白并跨行唯一；
+#      词表；pm_adapter 恰 6 字段、platform/shortcode/adapter_file 跨行各唯一、
+#      platform 须 ∈ platform-enum 宿主值（非 neutral）、adapter_file 须
+#      references/adapters/<platform>.md 同名单段名、coverage 逐名 ⊆ pm_capability
+#      名单、role_mapping/evidence_status 须小写 token；
+#      pm_mechanism 值须非空且不含空白并跨行唯一；
 #      pm_mechanism_marker 跨行恰一行；pm_layout_universe 锚点须受限字符集单 token 且
 #      登记模板跨行唯一；pm_layout_legacy_file 理由非空且路径跨行唯一；
 #      pm_layout_compat_exempt 行号须正整数、理由非空、路径+行号跨行唯一；
@@ -306,6 +325,23 @@ pm_enforcement_target references/adapters/claude-code.md policy-only
 pm_enforcement_target references/adapters/codex.md runner-enforced
 pm_enforcement_target references/adapters/pi.md policy-only
 pm_enforcement_target references/adapters/dsh.md pending
+
+# ==== adapter-registry：平台适配注册表（检查 26；适配器注册表单源化扩节）====
+# 宿主绑定事实唯一登记面（platform/shortcode/adapter_file/capability_coverage/
+# role_mapping/evidence_status 六字段一行）。登记链＝R-CC-005 收敛后口径：新增宿主
+# ＝先改本节（数据先行），再按 R-CC-005 落 platform 枚举登记处（artifacts-yaml.tmpl
+# 注释区＋capability-contract.md 已知集合句，检查 11 闭合）与适配器文件（检查 14
+# 对照表闭合），shortcodes 节镜像行与两 README 投影随动（漂移由检查 26 指名）。
+# coverage 预期名单＝五适配文件「| 能力基元 |」对照表现场转录（与 pm_capability_target
+# kind=table 行互为镜像，双向由检查 26 ④核对）；evidence_status 口径：verified＝适配面
+# 官方登记取阅核验在册（claude-code/codex/pi 官方文档取阅 2026-09-06），pending＝官方
+# 指针未核验或面未全量核验（zcode 官方指针未核验；dsh 全量 roster 未核验）。
+
+pm_adapter claude-code CL references/adapters/claude-code.md 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write' frontmatter verified
+pm_adapter codex CX references/adapters/codex.md 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write' config-table verified
+pm_adapter dsh DS references/adapters/dsh.md 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write' cordis-yml pending
+pm_adapter pi PI references/adapters/pi.md 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write' skills verified
+pm_adapter zcode ZC references/adapters/zcode.md 'inspect,search,read,edit,write,execute,readonly-execute,vcs-read,vcs-write' frontmatter pending
 
 # ==== ticket-citation-ban：包内票号索引禁令豁免（检查 18）====
 # 扫描面＝包内全部 *.md / *.tmpl / *.json / *.rules（*.sh 代码面不扫——断言名/注释语境

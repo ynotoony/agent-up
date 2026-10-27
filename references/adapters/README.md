@@ -1,5 +1,5 @@
-<!-- Input: 同级适配手册（`capability-contract.md`、`adapter-template.md` 与五份宿主映射文件）的定位、来源状态与短码登记事实，以及 `../README.md` 对本目录的登记。 -->
-<!-- Output: `agent-up` 运行时可读取的平台适配目录索引：直接成员登记与短码登记。 -->
+<!-- Input: 同级适配手册（`capability-contract.md`、`adapter-template.md` 与五份宿主映射文件）的定位、来源状态与短码投影（机器真相＝`../../scripts/package-manifest.rules` adapter-registry 节），以及 `../README.md` 对本目录的登记。 -->
+<!-- Output: `agent-up` 运行时可读取的平台适配目录索引：直接成员登记与短码导航投影（不另立登记事实）。 -->
 <!-- Pos: Skill 参考资料平台适配目录索引；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 平台适配
@@ -21,7 +21,7 @@
 | `pi.md` | pi 宿主映射手册（运行时映射，不是事实源；插件扩展代表） | `PI` | 能力→宿主工具对照、三角色 skills/上下文承载形态、独立执行体声明（默认无内置）与降级路径（readonly_enforcement: policy-only）。 |
 | `dsh.md` | dsh 宿主映射手册（运行时映射，不是事实源；插件扩展第二代表） | `DS` | 能力→宿主工具对照、三角色 cordis.yml 承载形态、独立执行体声明（按 profile 区分）与降级路径（readonly_enforcement: pending，落定前按 policy-only 从紧）。 |
 
-## 短码登记
+## 短码投影（导航，非登记事实）
 
-- `AT` = `adapter-template.md`，`CC` = `capability-contract.md`，`ZC` = `zcode.md`，`CL` = `claude-code.md`，`CX` = `codex.md`，`PI` = `pi.md`，`DS` = `dsh.md`；`../README.md` adapters 条目为 capability-contract.md §3 例外所引登记面，本 README 为同目录登记面，两者与 `../templates/README.md` 模板短码互不重叠。
-- 新增宿主适配：先在 `capability-contract.md` R-CC-005 登记枚举值，再按 `adapter-template.md` 结构基线创建 `adapters/<host>.md` 并在本 README 登记（含两字母短码，不与既有短码重叠）。
+- 本 README 目录清单表的规则块短码列是导航投影：宿主短码（`ZC`/`CL`/`CX`/`PI`/`DS`）与宿主绑定事实（platform/shortcode/adapter_file/capability_coverage/role_mapping/evidence_status）的机器真相唯一承载于 `../../scripts/package-manifest.rules` `adapter-registry` 节，短码全局唯一由该节单源验证；表列与 `../README.md` adapters 行的一致性由 `check-package.sh` 检查 26 机械核对，漂移即 FAIL（表文修正归人工裁决，不静默互改）。非宿主短码 `AT` = `adapter-template.md`，`CC` = `capability-contract.md`，与 templates/protocol 短码同源登记于同表 `shortcodes` 节。
+- 新增宿主适配（R-CC-005 收敛后口径）：先在 `../../scripts/package-manifest.rules` `adapter-registry` 节登记六字段行（数据先行，短码两字母不与既有重叠），再按 `capability-contract.md` R-CC-005 落 platform 枚举登记处、按 `adapter-template.md` 结构基线创建 `adapters/<host>.md`；shortcodes 节镜像行与本 README、`../README.md` 投影行随动，漏项由检查 26 指名。

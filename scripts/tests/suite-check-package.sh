@@ -36,7 +36,18 @@ fi
 # adapter-template.md R-AT-001 豁免在位，豁免计数 1 行入金样），标记行无命中或缺理由报
 # 失效豁免；预期串计数 24→25 翻值、正例补检查 25 PASS 行三金样块同步、N16 注入项号
 # 检查 25→26 随总数同步；补负例 N48 MUST 块命中指名文件:行／正例 N49 豁免生效豁免
-# 计数 1→2／负例 N50 失效豁免）
+# 计数 1→2／负例 N50 失效豁免）；票 215 适配器注册表单源化随票修（新增检查 25→26——
+# adapter-registry 节 pm_adapter 六字段（platform/shortcode/adapter_file/
+# capability_coverage/role_mapping/evidence_status）宿主绑定事实单源登记，五向闭合：
+# ①枚举双向全等（neutral 平台无关不入注册表）②适配器文件在位③shortcodes 节
+# （短码, 所属文件）对全等且注册短码不挂其他所属文件④capability targets kind=table
+# 行互为镜像⑤两 README 投影（父 README adapters 行平台 token 集与注册平台集全等＋
+# 目录清单表（短码, 文件）投影对逐对在册）；预期串计数 25→26 翻值、正例两形态补
+# 检查 26 PASS 行、夹具金样块 exp.negative/exp.cc 补 PASS: 26 行且共数随总数同步、
+# N16 注入项号检查 26→27 随总数同步；补负例 N51 枚举节删宿主值（加载段 exit 2）／
+# N58 注册表删宿主注册行（检查段缺行方向）／N52 删适配器文件／
+# N53 shortcodes 节删镜像行／N54 targets 节删 table 行／N55 父 README 漏列平台（AC3）／
+# N56 目录 README 投影缺短码／N57 加载段重复短码 exit 2 fail-closed（AC4））
 # ============================================================
 
 suite_check_package() {
@@ -103,6 +114,7 @@ PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
+PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 check-package: PASS
 EOF
   else
@@ -132,6 +144,7 @@ PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
+PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 check-package: PASS
 EOF
   fi
@@ -170,7 +183,8 @@ PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
-check-package: FAIL（3 项未通过，共 25 项）
+PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
+check-package: FAIL（3 项未通过，共 26 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -211,7 +225,8 @@ PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
-check-package: FAIL（1 项未通过，共 25 项）
+PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
+check-package: FAIL（1 项未通过，共 26 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -493,13 +508,13 @@ EOF
 
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
   # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 197 后为 24、
-  # 票 212 后为 25；注入检查 26＝超界一位，随总数同步）。
+  # 票 212 后为 25、票 215 后为 26；注入检查 27＝超界一位，随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 26） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 27） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 25 项）: 检查 26' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 26 项）: 检查 27' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -1031,6 +1046,123 @@ EOF
     ok '负例 N50 豁免标记行无命中 → exit 1 且 FAIL: 25 报失效豁免'
   else
     bad '负例 N50 豁免标记行无命中 → exit 1 且 FAIL: 25 报失效豁免' "exit=$rc"
+  fi
+
+  # 票 215 检查 26 适配器注册表闭合夹具组（单一数据源＝清单 adapter-registry 节 pm_adapter
+  # 行；五向闭合逐向一负例＋加载段结构校验 fail-closed 一负例；cp 副本 mktemp 纪律，
+  # manifest 改动须被引擎读到，本组以夹具包自带引擎副本运行，断言独立重建）。
+  # 负例 N51（①枚举闭合加载段）：platform-enum 节删 dsh 宿主值 → 注册表 dsh 行
+  # ∈ 枚举宿主值核验失败 → exit 2 fail-closed 零部分结论（stdout 零 PASS 行）且错误
+  # 指名跨节失据行（先例＝pm_enforcement_target 预期等级 ∈ 词表加载段同款）。
+  cp -R "$PKG_ROOT" "$D/pkar1"
+  grep -v '^pm_platform dsh$' "$D/pkar1/scripts/package-manifest.rules" > "$D/pm51.tmp" \
+    && mv "$D/pm51.tmp" "$D/pkar1/scripts/package-manifest.rules"
+  sh "$D/pkar1/scripts/check-package.sh" "$D/pkar1" >"$D/act.n51" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'platform 不在 platform-enum 节宿主值（neutral 平台无关不入注册表）: dsh' "$D/act.n51" \
+    && ! grep -q '^PASS:' "$D/act.n51"; then
+    ok '负例 N51 platform-enum 节删宿主值 → exit 2 fail-closed 且指名注册表平台值失据'
+  else
+    bad '负例 N51 platform-enum 节删宿主值 → exit 2 fail-closed 且指名注册表平台值失据' "exit=$rc"
+  fi
+
+  # 负例 N58（①枚举闭合检查段）：adapter-registry 节删 dsh 注册行 → 枚举宿主值缺
+  # 注册行方向 → exit 1 且 FAIL: 26 指名（④镜像方向联动 FAIL 不断言，归本组 N54 口径）。
+  cp -R "$PKG_ROOT" "$D/pkar8"
+  grep -v '^pm_adapter dsh ' "$D/pkar8/scripts/package-manifest.rules" > "$D/pm58.tmp" \
+    && mv "$D/pm58.tmp" "$D/pkar8/scripts/package-manifest.rules"
+  sh "$D/pkar8/scripts/check-package.sh" "$D/pkar8" >"$D/act.n58" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 26 适配器注册表闭合' "$D/act.n58" \
+    && grep -q 'platform-enum 宿主值缺注册行: dsh' "$D/act.n58"; then
+    ok '负例 N58 注册表删宿主注册行 → exit 1 且 FAIL: 26 指名枚举宿主值缺注册行'
+  else
+    bad '负例 N58 注册表删宿主注册行 → exit 1 且 FAIL: 26 指名枚举宿主值缺注册行' "exit=$rc"
+  fi
+
+  # 负例 N52（②文件在位）：删注册表 adapter_file 实物 references/adapters/dsh.md →
+  # exit 1 且 FAIL: 26 指名（检查 1/21 对入口与树闭合联动 FAIL 不断言，归各自口径）。
+  cp -R "$PKG_ROOT" "$D/pkar2"
+  rm "$D/pkar2/references/adapters/dsh.md"
+  sh "$D/pkar2/scripts/check-package.sh" "$D/pkar2" >"$D/act.n52" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 26 适配器注册表闭合' "$D/act.n52" \
+    && grep -q '注册表适配器文件不存在: references/adapters/dsh.md' "$D/act.n52"; then
+    ok '负例 N52 删注册表适配器文件 → exit 1 且 FAIL: 26 指名缺件'
+  else
+    bad '负例 N52 删注册表适配器文件 → exit 1 且 FAIL: 26 指名缺件' "exit=$rc"
+  fi
+
+  # 负例 N53（③shortcodes 闭合）：shortcodes 节删 DS 镜像行 →（短码, 所属文件）对
+  # 不在册 → exit 1 且 FAIL: 26 指名（检查 10 对使用面联动 FAIL 不断言，归票 57 口径）。
+  cp -R "$PKG_ROOT" "$D/pkar3"
+  grep -v '^pm_shortcode DS references/adapters/dsh.md$' "$D/pkar3/scripts/package-manifest.rules" > "$D/pm53.tmp" \
+    && mv "$D/pm53.tmp" "$D/pkar3/scripts/package-manifest.rules"
+  sh "$D/pkar3/scripts/check-package.sh" "$D/pkar3" >"$D/act.n53" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 26 适配器注册表闭合' "$D/act.n53" \
+    && grep -q '注册表（短码, 所属文件）对不在 shortcodes 节: DS references/adapters/dsh.md' "$D/act.n53"; then
+    ok '负例 N53 shortcodes 节删注册短码镜像行 → exit 1 且 FAIL: 26 指名失对'
+  else
+    bad '负例 N53 shortcodes 节删注册短码镜像行 → exit 1 且 FAIL: 26 指名失对' "exit=$rc"
+  fi
+
+  # 负例 N54（④capability targets 镜像）：capability targets 节删 dsh kind=table 行 →
+  # 注册表（适配文件, coverage）对失镜像 → exit 1 且 FAIL: 26 指名（互为镜像双向闭合）。
+  cp -R "$PKG_ROOT" "$D/pkar4"
+  grep -v '^pm_capability_target references/adapters/dsh.md table ' "$D/pkar4/scripts/package-manifest.rules" > "$D/pm54.tmp" \
+    && mv "$D/pm54.tmp" "$D/pkar4/scripts/package-manifest.rules"
+  sh "$D/pkar4/scripts/check-package.sh" "$D/pkar4" >"$D/act.n54" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 26 适配器注册表闭合' "$D/act.n54" \
+    && grep -q '注册表（适配文件, coverage）对不在 capability targets 节 kind=table 行: references/adapters/dsh.md' "$D/act.n54"; then
+    ok '负例 N54 capability targets 节删 table 行 → exit 1 且 FAIL: 26 指名镜像缺口'
+  else
+    bad '负例 N54 capability targets 节删 table 行 → exit 1 且 FAIL: 26 指名镜像缺口' "exit=$rc"
+  fi
+
+  # 负例 N55（⑤父 README 投影，AC3 钉死）：references/README.md adapters 行删 `dsh`
+  # 平台 token → 投影缺平台 → exit 1 且 FAIL: 26 指名（父 README 不得漏列平台）。
+  cp -R "$PKG_ROOT" "$D/pkar5"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  sed 's=`pi`/`dsh`，=`pi`，=' "$D/pkar5/references/README.md" > "$D/rr55.tmp" \
+    && mv "$D/rr55.tmp" "$D/pkar5/references/README.md"
+  sh "$D/pkar5/scripts/check-package.sh" "$D/pkar5" >"$D/act.n55" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 26 适配器注册表闭合' "$D/act.n55" \
+    && grep -q 'references/README.md adapters 行投影与注册表不一致（父 README 不得漏列平台）: 缺少 dsh' "$D/act.n55"; then
+    ok '负例 N55 父 README adapters 行漏列平台 → exit 1 且 FAIL: 26 指名缺少 dsh'
+  else
+    bad '负例 N55 父 README adapters 行漏列平台 → exit 1 且 FAIL: 26 指名缺少 dsh' "exit=$rc"
+  fi
+
+  # 负例 N56（⑤目录 README 投影）：adapters/README.md 目录清单 zcode 行短码格清空 →
+  # 投影缺短码 → exit 1 且 FAIL: 26 指名（投影不另立登记事实，漂移即 FAIL）。
+  cp -R "$PKG_ROOT" "$D/pkar6"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  sed 's/| `ZC` |/|  |/' "$D/pkar6/references/adapters/README.md" > "$D/ar56.tmp" \
+    && mv "$D/ar56.tmp" "$D/pkar6/references/adapters/README.md"
+  sh "$D/pkar6/scripts/check-package.sh" "$D/pkar6" >"$D/act.n56" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 26 适配器注册表闭合' "$D/act.n56" \
+    && grep -q 'adapters/README.md 目录清单投影缺行或缺短码: zcode.md（ZC）' "$D/act.n56"; then
+    ok '负例 N56 目录 README 投影行缺短码 → exit 1 且 FAIL: 26 指名'
+  else
+    bad '负例 N56 目录 README 投影行缺短码 → exit 1 且 FAIL: 26 指名' "exit=$rc"
+  fi
+
+  # 负例 N57（加载段结构校验，AC4 钉死）：adapter-registry 节追加重复 ZC 短码行 →
+  # 短码全局唯一由单一数据源加载段验证 → exit 2 fail-closed 零部分结论（stdout 零
+  # PASS 行），错误信息指名跨行短码。
+  cp -R "$PKG_ROOT" "$D/pkar7"
+  grep '^pm_adapter zcode ' "$PKG_ROOT/scripts/package-manifest.rules" >> "$D/pkar7/scripts/package-manifest.rules"
+  sh "$D/pkar7/scripts/check-package.sh" "$D/pkar7" >"$D/act.n57" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'adapter-registry 节第 6 行: shortcode 跨行重复（短码全局唯一由本节单源验证）: ZC' "$D/act.n57" \
+    && ! grep -q '^PASS:' "$D/act.n57"; then
+    ok '负例 N57 注册表追加重复短码行 → exit 2 fail-closed 零部分结论且指名跨行短码'
+  else
+    bad '负例 N57 注册表追加重复短码行 → exit 2 fail-closed 零部分结论且指名跨行短码' "exit=$rc"
   fi
 
   suite_summary 'check-package'

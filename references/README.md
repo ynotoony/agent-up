@@ -16,7 +16,7 @@
 | `delivery-rules.md` | delivery.rules 文法与版本说明 | 仓根 `delivery.rules` 四节文法、指令全集、fail-closed 六规则与解析版本单源的权威说明（共享解析库 `../scripts/dp-load-rules.sh` 的文法对齐面）。 |
 | `templates/` | 模板目录 | 保存新建治理文件和阶段角色合同的模板（manifest 见 `templates/README.md`）。 |
 | `protocol/` | 协议手册目录 | 承载治理格式与读取协议手册（短码 `GF`/`RP`），成员与短码登记见 `protocol/README.md`。 |
-| `adapters/` | 平台适配目录 | 承载宿主能力契约与宿主映射（短码 `CC`/`ZC`；运行时映射，不是事实源，事实源为目标项目角色合同（新布局缺省 `rules/implementation/roles/`，旧项目为登记的兼容目录如 `docs/agent/roles/`）与核心协议），成员见 `adapters/README.md`。 |
+| `adapters/` | 平台适配目录 | 承载宿主能力契约与五份宿主映射（platform 全集 `zcode`/`claude-code`/`codex`/`pi`/`dsh`，机器真相＝`../scripts/package-manifest.rules` 的 adapter-registry 节，宿主短码为注册表投影；运行时映射，不是事实源，事实源为目标项目角色合同（新布局缺省 `rules/implementation/roles/`，旧项目为登记的兼容目录如 `docs/agent/roles/`）与核心协议），成员与短码投影见 `adapters/README.md`。 |
 | `prompts/` | 派发模板目录 | 承载 Implementation / Review / Commit 三阶段派发 prompt 模板，为 `../scripts/check-dispatch-contract.sh` `--check-template` 的占位符比对面，成员与占位符说明见 `prompts/README.md`。 |
 | `workflows/` | 流程实例目录 | 承载 workflow schema（`schemas/workflow.schema.json`）的可执行实例 YAML，经 `../scripts/workflow-executor.sh` 驱动，成员与 schema 对应关系见 `workflows/README.md`。 |
 | `schemas/` | 机器 schema 目录 | 承载 run record／派发合同／票记录／索引／workflow 机器 schema 与标注样例（JSON 以 `$id`/`title`/`description` 承载导航元数据），成员与用途见 `schemas/README.md`。 |
