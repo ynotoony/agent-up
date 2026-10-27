@@ -6,7 +6,12 @@
 #        date,kind,scope,decision,evidence_ref，五键必备＋按 kind 条件键：lesson 必带
 #        第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone
 #        ——票 81，一行一事实，禁裸换行）。
-# Output: 协调层票务面写入——open＝新票本体 ticket-record.schema.json 全量校验
+# Output: 协调层票务面写入——index.json 票状态唯一写入方（写入方收敛票 228 F1/F2：
+#         全仓 index.json 写入仅本件承载；lane-commit 快道索引翻转改调本件 flip-index
+#         子命令代理，写索引→generate-progress 再生→--check 收尾链全仓仅本件一处）；
+#         changes.jsonl 账本落行经同目录唯一写入方 ledger-append.sh 承载（票 228 F7：
+#         行族形状校验与追加单点移出本件，写前预检经其 --check 零写入模式保持
+#         fail-closed 时序）——open＝新票本体 ticket-record.schema.json 全量校验
 #         （type/pattern/enum/oneOf/additionalProperties/条件 required 依 schema 文件
 #         执行，票 152）＋理由非空断言（票 79，只 open 时点生效，存量零回扫）＋七维
 #         profile reason 开票门（新 task 必备 profile_reason 对象且逐键非空，缺项/越键/
@@ -23,8 +28,12 @@
 #         exit 1 指名票 id 与缺项；非 done 翻转不要求，request 不校验）＋账本追加行；
 #         ledger＝无票账本行入口（票 100：不依赖 facts/requirements/tickets/index.json
 #         条目 id，账本行形状校验先于写入，仅账本落行，不触索引/README/投影）；
-#         open/take/flip 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
-#         现役状态投影并 --check 核对（ledger 无索引面改动，不做投影再生）。
+#         flip-index＝索引单写代理（票 228：快道收尾 lane-commit 的索引条目翻转经此
+#         承载——--id/--status/--updated-at 三项必选，锚点整行替换仅改 status/updated_at
+#         两值＋投影再生＋--check 收尾；不触 README/账本/票本体，不落账本行）；
+#         open/take/flip/flip-index 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
+#         现役状态投影并 --check 核对（再生调用全仓仅本件承载；ledger 无索引面改动，
+#         不做投影再生）。
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
 #      零外部依赖（仅 POSIX 标准工具与内建，无 jq；票 79 起 open 本体 schema 校验另用
@@ -51,7 +60,6 @@
 issues_index_rel='facts/requirements/tickets/index.json'
 issues_readme_rel='facts/requirements/tickets/README.md'
 issues_dir_rel='facts/requirements/tickets'
-changes_ledger_rel='facts/project/changes.jsonl'
 progress_current_rel='facts/requirements/tickets/progress-current.md'
 scripts_dir_rel='rules/implementation/scripts'
 
@@ -121,9 +129,14 @@ usage() {
                  文本不动）→ 账本追加行 → 投影再生＋--check。索引或 README 行缺失、锚点
                  不唯一、账本行非法即停止（fail-closed，写入前预检）。
   ledger         无票账本行入口（票 100）：--ledger-line 必选；不依赖 facts/requirements/tickets/index.json
-                 条目 id，仅账本形状校验（键序五键必备＋按 kind 条件键，同上）先于写入，
-                 通过后向 facts/project/changes.jsonl 追加该行；不触索引/README/票文件/投影
+                 条目 id，账本行形状校验与落行由唯一写入方 ledger-append.sh 承载（票 228
+                 F7），通过后向 facts/project/changes.jsonl 追加该行；不触索引/README/票文件/投影
                  （C0 修正类免建票收口经此落账本行，决策 4）。
+  flip-index     索引单写代理（票 228 F1/F2，快道收尾 lane-commit 专用）：--id --status
+                 --updated-at 三项必选（--status 为状态机裸值，--updated-at 为 ISO 8601
+                 YYYY-MM-DDTHH:MM[:SS]）；索引 id 锚点整行替换（仅改 status/updated_at
+                 两值）→ 投影再生＋--check；不触 README/账本/票本体（README 状态列与
+                 账本行归各自治道承载，票 35/37 口径），不得携带 --ledger-line。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；open 条目
         已存在即停，非幂等；take/flip 重跑会重复落账本行，核对后处理）；2 用法或环境错误。
@@ -141,7 +154,7 @@ trap cleanup EXIT HUP INT TERM
 [ $# -ge 1 ] || { usage >&2; exit 2; }
 case $1 in
   -h|--help) usage; exit 0 ;;
-  open|take|flip|ledger)
+  open|take|flip|ledger|flip-index)
     cmd=$1
     shift
     repo_root=''
@@ -151,7 +164,7 @@ case $1 in
     shift
     [ $# -ge 1 ] || { usage >&2; exit 2; }
     case $1 in
-      open|take|flip|ledger) cmd=$1; shift ;;
+      open|take|flip|ledger|flip-index) cmd=$1; shift ;;
       *) usage >&2; exit 2 ;;
     esac
     ;;
@@ -177,6 +190,7 @@ title=''
 ledger_line=''
 blocked_by=''
 status=''
+updated_at=''
 
 while [ $# -gt 0 ]; do
   case $1 in
@@ -186,15 +200,16 @@ while [ $# -gt 0 ]; do
     --ledger-line) [ $# -ge 2 ] || die2 '--ledger-line 缺值'; ledger_line=$2; shift 2 ;;
     --blocked-by) [ $# -ge 2 ] || die2 '--blocked-by 缺值'; blocked_by=$2; shift 2 ;;
     --status) [ $# -ge 2 ] || die2 '--status 缺值'; status=$2; shift 2 ;;
+    --updated-at) [ $# -ge 2 ] || die2 '--updated-at 缺值'; updated_at=$2; shift 2 ;;
     *) die2 "未知参数: $1" ;;
   esac
 done
 
 # ---- 公共校验（fail-closed，先于任何写入） ----
 
-# 票锚定命令（open/take/flip）才要求 --id；ledger 无票面不依赖 id（票 100）
+# 票锚定命令（open/take/flip/flip-index）才要求 --id；ledger 无票面不依赖 id（票 100）
 case ${cmd} in
-  open|take|flip)
+  open|take|flip|flip-index)
     case ${id} in
       '') die1 "缺少 --id" ;;
     esac
@@ -207,63 +222,41 @@ case ${cmd} in
       die1 "id 不合口径（^[0-9]{2,}-[a-z0-9-]+$）: ${id}"
     ;;
 esac
-case ${ledger_line} in
-  '') die1 "缺少 --ledger-line" ;;
-esac
-case ${ledger_line} in
-  *"${NL}"*|*"${TAB}"*) die1 '账本行含裸换行或制表符（一行一事实，禁裸换行）' ;;
-esac
-# 账本行形状校验（票 81 行型扩展，仅向前生效）：五键必备＋按 kind 条件键＋promoted_to
-# 枚举。非 lesson/replan 维持恰五键收口（既有合法面不放宽不收窄）；lesson 六键（既有）或九键（可选追加三分数键 score_contract/score_predicate/score_rework：0-100 整数或 -1=N/A，键序固定，票 133）——第六键
-# promoted_to 枚举＝新票/rules/sop/validator/test/none（填 none 亦算显式拍板，防教训悬空；
-# 越枚举不静默收编）；replan 恰八键——三条件键须为布尔字面量 true/false。条件键一律紧跟
-# evidence_ref 之后按固定次序排布（键序稳定，键序破坏形态同拒）。
-if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"(新票|rules|sop|validator|test|none)"\}$'; then
-  :
-elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"(新票|rules|sop|validator|test|none)", ?"score_contract": ?([0-9]|[1-9][0-9]|100|-1), ?"score_predicate": ?([0-9]|[1-9][0-9]|100|-1), ?"score_rework": ?([0-9]|[1-9][0-9]|100|-1)\}$'; then
-  :
-elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?(true|false), ?"replan_replacement": ?(true|false), ?"replan_undone": ?(true|false)\}$'; then
-  :
-elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"[^"\\]*", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*"\}$'; then
-  # 恰五键行：kind=lesson/replan 即缺条件键，指名报因；其余 kind 维持既有合法面
-  ledger_kind=$(printf '%s' "${ledger_line}" | sed -n 's/^{"date": \{0,1\}"[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}", \{0,1\}"kind": \{0,1\}"\([^"\\]*\)".*/\1/p')
-  case ${ledger_kind} in
-    lesson) die1 'lesson 行缺第六键 promoted_to（枚举 新票/rules/sop/validator/test/none，填 none 亦算显式拍板——票 81）' ;;
-    replan) die1 'replan 行缺条件键 replan_original/replan_replacement/replan_undone（布尔 true/false——票 81）' ;;
-  esac
-else
-  # 形状不符：可定位行型条件键形态的指名报因，否则通用报因（fail-closed 口径不放宽）
-  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"[^"\\]*", ?"score_[a-z_]+": ?[^}]*\}$'; then
-    die1 'lesson 行分数键须为 score_contract→score_predicate→score_rework 固定键序三键齐、值域 0-100 整数或 -1（N/A），带分数则恰九键（票 133）'
-  fi
-  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"[^"\\]*"\}$'; then
-    promoted_to_val=$(printf '%s' "${ledger_line}" | sed -n 's/.*"promoted_to": \{0,1\}"\([^"\\]*\)".*/\1/p')
-    die1 "lesson 行 promoted_to 越枚举（枚举＝新票/rules/sop/validator/test/none，不静默收编——票 81）: ${promoted_to_val}"
-  fi
-  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?[^,]*, ?"replan_replacement": ?[^,]*, ?"replan_undone": ?[^}]*\}$'; then
-    die1 'replan 行条件键须为布尔字面量 true/false 且按 replan_original→replan_replacement→replan_undone 固定键序（票 81）'
-  fi
-  # 未知键指名（行型合同 references/schemas/ledger-row.schema.json 键集对齐，不静默收编）：
-  # 键名提取＝先剥字符串值再按键引号边界切分（合法行字符串值域不含双引号；畸形行尽力
-  # 而为，提取不出未知键即落下方通用报因，fail-closed 结论不变）。行型选择由前序正则
-  # 承载，此处只对键名归集：基础五键＋lesson 六/九键与 replan 八键条件键全集。
-  ledger_unknown_keys=''
+# flip-index＝索引单写代理，不落账本行，不要求 --ledger-line（票 228 F1/F2）
+if [ "${cmd}" != 'flip-index' ]; then
   case ${ledger_line} in
-    '{'*'}')
-      ledger_unknown_keys=$(printf '%s' "${ledger_line}" \
-        | sed -e 's/: *"[^"]*"/:/g' \
-        | sed -e 's/, \{0,1\}"/\
-/g' \
-        | sed -e 's/^{"//' -e 's/".*//' \
-        | LC_ALL=C grep -Ev '^(date|kind|scope|decision|evidence_ref|promoted_to|score_contract|score_predicate|score_rework|replan_original|replan_replacement|replan_undone)?$' \
-        | paste -sd, -)
-      ;;
+    '') die1 "缺少 --ledger-line" ;;
   esac
-  case ${ledger_unknown_keys} in
-    '') ;;
-    *) die1 "账本行含未知键（不在行型键集内——基础五键 date,kind,scope,decision,evidence_ref＋kind 条件键，行型合同 references/schemas/ledger-row.schema.json）: ${ledger_unknown_keys}" ;;
-  esac
-  die1 '账本行不合键序或形状（键序 date,kind,scope,decision,evidence_ref；五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to（枚举 新票/rules/sop/validator/test/none）、replan 必带 replan_original/replan_replacement/replan_undone（布尔）——票 81；紧凑或带空格 JSONL 均可；字符串值不得内嵌引号或反斜杠）'
+  # 账本行形状校验与落行统一由唯一写入方 ledger-append.sh 承载（票 228 F7：
+  # changes.jsonl 写入单点；此处写前预检经其 --check 零写入模式承载——校验先于票务面
+  # 任何写入的 fail-closed 时序保持；报文为 ledger-append 合同输出，逐条行型报因与
+  # 退出码同原内嵌链字面迁移）。写入方定位：同目录优先，PATH 回退；缺失即预检停止。
+  ledger_cmd=''
+  if [ -f "${script_dir}/ledger-append.sh" ] && [ -r "${script_dir}/ledger-append.sh" ]; then
+    ledger_cmd="${script_dir}/ledger-append.sh"
+    printf 'ticket-ops: 账本写入方定位: 同目录 %s\n' "${ledger_cmd}"
+  else
+    _rest=${PATH:-}
+    while [ -n "${_rest}" ]; do
+      _dir=${_rest%%:*}
+      case ${_rest} in
+        *:*) _rest=${_rest#*:} ;;
+        *) _rest='' ;;
+      esac
+      [ -n "${_dir}" ] || continue
+      if [ -f "${_dir}/ledger-append.sh" ] && [ -r "${_dir}/ledger-append.sh" ]; then
+        ledger_cmd="${_dir}/ledger-append.sh"
+        break
+      fi
+    done
+    if [ -n "${ledger_cmd}" ]; then
+      printf 'ticket-ops: 账本写入方定位: PATH %s\n' "${ledger_cmd}"
+    else
+      die1 "账本写入方 ledger-append.sh 不可用（同目录与 PATH 均未找到）——预检停止：changes.jsonl 唯一写入方＝本脚本同目录 ledger-append.sh（票 228 F7 单写方承载），将其落位后重跑"
+    fi
+  fi
+  sh "${ledger_cmd}" "${repo_root}" --check --ledger-line "${ledger_line}" || \
+    die1 "账本行校验未过（唯一写入方 ledger-append.sh --check fail-closed，详见上方 stderr）——未产生任何写入"
 fi
 
 case ${cmd} in
@@ -299,6 +292,7 @@ case ${cmd} in
       done
     fi
     [ -z "${status}" ] || die2 'open 不得携带 --status（开票状态固定 ready）'
+    [ -z "${updated_at}" ] || die2 'open 不得携带 --updated-at（开票 updated_at 由本件生成）'
     ;;
   take|flip)
     case ${status} in
@@ -312,6 +306,23 @@ case ${cmd} in
     [ -z "${complexity}" ] || die2 'take/flip 不得携带 --complexity'
     [ -z "${title}" ] || die2 'take/flip 不得携带 --title'
     [ -z "${blocked_by}" ] || die2 'take/flip 不得携带 --blocked-by'
+    [ -z "${updated_at}" ] || die2 'take/flip 不得携带 --updated-at（updated_at 由本件生成）'
+    ;;
+  flip-index)
+    [ -z "${ledger_line}" ] || die2 'flip-index 不得携带 --ledger-line（索引单写代理不落账本行——票 228 F1/F2）'
+    [ -z "${complexity}" ] || die2 'flip-index 不得携带 --complexity'
+    [ -z "${title}" ] || die2 'flip-index 不得携带 --title'
+    [ -z "${blocked_by}" ] || die2 'flip-index 不得携带 --blocked-by'
+    case ${status} in
+      '') die1 'flip-index 缺少 --status' ;;
+    esac
+    printf '%s' "${status}" | LC_ALL=C grep -Eq '^(ready|in_progress|blocked|review_ready|review_pass|review_fail|done|superseded)$' || \
+      die1 "flip-index 的 --status 不合状态机取值（裸值）: ${status}"
+    case ${updated_at} in
+      '') die1 'flip-index 缺少 --updated-at' ;;
+    esac
+    printf '%s' "${updated_at}" | LC_ALL=C grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?$' || \
+      die1 "updated_at 不合 ISO 8601 口径（YYYY-MM-DDTHH:MM[:SS]）: ${updated_at}"
     ;;
   ledger)
     [ -z "${id}" ] || die2 'ledger 不得携带 --id（无票账本行入口不依赖票 id，票 100）'
@@ -324,7 +335,6 @@ esac
 
 index_file="${repo_root}/${issues_index_rel}"
 readme_file="${repo_root}/${issues_readme_rel}"
-ledger_file="${repo_root}/${changes_ledger_rel}"
 # 本脚本所在目录（安装闭包回退定位基准；包基线布局＝agent-up/scripts/，安装布局＝
 # rules/implementation/scripts/——两者相对自身目录的 references/ 邻接路径同构）。
 _self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -344,6 +354,11 @@ schema_file="${schema_file_pkg}"
 # 票 100：flip 收口硬拦载体定位（actual_time 校验用）；ledger 无票面，不要求票本体。
 case ${cmd} in
   ledger) ;;
+  flip-index)
+    # 索引单写代理（票 228 F1/F2）：只触索引，不要求 README/票本体在位
+    [ -f "${index_file}" ] || die1 "索引文件不存在: ${index_file}（票状态真相源缺失，fail-closed）"
+    [ -r "${index_file}" ] || die1 "索引文件不可读: ${index_file}"
+    ;;
   *)
     [ -f "${index_file}" ] || die1 "索引文件不存在: ${index_file}（票状态真相源缺失，fail-closed）"
     [ -r "${index_file}" ] || die1 "索引文件不可读: ${index_file}"
@@ -592,7 +607,10 @@ elif [ "${cmd}" = 'ledger' ]; then
   : # 无票面：账本行形状校验已于公共段完成（票 100），无索引/README 预检
 else
   index_check flip || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
-  readme_token_check || die1 "issues-README 预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
+  # flip-index（票 228 F1/F2 索引单写代理）不触 README，不做 README 锚点预检
+  if [ "${cmd}" != 'flip-index' ]; then
+    readme_token_check || die1 "issues-README 预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
+  fi
   if [ "${cmd}" = 'take' ]; then
     blocked_by_check || die1 "blocked_by 领取预检未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（blocked_by 完整性门 fail-closed）"
   fi
@@ -658,8 +676,14 @@ if [ "${cmd}" = 'open' ]; then
   tmp_readme=''
   printf "ticket-ops: README 追加目录清单行: ${issues_readme_rel}（任务票 %s；\`ready\`）\n" "${nn}"
 elif [ "${cmd}" != 'ledger' ]; then
+  # take/flip/flip-index 共用索引单写（票 228 F1/F2：全仓 index.json 写入仅本件承载；
+  # flip-index 的 updated_at 用显式 --updated-at 值，take/flip 由本件生成 now_ua）
+  idx_ua=${now_ua}
+  if [ "${cmd}" = 'flip-index' ]; then
+    idx_ua=${updated_at}
+  fi
   tmp_idx=$(mktemp "${t_dir%/}/tix-idx.XXXXXX")
-  IDX_ID=${id} IDX_STATUS=${status} IDX_UA=${now_ua} awk '
+  IDX_ID=${id} IDX_STATUS=${status} IDX_UA=${idx_ua} awk '
     BEGIN {
       id = ENVIRON["IDX_ID"]; nstatus = ENVIRON["IDX_STATUS"]; nua = ENVIRON["IDX_UA"]
       anchor = "\"id\": \"" id "\""
@@ -697,8 +721,11 @@ elif [ "${cmd}" != 'ledger' ]; then
   }
   mv "${tmp_idx}" "${index_file}"
   tmp_idx=''
-  printf "ticket-ops: 索引单写: ${issues_index_rel}（%s → %s，updated_at %s）\n" "${id}" "${status}" "${now_ua}"
+  printf "ticket-ops: 索引单写: ${issues_index_rel}（%s → %s，updated_at %s）\n" "${id}" "${status}" "${idx_ua}"
 
+  # flip-index（票 228 F1/F2 索引单写代理）到此收口：不触 README 状态列（README 状态列
+  # 同步归各自治道承载，票 35/37 口径）
+  if [ "${cmd}" != 'flip-index' ]; then
   tmp_readme=$(mktemp "${t_dir%/}/tix-readme.XXXXXX")
   RD_ANCHOR="任务票 ${nn}；" RD_STATUS=${status} awk '
     BEGIN { anchor = ENVIRON["RD_ANCHOR"]; nstatus = ENVIRON["RD_STATUS"] }
@@ -734,25 +761,30 @@ elif [ "${cmd}" != 'ledger' ]; then
   mv "${tmp_readme}" "${readme_file}"
   tmp_readme=''
   printf "ticket-ops: README 状态列替换: ${issues_readme_rel}（任务票 %s → \`%s\`，行内其余文本不动）\n" "${nn}" "${status}"
+  fi
 fi
 
-if [ ! -f "${ledger_file}" ]; then
-  mkdir -p "${repo_root}/$(dirname "${changes_ledger_rel}")"
-  : > "${ledger_file}" || die1 "账本懒创建失败: ${ledger_file}——已写部分如实报告"
+# ---- 账本落行（票 228 F7：changes.jsonl 唯一写入方＝同目录 ledger-append.sh）----
+# 懒创建、可写性与追加均由写入方承载，本件零直接账本写面；行形校验已于公共段经其
+# --check 零写入模式预检（fail-closed 时序：校验先于票务面任何写入）。flip-index 不落
+# 账本行（索引单写代理，票 228 F1/F2）。
+if [ "${cmd}" != 'flip-index' ]; then
+  sh "${ledger_cmd}" "${repo_root}" --ledger-line "${ledger_line}" || \
+    die1 "账本落行未过（唯一写入方 ledger-append.sh fail-closed，详见上方输出）——已写部分如实报告"
 fi
-[ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}——已写部分如实报告"
-ledger_lineno=$(( $(wc -l < "${ledger_file}" | tr -d ' ') + 1 ))
-printf '%s\n' "${ledger_line}" >> "${ledger_file}" || die1 "账本落行失败: ${ledger_file}——已写部分如实报告"
-printf "ticket-ops: 账本落行: ${changes_ledger_rel}（第 %d 行）\n" "${ledger_lineno}"
 
 if [ "${cmd}" = 'ledger' ]; then
-  : # 无票面写入收口（票 100）：不触索引/README/投影，仅账本落行
-  printf 'ticket-ops: PASS（ledger 完成：账本落行 %d 行，无票面写入——票 100 无票账本行入口）\n' "${ledger_lineno}"
+  : # 无票面写入收口（票 100）：不触索引/README/投影，仅账本落行（经唯一写入方承载）
+  printf 'ticket-ops: PASS（ledger 完成：账本落行经 ledger-append.sh 承载，无票面写入——票 100 无票账本行入口）\n'
   exit 0
 fi
 
-sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入、投影未刷新；按生成器报因处理后核对重跑"
-sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引与 README 与账本（${ledger_lineno} 行）均已写入；投影与索引不一致，核对后重跑"
+sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本均已写入、投影未刷新；按生成器报因处理后核对重跑"
+sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引与 README 与账本均已写入；投影与索引不一致，核对后重跑"
 printf 'ticket-ops: 投影已再生并核对: %s\n' "$progress_current_rel"
 
-printf 'ticket-ops: PASS（%s 完成：索引、issues-README、账本、投影 --check 全部落地）\n' "${cmd}"
+if [ "${cmd}" = 'flip-index' ]; then
+  printf 'ticket-ops: PASS（flip-index 完成：索引单写＋投影 --check 落地；不触 README/账本/票本体——票 228 F1/F2 索引单写代理）\n'
+else
+  printf 'ticket-ops: PASS（%s 完成：索引、issues-README、账本、投影 --check 全部落地）\n' "${cmd}"
+fi

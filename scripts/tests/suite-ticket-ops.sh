@@ -73,7 +73,7 @@ tix_build_fixture() {
   F=$1
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project" "$F/agent-up/scripts"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/rules/implementation/scripts/"
   cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/agent-up/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
@@ -722,7 +722,7 @@ EOF
   # 缺省根＝脚本所在目录上三级，即仓根——账本落 facts/project/changes.jsonl，
   # 按引擎缺省根推导现值重述，票 158 修复）同款工作
   mkdir -p "$D/fix-l/rules/implementation/scripts" "$D/fix-l/facts/project"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/fix-l/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/fix-l/rules/implementation/scripts/"
   : > "$D/fix-l/facts/project/changes.jsonl"
   ( cd "$D/fix-l" && sh rules/implementation/scripts/ticket-ops.sh ledger --ledger-line "$LED_LEDGER_OK" ) >"$D/lg3.log" 2>&1
   rc=$?
@@ -1299,6 +1299,80 @@ EOF
     ok '正例 P-199g request 票 flip 至非 done 无 actual_time → exit 0 且索引单写（request 豁免维持）'
   else
     bad '正例 P-199g request 票 flip 至非 done 无 actual_time → exit 0 且索引单写（request 豁免维持）' "exit=$rc $(head -n 2 "$D/g199g.log" | tr '\n' '|')"
+  fi
+
+  # ---- 票 228 F1/F2：flip-index 索引单写代理（唯一写入方收敛面）----
+  # 正例：显式 --updated-at 落索引且投影再生（README/账本/票本体零接触——cksum 前后
+  # 全等＋账本行数不变）；负例：缺 --status／--updated-at、status 越状态机、updated_at
+  # 非 ISO、携带 --ledger-line、锚点零命中——均 fail-closed 零写入。
+  tix_build_fixture "$D/fix228"
+  F228="$D/fix228"
+  cp "$F228/facts/requirements/tickets/README.md" "$D/fi228.readme.before"
+  cp "$F228/facts/project/changes.jsonl" "$D/fi228.ledger.before"
+  sh "$F228/rules/implementation/scripts/ticket-ops.sh" "$F228" flip-index --id 20-beta-second --status review_pass --updated-at '2026-10-26T08:30' >"$D/fi228.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '"id": "20-beta-second", "status": "review_pass", "complexity": "C2", "blocked_by": \[\], "updated_at": "2026-10-26T08:30"' "$F228/facts/requirements/tickets/index.json" \
+    && grep -q '| 20-beta-second | review_pass |  | 2026-10-26T08:30 |' "$F228/facts/requirements/tickets/progress-current.md" \
+    && cmp -s "$D/fi228.readme.before" "$F228/facts/requirements/tickets/README.md" \
+    && cmp -s "$D/fi228.ledger.before" "$F228/facts/project/changes.jsonl" \
+    && grep -q '不触 README/账本/票本体' "$D/fi228.log"; then
+    ok '正例 P-228a flip-index 显式 status/updated_at → exit 0 索引单写＋投影再生且 README/账本逐字节零变化（票 228 F1/F2）'
+  else
+    bad '正例 P-228a flip-index 显式 status/updated_at → exit 0 索引单写＋投影再生且 README/账本逐字节零变化（票 228 F1/F2）' "exit=$rc $(tail -n 2 "$D/fi228.log" | tr '\n' '|')"
+  fi
+  # 索引其余字段（complexity/blocked_by）与另一条目零变化已由上断言整行 grep 覆盖；
+  # 此处补第二锚点行保真（10-alpha-first 行逐字节不动）。
+  if grep -q '"id": "10-alpha-first", "status": "done", "complexity": "C1", "blocked_by": \[\], "updated_at": "2026-09-19T10:00"' "$F228/facts/requirements/tickets/index.json"; then
+    ok '正例 P-228b flip-index 单写后其余条目行逐字节保留（一条目一行单点替换）'
+  else
+    bad '正例 P-228b flip-index 单写后其余条目行逐字节保留（一条目一行单点替换）' '10-alpha-first 行漂移'
+  fi
+
+  tix_build_fixture "$D/fix228n"
+  FN228="$D/fix228n"
+  SN228=$(tix_state "$FN228")
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second >"$D/fi228n1.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '缺少 --status' "$D/fi228n1.log"; then
+    ok '负例 N-228a flip-index 缺 --status → exit 1 零写入（fail-closed）'
+  else
+    bad '负例 N-228a flip-index 缺 --status → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n1.log" | tr '\n' '|')"
+  fi
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status review_pass >"$D/fi228n2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '缺少 --updated-at' "$D/fi228n2.log"; then
+    ok '负例 N-228b flip-index 缺 --updated-at → exit 1 零写入（fail-closed）'
+  else
+    bad '负例 N-228b flip-index 缺 --updated-at → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n2.log" | tr '\n' '|')"
+  fi
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status shipped --updated-at '2026-10-26T08:30' >"$D/fi228n3.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '不合状态机取值' "$D/fi228n3.log"; then
+    ok '负例 N-228c flip-index status 越状态机 → exit 1 零写入（fail-closed）'
+  else
+    bad '负例 N-228c flip-index status 越状态机 → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n3.log" | tr '\n' '|')"
+  fi
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status done --updated-at '2026-10-26 08:30' >"$D/fi228n4.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '不合 ISO 8601 口径' "$D/fi228n4.log"; then
+    ok '负例 N-228d flip-index updated_at 非 ISO 8601 → exit 1 零写入（fail-closed）'
+  else
+    bad '负例 N-228d flip-index updated_at 非 ISO 8601 → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n4.log" | tr '\n' '|')"
+  fi
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status done --updated-at '2026-10-26T08:30' --ledger-line '{"date": "2026-10-26", "kind": "scope", "scope": "s", "decision": "d", "evidence_ref": "e"}' >"$D/fi228n5.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '不得携带 --ledger-line' "$D/fi228n5.log"; then
+    ok '负例 N-228e flip-index 携带 --ledger-line → exit 2 零写入（索引单写代理不落账本行，票 228 F1/F2）'
+  else
+    bad '负例 N-228e flip-index 携带 --ledger-line → exit 2 零写入（索引单写代理不落账本行，票 228 F1/F2）' "exit=$rc $(head -n 2 "$D/fi228n5.log" | tr '\n' '|')"
+  fi
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 99-ghost-none --status done --updated-at '2026-10-26T08:30' >"$D/fi228n6.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '锚点命中 0 行' "$D/fi228n6.log"; then
+    ok '负例 N-228f flip-index 锚点零命中 → exit 1 零写入（fail-closed）'
+  else
+    bad '负例 N-228f flip-index 锚点零命中 → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n6.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'

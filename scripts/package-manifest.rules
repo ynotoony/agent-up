@@ -156,7 +156,8 @@ pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_l
 pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
-pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip）'
+pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理）'
+pm_script scripts/ledger-append.sh script 'changes.jsonl 唯一写入方（账本行行族形状校验＋唯一 JSON 引擎解析门＋追加单点；ticket-ops 账本落行与写前预检经其承载）'
 pm_script scripts/run-record.sh script 'run record 生成器（new/seal/stats；本仓交付后存量清算入包采纳）'
 pm_script scripts/ticket-grade.sh script '票定级建议器（建议不裁决；本仓交付后存量清算入包采纳）'
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
@@ -168,7 +169,7 @@ pm_script scripts/upgrade-check.sh script '落地面升级对账器（已治理�
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
-pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋20 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
+pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋21 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
 pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAML workflow 定义驱动的流程执行器：条件跳过、工具调用、checkpoint 落盘、中断续传）'
@@ -265,6 +266,9 @@ pm_mirror worktree-add.sh mirror
 # die 兜底清零后仓侧脚本同目录加载 common-helpers.sh 为硬依赖：仓侧 rules/implementation/scripts/
 # 补落镜像件并册 mirror（byte 纪律同族；消费项目仓根无镜像落位目录时整项静默跳过）。
 pm_mirror common-helpers.sh mirror
+# 账本写入单点化：changes.jsonl 唯一写入方 ledger-append.sh 新册 mirror（byte 纪律同族；
+# ticket-ops 账本落行与写前预检经其承载，三落位同步——包内／仓侧镜像／安装闭包）。
+pm_mirror ledger-append.sh mirror
 # 解析器单源化收敛：仓侧三份内嵌解析副本收编为同目录加载 dp-load-rules.sh（仓侧落位
 # 与包侧 cmp 零差），两消费件复册 mirror、共享解析库新册 mirror；check-payload-boundary.sh
 # 为镜像预册——仓侧同名件在场、包侧同名件落位前由检查 13 包侧缺件分支跳过不计数

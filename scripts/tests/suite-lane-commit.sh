@@ -16,7 +16,10 @@ fi
 # md（创建＋已存在追加两形态）、正文 Status 回写跳过、JSON 票体零追加、flips id 不符
 # fail-closed；票 144 增补：写入面路径边界——whitelist/flips/ticket 的 ..、绝对路径、
 # symlink 指向仓外（realpath containment）、仓内 symlink 自身四类负例写入前 exit 1，
-# 仓外哨兵与仓库工作树指纹负例前后全等（AC3），symlink 在场语境合法相对路径全链零回归）
+# 仓外哨兵与仓库工作树指纹负例前后全等（AC3），symlink 在场语境合法相对路径全链零回归；
+# 票 228 增补：索引翻转改调同目录 ticket-ops.sh flip-index 代理（写入方收敛）——P-json
+# 全链断言护航代理路径（索引单写＋投影再生经 ticket-ops 承载），代理不在场收尾预检
+# 停止零提交零写入负例）
 # ============================================================
 
 lc_git_commit() {
@@ -32,7 +35,7 @@ lc_build_fixture() {
   R=$1
   rm -rf "$R"
   mkdir -p "$R/rules/implementation/scripts" "$R/facts/project"
-  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$R/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$R/rules/implementation/scripts/"
   printf '{"date": "2026-09-28", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' > "$R/facts/project/micro.jsonl"
   printf 'seed\n' > "$R/a.txt"
   git -C "$R" init -q
@@ -632,10 +635,12 @@ PYTHON
     && grep -q '"id": "33-lc-ticket", "status": "done"' "$D/pj/facts/requirements/tickets/index.json" \
     && grep -q '任务票 33；`done`' "$D/pj/facts/requirements/tickets/README.md" \
     && grep -q '| 33-lc-ticket | done |' "$D/pj/facts/requirements/tickets/progress-current.md" \
+    && grep -q '索引翻转已代理' "$D/pj.out" \
+    && grep -q 'ticket-ops: PASS（flip-index 完成' "$D/pj.out" \
     && grep -q '跳过正文 Status 回写' "$D/pj.out"; then
-    ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转＋README 替换＋投影落行＋回写跳过说明行（票 108）'
+    ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋README 替换＋投影落行＋回写跳过说明行（票 108）'
   else
-    bad '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转＋README 替换＋投影落行＋回写跳过说明行（票 108）' "exit=$rc $(tail -n 3 "$D/pj.out" | tr '\n' '|')"
+    bad '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋README 替换＋投影落行＋回写跳过说明行（票 108）' "exit=$rc $(tail -n 3 "$D/pj.out" | tr '\n' '|')"
   fi
 
   if grep -q '^# 票 33-lc-ticket User Review Checkpoint（用户即 Review 道）$' "$D/pj/facts/requirements/tickets/33-lc-ticket-review-checkpoint.md" \
@@ -706,6 +711,41 @@ PYTHON
     ok '负例 N-json flips id 与 .json 票文件不符 → exit 1 零提交零写入且票体零追加（票 108 fail-closed）'
   else
     bad '负例 N-json flips id 与 .json 票文件不符 → exit 1 零提交零写入且票体零追加（票 108 fail-closed）' "exit=$rc $(tail -n 2 "$D/nj.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 228 断言：索引翻转代理定位 fail-closed（写入方收敛面）----
+  # ticket-ops.sh 不在场（同目录与 PATH 均无）→ 代理定位预检停止：产品提交零创建，
+  # 索引零写入（index.json 唯一写入方缺失即不收口——票 228 F1/F2）。
+  lc_build_fixture "$D/n228"
+  lc_json_docs "$D/n228"
+  # 代理缺席语境：lane-commit 以运行副本承载（同目录定位基准＝副本所在目录）——落位
+  # 夹具私有 bin（lane-commit＋依赖件，唯缺 ticket-ops.sh；PATH 亦无同名件），使代理
+  # 定位同目录与 PATH 双缺，收尾预检必须 fail-closed 停止。
+  mkdir -p "$D/n228-bin"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/n228-bin/"
+  lc_git_commit "$D/n228"
+  printf 'change-n228\n' > "$D/n228/a.txt"
+  n228_n0=$(git -C "$D/n228" rev-list --count HEAD)
+  n228_idx0=$(cksum "$D/n228/facts/requirements/tickets/index.json")
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: facts/requirements/tickets/33-lc-ticket.json\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: fixture proxy missing\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK\n'
+    printf 'verdict_at: 2026-10-26T08:30\n'
+    printf 'flips: facts/requirements/tickets/index.json:index:33-lc-ticket:done:2026-10-26T08:30\n'
+  } > "$D/n228.contract"
+  sh "$D/n228-bin/lane-commit.sh" "$D/n228" "$D/n228.contract" >"$D/n228.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '票务代理 ticket-ops.sh 不可用' "$D/n228.out" \
+    && [ "$(git -C "$D/n228" rev-list --count HEAD)" -eq "$n228_n0" ] \
+    && [ "$(cksum "$D/n228/facts/requirements/tickets/index.json")" = "$n228_idx0" ]; then
+    ok '负例 N-228 票务代理 ticket-ops.sh 不在场 → exit 1 收尾预检停止零提交零写入（票 228 F1/F2 唯一写入方 fail-closed）'
+  else
+    bad '负例 N-228 票务代理 ticket-ops.sh 不在场 → exit 1 收尾预检停止零提交零写入（票 228 F1/F2 唯一写入方 fail-closed）' "exit=$rc $(tail -n 2 "$D/n228.out" | tr '\n' '|')"
   fi
 
   # ---- 票 193 断言：微账本行合同（references/schemas/ledger-row.schema.json 单源）----

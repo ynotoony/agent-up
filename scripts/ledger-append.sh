@@ -1,0 +1,177 @@
+#!/bin/sh
+# Input: 仓库根目录（缺省经 resolve_repo_root 落位分派推导）与选项：--ledger-line <json>
+#        （必选，完整 JSONL 账本行）、--check（只校验零写入，写前预检模式）。
+# Output: facts/project/changes.jsonl 追加一行（键序 date,kind,scope,decision,evidence_ref
+#         五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to、replan 必带
+#         replan_original/replan_replacement/replan_undone；lesson 可选三分数键——带分数
+#         则恰九键，键序固定）。本文件为该账本唯一写入方（写入方收敛票 228 F7：ticket-ops
+#         open/take/flip/ledger 的账本落行与写前预检改经本件承载，本仓其余脚本零
+#         changes.jsonl 写入面）；--check 模式只做形状校验零写入（ticket-ops 校验先于
+#         票务面写入的 fail-closed 时序经此保持）。facts/project/micro.jsonl 微账本不属
+#         本件写入面（micro 道行族自有承载，行型合同同 schema 的 micro_* 行族）。
+# Pos: 记录层账本单写方脚本（changes.jsonl）。行型合同＝agent-up 公开包
+#      references/schemas/ledger-row.schema.json 的 changes_* 行族（文档级单源，不运行时
+#      读取，安装闭包不含此件）；行族形状校验链（键集/键序/条件键/值域，逐条报文与
+#      退出码保持 ticket-ops 套件既有断言字面）＋唯一 JSON 引擎 json-validator.py
+#      json fields 解析门（JSON 可解析性由唯一引擎承载——票 227 口径；缺 python3 或
+#      引擎即 fail-closed 指名，零写入）。懒创建仅限账本文件本体（父目录随 mkdir -p）；
+#      校验先于写入，零外部依赖（JSON 解析门另用 python3 标准库与引擎件）。
+
+# 用法、行型合同与退出码见同目录 README.md。
+# ledger-rowtype-version: 3（五键/lesson 六键九键/replan 八键；机制版本注记，票 133 行型）
+
+changes_ledger_rel='facts/project/changes.jsonl'
+
+set -eu
+set -f  # 关闭文件名展开：脚本不依赖 glob
+
+# Source common helper functions（票 227 F5 口径：统一 source common-helpers.sh）
+_helper_script=$(dirname "$0")/common-helpers.sh
+if [ -f "$_helper_script" ]; then
+  # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
+  . "$_helper_script"
+else
+  printf 'ledger-append: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
+fi
+
+NL='
+'
+TAB=$(printf '\t')
+
+usage() {
+  cat <<'USAGE'
+用法: sh rules/implementation/scripts/ledger-append.sh [repo-root] --ledger-line <json> [--check]
+参数:
+  repo-root      仓库根目录；缺省按脚本落位分派推导（agent-up/scripts/ 与
+                 rules/implementation/scripts/ 两布局可正确推导，其余落位兜底上两级）。
+  --ledger-line <json>  完整 JSONL 账本行（键序 date,kind,scope,decision,evidence_ref 五键
+                 必备＋按 kind 条件键：lesson 必带第六键 promoted_to（枚举
+                 新票/rules/sop/validator/test/none，可选三分数键——带分数则恰九键）、
+                 replan 必带 replan_original/replan_replacement/replan_undone（布尔）；
+                 行型键集/键序/值域适用表单一合同＝agent-up 公开包 references/schemas/
+                 ledger-row.schema.json；紧凑或带空格 JSONL 均可；脚本只校验后追加，
+                 不代生成散文；字符串值不得内嵌引号或反斜杠）。
+  --check        只校验零写入：行族形状校验＋JSON 解析门全过即 exit 0，不触账本文件
+                 （ticket-ops 写前预检经此模式承载，fail-closed 时序保持）。
+  -h / --help    打印本用法。
+退出码: 0 校验通过（--check）或落行完成；1 fail-closed（行形/解析/写入不过，零写入或
+        已写部分如实报告）；2 用法或环境错误。
+USAGE
+}
+
+repo_root=''
+ledger_line=''
+check_mode=0
+while [ $# -gt 0 ]; do
+  case $1 in
+    -h|--help) usage; exit 0 ;;
+    --ledger-line) [ $# -ge 2 ] || die2 '--ledger-line 缺值'; ledger_line=$2; shift 2 ;;
+    --check) check_mode=1; shift ;;
+    --*) die2 "未知参数: $1" ;;
+    *) if [ -n "${repo_root}" ]; then die2 "多余参数: $1（只接受一个仓库根）"; fi; repo_root=$1; shift ;;
+  esac
+done
+
+# 仓库根推导统一经 resolve_repo_root（票 227 F4 口径：显式参数 > 落位分派两布局）
+if [ -n "${repo_root}" ]; then
+  _rr=$(resolve_repo_root "${repo_root}") || _rr=''
+else
+  _rr=$(resolve_repo_root) || _rr=''
+fi
+[ -n "$_rr" ] || die2 "仓库根不可用: ${repo_root:-（未传参且脚本落位非两布局，无法缺省推导）}"
+repo_root=$_rr
+[ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
+
+_self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+case ${ledger_line} in
+  '') die1 '缺少 --ledger-line' ;;
+esac
+case ${ledger_line} in
+  *"${NL}"*|*"${TAB}"*) die1 '账本行含裸换行或制表符（一行一事实，禁裸换行）' ;;
+esac
+# 行族形状校验（行型合同 references/schemas/ledger-row.schema.json 键集对齐；仅向前生效）：
+# 五键必备＋按 kind 条件键＋promoted_to 枚举。非 lesson/replan 维持恰五键收口（既有合法面
+# 不放宽不收窄）；lesson 六键（既有）或九键（可选追加三分数键 score_contract/score_predicate/
+# score_rework：0-100 整数或 -1=N/A，键序固定，票 133）——第六键 promoted_to 枚举＝
+# 新票/rules/sop/validator/test/none（填 none 亦算显式拍板，防教训悬空；越枚举不静默收编）；
+# replan 恰八键——三条件键须为布尔字面量 true/false。条件键一律紧跟 evidence_ref 之后按
+# 固定次序排布（键序稳定，键序破坏形态同拒）。
+if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"(新票|rules|sop|validator|test|none)"\}$'; then
+  :
+elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"(新票|rules|sop|validator|test|none)", ?"score_contract": ?([0-9]|[1-9][0-9]|100|-1), ?"score_predicate": ?([0-9]|[1-9][0-9]|100|-1), ?"score_rework": ?([0-9]|[1-9][0-9]|100|-1)\}$'; then
+  :
+elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?(true|false), ?"replan_replacement": ?(true|false), ?"replan_undone": ?(true|false)\}$'; then
+  :
+elif printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"[^"\\]*", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*"\}$'; then
+  # 恰五键行：kind=lesson/replan 即缺条件键，指名报因；其余 kind 维持既有合法面
+  ledger_kind=$(printf '%s' "${ledger_line}" | sed -n 's/^{"date": \{0,1\}"[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}", \{0,1\}"kind": \{0,1\}"\([^"\\]*\)".*/\1/p')
+  case ${ledger_kind} in
+    lesson) die1 'lesson 行缺第六键 promoted_to（枚举 新票/rules/sop/validator/test/none，填 none 亦算显式拍板——票 81）' ;;
+    replan) die1 'replan 行缺条件键 replan_original/replan_replacement/replan_undone（布尔 true/false——票 81）' ;;
+  esac
+else
+  # 形状不符：可定位行型条件键形态的指名报因，否则通用报因（fail-closed 口径不放宽）
+  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"[^"\\]*", ?"score_[a-z_]+": ?[^}]*\}$'; then
+    die1 'lesson 行分数键须为 score_contract→score_predicate→score_rework 固定键序三键齐、值域 0-100 整数或 -1（N/A），带分数则恰九键（票 133）'
+  fi
+  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"lesson", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"promoted_to": ?"[^"\\]*"\}$'; then
+    promoted_to_val=$(printf '%s' "${ledger_line}" | sed -n 's/.*"promoted_to": \{0,1\}"\([^"\\]*\)".*/\1/p')
+    die1 "lesson 行 promoted_to 越枚举（枚举＝新票/rules/sop/validator/test/none，不静默收编——票 81）: ${promoted_to_val}"
+  fi
+  if printf '%s' "${ledger_line}" | LC_ALL=C grep -Eq '^\{"date": ?"[0-9]{4}-[0-9]{2}-[0-9]{2}", ?"kind": ?"replan", ?"scope": ?"[^"\\]*", ?"decision": ?"[^"\\]*", ?"evidence_ref": ?"[^"\\]*", ?"replan_original": ?[^,]*, ?"replan_replacement": ?[^,]*, ?"replan_undone": ?[^}]*\}$'; then
+    die1 'replan 行条件键须为布尔字面量 true/false 且按 replan_original→replan_replacement→replan_undone 固定键序（票 81）'
+  fi
+  # 未知键指名（行型合同 references/schemas/ledger-row.schema.json 键集对齐，不静默收编）：
+  # 键名提取＝先剥字符串值再按键引号边界切分（合法行字符串值域不含双引号；畸形行尽力
+  # 而为，提取不出未知键即落下方通用报因，fail-closed 结论不变）。行型选择由前序正则
+  # 承载，此处只对键名归集：基础五键＋lesson 六/九键与 replan 八键条件键全集。
+  ledger_unknown_keys=''
+  case ${ledger_line} in
+    '{'*'}')
+      ledger_unknown_keys=$(printf '%s' "${ledger_line}" \
+        | sed -e 's/: *"[^"]*"/:/g' \
+        | sed -e 's/, \{0,1\}"/\
+/g' \
+        | sed -e 's/^{"//' -e 's/".*//' \
+        | LC_ALL=C grep -Ev '^(date|kind|scope|decision|evidence_ref|promoted_to|score_contract|score_predicate|score_rework|replan_original|replan_replacement|replan_undone)?$' \
+        | paste -sd, -)
+      ;;
+  esac
+  case ${ledger_unknown_keys} in
+    '') ;;
+    *) die1 "账本行含未知键（不在行型键集内——基础五键 date,kind,scope,decision,evidence_ref＋kind 条件键，行型合同 references/schemas/ledger-row.schema.json）: ${ledger_unknown_keys}" ;;
+  esac
+  die1 '账本行不合键序或形状（键序 date,kind,scope,decision,evidence_ref；五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to（枚举 新票/rules/sop/validator/test/none）、replan 必带 replan_original/replan_replacement/replan_undone（布尔）——票 81；紧凑或带空格 JSONL 均可；字符串值不得内嵌引号或反斜杠）'
+fi
+
+# JSON 解析门（唯一 JSON 引擎承载——票 227 口径；行族链在前的合法面恒过本门，行族链
+# 外的残缺 JSON 形态由此 fail-closed 收口）：双布局定位（包基线优先，缺失回退本脚本
+# 同目录），缺 python3 或引擎即 fail-closed 指名，零写入。
+_engine="${repo_root}/agent-up/scripts/json-validator.py"
+[ -f "${_engine}" ] || _engine="${_self_dir}/json-validator.py"
+[ -f "${_engine}" ] || \
+  die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
+command -v python3 >/dev/null 2>&1 || \
+  die1 'python3 不可用——账本行 JSON 解析门无法执行（fail-closed；JSON 可解析性由唯一 JSON 引擎承载）'
+_ledger_fields=$(printf '%s' "${ledger_line}" | python3 "${_engine}" json fields - date kind scope decision evidence_ref) || \
+  die1 '账本行 JSON 解析未过（唯一 JSON 引擎 json-validator.py json fields）——零写入'
+_ledger_ncol=$(printf '%s' "${_ledger_fields}" | awk -F'\t' '{ print NF; exit }')
+[ "${_ledger_ncol}" = '5' ] || \
+  die1 '账本行 JSON 解析未过（五必备键 date,kind,scope,decision,evidence_ref 取值不全）——零写入'
+
+if [ "${check_mode}" -eq 1 ]; then
+  printf 'ledger-append: CHECK: PASS — 账本行形状与 JSON 解析校验通过（零写入）\n'
+  exit 0
+fi
+
+ledger_file="${repo_root}/${changes_ledger_rel}"
+if [ ! -f "${ledger_file}" ]; then
+  mkdir -p "${repo_root}/$(dirname "${changes_ledger_rel}")"
+  : > "${ledger_file}" || die1 "账本懒创建失败: ${ledger_file}"
+fi
+[ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}"
+ledger_lineno=$(( $(wc -l < "${ledger_file}" | tr -d ' ') + 1 ))
+printf '%s\n' "${ledger_line}" >> "${ledger_file}" || die1 "账本落行失败: ${ledger_file}"
+printf "ledger-append: 账本落行: ${changes_ledger_rel}（第 %d 行）\n" "${ledger_lineno}"

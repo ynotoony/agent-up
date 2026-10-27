@@ -35,11 +35,13 @@ ip_gate ticket-ops --ticket-ops '目标项目采用任务票体系时复制票�
 # ---- 每文件×每门控：复制基线路径、登记 lifecycle、所属门控、角色说明 ----
 
 ip_file agent-up/scripts/check-gates.sh Conditional fast-lane '道脚本：快道只读门禁核对器'
-ip_file agent-up/scripts/lane-commit.sh Conditional fast-lane '道脚本：快道合同驱动收尾（单写索引＋投影再生＋两段式提交）'
+ip_file agent-up/scripts/lane-commit.sh Conditional fast-lane '道脚本：快道合同驱动收尾（索引翻转经 ticket-ops flip-index 代理＋两段式提交）'
 ip_file agent-up/scripts/worktree-add.sh Conditional fast-lane 'worktree 栅栏化创建单命令（R-DP-036 创建面栅栏；无栅栏配置的仓不强制使用）'
 ip_file agent-up/scripts/upgrade-check.sh Conditional fast-lane '落地面升级对账器（已治理仓对包新基线逐件三态 cmp，全程只读；升级流程入口 references/upgrade.md）'
-ip_file agent-up/scripts/generate-progress.sh Conditional fast-lane '现役状态投影生成器（快道收尾由道脚本收尾件调用）'
-ip_file agent-up/scripts/ticket-ops.sh Conditional ticket-ops '票务运维单入口（open/take/flip，记录层标配）'
+ip_file agent-up/scripts/generate-progress.sh Conditional fast-lane '现役状态投影生成器（收尾链由 ticket-ops 独占调用，快道随 lane-commit 翻转代理链一并依赖）'
+ip_file agent-up/scripts/ticket-ops.sh Conditional fast-lane '回退依赖：lane-commit 索引翻转代理 flip-index 运行依赖同目录 ticket-ops（index.json 唯一写入方，目标项目未落位时一并复制）'
+ip_file agent-up/scripts/ticket-ops.sh Conditional ticket-ops '票务运维单入口（open/take/flip/flip-index/ledger，index.json 唯一写入方，记录层标配）'
+ip_file agent-up/scripts/ledger-append.sh Conditional ticket-ops 'changes.jsonl 唯一写入方：ticket-ops 账本落行与写前预检运行依赖（同目录定位，安装闭包）'
 ip_file agent-up/scripts/run-record.sh Conditional ticket-ops 'run record 生成器（new/seal/stats，记录层标配；本仓交付后存量清算入包采纳）'
 ip_file agent-up/scripts/ticket-grade.sh Conditional ticket-ops '票定级建议器（建议不裁决，记录层标配；本仓交付后存量清算入包采纳）'
 ip_file agent-up/scripts/absorption-trigger.sh Conditional ticket-ops '吸收触发器（R-DP-041 吸收面：分数聚合出固化/禁区候选提示，提示不裁决；行型地基＝教训账本分数键）'

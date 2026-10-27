@@ -8,14 +8,16 @@
 #         whitelist,gates,verify,commit,actual 六键＋actual 键（票 100：记净工时，缺省空串
 #         既有六键行向后兼容；行型合同＝agent-up 公开包 references/schemas/ledger-row.schema.json，
 #         本脚本 micro 道落行形态与其 micro_seven_key/micro_six_key_legacy 行族逐字对齐，
-#         文档级单源，不运行时读取，安装闭包不含此件））、索引单写与状态投影
-#         （flips 索引条目口径：单写 facts/requirements/tickets/index.json → 机械回写受影响票正文
-#         **Status:** 行（.json 票体无 Status 行，跳过回写）→ 调 generate-progress.sh 再生
-#         facts/requirements/tickets/progress-current.md 投影并 --check 核对）与两段提交的逐步输出，两段提交 ID、
+#         文档级单源，不运行时读取，安装闭包不含此件））、索引翻转与状态投影
+#         （flips 索引条目口径，票 228 F1/F2 写入方收敛：经同目录 ticket-ops.sh flip-index
+#         子命令代理——索引单写→投影再生→--check 收尾链全仓仅 ticket-ops 一处承载，
+#         本件零直接 index.json 写入面与零直接生成器调用）→ 机械回写受影响票正文
+#         **Status:** 行（.json 票体无 Status 行，跳过回写）；两段提交的逐步输出，两段提交 ID、
 #         各自文件清单与翻转清单分列回报。
 # Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26；票 37 行为基线改造）；行为基线 =
-#      development-process 模板 §12.5 道脚本承载注记（单写索引 → 生成正文 Status 行 →
-#      生成投影，票 34 定稿）与 R-RC-003（先产品提交后纯记录提交）；POSIX sh、零外部依赖、
+#      development-process 模板 §12.5 道脚本承载注记（索引单写经 ticket-ops flip-index
+#      代理 → 生成正文 Status 行 → 生成投影——票 34 定稿、票 228 写入方收敛后索引写入
+#      与投影再生单点在 ticket-ops）与 R-RC-003（先产品提交后纯记录提交）；POSIX sh、零外部依赖、
 #      fail-closed（门禁不过、合同格式不合预期、索引/生成器缺失即停止报告，不写不补；
 #      预检先于产品提交，停止时零提交零写入）。脚本权限边界 = 提交合同白名单，不执行
 #      白名单外任何写入；facts/requirements/tickets/README.md 与 facts/project/archive/progress.md
@@ -89,12 +91,13 @@ usage() {
                                                        裸值；updated_at 允许冒号，取行尾余段）
                  # 注释（行首 #）与空行忽略；其余行判合同格式错误（exit 1）。
                  行翻转语义: 锚点为字面子串，须恰命中一行，整行换成 value。
-                 索引条目翻转语义（单写机制，票 37）: 单写 facts/requirements/tickets/index.json（"id" 锚点
-                 整行替换，仅改 status/updated_at 两值，其余字段原样保留；依赖一条目一行
-                 排版）→ 机械回写 ticket 票正文 **Status:** 行（.json 票体无 Status 行，
-                 跳过回写，票 108；投影打印件 `value`）→ 调
-                 generate-progress.sh 再生 facts/requirements/tickets/progress-current.md 并 --check 核对（生成器
-                 同目录优先、PATH 回退；索引或生成器缺失＝预检停止，fail-closed）。
+                 索引条目翻转语义（单写机制，票 37；票 228 起经 ticket-ops 代理）: 调同目录
+                 ticket-ops.sh flip-index 承载索引单写（"id" 锚点整行替换，仅改
+                 status/updated_at 两值，其余字段原样保留；依赖一条目一行排版）→ 投影再生
+                 （generate-progress.sh）并 --check 核对（收尾链全仓仅 ticket-ops 一处，票 228
+                 F1/F2 写入方收敛；ticket-ops 同目录优先、PATH 回退，缺失＝预检停止
+                 fail-closed）→ 机械回写 ticket 票正文 **Status:** 行（.json 票体无 Status 行，
+                 跳过回写，票 108；投影打印件 `value`）。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 门禁不过或合同 fail-closed 条件（停止时未产生任何写入或提交）；
         2 用法或环境错误。
@@ -157,16 +160,15 @@ lc_in_repo() {
 
 tmp_gate=''
 tmp_flip=''
-tmp_idx=''
 # 用途: EXIT/HUP/INT/TERM 陷阱体，清理本脚本创建的临时文件，避免异常退出留残。
-# 参数: 无（读取全局 tmp_gate / tmp_flip / tmp_idx）。
-# 副作用: 删除临时文件（rm -f 幂等，缺文件不报错）。注：tmp_flip、tmp_idx 分支先清空
+# 参数: 无（读取全局 tmp_gate / tmp_flip）。
+# 副作用: 删除临时文件（rm -f 幂等，缺文件不报错）。注：tmp_flip 分支先清空
 #         变量再调 rm，实际只删得掉 tmp_gate；这是既有实现形态，本票仅文档化不改逻辑。
+#         （tmp_idx 随索引单写移交 ticket-ops flip-index 代理而撤除，票 228。）
 # 返回码: 恒 0（末条 if 不成立时 test 的假值不影响陷阱退出码语义）。
 cleanup() {
   if [ -n "${tmp_gate}" ]; then rm -f "${tmp_gate}"; fi
   if [ -n "${tmp_flip}" ]; then tmp_flip=''; rm -f "${tmp_flip}"; fi
-  if [ -n "${tmp_idx}" ]; then tmp_idx=''; rm -f "${tmp_idx}"; fi
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -540,59 +542,16 @@ index_precheck() {
   ' "${repo_root}/${FACTS_TICKETS_INDEX}"
 }
 
-# 用途: 生成索引单写后的完整索引文本到 stdout（不落地）——按 id 锚点整行替换目标条目行，
-#       仅改该行的 status 与 updated_at 两个值，其余字段与其余行原样保留（依赖「一条目一行」
-#       排版）；本函数自身不写仓库文件，落位由调用方 mv 完成。
-# 参数: $1=索引条目 id；$2=新 status（状态机裸值）；$3=新 updated_at（ISO 8601，允许冒号）。
-#       经环境变量 IDX_ID/IDX_STATUS/IDX_UA 传入 awk。
-# 副作用: 仅写 stdout 与违规时的 stderr 报因；不改文件。依赖全局 repo_root 与
-#         FACTS_TICKETS_INDEX。
-# 返回码: 0 锚点恰命中 1 行且排版合规、已产出结果；1 条目零命中、锚点多命中或条目行缺
-#         同行 status/updated_at 字段（此时拒绝单写，调用方据非 0 停止且不留半成品）。
-index_write() {
-  IDX_ID=$1 IDX_STATUS=$2 IDX_UA=$3 awk '
-    BEGIN {
-      id = ENVIRON["IDX_ID"]; nstatus = ENVIRON["IDX_STATUS"]; nua = ENVIRON["IDX_UA"]
-      anchor = "\"id\": \"" id "\""
-    }
-    index($0, "\"id\": \"") > 0 {
-      n++
-      if ($0 !~ /"status": "/ || $0 !~ /"updated_at": "/) {
-        printf "lane-commit: FAIL: 索引第 %d 行条目行缺同行的 status/updated_at 字段——拒绝单写\n", FNR > "/dev/stderr"
-        bad = 1
-        print
-        next
-      }
-      if (index($0, anchor) > 0) {
-        hits++
-        line = $0
-        sub(/"status": "[^"]*"/, "\"status\": \"" nstatus "\"", line)
-        sub(/"updated_at": "[^"]*"/, "\"updated_at\": \"" nua "\"", line)
-        print line
-        next
-      }
-      print
-      next
-    }
-    { print }
-    END {
-      rc = 0
-      if (n == 0) { printf "lane-commit: FAIL: 索引中未找到条目行\n" > "/dev/stderr"; rc = 1 }
-      if (hits != 1) { printf "lane-commit: FAIL: 索引条目锚点命中 %d 行（须恰 1 行）: %s\n", hits, id > "/dev/stderr"; rc = 1 }
-      if (bad) rc = 1
-      exit rc
-    }
-  ' "${repo_root}/${FACTS_TICKETS_INDEX}"
-}
-
-# 生成器定位（索引翻转时必需；同目录优先，PATH 回退；缺失即预检停止）
+# 用途: 索引单写代理定位（票 228 F1/F2 写入方收敛：索引翻转改调同目录 ticket-ops.sh
+#       flip-index 子命令承载索引单写＋投影再生＋--check 收尾链，本件零直接 index.json
+#       写入面与零直接生成器调用）；同目录优先，PATH 回退；缺失即预检停止。
 # PATH 回退手动迭代而非 command -v：落位脚本不要求可执行位（恒经 sh 调用），
 # command -v 对不可执行文件不报告。
-gen_cmd=''
+to_cmd=''
 if [ "${n_index_flip}" -gt 0 ]; then
-  if [ -f "${script_dir}/generate-progress.sh" ] && [ -r "${script_dir}/generate-progress.sh" ]; then
-    gen_cmd="${script_dir}/generate-progress.sh"
-    printf 'lane-commit: 生成器定位: 同目录 %s\n' "${gen_cmd}"
+  if [ -f "${script_dir}/ticket-ops.sh" ] && [ -r "${script_dir}/ticket-ops.sh" ]; then
+    to_cmd="${script_dir}/ticket-ops.sh"
+    printf 'lane-commit: 票务代理定位: 同目录 %s\n' "${to_cmd}"
   else
     _rest=${PATH:-}
     while [ -n "${_rest}" ]; do
@@ -602,15 +561,15 @@ if [ "${n_index_flip}" -gt 0 ]; then
         *) _rest='' ;;
       esac
       [ -n "${_dir}" ] || continue
-      if [ -f "${_dir}/generate-progress.sh" ] && [ -r "${_dir}/generate-progress.sh" ]; then
-        gen_cmd="${_dir}/generate-progress.sh"
+      if [ -f "${_dir}/ticket-ops.sh" ] && [ -r "${_dir}/ticket-ops.sh" ]; then
+        to_cmd="${_dir}/ticket-ops.sh"
         break
       fi
     done
-    if [ -n "${gen_cmd}" ]; then
-      printf 'lane-commit: 生成器定位: PATH %s\n' "${gen_cmd}"
+    if [ -n "${to_cmd}" ]; then
+      printf 'lane-commit: 票务代理定位: PATH %s\n' "${to_cmd}"
     else
-      die1 "投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：按 development-process §12.5 派生载体独占写，索引翻转必须伴随投影再生；将生成器落位到本脚本同目录（${RULES_SCRIPTS_DIR}/）或 PATH 后重跑"
+      die1 "票务代理 ticket-ops.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：index.json 唯一写入方＝ticket-ops.sh（票 228 F1/F2 写入方收敛，索引单写→投影再生→--check 收尾链全仓仅其一处），将 ticket-ops.sh 落位到本脚本同目录（${RULES_SCRIPTS_DIR}/）或 PATH 后重跑"
     fi
   fi
 fi
@@ -700,15 +659,12 @@ for flip in ${flips}; do
     f_id=$(printf '%s' "${flip}" | cut -f 3)
     f_status=$(printf '%s' "${flip}" | cut -f 4)
     f_updated=$(printf '%s' "${flip}" | cut -f 5)
-    tmp_idx=$(mktemp "${t_dir%/}/lane-idx.XXXXXX")
-    index_write "${f_id}" "${f_status}" "${f_updated}" > "${tmp_idx}" || {
-      rm -f "${tmp_idx}"
-      tmp_idx=''
-      die1 "索引单写未通过校验: ${FACTS_TICKETS_INDEX}（${f_id}）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建；核对索引排版后重跑（幂等，已翻条目再跑无副作用）"
-    }
-    mv "${tmp_idx}" "${repo_root}/${FACTS_TICKETS_INDEX}"
-    tmp_idx=''
-    printf "lane-commit: 索引单写: ${FACTS_TICKETS_INDEX}（%s → %s，updated_at %s）\n" "${f_id}" "${f_status}" "${f_updated}"
+    # 索引单写经 ticket-ops flip-index 代理（票 228 F1/F2 写入方收敛）：索引锚点整行替换
+    # ＋投影再生＋--check 收尾链由代理一处承载；失败即收尾停止（产品提交已创建，如实
+    # 报告，重跑幂等——已翻条目再跑无副作用）。
+    sh "${to_cmd}" "${repo_root}" flip-index --id "${f_id}" --status "${f_status}" --updated-at "${f_updated}" || \
+      die1 "索引翻转代理未过（ticket-ops flip-index fail-closed，详见上方输出）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建；核对索引排版与代理报因后重跑（幂等，已翻条目再跑无副作用）"
+    printf "lane-commit: 索引翻转已代理: ${FACTS_TICKETS_INDEX}（%s → %s，updated_at %s；索引单写＋投影再生 --check 经 ticket-ops flip-index 承载）\n" "${f_id}" "${f_status}" "${f_updated}"
     if [ "${ticket_is_json}" -eq 1 ]; then
       # .json 票体无 **Status:** 行（状态唯一真相源＝索引），跳过正文回写（票 108）
       printf 'lane-commit: 跳过正文 Status 回写: %s（.json 票体无 **Status:** 行，状态唯一真相源＝索引）\n' "${ticket}"
@@ -805,11 +761,9 @@ if [ "${lane}" = 'micro' ]; then
   printf 'lane-commit: 微账本已落行: %s\n' "${micro_file}"
 fi
 
-if [ -n "${gen_cmd}" ]; then
-  sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——收尾停止：产品提交 ${cid1} 已创建、索引与正文 Status 已更新、投影未刷新、记录提交未创建；手动运行生成器（sh ${gen_cmd} ${repo_root}）核对报因，修复后重跑收尾（幂等）"
-  sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——收尾停止：投影与索引不一致或不可读，记录提交未创建；按生成器输出指路修复后重跑收尾（幂等）"
-  printf 'lane-commit: 投影已再生并核对: %s\n' "$FACTS_TICKETS_PROGRESS"
-fi
+# 投影再生与 --check 已随索引翻转在 ticket-ops flip-index 代理内完成（票 228 F1/F2：
+# 写索引→generate-progress 再生→--check 收尾链全仓仅 ticket-ops 一处承载，本件零直接
+# 生成器调用）；progress-current.md 由记录提交一并收编（record_files 登记面不变）。
 
 # ---- 记录提交（两段式第二段，R-RC-003） ----
 
