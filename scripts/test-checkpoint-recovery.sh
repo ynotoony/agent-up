@@ -40,7 +40,7 @@ export STEP2_PID="$test_dir/step2.pid"
 
 echo "=== negative: --resume requires a ticket file ==="
 set +e
-TEST_OUTPUT="$test_dir/no-ticket-output" sh "$executor" "$test_dir/test-workflow.yaml" --resume >"$test_dir/no-ticket-resume.log" 2>&1
+TEST_OUTPUT="$test_dir/no-ticket-output" sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --resume >"$test_dir/no-ticket-resume.log" 2>&1
 no_ticket_resume_rc=$?
 set -e
 [ "$no_ticket_resume_rc" -eq 2 ] || { echo "FAIL: --resume without --ticket-file returned $no_ticket_resume_rc instead of usage error"; exit 1; }
@@ -56,7 +56,7 @@ import os, signal, subprocess, sys, time
 executor, workflow, ticket, log_path, started_path, pid_path = sys.argv[1:]
 with open(log_path, 'w', encoding='utf-8') as log:
     proc = subprocess.Popen(
-        ['sh', executor, workflow, '--ticket-file', ticket],
+        ['sh', executor, workflow, '--allow-shell', '--ticket-file', ticket],
         stdout=log,
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -115,7 +115,7 @@ PYTHON
 echo "PASS: interruption persisted only the completed step"
 
 echo "=== resume: continue from step2 ==="
-sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/test-ticket.json" --resume >"$test_dir/resume.log" 2>&1
+sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/test-ticket.json" --resume >"$test_dir/resume.log" 2>&1
 [ "$(cat "$test_dir/output")" = "step1step3" ] || { echo "FAIL: resume output mismatch"; exit 1; }
 grep -q '跳过已完成的 step: step1' "$test_dir/resume.log"
 grep -q '从此 step 继续执行: step2' "$test_dir/resume.log"
@@ -139,8 +139,8 @@ cat > "$test_dir/optional-checkpoint-ticket.json" <<'EOF'
 {"id":"optional-checkpoint-test","kind":"task","title":"Optional Checkpoint Test","created_at":"2026-10-20"}
 EOF
 export OPTIONAL_CHECKPOINT_OUTPUT="$test_dir/optional-checkpoint-output"
-sh "$executor" "$test_dir/optional-checkpoint-workflow.yaml" --ticket-file "$test_dir/optional-checkpoint-ticket.json" >"$test_dir/optional-checkpoint-first.log" 2>&1
-sh "$executor" "$test_dir/optional-checkpoint-workflow.yaml" --ticket-file "$test_dir/optional-checkpoint-ticket.json" --resume >"$test_dir/optional-checkpoint-resume.log" 2>&1
+sh "$executor" "$test_dir/optional-checkpoint-workflow.yaml" --allow-shell --ticket-file "$test_dir/optional-checkpoint-ticket.json" >"$test_dir/optional-checkpoint-first.log" 2>&1
+sh "$executor" "$test_dir/optional-checkpoint-workflow.yaml" --allow-shell --ticket-file "$test_dir/optional-checkpoint-ticket.json" --resume >"$test_dir/optional-checkpoint-resume.log" 2>&1
 [ "$(cat "$OPTIONAL_CHECKPOINT_OUTPUT")" = "saveduntrackeduntracked" ] || { echo "FAIL: resume did not rerun the step without checkpoint_field"; exit 1; }
 grep -q '跳过已完成的 step: checkpointed-step' "$test_dir/optional-checkpoint-resume.log"
 grep -q '从此 step 继续执行: uncheckpointed-step' "$test_dir/optional-checkpoint-resume.log"
@@ -190,7 +190,7 @@ PYTHON
   cp "$invalid_ticket" "$invalid_ticket.before"
   cp "$invalid_sidecar" "$invalid_sidecar.before"
   set +e
-  INVALID_OUTPUT="$invalid_output" sh "$executor" "$test_dir/resume-validation-workflow.yaml" --ticket-file "$invalid_ticket" --resume >"$test_dir/resume-invalid-$invalid_record.log" 2>&1
+  INVALID_OUTPUT="$invalid_output" sh "$executor" "$test_dir/resume-validation-workflow.yaml" --allow-shell --ticket-file "$invalid_ticket" --resume >"$test_dir/resume-invalid-$invalid_record.log" 2>&1
   invalid_resume_rc=$?
   set -e
   [ "$invalid_resume_rc" -ne 0 ] || { echo "FAIL: invalid $invalid_record completion record was accepted"; exit 1; }
@@ -216,7 +216,7 @@ cat > "$test_dir/agent-ticket.json" <<'EOF'
 {"id":"agent-test","kind":"task","title":"Agent Test","created_at":"2026-10-20"}
 EOF
 set +e
-sh "$executor" "$test_dir/agent-workflow.yaml" --ticket-file "$test_dir/agent-ticket.json" >"$test_dir/agent.log" 2>&1
+sh "$executor" "$test_dir/agent-workflow.yaml" --allow-shell --ticket-file "$test_dir/agent-ticket.json" >"$test_dir/agent.log" 2>&1
 agent_rc=$?
 set -e
 [ "$agent_rc" -ne 0 ] || { echo "FAIL: unsupported agent step succeeded"; exit 1; }
@@ -242,7 +242,7 @@ for path, data in ((ticket_path, ticket), (checkpoint_path, checkpoint)):
 PYTHON
 cp "$test_dir/resume-agent-ticket.json" "$test_dir/resume-agent-ticket.before"
 set +e
-sh "$executor" "$test_dir/agent-workflow.yaml" --ticket-file "$test_dir/resume-agent-ticket.json" --resume >"$test_dir/resume-agent.log" 2>&1
+sh "$executor" "$test_dir/agent-workflow.yaml" --allow-shell --ticket-file "$test_dir/resume-agent-ticket.json" --resume >"$test_dir/resume-agent.log" 2>&1
 resume_agent_rc=$?
 set -e
 [ "$resume_agent_rc" -ne 0 ] || { echo "FAIL: completed unsupported agent was skipped"; exit 1; }
@@ -255,7 +255,7 @@ cat > "$test_dir/legacy-ticket.json" <<'EOF'
 {"id":"legacy-test","kind":"task","title":"Legacy Test","created_at":"2026-10-20","checkpoint":{"old":{"completed_at":"2026-10-20T00:00:00Z"}}}
 EOF
 set +e
-sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/legacy-ticket.json" >"$test_dir/legacy.log" 2>&1
+sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/legacy-ticket.json" >"$test_dir/legacy.log" 2>&1
 legacy_rc=$?
 set -e
 [ "$legacy_rc" -ne 0 ] || { echo "FAIL: legacy top-level checkpoint was accepted"; exit 1; }
@@ -274,7 +274,7 @@ cat > "$test_dir/anchor-ticket.json" <<'EOF'
 EOF
 cp "$test_dir/anchor-ticket.json" "$test_dir/anchor-ticket.before"
 set +e
-sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/anchor-ticket.json" >"$test_dir/anchor.log" 2>&1
+sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/anchor-ticket.json" >"$test_dir/anchor.log" 2>&1
 anchor_rc=$?
 set -e
 [ "$anchor_rc" -ne 0 ] || { echo "FAIL: legacy checkpoint_ref anchor was accepted"; exit 1; }
@@ -289,7 +289,7 @@ EOF
 printf '%s\n' '{"sentinel":true}' > "$test_dir/outside.json"
 cp "$test_dir/outside.json" "$test_dir/outside.before"
 set +e
-sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/traversal-ticket.json" >"$test_dir/traversal.log" 2>&1
+sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/traversal-ticket.json" >"$test_dir/traversal.log" 2>&1
 traversal_rc=$?
 set -e
 [ "$traversal_rc" -ne 0 ] || { echo "FAIL: traversal checkpoint_ref was accepted"; exit 1; }
@@ -300,7 +300,7 @@ cat > "$test_dir/symlink-ticket.json" <<'EOF'
 EOF
 ln -s "$test_dir/outside.json" "$test_dir/symlink-ticket.json.workflow-checkpoint-v1.json"
 set +e
-TEST_OUTPUT="$test_dir/symlink-output" sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/symlink-ticket.json" >"$test_dir/symlink.log" 2>&1
+TEST_OUTPUT="$test_dir/symlink-output" sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/symlink-ticket.json" >"$test_dir/symlink.log" 2>&1
 symlink_rc=$?
 set -e
 [ "$symlink_rc" -ne 0 ] || { echo "FAIL: symlink checkpoint sidecar was accepted"; exit 1; }
@@ -315,7 +315,7 @@ cat > "$test_dir/orphan-ticket.json" <<'EOF'
 EOF
 printf '%s\n' '{"version":1,"checkpoint":{"test":{"step1":{"completed_at":"2026-10-20T00:00:00Z"}}}}' > "$test_dir/orphan-ticket.json.workflow-checkpoint-v1.json"
 set +e
-TEST_OUTPUT="$test_dir/orphan-output" sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/orphan-ticket.json" >"$test_dir/orphan.log" 2>&1
+TEST_OUTPUT="$test_dir/orphan-output" sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/orphan-ticket.json" >"$test_dir/orphan.log" 2>&1
 orphan_rc=$?
 set -e
 [ "$orphan_rc" -ne 0 ] || { echo "FAIL: unreferenced sidecar was accepted"; exit 1; }
@@ -339,7 +339,7 @@ cat > "$test_dir/bootstrap-ticket.json" <<'EOF'
 {"id":"bootstrap-test","kind":"task","title":"Bootstrap Test","created_at":"2026-10-20"}
 EOF
 printf '%s\n' '{"version":1,"checkpoint":{}}' > "$test_dir/bootstrap-ticket.json.workflow-checkpoint-v1.json"
-TEST_OUTPUT="$test_dir/bootstrap-output" sh "$executor" "$test_dir/bootstrap-workflow.yaml" --ticket-file "$test_dir/bootstrap-ticket.json" --resume >"$test_dir/bootstrap.log" 2>&1
+TEST_OUTPUT="$test_dir/bootstrap-output" sh "$executor" "$test_dir/bootstrap-workflow.yaml" --allow-shell --ticket-file "$test_dir/bootstrap-ticket.json" --resume >"$test_dir/bootstrap.log" 2>&1
 [ "$(cat "$test_dir/bootstrap-output")" = "bootstrap" ] || { echo "FAIL: bootstrap recovery output mismatch"; exit 1; }
 python3 - "$test_dir/bootstrap-ticket.json" "$test_dir/bootstrap-ticket.json.workflow-checkpoint-v1.json" <<'PYTHON'
 import json, sys
@@ -356,14 +356,14 @@ cat > "$test_dir/sidecar-ticket.json" <<'EOF'
 EOF
 printf '%s\n' '{"version":2,"checkpoint":{}}' > "$test_dir/sidecar-ticket.json.workflow-checkpoint-v1.json"
 set +e
-sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/sidecar-ticket.json" >"$test_dir/sidecar-version.log" 2>&1
+sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/sidecar-ticket.json" >"$test_dir/sidecar-version.log" 2>&1
 sidecar_version_rc=$?
 set -e
 [ "$sidecar_version_rc" -ne 0 ] || { echo "FAIL: unsupported sidecar version was accepted"; exit 1; }
 grep -q 'version 必须为整数 1' "$test_dir/sidecar-version.log"
 printf '%s\n' '{"version":1,"checkpoint":[]}' > "$test_dir/sidecar-ticket.json.workflow-checkpoint-v1.json"
 set +e
-sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/sidecar-ticket.json" >"$test_dir/sidecar-shape.log" 2>&1
+sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/sidecar-ticket.json" >"$test_dir/sidecar-shape.log" 2>&1
 sidecar_shape_rc=$?
 set -e
 [ "$sidecar_shape_rc" -ne 0 ] || { echo "FAIL: malformed checkpoint shape was accepted"; exit 1; }
@@ -377,7 +377,7 @@ EOF
 printf '%s\n' '{"version":1,"checkpoint":{"test":false}}' > "$test_dir/nested-ticket.json.workflow-checkpoint-v1.json"
 cp "$test_dir/nested-ticket.json.workflow-checkpoint-v1.json" "$test_dir/nested-sidecar.before"
 set +e
-TEST_OUTPUT="$test_dir/nested-output" sh "$executor" "$test_dir/test-workflow.yaml" --ticket-file "$test_dir/nested-ticket.json" >"$test_dir/nested-checkpoint.log" 2>&1
+TEST_OUTPUT="$test_dir/nested-output" sh "$executor" "$test_dir/test-workflow.yaml" --allow-shell --ticket-file "$test_dir/nested-ticket.json" >"$test_dir/nested-checkpoint.log" 2>&1
 nested_checkpoint_rc=$?
 set -e
 [ "$nested_checkpoint_rc" -ne 0 ] || { echo "FAIL: malformed nested checkpoint was accepted"; exit 1; }
@@ -405,7 +405,7 @@ cat > "$test_dir/verification-ticket.json" <<'EOF'
 {"id":"verification-test","kind":"task","title":"Verification Test","created_at":"2026-10-20"}
 EOF
 set +e
-sh "$executor" "$test_dir/verification-workflow.yaml" --ticket-file "$test_dir/verification-ticket.json" >"$test_dir/verification.log" 2>&1
+sh "$executor" "$test_dir/verification-workflow.yaml" --allow-shell --ticket-file "$test_dir/verification-ticket.json" >"$test_dir/verification.log" 2>&1
 verification_rc=$?
 set -e
 [ "$verification_rc" -ne 0 ] || { echo "FAIL: failing verification succeeded from matching output"; exit 1; }
@@ -415,7 +415,10 @@ import json, sys
 ticket = json.load(open(sys.argv[1], encoding='utf-8'))
 sidecar = json.load(open(sys.argv[2], encoding='utf-8'))
 assert ticket.get('checkpoint_ref') == 'workflow-checkpoint-v1:verification-ticket.json.workflow-checkpoint-v1.json'
-assert sidecar == {'version': 1, 'checkpoint': {}}
+record = sidecar['checkpoint']['verify']['done']
+assert record['status'] == 'failed', record
+assert record['exit_code'] == 7, record
+assert record['verification_results'] == [{'name': 'failing command', 'status': 'failed', 'exit_code': 7}], record
 PYTHON
 echo "PASS: verification exit code is enforced"
 
@@ -424,7 +427,7 @@ sed 's/expect_exit: 0/expect_exit: 7/' "$test_dir/verification-workflow.yaml" > 
 cat > "$test_dir/expected-nonzero-ticket.json" <<'EOF'
 {"id":"expected-nonzero-test","kind":"task","title":"Expected Nonzero Test","created_at":"2026-10-20"}
 EOF
-sh "$executor" "$test_dir/expected-nonzero-workflow.yaml" --ticket-file "$test_dir/expected-nonzero-ticket.json" >"$test_dir/expected-nonzero.log" 2>&1
+sh "$executor" "$test_dir/expected-nonzero-workflow.yaml" --allow-shell --ticket-file "$test_dir/expected-nonzero-ticket.json" >"$test_dir/expected-nonzero.log" 2>&1
 grep -q '✓ 通过' "$test_dir/expected-nonzero.log"
 echo "PASS: explicit nonzero expect_exit accepts the matching command result"
 
@@ -433,7 +436,7 @@ sed '/expect_exit:/d; s/printf PASS; exit 7/printf PASS/' "$test_dir/verificatio
 cat > "$test_dir/default-exit-ticket.json" <<'EOF'
 {"id":"default-exit-test","kind":"task","title":"Default Exit Test","created_at":"2026-10-20"}
 EOF
-sh "$executor" "$test_dir/default-exit-workflow.yaml" --ticket-file "$test_dir/default-exit-ticket.json" >"$test_dir/default-exit.log" 2>&1
+sh "$executor" "$test_dir/default-exit-workflow.yaml" --allow-shell --ticket-file "$test_dir/default-exit-ticket.json" >"$test_dir/default-exit.log" 2>&1
 grep -q '✓ 通过' "$test_dir/default-exit.log"
 echo "PASS: omitted expect_exit accepts exit code 0"
 
@@ -444,7 +447,7 @@ cat > "$test_dir/invalid-exit-ticket.json" <<'EOF'
 EOF
 cp "$test_dir/invalid-exit-ticket.json" "$test_dir/invalid-exit-ticket.before"
 set +e
-sh "$executor" "$test_dir/invalid-exit-workflow.yaml" --ticket-file "$test_dir/invalid-exit-ticket.json" >"$test_dir/invalid-exit.log" 2>&1
+sh "$executor" "$test_dir/invalid-exit-workflow.yaml" --allow-shell --ticket-file "$test_dir/invalid-exit-ticket.json" >"$test_dir/invalid-exit.log" 2>&1
 invalid_exit_rc=$?
 set -e
 [ "$invalid_exit_rc" -ne 0 ] || { echo "FAIL: malformed expect_exit was accepted"; exit 1; }
@@ -460,7 +463,7 @@ cat > "$test_dir/quoted-exit-ticket.json" <<'EOF'
 EOF
 cp "$test_dir/quoted-exit-ticket.json" "$test_dir/quoted-exit-ticket.before"
 set +e
-sh "$executor" "$test_dir/quoted-exit-workflow.yaml" --ticket-file "$test_dir/quoted-exit-ticket.json" >"$test_dir/quoted-exit.log" 2>&1
+sh "$executor" "$test_dir/quoted-exit-workflow.yaml" --allow-shell --ticket-file "$test_dir/quoted-exit-ticket.json" >"$test_dir/quoted-exit.log" 2>&1
 quoted_exit_rc=$?
 set -e
 [ "$quoted_exit_rc" -ne 0 ] || { echo "FAIL: quoted integer expect_exit was accepted"; exit 1; }
@@ -476,7 +479,7 @@ cat > "$test_dir/out-of-range-exit-ticket.json" <<'EOF'
 EOF
 cp "$test_dir/out-of-range-exit-ticket.json" "$test_dir/out-of-range-exit-ticket.before"
 set +e
-sh "$executor" "$test_dir/out-of-range-exit-workflow.yaml" --ticket-file "$test_dir/out-of-range-exit-ticket.json" >"$test_dir/out-of-range-exit.log" 2>&1
+sh "$executor" "$test_dir/out-of-range-exit-workflow.yaml" --allow-shell --ticket-file "$test_dir/out-of-range-exit-ticket.json" >"$test_dir/out-of-range-exit.log" 2>&1
 out_of_range_exit_rc=$?
 set -e
 [ "$out_of_range_exit_rc" -ne 0 ] || { echo "FAIL: out-of-range expect_exit was accepted"; exit 1; }
@@ -504,7 +507,7 @@ cat > "$test_dir/retry-ticket.json" <<'EOF'
 {"id":"retry-test","kind":"task","title":"Retry Test","created_at":"2026-10-20"}
 EOF
 export RETRY_OUTPUT="$test_dir/retry-output"
-sh "$executor" "$test_dir/retry-workflow.yaml" --ticket-file "$test_dir/retry-ticket.json" --retry target-command >"$test_dir/retry.log" 2>&1
+sh "$executor" "$test_dir/retry-workflow.yaml" --allow-shell --ticket-file "$test_dir/retry-ticket.json" --retry target-command >"$test_dir/retry.log" 2>&1
 [ "$(cat "$RETRY_OUTPUT")" = "retry" ] || { echo "FAIL: retry target did not run"; exit 1; }
 grep -q '幂等重试 step: target-command' "$test_dir/retry.log"
 echo "PASS: --retry executes target without rejecting unrelated agent step"
@@ -529,7 +532,7 @@ cat > "$test_dir/retry-overlap-ticket.json" <<'EOF'
 EOF
 cp "$test_dir/retry-overlap-ticket.json" "$test_dir/retry-overlap-ticket.before"
 set +e
-RETRY_OVERLAP_OUTPUT="$test_dir/retry-overlap-output" sh "$executor" "$test_dir/retry-overlap-workflow.yaml" --ticket-file "$test_dir/retry-overlap-ticket.json" --retry retry-target >"$test_dir/retry-overlap.log" 2>&1
+RETRY_OVERLAP_OUTPUT="$test_dir/retry-overlap-output" sh "$executor" "$test_dir/retry-overlap-workflow.yaml" --allow-shell --ticket-file "$test_dir/retry-overlap-ticket.json" --retry retry-target >"$test_dir/retry-overlap.log" 2>&1
 retry_overlap_rc=$?
 set -e
 [ "$retry_overlap_rc" -ne 0 ] || { echo "FAIL: overlapping checkpoint fields were accepted"; exit 1; }
@@ -541,7 +544,7 @@ echo "PASS: overlapping checkpoint paths fail before writes"
 
 echo "=== negative: retry target must exist ==="
 set +e
-sh "$executor" "$test_dir/retry-workflow.yaml" --ticket-file "$test_dir/retry-ticket.json" --retry missing-step >"$test_dir/retry-missing.log" 2>&1
+sh "$executor" "$test_dir/retry-workflow.yaml" --allow-shell --ticket-file "$test_dir/retry-ticket.json" --retry missing-step >"$test_dir/retry-missing.log" 2>&1
 retry_missing_rc=$?
 set -e
 [ "$retry_missing_rc" -ne 0 ] || { echo "FAIL: nonexistent retry step succeeded"; exit 1; }
@@ -564,7 +567,7 @@ cat > "$test_dir/empty-retry-ticket.json" <<'EOF'
 EOF
 cp "$test_dir/empty-retry-ticket.json" "$test_dir/empty-retry-ticket.before"
 set +e
-EMPTY_RETRY_OUTPUT="$test_dir/empty-retry.output" sh "$executor" "$test_dir/empty-retry-workflow.yaml" --ticket-file "$test_dir/empty-retry-ticket.json" --retry "" >"$test_dir/empty-retry.log" 2>&1
+EMPTY_RETRY_OUTPUT="$test_dir/empty-retry.output" sh "$executor" "$test_dir/empty-retry-workflow.yaml" --allow-shell --ticket-file "$test_dir/empty-retry-ticket.json" --retry "" >"$test_dir/empty-retry.log" 2>&1
 empty_retry_rc=$?
 set -e
 [ "$empty_retry_rc" -eq 2 ] || { echo "FAIL: empty --retry returned $empty_retry_rc instead of usage error"; exit 1; }
@@ -580,7 +583,7 @@ cat > "$test_dir/retry-agent-ticket.json" <<'EOF'
 EOF
 cp "$test_dir/retry-agent-ticket.json" "$test_dir/retry-agent-ticket.before"
 set +e
-sh "$executor" "$test_dir/retry-workflow.yaml" --ticket-file "$test_dir/retry-agent-ticket.json" --retry unrelated-agent >"$test_dir/retry-agent.log" 2>&1
+sh "$executor" "$test_dir/retry-workflow.yaml" --allow-shell --ticket-file "$test_dir/retry-agent-ticket.json" --retry unrelated-agent >"$test_dir/retry-agent.log" 2>&1
 retry_agent_rc=$?
 set -e
 [ "$retry_agent_rc" -ne 0 ] || { echo "FAIL: unsupported retry target succeeded"; exit 1; }
@@ -603,13 +606,13 @@ EOF
 cat > "$test_dir/retry-failure-ticket.json" <<'EOF'
 {"id":"retry-failure-test","kind":"task","title":"Retry Failure Test","created_at":"2026-10-20"}
 EOF
-RETRY_FAILURE_OUTPUT="$test_dir/retry-failure-output" sh "$executor" "$test_dir/retry-failure-workflow.yaml" --ticket-file "$test_dir/retry-failure-ticket.json" >"$test_dir/retry-failure-first.log" 2>&1
+RETRY_FAILURE_OUTPUT="$test_dir/retry-failure-output" sh "$executor" "$test_dir/retry-failure-workflow.yaml" --allow-shell --ticket-file "$test_dir/retry-failure-ticket.json" >"$test_dir/retry-failure-first.log" 2>&1
 set +e
-FAIL_RETRY=1 RETRY_FAILURE_OUTPUT="$test_dir/retry-failure-output" sh "$executor" "$test_dir/retry-failure-workflow.yaml" --ticket-file "$test_dir/retry-failure-ticket.json" --retry retry-command >"$test_dir/retry-failure-retry.log" 2>&1
+FAIL_RETRY=1 RETRY_FAILURE_OUTPUT="$test_dir/retry-failure-output" sh "$executor" "$test_dir/retry-failure-workflow.yaml" --allow-shell --ticket-file "$test_dir/retry-failure-ticket.json" --retry retry-command >"$test_dir/retry-failure-retry.log" 2>&1
 retry_failure_rc=$?
 set -e
 [ "$retry_failure_rc" -ne 0 ] || { echo "FAIL: failed retry unexpectedly succeeded"; exit 1; }
-RETRY_FAILURE_OUTPUT="$test_dir/retry-failure-output" sh "$executor" "$test_dir/retry-failure-workflow.yaml" --ticket-file "$test_dir/retry-failure-ticket.json" --resume >"$test_dir/retry-failure-resume.log" 2>&1
+RETRY_FAILURE_OUTPUT="$test_dir/retry-failure-output" sh "$executor" "$test_dir/retry-failure-workflow.yaml" --allow-shell --ticket-file "$test_dir/retry-failure-ticket.json" --resume >"$test_dir/retry-failure-resume.log" 2>&1
 [ "$(cat "$test_dir/retry-failure-output")" = "runrunrun" ] || { echo "FAIL: resume skipped the step after a failed retry"; exit 1; }
 grep -q '从此 step 继续执行: retry-command' "$test_dir/retry-failure-resume.log"
 echo "PASS: resume reran a step after its retry failed"

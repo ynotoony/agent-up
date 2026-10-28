@@ -32,7 +32,11 @@ fi
 # 须非零退出并指名与生产入口共用）；triage fixture 隔离 cwd 端到端执行
 # 零外溢（零新增文件，旧 /tmp 占位写入已删）；implementation fixture 的 agent
 # step 经 executor 在任何 sidecar 落盘与步骤副作用之前 fail-closed（exit 非零、
-# 零 sidecar、票零改动、报文指名适配器缺失）。夹具全 mktemp 自建不入
+# 零 sidecar、票零改动、报文指名适配器缺失）；shell 信任边界（票 213）正负例
+# 常驻：含 command/verification 的 workflow 未带 --allow-shell 时在 sidecar 落盘
+# 与任何步骤副作用之前 fail-closed（command-only 与 verification-only 两形态）、
+# 授权后照常执行，且 --param/--ticket-file/--retry 的 shell 注入载荷零执行、零
+# 副作用（参数只登记不替换＝票面既有行为的锁测试）。夹具全 mktemp 自建不入
 # 仓，被测对象只读；YAML 解析为夹具专用极简块级解析器（映射/序列/纯量/引号
 # 纯量，不支持锚点、流集合与多行块标量），校验关键字覆盖 workflow.schema.json
 # 在用全集：type/required/properties/patternProperties/additionalProperties/
@@ -784,7 +788,7 @@ PY
 
   # P22（AC2）：triage fixture 端到端执行＝隔离 cwd 零新增文件（旧 /tmp 占位写入已删）
   mkdir -p "$D/fixture/run"
-  ( cd "$D/fixture/run" && sh "$EXECUTOR" "$WF_DIR/triage.yaml" > "$D/fixture/triage-run.log" 2>&1 )
+  ( cd "$D/fixture/run" && sh "$EXECUTOR" "$WF_DIR/triage.yaml" --allow-shell > "$D/fixture/triage-run.log" 2>&1 )
   fixture_rc=$?
   fixture_entries=$(find "$D/fixture/run" -mindepth 1 2>/dev/null | head -n 3 | tr '\n' ' ')
   if [ "$fixture_rc" -eq 0 ] && [ -z "$fixture_entries" ]; then
@@ -856,7 +860,7 @@ EOF
     sidecar "$D/sidecar/ticket.json.workflow-checkpoint-v1.json" "$D/sidecar/wf-resume.yaml"
 
   WF_MARK="$D/sidecar/marker" sh "$EXECUTOR" "$D/sidecar/wf-resume.yaml" \
-    --ticket-file "$D/sidecar/ticket.json" --resume > "$D/sidecar/run.log" 2>&1
+    --ticket-file "$D/sidecar/ticket.json" --allow-shell --resume > "$D/sidecar/run.log" 2>&1
   resume_rc=$?
   if [ "$resume_rc" -eq 0 ] && [ "$(cat "$D/sidecar/marker")" = "second" ]; then
     ok 'P5 resume 接受 sidecar 夹具：已完成步跳过、待执行步执行（副作用探针＝second）'
@@ -903,7 +907,7 @@ EOF
 {"id":"wf-contract-write-test","kind":"task","title":"WF Contract Write Test","created_at":"2026-10-21"}
 EOF
   WF_WRITE_MARK="$D/write/marker" sh "$EXECUTOR" "$D/write/wf-write.yaml" \
-    --ticket-file "$D/write/ticket.json" > "$D/write/run1.log" 2>&1
+    --ticket-file "$D/write/ticket.json" --allow-shell > "$D/write/run1.log" 2>&1
   write_rc=$?
   if [ "$write_rc" -eq 0 ] && python3 - "$D/write" > /dev/null <<'PY'
 import json
@@ -965,7 +969,7 @@ PY
   fi
 
   WF_WRITE_MARK="$D/write/marker" sh "$EXECUTOR" "$D/write/wf-write.yaml" \
-    --ticket-file "$D/write/ticket.json" --resume > "$D/write/run2.log" 2>&1
+    --ticket-file "$D/write/ticket.json" --allow-shell --resume > "$D/write/run2.log" 2>&1
   if [ "$(cat "$D/write/marker")" = "mark" ]; then
     ok 'P9 写出记录被 --resume 回读接受（已完成步不重跑，探针不翻倍）'
   else
@@ -1240,7 +1244,7 @@ state_machine:
     working: in_progress
 EOF
   issues_index_rel="$D/map/pos/index.json" sh "$EXECUTOR" "$D/map/pos/wf.yaml" \
-    --ticket-file "$D/map/pos/ticket.json" > "$D/map/pos/run.log" 2>&1
+    --ticket-file "$D/map/pos/ticket.json" --allow-shell > "$D/map/pos/run.log" 2>&1
   map_pos_rc=$?
   if [ "$map_pos_rc" -eq 0 ] && python3 - "$D/map/pos" > /dev/null <<'PY'
 import json, sys
@@ -1296,7 +1300,7 @@ state_machine:
     in_progress: in_progress
 EOF
   issues_index_rel="$D/map/neg-unmapped/index.json" sh "$EXECUTOR" "$D/map/neg-unmapped/wf.yaml" \
-    --ticket-file "$D/map/neg-unmapped/ticket.json" > "$D/map/neg-unmapped/run.log" 2>&1
+    --ticket-file "$D/map/neg-unmapped/ticket.json" --allow-shell > "$D/map/neg-unmapped/run.log" 2>&1
   map_unmapped_rc=$?
   if [ "$map_unmapped_rc" -eq 0 ] \
     && cmp -s "$D/map/neg-unmapped/index.json" "$D/map/neg-unmapped/index.before" \
@@ -1313,7 +1317,7 @@ EOF
     "$D/map/neg-unmapped/wf.yaml" | sed 's/name: contract-map-unmapped/name: contract-map-outofenum/' \
     > "$D/map/neg-outofenum/wf.yaml"
   issues_index_rel="$D/map/neg-outofenum/index.json" sh "$EXECUTOR" "$D/map/neg-outofenum/wf.yaml" \
-    --ticket-file "$D/map/neg-outofenum/ticket.json" > "$D/map/neg-outofenum/run.log" 2>&1
+    --ticket-file "$D/map/neg-outofenum/ticket.json" --allow-shell > "$D/map/neg-outofenum/run.log" 2>&1
   map_out_rc=$?
   if [ "$map_out_rc" -eq 0 ] \
     && cmp -s "$D/map/neg-outofenum/index.json" "$D/map/neg-outofenum/index.before" \
@@ -1362,7 +1366,7 @@ EOF
   cp "$D/blocked/index.json" "$D/blocked/index.before"
   printf '{"id":"wf-cond-blocked-test","kind":"task","title":"WF Cond Blocked Test","created_at":"2026-10-26"}\n' > "$D/blocked/ticket.json"
   issues_index_rel="$D/blocked/index.json" sh "$EXECUTOR" "$D/blocked/wf.yaml" \
-    --ticket-file "$D/blocked/ticket.json" > "$D/blocked/run.log" 2>&1
+    --ticket-file "$D/blocked/ticket.json" --allow-shell > "$D/blocked/run.log" 2>&1
   blocked_rc=$?
   if [ "$blocked_rc" -eq 1 ] && python3 - "$D/blocked" > /dev/null <<'PY'
 import json, sys
@@ -1519,7 +1523,7 @@ state_machine:
 EOF
   printf '{"id":"wf-condneg-test","kind":"task","title":"WF Condneg Test","created_at":"2026-10-26"}\n' > "$D/condneg/ticket.json"
   WF_CONDNEG_MARK="$D/condneg/marker" sh "$EXECUTOR" "$D/condneg/wf.yaml" \
-    --ticket-file "$D/condneg/ticket.json" > "$D/condneg/run.log" 2>&1
+    --ticket-file "$D/condneg/ticket.json" --allow-shell > "$D/condneg/run.log" 2>&1
   condneg_rc=$?
   if [ "$condneg_rc" -ne 0 ] \
     && [ ! -e "$D/condneg/marker" ] \
@@ -1566,7 +1570,7 @@ EOF
 EOF
   WF_RETRY_MARK="$D/retry/pos/marker" issues_index_rel="$D/retry/pos/index.json" \
     sh "$EXECUTOR" "$D/retry/wf.yaml" --ticket-file "$D/retry/pos/ticket.json" \
-    --retry retry-step > "$D/retry/pos/run.log" 2>&1
+    --allow-shell --retry retry-step > "$D/retry/pos/run.log" 2>&1
   retry_pos_rc=$?
   if [ "$retry_pos_rc" -eq 0 ] && python3 - "$D/retry/pos" > /dev/null <<'PY'
 import json, sys
@@ -1596,7 +1600,8 @@ EOF
   cp "$D/retry/neg/index.json" "$D/retry/neg/index.before"
   printf '{"id":"wf-cond-retry-test","kind":"task","title":"WF Cond Retry Test","created_at":"2026-10-26"}\n' > "$D/retry/neg/ticket.json"
   WF_RETRY_MARK="$D/retry/neg/marker" issues_index_rel="$D/retry/neg/index.json" \
-    sh "$EXECUTOR" "$D/retry/wf.yaml" --ticket-file "$D/retry/neg/ticket.json" > "$D/retry/neg/run.log" 2>&1
+    sh "$EXECUTOR" "$D/retry/wf.yaml" --ticket-file "$D/retry/neg/ticket.json" \
+    --allow-shell > "$D/retry/neg/run.log" 2>&1
   retry_neg_rc=$?
   if [ "$retry_neg_rc" -eq 0 ] \
     && [ "$(cat "$D/retry/neg/marker")" = "retried" ] \
@@ -1606,6 +1611,246 @@ EOF
   else
     bad 'N19 AC3 负例：无 --retry 时 manual_retry_requested 为假——步骤照跑、票索引 cmp 零差（blocked 不被穿越）' \
       "exit=$retry_neg_rc $(tail -n 3 "$D/retry/neg/run.log" | tr '\n' '|')"
+  fi
+
+  # ---- shell 信任边界（票 213）：--allow-shell 显式授权、缺省拒绝 ----
+  # workflow 文件是受信规则文件；command/verification 原样执行须显式授权。
+  # 调用方输入（--param/--ticket-file/--retry）只登记，不拼接进命令。
+
+  mkdir -p "$D/trust/deny-cmd" "$D/trust/deny-verify" "$D/trust/grant" "$D/trust/retry" "$D/trust/inject"
+
+  cat > "$D/trust/deny-cmd/wf.yaml" <<'EOF'
+workflow:
+  name: contract-trust-deny-cmd
+  description: 信任边界负例：未授权 command
+steps:
+  - id: probe-step
+    type: command
+    description: 副作用探针
+    command: printf ran >> "$WF_TRUST_MARK"
+    checkpoint_field: checkpoint.trust.probe
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+  transitions:
+    - from: pending
+      to: pending
+      condition: checkpoint.trust.probe
+EOF
+  printf '{"id":"wf-trust-deny-test","kind":"task","title":"WF Trust Deny Test","created_at":"2026-10-28"}\n' > "$D/trust/deny-cmd/ticket.json"
+  cp "$D/trust/deny-cmd/ticket.json" "$D/trust/deny-cmd/ticket.before"
+  WF_TRUST_MARK="$D/trust/deny-cmd/marker" sh "$EXECUTOR" "$D/trust/deny-cmd/wf.yaml" \
+    --ticket-file "$D/trust/deny-cmd/ticket.json" > "$D/trust/deny-cmd/run.log" 2>&1
+  trust_deny_rc=$?
+  if [ "$trust_deny_rc" -ne 0 ] \
+    && [ ! -e "$D/trust/deny-cmd/marker" ] \
+    && [ ! -e "$D/trust/deny-cmd/ticket.json.workflow-checkpoint-v1.json" ] \
+    && cmp -s "$D/trust/deny-cmd/ticket.json" "$D/trust/deny-cmd/ticket.before" \
+    && grep -q -- '--allow-shell' "$D/trust/deny-cmd/run.log"; then
+    ok 'N22 AC2 未授权 command workflow：exit 非零且先于副作用——探针未执行、零 sidecar、票零改动、报文指名 --allow-shell'
+  else
+    bad 'N22 AC2 未授权 command workflow：exit 非零且先于副作用——探针未执行、零 sidecar、票零改动、报文指名 --allow-shell' \
+      "exit=$trust_deny_rc marker=$([ -e "$D/trust/deny-cmd/marker" ] && echo present || echo absent) $(tail -n 3 "$D/trust/deny-cmd/run.log" | tr '\n' '|')"
+  fi
+
+  cat > "$D/trust/deny-verify/wf.yaml" <<'EOF'
+workflow:
+  name: contract-trust-deny-verify
+  description: 信任边界负例：未授权 verification
+steps:
+  - id: verify-step
+    type: verification
+    description: 验证副作用探针
+    checkpoint_field: checkpoint.trust.verify
+    verification:
+      - name: probe
+        check: printf ran >> "$WF_TRUST_MARK"
+        expect: ran
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+  transitions:
+    - from: pending
+      to: pending
+      condition: all_verifications_pass
+EOF
+  printf '{"id":"wf-trust-deny-verify-test","kind":"task","title":"WF Trust Deny Verify Test","created_at":"2026-10-28"}\n' > "$D/trust/deny-verify/ticket.json"
+  cp "$D/trust/deny-verify/ticket.json" "$D/trust/deny-verify/ticket.before"
+  WF_TRUST_MARK="$D/trust/deny-verify/marker" sh "$EXECUTOR" "$D/trust/deny-verify/wf.yaml" \
+    --ticket-file "$D/trust/deny-verify/ticket.json" > "$D/trust/deny-verify/run.log" 2>&1
+  trust_deny_verify_rc=$?
+  if [ "$trust_deny_verify_rc" -ne 0 ] \
+    && [ ! -e "$D/trust/deny-verify/marker" ] \
+    && [ ! -e "$D/trust/deny-verify/ticket.json.workflow-checkpoint-v1.json" ] \
+    && cmp -s "$D/trust/deny-verify/ticket.json" "$D/trust/deny-verify/ticket.before" \
+    && grep -q -- '--allow-shell' "$D/trust/deny-verify/run.log"; then
+    ok 'N23 AC2 未授权 verification-only workflow：exit 非零且先于副作用——check 未执行、零 sidecar、票零改动、报文指名 --allow-shell'
+  else
+    bad 'N23 AC2 未授权 verification-only workflow：exit 非零且先于副作用——check 未执行、零 sidecar、票零改动、报文指名 --allow-shell' \
+      "exit=$trust_deny_verify_rc marker=$([ -e "$D/trust/deny-verify/marker" ] && echo present || echo absent) $(tail -n 3 "$D/trust/deny-verify/run.log" | tr '\n' '|')"
+  fi
+
+  # P23（AC3/AC4）：--allow-shell 授权后照常执行；--param 载荷含命令替换与串联
+  # 分隔符时零执行、零进入命令，checkpoint 记录只有 workflow 字面量。
+  cat > "$D/trust/grant/wf.yaml" <<'EOF'
+workflow:
+  name: contract-trust-grant
+  description: 参数不替换锁测试（已授权）
+steps:
+  - id: param-command
+    type: command
+    description: 参数不替换正例命令
+    command: printf literal-param
+    checkpoint_field: checkpoint.param.command
+  - id: param-verify
+    type: verification
+    description: 参数不替换正例验证
+    checkpoint_field: checkpoint.param.verify
+    verification:
+      - name: param-lock
+        check: printf verify-literal
+        expect: verify-literal
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+  transitions:
+    - from: pending
+      to: pending
+      condition: checkpoint.param.command
+EOF
+  printf '{"id":"wf-trust-grant-test","kind":"task","title":"WF Trust Grant Test","created_at":"2026-10-28"}\n' > "$D/trust/grant/ticket.json"
+  WF_TRUST_MARK="$D/trust/grant/injected" sh "$EXECUTOR" "$D/trust/grant/wf.yaml" --allow-shell \
+    --ticket-file "$D/trust/grant/ticket.json" \
+    --param 'payload=$(touch "$WF_TRUST_MARK")' \
+    --param 'payload2=`touch "$WF_TRUST_MARK"`' \
+    --param 'payload3=; touch "$WF_TRUST_MARK"' > "$D/trust/grant/run.log" 2>&1
+  trust_grant_rc=$?
+  if [ "$trust_grant_rc" -eq 0 ] \
+    && [ ! -e "$D/trust/grant/injected" ] \
+    && python3 - "$D/trust/grant" > /dev/null <<'PY'
+import json
+import sys
+
+base = sys.argv[1]
+with open(base + '/ticket.json.workflow-checkpoint-v1.json', encoding='utf-8') as handle:
+    document = json.load(handle)
+command = document['checkpoint']['param']['command']
+verification = document['checkpoint']['param']['verify']
+assert command['outputs'] == 'literal-param', command
+assert command['status'] == 'passed' and command['exit_code'] == 0, command
+assert verification['outputs'] == '', verification
+assert verification['status'] == 'passed' and verification['exit_code'] == 0, verification
+assert verification['verification_results'] == [{'name': 'param-lock', 'status': 'passed', 'exit_code': 0}], verification
+assert 'payload' not in json.dumps(document, ensure_ascii=False), '--param 值进入 checkpoint'
+print('param-lock-ok')
+PY
+  then
+    ok 'P23 AC3/AC4 --allow-shell 授权后执行；--param 的命令替换/串联载荷零执行、零进入命令，记录仅 workflow 字面量'
+  else
+    bad 'P23 AC3/AC4 --allow-shell 授权后执行；--param 的命令替换/串联载荷零执行、零进入命令，记录仅 workflow 字面量' \
+      "exit=$trust_grant_rc marker=$([ -e "$D/trust/grant/injected" ] && echo present || echo absent) $(tail -n 3 "$D/trust/grant/run.log" | tr '\n' '|')"
+  fi
+
+  # N24（AC4）：--retry 注入载荷只作为不存在的 step id 被拒，零副作用
+  cp "$D/trust/grant/wf.yaml" "$D/trust/retry/wf.yaml"
+  printf '{"id":"wf-trust-retry-test","kind":"task","title":"WF Trust Retry Test","created_at":"2026-10-28"}\n' > "$D/trust/retry/ticket.json"
+  cp "$D/trust/retry/ticket.json" "$D/trust/retry/ticket.before"
+  WF_TRUST_MARK="$D/trust/retry/injected" sh "$EXECUTOR" "$D/trust/retry/wf.yaml" --allow-shell \
+    --ticket-file "$D/trust/retry/ticket.json" \
+    --retry 'param-command; touch "$WF_TRUST_MARK"' > "$D/trust/retry/run.log" 2>&1
+  trust_retry_rc=$?
+  if [ "$trust_retry_rc" -ne 0 ] \
+    && [ ! -e "$D/trust/retry/injected" ] \
+    && [ ! -e "$D/trust/retry/ticket.json.workflow-checkpoint-v1.json" ] \
+    && cmp -s "$D/trust/retry/ticket.json" "$D/trust/retry/ticket.before" \
+    && grep -q -- '--retry 指定的 step 不存在' "$D/trust/retry/run.log"; then
+    ok 'N24 AC4 --retry 注入载荷（step id 后接 ; touch）：按不存在 step 拒绝，探针未执行、零 sidecar、票零改动'
+  else
+    bad 'N24 AC4 --retry 注入载荷（step id 后接 ; touch）：按不存在 step 拒绝，探针未执行、零 sidecar、票零改动' \
+      "exit=$trust_retry_rc marker=$([ -e "$D/trust/retry/injected" ] && echo present || echo absent) $(tail -n 3 "$D/trust/retry/run.log" | tr '\n' '|')"
+  fi
+
+  # P24（AC4）：--ticket-file 路径含命令替换文本时按普通文件路径处理，零执行
+  cat > "$D/trust/inject/wf.yaml" <<'EOF'
+workflow:
+  name: contract-trust-inject
+  description: ticket 路径注入负例（已授权）
+steps:
+  - id: inject-step
+    type: command
+    description: 路径注入探针
+    command: printf ticket-file-literal
+    checkpoint_field: checkpoint.trust.inject
+state_machine:
+  initial_state: pending
+  states:
+    - name: pending
+      description: 初始
+  transitions:
+    - from: pending
+      to: pending
+      condition: checkpoint.trust.inject
+EOF
+  inj_mark="$D/trust/inject/injected"
+  inj_ticket="$D/trust/inject/ticket\$(touch \"\$WF_TRUST_MARK\").json"
+  printf '{"id":"wf-trust-inject-test","kind":"task","title":"WF Trust Inject Test","created_at":"2026-10-28"}\n' > "$inj_ticket"
+  WF_TRUST_MARK="$inj_mark" sh "$EXECUTOR" "$D/trust/inject/wf.yaml" --allow-shell \
+    --ticket-file "$inj_ticket" > "$D/trust/inject/run.log" 2>&1
+  trust_inject_rc=$?
+  if [ "$trust_inject_rc" -eq 0 ] \
+    && [ ! -e "$inj_mark" ] \
+    && python3 - "$inj_ticket.workflow-checkpoint-v1.json" > /dev/null <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding='utf-8') as handle:
+    record = json.load(handle)['checkpoint']['trust']['inject']
+assert record['outputs'] == 'ticket-file-literal', record
+assert record['status'] == 'passed', record
+print('ticket-path-lock-ok')
+PY
+  then
+    ok 'P24 AC4 --ticket-file 路径含命令替换文本：按普通路径处理、命令照跑，注入载荷零执行'
+  else
+    bad 'P24 AC4 --ticket-file 路径含命令替换文本：按普通路径处理、命令照跑，注入载荷零执行' \
+      "exit=$trust_inject_rc marker=$([ -e "$inj_mark" ] && echo present || echo absent) $(tail -n 3 "$D/trust/inject/run.log" | tr '\n' '|')"
+  fi
+
+  # P25（AC1）：信任边界缺省值写入 schema 合同与 executor/README 文档
+  usage_out=$(sh "$EXECUTOR" --help 2>&1) || usage_out=''
+  if python3 - "$SCHEMA" > "$D/trust/doc.log" 2>&1 <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding='utf-8') as handle:
+    schema = json.load(handle)
+description = schema['description']
+assert '信任边界' in description and '--allow-shell' in description, description[:200]
+steps = schema['properties']['steps']['items']['properties']
+assert '--allow-shell' in steps['command']['description'], steps['command']['description']
+check = steps['verification']['items']['properties']['check']
+assert '--allow-shell' in check['description'], check['description']
+print('trust-doc-ok')
+PY
+  then
+    doc_schema_ok=1
+  else
+    doc_schema_ok=0
+  fi
+  if [ "$doc_schema_ok" -eq 1 ] \
+    && printf '%s' "$usage_out" | grep -q -- '--allow-shell' \
+    && grep -q -- '--allow-shell' "$SCRIPT_DIR/README.md" \
+    && grep -q -- '--allow-shell' "$PKG_ROOT/references/schemas/README.md"; then
+    ok 'P25 AC1 信任边界缺省值写入 schema description/字段描述、executor 用法与两处 README 登记'
+  else
+    bad 'P25 AC1 信任边界缺省值写入 schema description/字段描述、executor 用法与两处 README 登记' \
+      "schema/usage/README 缺少 --allow-shell 信任边界声明: $(tail -n 2 "$D/trust/doc.log" | tr '\n' '|')"
   fi
 
   suite_summary 'workflow-contract'

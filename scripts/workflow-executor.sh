@@ -12,6 +12,10 @@
 #      按 passed 解释），失败步骤先落 sidecar 再终局；状态机条件为可实现词表
 #      （all_verifications_pass/any_verification_failed/manual_retry_requested/
 #      checkpoint.<路径>），词表外条件在任何副作用之前预检拒绝。
+#      信任边界（票 213）：workflow 文件是受信规则文件，command/verification 的
+#      原样 shell 执行须显式 --allow-shell；缺省拒绝，含 shell 步骤的 workflow
+#      在 checkpoint sidecar 落盘与任何步骤副作用之前 fail-closed。--param /
+#      --ticket-file / --retry 等调用方输入只登记与校验，绝不拼接进命令或求值。
 
 set -eu
 
@@ -38,11 +42,16 @@ usage() {
 参数:
   workflow.yaml    工作流定义文件（基于 workflow.schema.json v2）
 选项:
-  --param <key=value>     输入参数（可多次指定）
+  --allow-shell           显式授权执行 workflow 内的 command/verification 步骤
+                          （缺省拒绝：含 shell 步骤的 workflow fail-closed）
+  --param <key=value>     输入参数（仅接收登记，绝不替换进命令）
   --ticket-file <path>    票文件路径（用于保存 checkpoint_ref）
   --resume                从 checkpoint 恢复（跳过已完成的 steps）
   --retry <step_id>       重试指定 step（幂等重新执行；manual_retry_requested 条件仅在此生效）
   -h / --help             打印本用法
+信任边界: workflow 文件是受信规则文件；未带 --allow-shell 时 executor 在执行任何
+  shell 步骤（或写入任何 checkpoint）之前拒绝运行。调用方输入（--param 等）不参与
+  命令拼接或求值。
 状态机条件词表: all_verifications_pass | any_verification_failed |
   manual_retry_requested | checkpoint.<路径>（词表外条件启动前拒绝执行）
 退出码: 0 成功；1 执行失败；2 用法错误
@@ -63,10 +72,11 @@ esac
 [ -f "${workflow_file}" ] || die2 "workflow 文件不存在: ${workflow_file}"
 
 # 解析选项
-params_list=""  # 使用空格分隔的字符串代替关联数组
+params_list=""  # 使用空格分隔的字符串代替关联数组；仅登记，永不参与命令求值
 ticket_file=''
 resume_mode=false
 retry_step=""
+allow_shell=false
 
 while [ $# -gt 0 ]; do
   case $1 in
@@ -96,6 +106,10 @@ while [ $# -gt 0 ]; do
       resume_mode=true
       shift
       ;;
+    --allow-shell)
+      allow_shell=true
+      shift
+      ;;
     --retry)
       shift
       [ $# -ge 1 ] || die2 "--retry 需要参数"
@@ -123,6 +137,29 @@ printf 'workflow-executor: 解析到 %d 个 steps\n' "$steps_count"
 
 # Reject unsupported execution before creating or updating checkpoint files.
 python3 "$_engine_file" workflow preflight "$retry_step" "$steps_json" || die1 "workflow 包含执行器不支持的 step"
+
+# ---- 信任边界（票 213）----
+# workflow 文件是受信规则文件：command/verification 的原样 shell 执行须由调用方
+# 显式 --allow-shell 授权。未授权时在 checkpoint sidecar 落盘与任何步骤副作用
+# 之前 fail-closed（步骤 shell 执行是本执行器唯一的求值面）。--param 等调用方
+# 输入只登记，不参与此判定也不参与任何命令拼接。
+if [ "$allow_shell" != true ]; then
+  _tb_idx=0
+  _tb_shell_steps=''
+  while [ "$_tb_idx" -lt "$steps_count" ]; do
+    _tb_type=$(printf '%s' "$steps_json" | python3 "$_engine_file" json get - "$_tb_idx.type" '')
+    if [ "$_tb_type" = command ] || [ "$_tb_type" = verification ]; then
+      _tb_id=$(printf '%s' "$steps_json" | python3 "$_engine_file" json get - "$_tb_idx.id" '?')
+      _tb_shell_steps="$_tb_shell_steps $_tb_id"
+    fi
+    _tb_idx=$((_tb_idx + 1))
+  done
+  if [ -n "$_tb_shell_steps" ]; then
+    die1 "workflow 含 shell 步骤（${_tb_shell_steps# }），但未显式授权：须加 --allow-shell（缺省拒绝）；未执行任何步骤"
+  fi
+else
+  printf 'workflow-executor: 信任边界：shell 执行已显式授权（--allow-shell）\n'
+fi
 
 # ---- State Machine 解析 ----
 

@@ -23,10 +23,14 @@ depends_on: references/schemas/workflow.schema.json（实例 schema 事实源）
 | 档位 | 含义 | 取证方式 |
 | --- | --- | --- |
 | schema-valid | 过 `workflow.schema.json` 子集校验及跨字段校验（`initial_state`／transition `from`/`to`∈`states`、映射目标∈票状态枚举） | workflow-contract 套件 `schema`／`mapping-check` 模式 |
-| executor-supported | 步骤逐条落在 `workflow-executor.sh` 支持子集内（`type` 仅 `command`／`verification`），`checkpoint_field`／sidecar 语义可运行时核对 | workflow-contract 套件 `classify` 模式＋端到端执行 |
+| executor-supported | 步骤逐条落在 `workflow-executor.sh` 支持子集内（`type` 仅 `command`／`verification`），`checkpoint_field`／sidecar 语义可运行时核对 | workflow-contract 套件 `classify` 模式＋端到端执行（须 `--allow-shell`） |
 | production-ready | 步骤命令承载真实业务动作、失败可诊断、产物可核验，且经用户明确采纳为生产入口 | 无机械断言，由 Review 与用户裁决 |
 
-`schema-valid` 不蕴含 `executor-supported`，`executor-supported` 不蕴含 `production-ready`。两实例分档不同：`triage.yaml` 已达第二档（五步全 `command`／`verification`，端到端 exit 0），`implementation.yaml` 只到第一档（含 agent step，executor 在任何 checkpoint 落盘前 fail-closed）。本目录当前**零 production-ready 实例**。
+`schema-valid` 不蕴含 `executor-supported`，`executor-supported` 不蕴含 `production-ready`。两实例分档不同：`triage.yaml` 已达第二档（五步全 `command`／`verification`，带 `--allow-shell` 端到端 exit 0），`implementation.yaml` 只到第一档（含 agent step，executor 在任何 checkpoint 落盘前 fail-closed）。本目录当前**零 production-ready 实例**。
+
+## shell 执行授权前提
+
+`workflow-executor.sh` 把 workflow 文件视为受信规则文件：含 `command`／`verification` 的 workflow 须调用方显式传 `--allow-shell` 才执行，缺省拒绝。未授权时在执行器 preflight 之后、checkpoint sidecar 落盘与任何步骤副作用之前 fail-closed（exit 非零，报文指名 `--allow-shell`）。因此本目录 fixture 的端到端执行一律以 `--allow-shell` 为前提；fixture 定位合同（入口名分离、非生产声明、零固定路径写入）不变，授权只表示调用方确认该文件是受审规则，不等于把它升级为生产入口。`implementation.yaml` 即使带 `--allow-shell` 也因 agent step 在 preflight 失败，仍不可执行。
 
 ## 目录成员
 
