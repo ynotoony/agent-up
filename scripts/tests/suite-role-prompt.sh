@@ -12,7 +12,8 @@ fi
 # 正例＝四件角色合同模板权威面在位（能力声明行＋规则块）＋现行三件 Prompt 零
 # 合同正文＋Triage 模板登记闭合（数据表＋manifest 投影）＋占位符全集零漂移＋五宿主
 # 映射去重态（单一公共规则权威指针段在位、零规则块、零公共规则正文）＋结构模板
-# 不复述规范正文；负例＝duplicate-body Prompt 夹具（复制合同正文进 Prompt）扫描器
+# 不复述规范正文＋入口术语统一（路由层 Triage＋编码层三阶段，票 218 AC1/AC2）；
+# 负例＝duplicate-body Prompt 夹具（复制合同正文进 Prompt）扫描器
 # 指名角色失败、parameter/context/output-only Prompt 夹具通过、duplicate-rule 与
 # missing-permission 角色合同夹具经 check-package 指名角色失败（检查 22/14）、
 # Triage 模板缺权限声明夹具结构断言指名角色失败、公共规则正文回写宿主夹具去重
@@ -59,6 +60,31 @@ rp_role_check() {
     _rpf_bad=1
   fi
   return "$_rpf_bad"
+}
+
+# 入口术语断言（票 218 AC1/AC2）：入口文件须使用统一术语「路由层 Triage＋编码层
+# 三阶段」，且不再出现旧称「四个角色」或把 Triage 当编码阶段的并列行。
+# 用法: rp_term_check <标签> <文件> <必含 ERE> [禁含 ERE]；缺陷明细输出 stdout，
+#       缺陷 return 1，清洁 return 0。
+rp_term_check() {
+  _rpt_label="$1"
+  _rpt_file="$2"
+  _rpt_must="$3"
+  _rpt_mustnot="$4"
+  if [ ! -f "$_rpt_file" ]; then
+    printf 'missing-file: %s\n' "$_rpt_file"
+    return 1
+  fi
+  _rpt_bad=0
+  if ! LC_ALL=C grep -qE -- "$_rpt_must" "$_rpt_file"; then
+    printf 'missing-term: %s\n' "$_rpt_label"
+    _rpt_bad=1
+  fi
+  if [ -n "$_rpt_mustnot" ] && LC_ALL=C grep -qE -- "$_rpt_mustnot" "$_rpt_file"; then
+    printf 'stale-term: %s\n' "$_rpt_label"
+    _rpt_bad=1
+  fi
+  return "$_rpt_bad"
 }
 
 # 去重态扫描器：宿主映射文件零规则块、零公共规则正文、唯一权威指针段在位。
@@ -297,6 +323,47 @@ EOF
     fi
   else
     bad '负例 N5 Triage 模板缺权限声明夹具 → 结构断言失败指名 missing-decl 与角色模板' '结构断言对缺声明夹具意外通过（假绿）'
+  fi
+
+  # 正例 P8（×6）：入口术语统一——路由层 Triage＋编码层三阶段（票 218 AC1/AC2）
+  # 面＝SKILL.md description/§1、templates/README.md Roles 两行、AGENTS.md.tmpl 代理协作、
+  # discipline.md.tmpl 两层协作、capability-contract.md §2.2 能力表。禁词面＝旧称
+  # 「四个角色」与编码阶段式 Triage（Planning/Triage 并列行、四阶段能力表）。
+  if rp_term_check 'SKILL.md' "$PKG_ROOT/SKILL.md" \
+      '路由层 Triage 与编码层三阶段' '四个角色的岗位合同' > "$D/p8a.out" 2>&1; then
+    ok '正例 P8a SKILL.md 入口术语统一（路由层 Triage＋编码层三阶段）'
+  else
+    bad '正例 P8a SKILL.md 入口术语统一（路由层 Triage＋编码层三阶段）' "$(cat "$D/p8a.out")"
+  fi
+  if rp_term_check 'templates/README.md 编码层可行' "$TMPL/README.md" \
+      '编码层三阶段角色合同（与路由层 Triage 合同一并生成）' '' > "$D/p8b.out" 2>&1; then
+    ok '正例 P8b templates/README.md 编码层三阶段合同行与路由层合同互指'
+  else
+    bad '正例 P8b templates/README.md 编码层三阶段合同行与路由层合同互指' "$(cat "$D/p8b.out")"
+  fi
+  if rp_term_check 'templates/README.md 路由层行' "$TMPL/README.md" \
+      '所有项目初始化生成路由层角色合同（两层协作为固定规则' '' > "$D/p8c.out" 2>&1; then
+    ok '正例 P8c templates/README.md 路由层合同行与编码层三阶段合同互指'
+  else
+    bad '正例 P8c templates/README.md 路由层合同行与编码层三阶段合同互指' "$(cat "$D/p8c.out")"
+  fi
+  if rp_term_check 'AGENTS.md.tmpl' "$TMPL/AGENTS.md.tmpl" \
+      '主 agent（路由层 Triage）只做理解、拆分、派发与验收' '' > "$D/p8d.out" 2>&1; then
+    ok '正例 P8d AGENTS.md.tmpl 代理协作节标明路由层 Triage 与编码层三阶段'
+  else
+    bad '正例 P8d AGENTS.md.tmpl 代理协作节标明路由层 Triage 与编码层三阶段' "$(cat "$D/p8d.out")"
+  fi
+  if rp_term_check 'discipline.md.tmpl' "$TMPL/discipline.md.tmpl" \
+      '路由层 Triage 合同与三件阶段合同同目录并列，Triage 属路由层、不计入编码层三阶段' '' > "$D/p8e.out" 2>&1; then
+    ok '正例 P8e discipline.md.tmpl 两层协作节区分路由层 Triage 与编码层三阶段'
+  else
+    bad '正例 P8e discipline.md.tmpl 两层协作节区分路由层 Triage 与编码层三阶段' "$(cat "$D/p8e.out")"
+  fi
+  if rp_term_check 'capability-contract.md' "$PKG_ROOT/references/adapters/capability-contract.md" \
+      '两层协作→能力表（路由层 Triage＋编码层三阶段）' 'Planning/Triage|四阶段→能力表' > "$D/p8f.out" 2>&1; then
+    ok '正例 P8f capability-contract.md 能力表按两层协作登记（无编码阶段式 Triage）'
+  else
+    bad '正例 P8f capability-contract.md 能力表按两层协作登记（无编码阶段式 Triage）' "$(cat "$D/p8f.out")"
   fi
 
   suite_summary 'role-prompt'

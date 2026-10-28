@@ -4,13 +4,13 @@ kind: protocol
 authority: 权威层级第 4 级（流程规则：宿主能力契约）；能力语义上游为 SPEC-05（第 3 级）
 lifecycle: Live
 read_when: 评估宿主兼容性、编写或维护平台适配层、裁决 required_capabilities 冲突、登记新宿主或核对分级交付道快道能力束时
-trigger: 能力基元清单、阶段→能力表、降级路径、readonly_enforcement 等级、capability profile 档位、platform 枚举或分级交付道快道能力束语义变化
+trigger: 能力基元清单、两层协作→能力表、降级路径、readonly_enforcement 等级、capability profile 档位、platform 枚举或分级交付道快道能力束语义变化
 owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）
-update_policy: 能力基元与阶段表对齐 SPEC-05 §2/§3；档位加载范围权威在 read-policy.md §2.4；语义变化须用户确认并同步 SPEC-05 与 read-policy.md；本文件是 adapters/ 内宿主映射文件的共同上游
+update_policy: 能力基元与能力表对齐 SPEC-05 §2/§3；档位加载范围权威在 read-policy.md §2.4；语义变化须用户确认并同步 SPEC-05 与 read-policy.md；本文件是 adapters/ 内宿主映射文件的共同上游
 depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加载范围权威）；被 adapters/ 内宿主映射文件依赖
 ---
 <!-- Input: SPEC-05 §2-§7 能力协议、platform 枚举定稿（neutral/zcode）、independent_review 与 run record 指针字段定稿、read-policy.md 档位表。 -->
-<!-- Output: 宿主能力契约手册：九能力基元、四阶段→能力表（历史五阶段含 Intake 行，退役 2026-10-23）、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、readonly_enforcement 只读约束等级模型（四级＋pending 标注）与只读约束降级路径、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
+<!-- Output: 宿主能力契约手册：九能力基元、两层协作→能力表（路由层 Triage＋编码层三阶段；历史 Intake 行退役 2026-10-23）、required_capabilities 声明规则、无 subagent 降级路径（含车道衔接注记）、readonly_enforcement 只读约束等级模型（四级＋pending 标注）与只读约束降级路径、分级交付道微任务道能力束、capability profile 档位定稿与 platform 枚举扩展规则。 -->
 <!-- Pos: 公开包 adapters/ 能力契约手册，adapters/ 内宿主映射文件的共同上游；能力语义上游为 SPEC-05；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 
 # 宿主能力契约
@@ -21,8 +21,8 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 
 - 运行时能力基元九个固定：inspect / search / read / edit / write / execute / readonly-execute / vcs-read / vcs-write。
 - `create-spec` / `create-task` 是治理写入许可，不是宿主运行时能力；历史治理写入许可 `create-request` 已退役（2026-10-23）：新需求一律走任务票（卡片），不再创建 request（REQ），存量 REQ 冻结只读。
-- 阶段→能力表固定四阶段底线（历史五阶段含 Intake 行，随 `create-request` 退役 2026-10-23 移除，见 §2.2 legacy 注记）：Planning/Triage（inspect、search；create-spec、create-task）、Implementation（inspect、search、edit、write、execute）、Review（inspect、search、readonly-execute）、Commit（inspect、vcs-read、vcs-write）。
-- 阶段表未列 read：edit/write/inspect 组合已蕴含所需读取面；平台无关角色合同把 read 显式列入 `required_capabilities` 是显式化，不是扩权。
+- 两层协作→能力表固定两层底线（路由层 Triage＋编码层三阶段；历史 Intake 行随 `create-request` 退役 2026-10-23 移除，见 §2.2 legacy 注记）：路由层 Triage（inspect、search；create-spec、create-task）、编码层 Implementation（inspect、search、edit、write、execute）、Review（inspect、search、readonly-execute）、Commit（inspect、vcs-read、vcs-write）。
+- 能力表未列 read：edit/write/inspect 组合已蕴含所需读取面；平台无关角色合同把 read 显式列入 `required_capabilities` 是显式化，不是扩权。
 - `required_capabilities` 取值限于 §2.1 清单；核心协议与角色合同不得写死平台工具名或 frontmatter 方言。
 - 无独立 subagent 执行体时依序走降级路径 a/b/c，记录 `independent_review: unavailable`；同一执行体自检不得标 pass；三条路径均不可用停在 review_ready。
 - readonly-execute 的只读约束按宿主声明的 `readonly_enforcement` 等级承载（host-enforced / runner-enforced / policy-only / unavailable，未核验标 pending）：仅 host/runner 级可作宿主保证的正式 Review 能力；policy-only 必须记录降级，unavailable 只能走独立 session、不同执行身份或用户 Review，pending 按 policy-only 从紧处理。
@@ -51,18 +51,18 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 
 `create-spec` / `create-task` 是治理写入许可（允许创建哪类治理文件，对齐目标项目写入所有权矩阵），不是宿主运行时能力。历史治理写入许可 `create-request` 自 2026-10-23 退役：新需求一律走任务票（卡片），不再创建 request（REQ）；存量 REQ 冻结只读（读取面兼容，见 `../schemas/ticket-record.schema.json` 退役标注）。
 
-### 2.2 阶段→能力表
+### 2.2 两层协作→能力表（路由层 Triage＋编码层三阶段）
 
-| 阶段 | required_capabilities（运行时） | 治理写入许可 |
-| --- | --- | --- |
-| Planning/Triage | inspect、search | create-spec、create-task |
-| Implementation | inspect、search、edit、write、execute | 任务 Scope 内文件 + Implementation Checkpoint |
-| Review | inspect、search、readonly-execute | 审查记录 |
-| Commit | inspect、vcs-read、vcs-write | 暂存/提交 |
+| 层 | 角色／阶段 | required_capabilities（运行时） | 治理写入许可 |
+| --- | --- | --- | --- |
+| 路由层 | Triage（主 agent） | inspect、search | create-spec、create-task |
+| 编码层 | Implementation | inspect、search、edit、write、execute | 任务 Scope 内文件 + Implementation Checkpoint |
+| 编码层 | Review | inspect、search、readonly-execute | 审查记录 |
+| 编码层 | Commit | inspect、vcs-read、vcs-write | 暂存/提交 |
 
-注：本表未列 read——edit/write/inspect 组合已蕴含所需读取面（SPEC-05 §7）；平台无关角色合同可把 read 显式列入 `required_capabilities`，属显式化而非扩权，阶段表基线不变。Review 行 readonly-execute 的正式保证力随宿主 `readonly_enforcement` 等级而定（§2.3 等级表）：仅 host/runner 级为宿主保证，policy-only/unavailable/pending 按降级记录处理。
+注：本表未列 read——edit/write/inspect 组合已蕴含所需读取面（SPEC-05 §7）；平台无关角色合同可把 read 显式列入 `required_capabilities`，属显式化而非扩权，能力表基线不变。Review 行 readonly-execute 的正式保证力随宿主 `readonly_enforcement` 等级而定（§2.3 等级表）：仅 host/runner 级为宿主保证，policy-only/unavailable/pending 按降级记录处理。
 
-legacy 注记（单列，不混入当前流程）：历史 Intake 阶段（required_capabilities：inspect、search；治理写入许可：create-request）随 `create-request` 退役（2026-10-23）移出本表；新需求一律走任务票（卡片，Planning/Triage 开 task 票），不再创建 request（REQ）；存量 REQ 冻结只读。
+legacy 注记（单列，不混入当前流程）：历史 Intake 阶段（required_capabilities：inspect、search；治理写入许可：create-request）随 `create-request` 退役（2026-10-23）移出本表。Triage 是路由层角色，不是编码层三阶段之一：新需求一律走任务票（卡片，由路由层 Triage 开 task 票），不再创建 request（REQ）；存量 REQ 冻结只读。
 
 微任务道能力束注记（分级交付道，rules/assessment.md §6 R-DP-031）：准入判据内的微任务道由单执行体全程完成，能力束 = Implementation 束（inspect、search、edit、write、execute）+ vcs-write。vcs-write 经道脚本行使：调用权在主 agent，微执行体不组装提交合同、不自行执行 git 写；快道收尾（门禁重跑、白名单提交、记录翻转、账本落行）由道脚本按提交合同执行（rules/project.md §12.5 道脚本承载注记），脚本权限边界 = 提交合同白名单。
 
@@ -146,7 +146,7 @@ platform 取值描述产物或文件的平台绑定面：`neutral` 表示平台�
 
 - 本文件位于 adapters/，承载能力契约与档位语义的包内登记；能力语义的规格上游是 SPEC-05，档位加载范围的精确清单权威是 `read-policy.md` §2.4——两者都不是本文件的派生物；核心流程权威（rules/ 流程规则三件、SPEC-04）不依赖本文件。
 - 宿主映射文件（`zcode.md` 等）单向依赖本文件；本文件不引用任何宿主映射的工具对照内容。
-- 能力表未列 read 的蕴含说明（SPEC-05 §7）：Implementation 的 edit/write/inspect、Review 的 inspect 已蕴含所需读取面；角色合同显式声明 read 是把蕴含面写明，不改变 §2.2 阶段表基线。
+- 能力表未列 read 的蕴含说明（SPEC-05 §7）：Implementation 的 edit/write/inspect、Review 的 inspect 已蕴含所需读取面；角色合同显式声明 read 是把蕴含面写明，不改变 §2.2 能力表基线。
 - 宿主本地适配层实例（如目标项目内 `.zcode/agents/` 目录）由宿主映射文件约定生成；其与 `<role-contract-dir>/` 角色合同冲突时以合同为准（SPEC-05 R-05-003）。
 - 本文件与宿主映射文件按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）；`CC`/`ZC` 短码登记于 `../README.md`，governance-format §2.1 手册短码表的补记归后续包结构任务。
 - 宿主映射同步义务（承载面单源化）：适配层的能力对照表与方言/承载模板须随角色合同 `required_capabilities` 声明变化同步更新（对照表、模板与差异数据表为同一变更面）。

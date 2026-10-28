@@ -59,7 +59,7 @@
 - **回答、解释、只读审查或诊断**：只读检查，不领取任务、不修改进度、不实施修复。
 - **治理或文档维护**：按 [`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md)、[`rules/project.md`](./rules/project.md) 执行；改变项目事实时写入对应规格或 `facts/project/changes.jsonl`。
 - **功能、修复或重构**：先读上下文、规格、任务票与进度，领取 blocker 已完成的任务，再按流程执行。
-- **代理协作**：主 agent 按阶段派发执行体；角色边界、委派合同与阶段顺序以流程文档为准，执行体不得创建下级执行体。
+- **代理协作**：主 agent（路由层 Triage）只做理解、拆分、派发与验收，不写产品与治理文件；编码层三阶段执行体（Implementation / Review / Commit）分阶段承接生产性写入；角色边界、委派合同与阶段顺序以流程文档为准，执行体不得创建下级执行体。
 
 ## 停止条件
 
