@@ -1,6 +1,6 @@
 workflow:
-  name: implementation
-  description: 实施阶段工作流（三阶段第一阶段：Implementation → Review → Commit）
+  name: implementation-fixture
+  description: 参考 fixture（非生产）——Implementation 阶段流程的 schema/子集合同夹具；含 agent step，executor 在任何 checkpoint 落盘前 fail-closed，不可当作可执行流程调用；生产入口名 implementation 未实现
   version: "2.0"
 
 inputs:

@@ -1,5 +1,5 @@
 <!-- Input: 同级机器格式文件（`run-record.schema.json`、`run-record.example.json`、`issue-index.schema.json`、`ticket-record.schema.json`、`ticket-record.example.json`、`workflow.schema.json`、`dispatch-contract.schema.json`、`ledger-row.schema.json`）的定稿事实、workflow executor checkpoint 协议（执行合同唯一声明处＝`workflow.schema.json` 顶层 `description`，2026-10-26 分层迁入；与 `../../scripts/workflow-executor.sh` 运行时逐字段核对后声明），以及 `../README.md` 对本目录的登记。 -->
-<!-- Output: `agent-up` 运行时可读取的机器 schema 目录索引：直接成员登记、用途说明与 workflow executor 支持子集合同指针（合同正文唯一声明处＝`workflow.schema.json` 顶层 `description`）。 -->
+<!-- Output: `agent-up` 运行时可读取的机器 schema 目录索引：直接成员登记、用途说明、workflow executor 支持子集合同指针（合同正文唯一声明处＝`workflow.schema.json` 顶层 `description`）与 workflow 实例三档定位（schema-valid／executor-supported／production-ready）。 -->
 <!-- Pos: Skill 参考资料机器 schema 目录索引；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 机器 schema
@@ -24,6 +24,8 @@
 ## workflow executor 支持子集
 
 executor 执行合同的唯一声明处已迁至 `workflow.schema.json` 顶层 `description`（2026-10-26 分层迁移：合同正文逐字搬移、零语义变化——本 README 不再承载唯一执行语义）。本节保留为 legacy 指针：入站引用（`../workflows/README.md`、`../../scripts/README.md` 的 workflow-executor.sh 登记行等）由此可溯；回归锁定不变＝`../../scripts/tests/` 的 workflow-contract 套件。
+
+三档定位（2026-10-27）：**schema 合法≠executor 可执行≠生产可用**。本包 `../workflows/` 两实例均为 reference fixture（`workflow.name` 带 `-fixture` 后缀、`workflow.description` 首句声明非生产），分档不同：`triage.yaml` 达 executor-supported（五步全 command／verification，端到端 exit 0）；`implementation.yaml` 仅 schema-valid——其 agent step 由 executor 在任何 checkpoint 落盘与任何步骤命令执行之前 fail-closed 拒绝（exit 非零、零 sidecar、票零改动），故整条 workflow 不具 executor-supported。production-ready 无机械断言，经 Review 与用户裁决；本包当前零 production-ready 实例。实例定位正文见 `../workflows/README.md`「三档定位」与「agent step 的 fail-closed 行为」两节。
 
 ## 契约头例外登记
 

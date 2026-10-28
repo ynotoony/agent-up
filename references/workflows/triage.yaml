@@ -1,6 +1,6 @@
 workflow:
-  name: triage
-  description: 需求分诊流程——从需求描述到 ready 票
+  name: triage-fixture
+  description: 参考 fixture（非生产）——分诊流程的 schema/子集合同夹具，步骤为 echo 占位，不代表真实分诊已可执行；生产入口名 triage 预留未实现
 
 inputs:
   requirement:
@@ -30,16 +30,17 @@ steps:
     type: command
     description: 写卡——生成完整的票 JSON
     checkpoint_field: checkpoint.triage.write_card
-    command: echo "步骤3完成 - 卡面生成" && echo '{"test":"ticket"}' > /tmp/test-ticket-$$.json
+    command: echo "步骤3完成 - 卡面生成（fixture 占位：不落盘）"
 
   - id: verify-card
     type: verification
-    description: 验证——检查票文件格式和必需字段
+    description: 验证——票 JSON 可被解析且含 test 键（fixture 占位：内存管道，不落盘）
     checkpoint_field: checkpoint.triage.verify_card
     verification:
-      - name: card-json-format
+      - name: card-json-parse
+        description: 票 JSON 过 json.tool 且含 test 键（expect 不用引号：executor 只剥外层双引号）
         check: printf '{"test":"ticket"}' | python3 -m json.tool
-        expect: '"test": "ticket"'
+        expect: test
 
   - id: register-ticket
     type: command

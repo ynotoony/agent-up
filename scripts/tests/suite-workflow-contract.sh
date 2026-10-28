@@ -25,7 +25,14 @@ fi
 # 等价、已退役恒真／恒假词 schema 与 executor 双层拒绝（先于 sidecar 落盘）、
 # 空 checkpoint 不为 all_verifications_pass（AC1 回归）、验证失败落结构化
 # failed 记录并进 blocked（AC2）、manual_retry_requested 仅显式 --retry 生效
-# 且重试推进可达（AC3）。夹具全 mktemp 自建不入
+# 且重试推进可达（AC3）；fixture 定位合同正例常驻：两实例入口名带
+# -fixture 后缀且不与生产入口（triage/implementation/review）共用、描述首句声明
+# 「参考 fixture（非生产）」、步骤命令与验证项零固定路径写入（/tmp 重定向、
+# 绝对路径重定向、fixture 内 mktemp 均拒），配同名副本负例（入口名改回 triage
+# 须非零退出并指名与生产入口共用）；triage fixture 隔离 cwd 端到端执行
+# 零外溢（零新增文件，旧 /tmp 占位写入已删）；implementation fixture 的 agent
+# step 经 executor 在任何 sidecar 落盘与步骤副作用之前 fail-closed（exit 非零、
+# 零 sidecar、票零改动、报文指名适配器缺失）。夹具全 mktemp 自建不入
 # 仓，被测对象只读；YAML 解析为夹具专用极简块级解析器（映射/序列/纯量/引号
 # 纯量，不支持锚点、流集合与多行块标量），校验关键字覆盖 workflow.schema.json
 # 在用全集：type/required/properties/patternProperties/additionalProperties/
@@ -35,6 +42,7 @@ fi
 # 夹具校验器（生成到 mktemp 目录，不入包）。模式：
 #   schema <workflow.yaml> <schema.json>   实例校验，违例行打印并 exit 1
 #   classify <workflow.yaml>               按 executor 支持子集输出逐步骤分类 JSON
+#   positioning <workflow.yaml>            fixture 定位合同：-fixture 后缀＋描述非生产声明＋零外溢写入
 #   sidecar <sidecar.json> <workflow.yaml> sidecar 合同校验＋与实例 checkpoint_field 交叉核对
 #   pattern-equiv <schema.json> <executor.sh>  checkpoint_field pattern 与运行时正则语料等价
 #   mapping-check <workflow.yaml> <schema.json> <issue-index.schema.json>
@@ -415,6 +423,49 @@ def classify(workflow_path):
     print(json.dumps(result, ensure_ascii=False))
 
 
+PRODUCTION_ENTRY_NAMES = ('triage', 'implementation', 'review')
+FIXTURE_SPILL_PATTERNS = (
+    (r'/tmp\b', '固定路径 /tmp'),
+    (r'>\s*/', '重定向到绝对路径'),
+    (r'\bmktemp\b', 'fixture 内自建临时路径（临时落盘须由调用方 mktemp 隔离）'),
+)
+
+
+def positioning_check(workflow_path):
+    """fixture 定位合同（票 211）：入口名带 -fixture 后缀（不与生产入口同名）、
+    描述首句声明「参考 fixture（非生产）」、步骤命令与验证项零固定路径写入。"""
+    with open(workflow_path, encoding='utf-8') as handle:
+        workflow = yaml_load(handle.read())
+    errors = []
+    meta = workflow.get('workflow') or {}
+    name = meta.get('name', '')
+    description = meta.get('description', '')
+    if not isinstance(name, str) or not name.endswith('-fixture'):
+        errors.append(f'$.workflow.name: reference fixture 入口名须带 -fixture 后缀: {name!r}')
+    if name in PRODUCTION_ENTRY_NAMES:
+        errors.append(f'$.workflow.name: 与生产入口名共用: {name!r}')
+    if not isinstance(description, str) or not description.startswith('参考 fixture（非生产）'):
+        errors.append('$.workflow.description: 首句须声明「参考 fixture（非生产）」')
+    for step in workflow.get('steps', []):
+        step_id = step.get('id', '?')
+        texts = [('command', step.get('command'))]
+        for index, item in enumerate(step.get('verification') or []):
+            if isinstance(item, dict):
+                for field in ('check', 'expect'):
+                    texts.append((f'verification[{index}].{field}', item.get(field)))
+        for field, text in texts:
+            if not isinstance(text, str):
+                continue
+            for pattern, label in FIXTURE_SPILL_PATTERNS:
+                if re.search(pattern, text):
+                    errors.append(f'$.steps[{step_id}].{field}: {label}（fixture 须零外溢写入）')
+    for line in errors:
+        print(line)
+    if not errors:
+        print(f'positioning ok: {name}')
+    return 1 if errors else 0
+
+
 def main(argv):
     if not argv:
         print('用法: wfvalidate.py schema|classify|sidecar|pattern-equiv|mapping-check ...', file=sys.stderr)
@@ -446,6 +497,8 @@ def main(argv):
     if mode == 'pattern-equiv':
         pattern_equiv(argv[1], argv[2])
         return 0
+    if mode == 'positioning':
+        return positioning_check(argv[1])
     print(f'未知模式: {mode}', file=sys.stderr)
     return 2
 
@@ -715,6 +768,46 @@ PY
     ok 'P12 implementation 实例分类＝2 agent fail-closed＋2 executable'
   else
     bad 'P12 implementation 实例分类＝2 agent fail-closed＋2 executable' "$(cat "$D/inst/impl-class.json")"
+  fi
+
+  # ---- fixture 定位合同（票 211）：非生产标注、入口名与生产入口分离、零外溢写入 ----
+
+  wf_expect_valid 'P20 triage fixture 定位合同：入口名带 -fixture 后缀＋描述声明非生产＋步骤零固定路径写入' \
+    positioning "$WF_DIR/triage.yaml"
+  wf_expect_valid 'P21 implementation fixture 定位合同：入口名带 -fixture 后缀＋描述声明非生产＋步骤零固定路径写入' \
+    positioning "$WF_DIR/implementation.yaml"
+
+  # N21（定位合同负例）：副本入口名改回生产入口名 → positioning 须非零退出并指名
+  sed 's/^  name: triage-fixture$/  name: triage/' "$WF_DIR/triage.yaml" > "$D/neg/n21-prod-entry-name.yaml"
+  wf_expect_invalid 'N21 副本入口名与生产入口同名（name: triage）被 positioning 拒并指名' \
+    '与生产入口名共用' positioning "$D/neg/n21-prod-entry-name.yaml"
+
+  # P22（AC2）：triage fixture 端到端执行＝隔离 cwd 零新增文件（旧 /tmp 占位写入已删）
+  mkdir -p "$D/fixture/run"
+  ( cd "$D/fixture/run" && sh "$EXECUTOR" "$WF_DIR/triage.yaml" > "$D/fixture/triage-run.log" 2>&1 )
+  fixture_rc=$?
+  fixture_entries=$(find "$D/fixture/run" -mindepth 1 2>/dev/null | head -n 3 | tr '\n' ' ')
+  if [ "$fixture_rc" -eq 0 ] && [ -z "$fixture_entries" ]; then
+    ok 'P22 AC2 triage fixture 端到端跑通且零外溢（隔离 cwd 零新增文件）'
+  else
+    bad 'P22 AC2 triage fixture 端到端跑通且零外溢（隔离 cwd 零新增文件）' \
+      "exit=$fixture_rc entries=[$fixture_entries] $(tail -n 3 "$D/fixture/triage-run.log" | tr '\n' '|')"
+  fi
+
+  # N20（AC3）：implementation fixture 的 agent step 在任何 sidecar 落盘与步骤副作用之前 fail-closed
+  mkdir -p "$D/fixture/impl"
+  printf '{"id":"wf-fixture-fc-test","kind":"task","title":"WF Fixture FC Test","created_at":"2026-10-27"}\n' > "$D/fixture/impl/ticket.json"
+  cp "$D/fixture/impl/ticket.json" "$D/fixture/impl/ticket.before"
+  sh "$EXECUTOR" "$WF_DIR/implementation.yaml" --ticket-file "$D/fixture/impl/ticket.json" > "$D/fixture/impl/run.log" 2>&1
+  impl_fc_rc=$?
+  if [ "$impl_fc_rc" -ne 0 ] \
+    && [ ! -e "$D/fixture/impl/ticket.json.workflow-checkpoint-v1.json" ] \
+    && cmp -s "$D/fixture/impl/ticket.json" "$D/fixture/impl/ticket.before" \
+    && grep -q '没有 agent 适配器' "$D/fixture/impl/run.log"; then
+    ok 'N20 AC3 implementation fixture：agent step fail-closed——exit 非零、零 sidecar、票零改动、报文指名适配器缺失'
+  else
+    bad 'N20 AC3 implementation fixture：agent step fail-closed——exit 非零、零 sidecar、票零改动、报文指名适配器缺失' \
+      "exit=$impl_fc_rc sidecar=$([ -e "$D/fixture/impl/ticket.json.workflow-checkpoint-v1.json" ] && echo present || echo absent) $(tail -n 3 "$D/fixture/impl/run.log" | tr '\n' '|')"
   fi
 
   # ---- checkpoint sidecar 夹具：合同校验＋运行时接受 ----
