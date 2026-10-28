@@ -19,7 +19,8 @@ fi
 # 仓外哨兵与仓库工作树指纹负例前后全等（AC3），symlink 在场语境合法相对路径全链零回归；
 # 票 228 增补：索引翻转改调同目录 ticket-ops.sh flip-index 代理（写入方收敛）——P-json
 # 全链断言护航代理路径（索引单写＋投影再生经 ticket-ops 承载），代理不在场收尾预检
-# 停止零提交零写入负例）
+# 停止零提交零写入负例；票 229 增补：micro/user-review 通用 flips 直写索引及仓内
+# 父目录 symlink 索引别名均预检拒绝）
 # ============================================================
 
 lc_git_commit() {
@@ -35,7 +36,7 @@ lc_build_fixture() {
   R=$1
   rm -rf "$R"
   mkdir -p "$R/rules/implementation/scripts" "$R/facts/project"
-  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$R/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/checkpoint-write.sh" "$SCRIPT_DIR/ledger-append.sh" "$R/rules/implementation/scripts/"
   printf '{"date": "2026-09-28", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' > "$R/facts/project/micro.jsonl"
   printf 'seed\n' > "$R/a.txt"
   git -C "$R" init -q
@@ -746,6 +747,194 @@ PYTHON
     ok '负例 N-228 票务代理 ticket-ops.sh 不在场 → exit 1 收尾预检停止零提交零写入（票 228 F1/F2 唯一写入方 fail-closed）'
   else
     bad '负例 N-228 票务代理 ticket-ops.sh 不在场 → exit 1 收尾预检停止零提交零写入（票 228 F1/F2 唯一写入方 fail-closed）' "exit=$rc $(tail -n 2 "$D/n228.out" | tr '\n' '|')"
+  fi
+
+  # 通用 flips 不得直写 index.json；两条道均须在预检停止且索引零改动。
+  lc_build_fixture "$D/n229mi"
+  lc_json_docs "$D/n229mi"
+  lc_git_commit "$D/n229mi"
+  printf 'change-229mi\n' > "$D/n229mi/a.txt"
+  n229mi_n0=$(git -C "$D/n229mi" rev-list --count HEAD)
+  n229mi_idx0=$(cksum "$D/n229mi/facts/requirements/tickets/index.json")
+  lc_contract "$D/n229mi.contract" ''
+  printf 'flips: facts/requirements/tickets/index.json:in_progress:done\n' >> "$D/n229mi.contract"
+  sh "$LC" "$D/n229mi" "$D/n229mi.contract" >"$D/n229mi.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '通用 flips 不得直写索引文件' "$D/n229mi.out" \
+    && [ "$(git -C "$D/n229mi" rev-list --count HEAD)" -eq "$n229mi_n0" ] \
+    && [ "$(cksum "$D/n229mi/facts/requirements/tickets/index.json")" = "$n229mi_idx0" ]; then
+    ok '负例 N-229mi micro 通用 flips 直写索引 → exit 1 零提交且索引零改动'
+  else
+    bad '负例 N-229mi micro 通用 flips 直写索引 → exit 1 零提交且索引零改动' "exit=$rc $(tail -n 2 "$D/n229mi.out" | tr '\n' '|')"
+  fi
+
+  lc_build_fixture "$D/n229ui"
+  lc_json_docs "$D/n229ui"
+  lc_git_commit "$D/n229ui"
+  printf 'change-229ui\n' > "$D/n229ui/a.txt"
+  n229ui_n0=$(git -C "$D/n229ui" rev-list --count HEAD)
+  n229ui_idx0=$(cksum "$D/n229ui/facts/requirements/tickets/index.json")
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: facts/requirements/tickets/33-lc-ticket.json\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: generic index flip\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK\n'
+    printf 'verdict_at: 2026-10-28T10:00\n'
+    printf 'flips: facts/requirements/tickets/index.json:in_progress:done\n'
+  } > "$D/n229ui.contract"
+  sh "$LC" "$D/n229ui" "$D/n229ui.contract" >"$D/n229ui.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '通用 flips 不得直写索引文件' "$D/n229ui.out" \
+    && [ "$(git -C "$D/n229ui" rev-list --count HEAD)" -eq "$n229ui_n0" ] \
+    && [ "$(cksum "$D/n229ui/facts/requirements/tickets/index.json")" = "$n229ui_idx0" ]; then
+    ok '负例 N-229ui user-review 通用 flips 直写索引 → exit 1 零提交且索引零改动'
+  else
+    bad '负例 N-229ui user-review 通用 flips 直写索引 → exit 1 零提交且索引零改动' "exit=$rc $(tail -n 2 "$D/n229ui.out" | tr '\n' '|')"
+  fi
+
+  # 仓内父目录 symlink 别名与真实索引 realpath 相同，同样须拒绝通用 flips。
+  lc_build_fixture "$D/n229ia"
+  lc_json_docs "$D/n229ia"
+  ln -s tickets "$D/n229ia/facts/requirements/tickets-alias"
+  lc_git_commit "$D/n229ia"
+  printf 'change-229ia\n' > "$D/n229ia/a.txt"
+  n229ia_n0=$(git -C "$D/n229ia" rev-list --count HEAD)
+  n229ia_idx0=$(cksum "$D/n229ia/facts/requirements/tickets/index.json")
+  lc_contract "$D/n229ia.contract" ''
+  printf 'flips: facts/requirements/tickets-alias/index.json:in_progress:done\n' >> "$D/n229ia.contract"
+  sh "$LC" "$D/n229ia" "$D/n229ia.contract" >"$D/n229ia.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '通用 flips 不得直写索引文件' "$D/n229ia.out" \
+    && [ "$(git -C "$D/n229ia" rev-list --count HEAD)" -eq "$n229ia_n0" ] \
+    && [ "$(cksum "$D/n229ia/facts/requirements/tickets/index.json")" = "$n229ia_idx0" ]; then
+    ok '负例 N-229ia 仓内父目录 symlink 索引别名 → exit 1 零提交且真实索引零改动'
+  else
+    bad '负例 N-229ia 仓内父目录 symlink 索引别名 → exit 1 零提交且真实索引零改动' "exit=$rc $(tail -n 2 "$D/n229ia.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 229 断言：记录写入职责拆分（checkpoint-write.sh／ledger-append.sh 代理化）----
+  # lane-commit 零 checkpoint/账本写入面：user-review 道经 checkpoint-write.sh 落记录块，
+  # micro 道经 ledger-append.sh --micro 落微账本；两代理缺失即收尾预检停止（先于产品提交，
+  # 零提交零写入）。微账本行族与 --check 零写入由原子层自身契约承载。
+  lc_build_fixture "$D/p229m"
+  lc_contract "$D/p229m.contract" '20m（票 229 微账本代理占位）'
+  sh "$LC" "$D/p229m" "$D/p229m.contract" >"$D/p229m.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '^lane-commit: 记录写入代理定位: .*ledger-append.sh' "$D/p229m.out" \
+    && grep -q '^ledger-append: 微账本落行: facts/project/micro.jsonl' "$D/p229m.out" \
+    && grep -q '"actual": "20m（票 229 微账本代理占位）"' "$D/p229m/facts/project/micro.jsonl"; then
+    ok '正例 P-229m micro 道经 ledger-append.sh --micro 落微账本且代理定位行与落行行在场（票 229 写入方拆分）'
+  else
+    bad '正例 P-229m micro 道经 ledger-append.sh --micro 落微账本且代理定位行与落行行在场（票 229 写入方拆分）' "exit=$rc $(tail -n 3 "$D/p229m.out" | tr '\n' '|')"
+  fi
+
+  lc_build_fixture "$D/p229u"
+  mkdir -p "$D/p229u/facts/requirements/tickets"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '# 票\n\n**Status:** `in_progress`\n' > "$D/p229u/facts/requirements/tickets/33-lc-ticket.md"
+  lc_git_commit "$D/p229u"
+  printf 'change-229u\n' > "$D/p229u/a.txt"
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: facts/requirements/tickets/33-lc-ticket.md\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: checkpoint proxy\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK（票 229 代理裁决）\n'
+    printf 'verdict_at: 2026-10-28T10:00\n'
+  } > "$D/p229u.contract"
+  sh "$LC" "$D/p229u" "$D/p229u.contract" >"$D/p229u.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '^lane-commit: 记录写入代理定位: .*checkpoint-write.sh' "$D/p229u.out" \
+    && grep -q '^checkpoint-write: 目标文件: facts/requirements/tickets/33-lc-ticket.md' "$D/p229u.out" \
+    && grep -q -- '- 裁决原文：OK（票 229 代理裁决）' "$D/p229u/facts/requirements/tickets/33-lc-ticket.md"; then
+    ok '正例 P-229u user-review 道经 checkpoint-write.sh 落记录块且目标文件契约行在场（票 229 写入方拆分）'
+  else
+    bad '正例 P-229u user-review 道经 checkpoint-write.sh 落记录块且目标文件契约行在场（票 229 写入方拆分）' "exit=$rc $(tail -n 3 "$D/p229u.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N-229a：checkpoint-write.sh 不在场 → 收尾预检停止，exit 1 零提交零写入
+  lc_build_fixture "$D/n229a"
+  mkdir -p "$D/n229a-bin"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/common-helpers.sh" "$D/n229a-bin/"
+  mkdir -p "$D/n229a/facts/requirements/tickets"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '# 票\n\n**Status:** `in_progress`\n' > "$D/n229a/facts/requirements/tickets/33-lc-ticket.md"
+  lc_git_commit "$D/n229a"
+  printf 'change-n229a\n' > "$D/n229a/a.txt"
+  n229a_n0=$(git -C "$D/n229a" rev-list --count HEAD)
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: facts/requirements/tickets/33-lc-ticket.md\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: checkpoint proxy missing\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK\n'
+    printf 'verdict_at: 2026-10-28T10:00\n'
+  } > "$D/n229a.contract"
+  sh "$D/n229a-bin/lane-commit.sh" "$D/n229a" "$D/n229a.contract" >"$D/n229a.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '记录写入代理 checkpoint-write.sh 不可用' "$D/n229a.out" \
+    && [ "$(git -C "$D/n229a" rev-list --count HEAD)" -eq "$n229a_n0" ]; then
+    ok '负例 N-229a checkpoint-write.sh 不在场 → exit 1 收尾预检停止零提交零写入（票 229）'
+  else
+    bad '负例 N-229a checkpoint-write.sh 不在场 → exit 1 收尾预检停止零提交零写入（票 229）' "exit=$rc $(tail -n 2 "$D/n229a.out" | tr '\n' '|')"
+  fi
+
+  # 负例 N-229b：ledger-append.sh 不在场 → 收尾预检停止，exit 1 零提交且微账本零写入
+  lc_build_fixture "$D/n229b"
+  mkdir -p "$D/n229b-bin"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/common-helpers.sh" "$D/n229b-bin/"
+  lc_git_commit "$D/n229b"
+  printf 'change-n229b\n' > "$D/n229b/a.txt"
+  n229b_n0=$(git -C "$D/n229b" rev-list --count HEAD)
+  n229b_ck0=$(cksum "$D/n229b/facts/project/micro.jsonl")
+  lc_contract "$D/n229b.contract" ''
+  sh "$D/n229b-bin/lane-commit.sh" "$D/n229b" "$D/n229b.contract" >"$D/n229b.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '记录写入代理 ledger-append.sh 不可用' "$D/n229b.out" \
+    && [ "$(git -C "$D/n229b" rev-list --count HEAD)" -eq "$n229b_n0" ] \
+    && [ "$(cksum "$D/n229b/facts/project/micro.jsonl")" = "$n229b_ck0" ]; then
+    ok '负例 N-229b ledger-append.sh 不在场 → exit 1 收尾预检停止零提交且微账本零写入（票 229）'
+  else
+    bad '负例 N-229b ledger-append.sh 不在场 → exit 1 收尾预检停止零提交且微账本零写入（票 229）' "exit=$rc $(tail -n 2 "$D/n229b.out" | tr '\n' '|')"
+  fi
+
+  # 原子层契约直测（ledger-append --micro）：--check 零写入、负例字段越界 fail-closed。
+  lc_build_fixture "$D/la229"
+  lc_git_commit "$D/la229"
+  la229_ck0=$(cksum "$D/la229/facts/project/micro.jsonl")
+  sh "$SCRIPT_DIR/ledger-append.sh" "$D/la229" --micro --date 2026-10-28 --whitelist a.txt \
+    --verify 1 --commit abcdef12 --check >"$D/la229.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'CHECK: PASS — 微账本行字段与行形校验通过（零写入）' "$D/la229.out" \
+    && [ "$(cksum "$D/la229/facts/project/micro.jsonl")" = "$la229_ck0" ]; then
+    ok '正例 L-229a ledger-append --micro --check → exit 0 且微账本零写入（票 229 原子层契约）'
+  else
+    bad '正例 L-229a ledger-append --micro --check → exit 0 且微账本零写入（票 229 原子层契约）' "exit=$rc $(tail -n 2 "$D/la229.out" | tr '\n' '|')"
+  fi
+  sh "$SCRIPT_DIR/ledger-append.sh" "$D/la229" --micro --date 2026-10-28 --whitelist a.txt \
+    --verify 1 --commit not-a-sha >"$D/la229b.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '不合产品提交 ID 口径' "$D/la229b.out" \
+    && [ "$(cksum "$D/la229/facts/project/micro.jsonl")" = "$la229_ck0" ]; then
+    ok '负例 L-229b ledger-append --micro --commit 非 sha → exit 1 零写入（票 229 原子层契约）'
+  else
+    bad '负例 L-229b ledger-append --micro --commit 非 sha → exit 1 零写入（票 229 原子层契约）' "exit=$rc $(tail -n 2 "$D/la229b.out" | tr '\n' '|')"
+  fi
+  sh "$SCRIPT_DIR/ledger-append.sh" "$D/la229" --micro --date 2026-10-28 --whitelist a.txt \
+    --verify 1 --commit abcdef12 --ledger-line '{}' >"$D/la229c.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '互斥' "$D/la229c.out"; then
+    ok '负例 L-229c ledger-append --micro 与 --ledger-line 混用 → exit 2（票 229 原子层契约）'
+  else
+    bad '负例 L-229c ledger-append --micro 与 --ledger-line 混用 → exit 2（票 229 原子层契约）' "exit=$rc $(tail -n 2 "$D/la229c.out" | tr '\n' '|')"
   fi
 
   # ---- 票 193 断言：微账本行合同（references/schemas/ledger-row.schema.json 单源）----

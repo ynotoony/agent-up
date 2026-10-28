@@ -2,24 +2,26 @@
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层）与行式提交合同文件
 #        （lane / ticket / whitelist / message / verify / record-only / verdict_quote /
 #         verdict_at / flips）。
-# Output: 门禁核对、白名单产品提交、记录写入（user-review 道追加 User Review Checkpoint
-#         ——.md 票追加票尾，.json 票体零追加、落独立 facts/requirements/tickets/<id>-review-checkpoint.md
-#         （票 108）；micro 道向 facts/project/micro.jsonl 懒创建落 JSON 行——键序 date,lane,
-#         whitelist,gates,verify,commit,actual 六键＋actual 键（票 100：记净工时，缺省空串
-#         既有六键行向后兼容；行型合同＝agent-up 公开包 references/schemas/ledger-row.schema.json，
-#         本脚本 micro 道落行形态与其 micro_seven_key/micro_six_key_legacy 行族逐字对齐，
-#         文档级单源，不运行时读取，安装闭包不含此件））、索引翻转与状态投影
-#         （flips 索引条目口径，票 228 F1/F2 写入方收敛：经同目录 ticket-ops.sh flip-index
-#         子命令代理——索引单写→投影再生→--check 收尾链全仓仅 ticket-ops 一处承载，
-#         本件零直接 index.json 写入面与零直接生成器调用）→ 机械回写受影响票正文
-#         **Status:** 行（.json 票体无 Status 行，跳过回写）；两段提交的逐步输出，两段提交 ID、
-#         各自文件清单与翻转清单分列回报。
-# Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26；票 37 行为基线改造）；行为基线 =
+# Output: 门禁核对、白名单产品提交、记录写入（票 229 记录写职责外移，本件零记录写入面：
+#         user-review 道经同目录优先/PATH 回退定位 checkpoint-write.sh review-checkpoint
+#         追加 User Review Checkpoint——.md 票追加票尾，.json 票体零追加、落独立
+#         facts/requirements/tickets/<id>-review-checkpoint.md（票 108）；micro 道经唯一
+#         写入方 ledger-append.sh --micro 落 facts/project/micro.jsonl 行——键序
+#         date,lane,whitelist,gates,verify,commit,actual，行型合同＝agent-up 公开包
+#         references/schemas/ledger-row.schema.json 的 micro_seven_key/micro_six_key_legacy
+#         行族）、索引翻转与状态投影（flips 索引条目口径，票 228 F1/F2 写入方收敛：经
+#         同目录 ticket-ops.sh flip-index 子命令代理——索引单写→投影再生→--check 收尾链
+#         全仓仅 ticket-ops 一处承载，本件零直接 index.json 写入面与零直接生成器调用）→
+#         机械回写受影响票正文 **Status:** 行（.json 票体无 Status 行，跳过回写）；两段
+#         提交的逐步输出，两段提交 ID、各自文件清单与翻转清单分列回报。
+# Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26；票 37 行为基线改造；票 229
+#      职责拆分——白名单提交留本件，记录写入三类代理化：索引翻转→ticket-ops flip-index、
+#      Review Checkpoint→checkpoint-write.sh、微账本→ledger-append.sh）；行为基线 =
 #      development-process 模板 §12.5 道脚本承载注记（索引单写经 ticket-ops flip-index
 #      代理 → 生成正文 Status 行 → 生成投影——票 34 定稿、票 228 写入方收敛后索引写入
 #      与投影再生单点在 ticket-ops）与 R-RC-003（先产品提交后纯记录提交）；POSIX sh、零外部依赖、
-#      fail-closed（门禁不过、合同格式不合预期、索引/生成器缺失即停止报告，不写不补；
-#      预检先于产品提交，停止时零提交零写入）。脚本权限边界 = 提交合同白名单，不执行
+#      fail-closed（门禁不过、合同格式不合预期、索引/生成器/记录写入方缺失即停止报告，不写
+#      不补；预检先于产品提交，停止时零提交零写入）。脚本权限边界 = 提交合同白名单，不执行
 #      白名单外任何写入；facts/requirements/tickets/README.md 与 facts/project/archive/progress.md
 #      状态行不属本脚本写入面（README 状态列为人工登记投影，票 35/37 口径）。写入面路径
 #      边界（票 144）：whitelist 条目、flips 目标与 ticket 票文件须为仓库根内普通相对文件，
@@ -30,9 +32,7 @@
 # ---- 路径常量区（票 111 波②建立、票 113 波④翻值：治理路径集中于此；值＝rules/facts 新形态 R11-R15/R19）----
 
 FACTS_TICKETS_INDEX='facts/requirements/tickets/index.json'
-FACTS_TICKETS_DIR='facts/requirements/tickets'
 FACTS_TICKETS_PROGRESS='facts/requirements/tickets/progress-current.md'
-FACTS_PROJECT_DIR='facts/project'
 FACTS_PROJECT_MICRO='facts/project/micro.jsonl'
 RULES_SCRIPTS_DIR='rules/implementation/scripts'
 
@@ -71,7 +71,7 @@ usage() {
                                                        追加票尾，.json 票零追加、Checkpoint
                                                        落独立 facts/requirements/tickets/<id>-review-
                                                        checkpoint.md（<id>＝票文件去后缀），
-                                                       票 108）
+                                                       票 108；写入经 checkpoint-write.sh）
                    whitelist: <逗号分隔相对路径>      （必填，单项或逗号多项）
                    message: <产品提交说明>            （必填）
                    verify: <验证命令>                 （一行一条，可多行；普通快道至少一条）
@@ -79,18 +79,22 @@ usage() {
                    verdict_quote: <用户裁决原文>      （user-review 必填；micro 不得出现）
                    verdict_at: <裁决时间>             （user-review 必填；micro 不得出现）
                    actual: <净工时（净工时口径文本）>  （micro 可选，票 100：记本次微收口
-                                                       净工时，落微账本 actual 键；缺省空
-                                                       串既有六键行向后兼容；user-review 不
-                                                       得出现——实际用时落票本体 actual_time）
+                                                       净工时，经 ledger-append --micro 落
+                                                       微账本 actual 键；缺省空串既有六键行
+                                                       向后兼容；user-review 不得出现——实际
+                                                       用时落票本体 actual_time）
                    flips: <file>:<field>:<value>      （行翻转：一行一条，可多行；field
-                                                       不得为 status 或 index）
+                                                       不得为 status 或 index；index.json
+                                                       及其 realpath 别名不得作为通用目标）
                    flips: facts/requirements/tickets/index.json:index:<id>:<status>:<updated_at>
                                                      （索引条目翻转：user-review 道专用，
                                                        至多一条；id 须与 ticket 票文件名去
                                                        .md/.json 后缀一致；status 为状态机
                                                        裸值；updated_at 允许冒号，取行尾余段）
                  # 注释（行首 #）与空行忽略；其余行判合同格式错误（exit 1）。
-                 行翻转语义: 锚点为字面子串，须恰命中一行，整行换成 value。
+                 行翻转语义: 锚点为字面子串，须恰命中一行，整行换成 value；通用 flips
+                 直写 index.json 或其 realpath 别名于预检 exit 1，索引仅经专用 index 段
+                 委托 ticket-ops。
                  索引条目翻转语义（单写机制，票 37；票 228 起经 ticket-ops 代理）: 调同目录
                  ticket-ops.sh flip-index 承载索引单写（"id" 锚点整行替换，仅改
                  status/updated_at 两值，其余字段原样保留；依赖一条目一行排版）→ 投影再生
@@ -98,6 +102,11 @@ usage() {
                  F1/F2 写入方收敛；ticket-ops 同目录优先、PATH 回退，缺失＝预检停止
                  fail-closed）→ 机械回写 ticket 票正文 **Status:** 行（.json 票体无 Status 行，
                  跳过回写，票 108；投影打印件 `value`）。
+                 记录写入委托（票 229，本脚本零 checkpoint/账本写入面）: user-review 道经
+                 checkpoint-write.sh review-checkpoint 追加 User Review Checkpoint（stdout
+                 末行 `checkpoint-write: 目标文件: <rel>` 为机器契约，目标登记进记录提交）；
+                 micro 道经 ledger-append.sh --micro 落微账本行（唯一写入方）。两件均同目录
+                 优先、PATH 回退，缺失＝收尾预检停止 fail-closed（先于产品提交）。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 门禁不过或合同 fail-closed 条件（停止时未产生任何写入或提交）；
         2 用法或环境错误。
@@ -426,8 +435,22 @@ done
 
 for flip in ${flips}; do
   f_file=${flip%%"${TAB}"*}
+  f_rest=${flip#*"${TAB}"}
+  f_field=${f_rest%%"${TAB}"*}
+  if [ "${f_file}" = "${FACTS_TICKETS_INDEX}" ] && [ "${f_field}" != 'index' ]; then
+    die1 "通用 flips 不得直写索引文件: ${f_file}（index.json 唯一写入方＝ticket-ops.sh；索引翻转须用专用 index 段）"
+  fi
   lc_in_repo "${repo_root}" "${f_file}" 'flips 目标' || \
     die1 "flips 目标路径边界校验未通过: ${f_file}（票 144：须为仓库根内普通相对文件）"
+  if [ "${f_field}" != 'index' ] && [ -f "${repo_root}/${FACTS_TICKETS_INDEX}" ]; then
+    _gf_target_real=$(realpath "${repo_root}/${f_file}" 2>/dev/null) || \
+      die1 "通用 flips 目标 realpath 解析失败: ${f_file}"
+    _gf_index_real=$(realpath "${repo_root}/${FACTS_TICKETS_INDEX}" 2>/dev/null) || \
+      die1 "索引文件 realpath 解析失败: ${FACTS_TICKETS_INDEX}"
+    if [ "${_gf_target_real}" = "${_gf_index_real}" ]; then
+      die1 "通用 flips 不得直写索引文件: ${f_file}（与 ${FACTS_TICKETS_INDEX} 为同一物理文件；index.json 唯一写入方＝ticket-ops.sh）"
+    fi
+  fi
 done
 
 # ---- 微道预检（票 58：微道只修不建不删；user-review 道不受此限，行为零变化）----
@@ -574,6 +597,43 @@ if [ "${n_index_flip}" -gt 0 ]; then
   fi
 fi
 
+# ---- 记录写入代理定位（票 229：checkpoint-write.sh／ledger-append.sh）----
+# 用途: 同目录优先、PATH 回退定位记录写入方（口径同票务代理定位：落位脚本不要求可执行位，
+#       恒经 sh 调用；PATH 回退手动迭代）。命中打印路径，缺失返回 1。
+lc_locate() {
+  _llt_name=$1
+  if [ -f "${script_dir}/${_llt_name}" ] && [ -r "${script_dir}/${_llt_name}" ]; then
+    printf '%s\n' "${script_dir}/${_llt_name}"
+    return 0
+  fi
+  _llt_rest=${PATH:-}
+  while [ -n "${_llt_rest}" ]; do
+    _llt_dir=${_llt_rest%%:*}
+    case ${_llt_rest} in
+      *:*) _llt_rest=${_llt_rest#*:} ;;
+      *) _llt_rest='' ;;
+    esac
+    [ -n "${_llt_dir}" ] || continue
+    if [ -f "${_llt_dir}/${_llt_name}" ] && [ -r "${_llt_dir}/${_llt_name}" ]; then
+      printf '%s\n' "${_llt_dir}/${_llt_name}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# 预检先于产品提交：任一记录写入方缺失即收尾停止（停止时零提交零写入）。
+cw_cmd=''
+la_cmd=''
+if [ "${lane}" = 'user-review' ]; then
+  cw_cmd=$(lc_locate checkpoint-write.sh) || die1 "记录写入代理 checkpoint-write.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：User Review Checkpoint 唯一写入方＝checkpoint-write.sh（票 229 职责拆分），将其落位到本脚本同目录（${RULES_SCRIPTS_DIR}/）或 PATH 后重跑"
+  printf 'lane-commit: 记录写入代理定位: %s\n' "${cw_cmd}"
+fi
+if [ "${lane}" = 'micro' ]; then
+  la_cmd=$(lc_locate ledger-append.sh) || die1 "记录写入代理 ledger-append.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：微账本 facts/project/micro.jsonl 唯一写入方＝ledger-append.sh（票 229 职责拆分），将其落位到本脚本同目录（${RULES_SCRIPTS_DIR}/）或 PATH 后重跑"
+  printf 'lane-commit: 记录写入代理定位: %s\n' "${la_cmd}"
+fi
+
 for flip in ${flips}; do
   f_field=$(printf '%s' "${flip}" | cut -f 2)
   f_file=${flip%%"${TAB}"*}
@@ -701,64 +761,41 @@ for flip in ${flips}; do
   fi
 done
 
-# 用途: 向 stdout 输出一段 User Review Checkpoint 记录块（日期标题＋裁决原文＋裁决时间＋
-#       产品提交 ID 与 subject＋diff 摘要），供 .md 票票尾追加与 .json 票独立 checkpoint md
-#       两处共用同一格式（票 108），保证两种票体记录块逐字节一致。
-# 参数: 无（读取全局 date_today / verdict_quote / verdict_at / cid1 / subject1 / diffsum1）。
-# 副作用: 仅写 stdout；不改文件（追加/创建由调用方完成）。
-# 返回码: 恒 0（printf 失败仅在极端的 stdout 写错误下非 0）。
-emit_checkpoint_block() {
-  printf '\n## User Review Checkpoint（%s，lane-commit.sh）\n\n' "${date_today}"
-  printf -- '- 裁决原文：%s\n' "${verdict_quote}"
-  printf -- '- 裁决时间：%s\n' "${verdict_at}"
-  printf -- '- 提交：%s %s\n' "${cid1}" "${subject1}"
-  printf -- '- diff 摘要：%s\n' "${diffsum1}"
-}
+# ---- 记录写入（票 229：记录写职责全部外移，本件零 checkpoint/账本写入面）----
+# Review Checkpoint 经 checkpoint-write.sh 写入（.md 票追加票尾；.json 票体零追加，落独立
+# checkpoint md——票 108 两种票体记录块同格式由代理保证），代理 stdout 末行
+# `checkpoint-write: 目标文件: <rel>` 为机器契约，据此登记记录提交面；微账本经唯一写入方
+# ledger-append.sh --micro 落行（行族合同与 JSON 转义由写入方承载）。
 
 if [ "${lane}" = 'user-review' ]; then
-  ck_target=${ticket}
-  if [ "${ticket_is_json}" -eq 1 ]; then
-    # .json 票体零追加（票 108）：Checkpoint 落独立 checkpoint md——
-    # facts/requirements/tickets/<id>-review-checkpoint.md（与仓内既有 -review-checkpoint.md 先例同命名）；
-    # 文件已存在则追加记录块，不存在则随记录块一并创建一级标题。
-    ck_target="${FACTS_TICKETS_DIR}/${t_stem}-review-checkpoint.md"
-    if [ ! -f "${repo_root}/${ck_target}" ]; then
-      { printf '# 票 %s User Review Checkpoint（用户即 Review 道）\n' "${t_stem}"
-        emit_checkpoint_block
-      } > "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 文件创建失败: ${ck_target}"
-    else
-      emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
-    fi
-  else
-    emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
-  fi
+  ck_out=$(sh "${cw_cmd}" "${repo_root}" review-checkpoint \
+    --ticket "${ticket}" \
+    --verdict-quote "${verdict_quote}" \
+    --verdict-at "${verdict_at}" \
+    --commit "${cid1}" \
+    --commit-subject "${subject1}" \
+    --diff-summary "${diffsum1}" \
+    --date "${date_today}") || die1 "User Review Checkpoint 写入代理未过（checkpoint-write.sh fail-closed，详见上方输出）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建"
+  printf '%s\n' "${ck_out}"
+  ck_target=$(printf '%s\n' "${ck_out}" | sed -n 's/^checkpoint-write: 目标文件: //p' | tail -n 1)
+  [ -n "${ck_target}" ] || die1 'User Review Checkpoint 写入代理未返回目标文件行（checkpoint-write 输出契约破坏）——收尾停止：产品提交已创建、记录提交未创建'
   tneedle="${NL}${ck_target}${NL}"
   case "${NL}${record_files}" in
     *"${tneedle}"*) : ;;
     *) record_files="${record_files}${ck_target}${NL}" ;;
   esac
-  if [ "${ticket_is_json}" -eq 1 ]; then
-    printf 'lane-commit: User Review Checkpoint 已追加: %s（.json 票体零追加，独立 checkpoint md 承载）\n' "${ck_target}"
-  else
-    printf 'lane-commit: User Review Checkpoint 已追加: %s\n' "${ck_target}"
-  fi
 fi
 
 if [ "${lane}" = 'micro' ]; then
-  micro_file=${FACTS_PROJECT_MICRO}
-  mkdir -p "${repo_root}/${FACTS_PROJECT_DIR}"
-  if [ ! -f "${repo_root}/${micro_file}" ]; then
-    : > "${repo_root}/${micro_file}" || die1 '微账本懒创建失败'
-  fi
-  [ -w "${repo_root}/${micro_file}" ] || die1 "微账本不可写: ${micro_file}"
   wl_joined=$(printf '%s' "${whitelist}" | paste -sd, -)
-  wl_json=$(printf '%s' "${wl_joined}" | sed 's/\\/\\\\/g; s/"/\\"/g')
-  actual_json=$(printf '%s' "${actual}" | sed 's/\\/\\\\/g; s/"/\\"/g')
   n_verify=$(printf '%s' "${verifies}" | grep -c . || true)
-  printf '{"date": "%s", "lane": "micro", "whitelist": "%s", "gates": "PASS", "verify": %d, "commit": "%s", "actual": "%s"}\n' \
-    "${date_today}" "${wl_json}" "${n_verify}" "${cid1}" "${actual_json}" >> "${repo_root}/${micro_file}" || die1 '微账本落行失败'
-  record_files="${record_files}${micro_file}${NL}"
-  printf 'lane-commit: 微账本已落行: %s\n' "${micro_file}"
+  sh "${la_cmd}" "${repo_root}" --micro \
+    --date "${date_today}" \
+    --whitelist "${wl_joined}" \
+    --verify "${n_verify}" \
+    --commit "${cid1}" \
+    --actual "${actual}" || die1 "微账本落行代理未过（ledger-append.sh --micro fail-closed，详见上方输出）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建"
+  record_files="${record_files}${FACTS_PROJECT_MICRO}${NL}"
 fi
 
 # 投影再生与 --check 已随索引翻转在 ticket-ops flip-index 代理内完成（票 228 F1/F2：

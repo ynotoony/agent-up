@@ -8,6 +8,12 @@
 
 已按本体系初始化的项目要跟上新版：跑 `sh <包目录>/scripts/upgrade-check.sh <包目录> <你的项目根>` 看你仓里已装部分与包新版的差距，按 `references/upgrade.md` 走升级流程。
 
+## 2026-10-28（脚本事职责拆分波：快道收尾的记录写入外移，单件单责）
+
+- **快道收尾拆分**：`lane-commit.sh` 只保留合同预检与白名单提交，记录写入改由三件原子层代理——索引翻转仍经 `ticket-ops.sh flip-index`，新增 `checkpoint-write.sh` 承载 User Review Checkpoint 写入，微账本行改经 `ledger-append.sh --micro` 落行（`ledger-append.sh` 由此同时成为 `changes.jsonl` 与 `micro.jsonl` 两账本唯一写入方）。CLI 与提交合同格式不变，调用方无需改命令；三件代理均同目录优先、PATH 回退，缺失即收尾预检停止（零提交零写入）。
+- **`checkpoint-write.sh` 契约**：`review-checkpoint` 子命令按票体形态写记录块（`.md` 票追加票尾；`.json` 票体零追加、落 `<id>-review-checkpoint.md`），记录块格式与拆分前逐字节一致；stdout 末行 `checkpoint-write: 目标文件: <rel>` 为机器契约，供 lane-commit 登记记录提交面。安装闭包随快道门控补 `checkpoint-write.sh` 与 `ledger-append.sh`。
+- **要不要跟**：启用分级交付道快道的项目建议跟（否则新 lane-commit 因代理缺失而在收尾预检停止）；升级后 `rules/implementation/scripts/` 应同时出现 `checkpoint-write.sh`、`ledger-append.sh`。未启用快道、仅用票务脚本的项目不受影响（`ledger-append.sh` 行为向后兼容，`--micro` 为新增模式）。
+
 ## 2026-10-26（文档分层波：README 回到索引与指针，执行契约与历史各归其位）
 
 - **README 分层**：包内目录 README 收敛为成员、用途、入口与指针——schemas/README 不再承载唯一执行语义，scripts/README 不再兼任历史决策载体；templates/README 目录清单节＝当前 manifest，「取舍与过渡登记」历史档案原位保留（其条目行号是包清单数据表 layout-compat-exempt 节按检查 24 登记的锚点，整节迁出须联动数据表与测试夹具，归后续票承载），本波起新增迁移决策追加至本文件。
