@@ -19,4 +19,4 @@
 | `adapters/` | 平台适配目录 | 承载宿主能力契约与五份宿主映射（platform 全集 `zcode`/`claude-code`/`codex`/`pi`/`dsh`，机器真相＝`../scripts/package-manifest.rules` 的 adapter-registry 节，宿主短码为注册表投影；运行时映射，不是事实源，事实源为目标项目角色合同（新布局缺省 `rules/implementation/roles/`，旧项目为登记的兼容目录如 `docs/agent/roles/`）与核心协议），成员与短码投影见 `adapters/README.md`。 |
 | `prompts/` | 派发模板目录 | 承载 Implementation / Review / Commit 三阶段派发 prompt 模板，为 `../scripts/check-dispatch-contract.sh` `--check-template` 的占位符比对面，成员与占位符说明见 `prompts/README.md`。 |
 | `workflows/` | 流程实例目录 | 承载 workflow schema（`schemas/workflow.schema.json`）的可执行实例 YAML，经 `../scripts/workflow-executor.sh` 驱动，成员与 schema 对应关系见 `workflows/README.md`。 |
-| `schemas/` | 机器 schema 目录 | 承载 run record／派发合同／票记录／索引／workflow 机器 schema 与标注样例（JSON 以 `$id`/`title`/`description` 承载导航元数据），成员与用途见 `schemas/README.md`。 |
+| `schemas/` | 机器 schema 目录 | 承载 run record／派发合同／票记录／索引／workflow 机器 schema 与标注样例（JSON 以 `$id`/`title`/`description` 承载导航元数据；workflow executor 支持子集合同唯一声明处＝`schemas/workflow.schema.json` 顶层 description），成员与用途见 `schemas/README.md`。 |
