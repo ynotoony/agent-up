@@ -31,7 +31,7 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 - 档位只描述治理资源加载范围，不是宿主性能、可靠性或功能承诺。
 - platform 枚举已知集合 `neutral` / `zcode` / `claude-code` / `codex` / `pi` / `dsh`；新增宿主值先在 artifacts-yaml 模板 platform 注释区登记，再建 `adapters/<host>.md` 映射文件。
 - 未测量不声明：无实验数据不得声称 token 节省、速度或可靠性提升。
-- 本文件规则块前缀 `R-CC-`；宿主映射文件前缀 `R-ZC-`。
+- 本文件规则块前缀 `R-CC-`；宿主映射文件不设规则块，公共规则只留指向本契约的指针，宿主短码仅作注册表与 README 导航标识。
 
 ## 2. 可执行规则
 
@@ -135,7 +135,7 @@ platform 取值描述产物或文件的平台绑定面：`neutral` 表示平台�
 #### R-CC-005 新宿主扩展登记 `MUST`
 
 - **When**：需要支持新宿主、登记新 platform 取值或新增平台适配文件时。
-- **Action**：IF 需要支持新宿主 THEN 依序执行：①在 artifacts-yaml 模板 platform 字段注释区登记新宿主值（目标项目同步其 artifacts.yaml 注释区）；②在 adapters/ 新建 `<host>.md` 宿主映射文件（能力→宿主工具对照、frontmatter 方言、运行时入口形态），规则块前缀 `R-<host 短码>-`；③核心协议与角色合同保持平台无关，不做平台化改写 ELSE 不预置适配器文件与未使用的 platform 取值。
+- **Action**：IF 需要支持新宿主 THEN 依序执行：①在 artifacts-yaml 模板 platform 字段注释区登记新宿主值（目标项目同步其 artifacts.yaml 注释区）；②在 adapters/ 新建 `<host>.md` 宿主映射文件（能力→宿主工具对照、方言承载形态、独立执行体声明、运行时入口形态），不设 `R-<host 短码>-` 规则块——公共规则只留指向本契约的指针（唯一权威＝本文件），宿主短码仅作注册表与 README 导航标识；③核心协议与角色合同保持平台无关，不做平台化改写 ELSE 不预置适配器文件与未使用的 platform 取值。
 - **Forbidden**：未登记 platform 取值就在产物中使用该值；把宿主映射写进核心协议或角色合同；为"将来可能"预建适配器文件。
 - **Stop if**：新宿主无法满足 §2.2 某阶段所需能力 → 按 R-CC-001 Stop if 走降级路径或明确阻塞，不虚报兼容。
 - **Evidence**：platform 取值集合、artifacts-yaml 模板注释区与 adapters/ 映射文件三者一致。
@@ -149,3 +149,7 @@ platform 取值描述产物或文件的平台绑定面：`neutral` 表示平台�
 - 能力表未列 read 的蕴含说明（SPEC-05 §7）：Implementation 的 edit/write/inspect、Review 的 inspect 已蕴含所需读取面；角色合同显式声明 read 是把蕴含面写明，不改变 §2.2 阶段表基线。
 - 宿主本地适配层实例（如目标项目内 `.zcode/agents/` 目录）由宿主映射文件约定生成；其与 `<role-contract-dir>/` 角色合同冲突时以合同为准（SPEC-05 R-05-003）。
 - 本文件与宿主映射文件按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）；`CC`/`ZC` 短码登记于 `../README.md`，governance-format §2.1 手册短码表的补记归后续包结构任务。
+- 宿主映射同步义务（承载面单源化）：适配层的能力对照表与方言/承载模板须随角色合同 `required_capabilities` 声明变化同步更新（对照表、模板与差异数据表为同一变更面）。
+- 映射免责（承载面单源化）：适配层只承载运行时映射，不是事实源；与角色合同冲突时以合同为准并修正适配文件（SPEC-05 R-05-003）。
+- 适配层禁止面（承载面单源化）：禁止在适配层新增流程规则或门禁；禁止核心协议或角色合同反向引用适配层内容作为规则依据；能力对照表不得出现能力清单之外的工具语义。
+- 适配层验收证据（承载面单源化）：宿主映射文件无七节合同与门禁内容，冲突核查以角色合同为基准通过；唯一权威指针段之外不承载公共规则正文。

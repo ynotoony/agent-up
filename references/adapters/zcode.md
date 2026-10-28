@@ -10,51 +10,34 @@ update_policy: 本文件只是运行时映射，不是事实源；与角色合�
 depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-003 适配层地位）；被目标项目宿主适配层实例依赖
 ---
 <!-- Input: adapter-capability-contract.md 能力契约、原宿主 frontmatter 形态（name/color/description/tools）与目标项目角色合同路径约定（<role-contract-dir>/）。 -->
-<!-- Output: 宿主运行时映射手册：能力→宿主工具对照、三角色 frontmatter 方言模板、独立执行体声明与降级路径、适配层地位边界。 -->
+<!-- Output: zcode 宿主差异面：能力→宿主工具对照、三角色 frontmatter 方言模板、独立执行体声明；公共规则唯一权威＝capability-contract.md。 -->
 <!-- Pos: 公开包 adapters/ 宿主映射文件（运行时映射，不是事实源；事实源是目标项目 <role-contract-dir>/ 角色合同）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md（references/README.md）。 -->
 
-# 宿主适配层映射（运行时入口）
+# 宿主适配层映射（zcode 运行时入口）
 
-本文件是平台适配层：把 capability-contract 的能力基元映射为宿主运行时形态（frontmatter 方言与工具对照），并承载原宿主绑定 frontmatter 的迁移形态。适配层只是运行时入口，不是事实源；事实源是目标项目 `<role-contract-dir>/` 的平台无关角色合同。
+本文件承载 zcode 宿主的运行时形态：frontmatter 方言、工具对照与原宿主绑定 frontmatter 的迁移形态；公共规则不在此复述。
 
 ## 1. 快速摘要
 
-- 事实源：`<role-contract-dir>/implementation.md`、`review.md`、`commit.md`（平台无关角色合同，七节）。
-- 本文件承载：能力→宿主工具对照（§2.2）、三角色 frontmatter 方言模板（§2.3）、独立执行体声明与降级路径（§2.4）。
+- platform 枚举值：`zcode`；frontmatter 方言对齐宿主 `name`/`color`/`description`/`tools` 四字段。
 - 原宿主 frontmatter（name/color/tools 与描述内工具列举）自角色模板移入本文件（SPEC-06 §3 R-06-002 平台绑定出模板）。
-- 适配层与角色合同冲突 → 以合同为准，修正本文件并报告（SPEC-05 R-05-003）。
-- `required_capabilities` → 宿主工具清单按 §2.2 对照表逐能力展开；角色合同能力声明变化后须同步对照表与方言模板。
-- 运行时入口的 name/description 承载派发摘要；规则权威始终在角色合同与 rules/ 流程规则三件。
-- 九能力对照完整覆盖：inspect/search/read（盘点/检索/读取）、edit/write（修改/创建）、execute 与 readonly-execute（命令执行，只读性由调用方约束）、vcs-read/vcs-write（版本库只读/写命令）。
-- 宿主缺少某能力的工具等价物时按 capability-contract R-CC-001 Stop if 处理，不虚报兼容。
-- 本宿主独立 subagent 执行体状态＝local-observation（本地实跑观察；官方文档指针未核验，状态标 pending），独立 Review 默认由独立 subagent 执行；不可用或被裁剪时的降级路径见 §2.4 与 capability-contract §2.3。
-- 本文件规则块前缀 `R-ZC-`；能力契约手册前缀 `R-CC-`。
+- 运行时入口的 name/description 承载派发摘要；入口三件按角色合同生成，落在 `.zcode/agents/`。
+- 工具面：`Read`/`Grep`/`Glob`/`Edit`/`Write`/`Bash`，逐能力展开见 §2.2。
+- 独立 subagent 执行体状态＝local-observation（本仓库 `.zcode/agents/` 实跑观察面；官方文档指针未核验，状态标 pending）。
+- readonly_execute 本宿主登记 `readonly_enforcement: policy-only`（宿主默认沙箱行为未核验，观察记录不作等级依据，注记见 §3）。
+- 方言与装载时序的本地观察记录（思考档位声明、会话内改写不生效）见 §3 注记。
 
 ## 2. 可执行规则
 
-### 2.1 适配层地位
+### 2.1 公共规则唯一权威（指针）
 
-#### R-ZC-001 映射不是事实源 `MUST`
-
-- **When**：创建、修改或评估任何平台适配文件时。
-- **Action**：适配层只承载运行时映射（入口名、frontmatter 方言、工具调用方式）；事实源是 `<role-contract-dir>/` 角色合同与核心协议；本文件按宿主方言变化同步。
-- **Forbidden**：把适配层当事实源；在适配层新增流程规则或门禁；核心协议或角色合同反向引用本文件内容作为规则依据。
-- **Stop if**：适配器与角色合同冲突 → 以合同为准，修正本文件并报告，不改合同。
-- **Evidence**：冲突核查以合同为基准通过；本文件无七节合同、门禁等流程规则内容。
-- **Owner**：Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）。
-- **Authority**：SPEC-05 §4（R-05-003）。
+- 公共规则（映射免责/事实源、能力声明、能力映射同步义务、readonly 等级、无 subagent 降级路径与记录义务、档位、platform 扩展）唯一权威＝`capability-contract.md`；本文件只承载宿主差异面，不复述其正文。
+- 能力基元与阶段表：`capability-contract.md` §2.1/§2.2（规则块 R-CC-001）。
+- 只读约束等级与降级路径：`capability-contract.md` §2.3（规则块 R-CC-002）；扩展登记：§2.5（R-CC-005）。
 
 ### 2.2 能力→宿主工具对照
 
-#### R-ZC-002 能力映射与方言同步 `MUST`
-
-- **When**：生成宿主运行时入口，或角色合同 `required_capabilities` 变化时。
-- **Action**：按本节对照表把 `required_capabilities` 展开为宿主工具清单；按 §2.3 方言模板生成入口文件；角色合同能力声明变化后同步对照表与模板。
-- **Forbidden**：对照表出现能力清单之外的工具语义；在角色合同内写平台工具名；宿主缺工具等价物时虚报兼容。
-- **Stop if**：某能力在宿主无等价工具 → 按 capability-contract R-CC-001 Stop if 走降级路径或明确阻塞，不降低阶段门禁。
-- **Evidence**：对照表覆盖九能力基元且 readonly-execute 行含 `readonly_enforcement` 等级声明；入口文件 frontmatter 与角色合同能力声明一一对应。
-- **Owner**：Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）。
-- **Authority**：SPEC-05 §2/§4（R-05-001、R-05-003）。
+本表登记的 zcode 工具口径为本宿主差异面；能力语义与阶段归属见 §2.1 指针。
 
 | 能力基元 | 宿主工具 | 约束 |
 | --- | --- | --- |
@@ -68,9 +51,26 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | vcs-read | Bash | git status/log/diff 等只读命令 |
 | vcs-write | Bash | git add/commit 等写命令 |
 
-### 2.3 三角色 frontmatter 方言模板
+### 2.3 三角色能力映射
 
-入口文件按角色合同生成，frontmatter 形态固定如下（description 承载派发摘要，规则权威在角色合同）。示例中的 `<role-contract-dir>` 必须按目标项目登记值展开；新项目默认 `rules/implementation/roles/`，旧项目使用登记的兼容目录（通常是 `docs/agent/roles/`）：
+角色合同 `required_capabilities` 到本宿主工具清单的对应（行序＝入口生成序）：
+
+| 角色合同 | required_capabilities | tools |
+| --- | --- | --- |
+| <role-contract-dir>/implementation.md | inspect, search, read, edit, write, execute | [Read, Grep, Glob, Edit, Write, Bash] |
+| <role-contract-dir>/review.md | inspect, search, read, readonly-execute | [Read, Grep, Glob, Bash] |
+| <role-contract-dir>/commit.md | inspect, vcs-read, vcs-write | [Read, Grep, Glob, Bash] |
+
+### 2.4 独立执行体声明与降级路径
+
+声明：本宿主独立 subagent 执行体状态＝local-observation（本仓库 `.zcode/agents/` 运行时入口按独立 subagent 会话形态派发执行，实跑观察面；官方文档指针未核验，状态标 pending；本地观察记录见 §3 注记，不充当本条支持声明依据）。独立 Review 默认由独立 subagent 执行。
+
+- 降级：部署裁剪或权限配置导致 subagent 不可用时，走 `capability-contract.md` §2.3 降级路径 (a)/(b)/(c)，并记录 `independent_review: unavailable` 及实际所选路径（公共规则唯一权威，本文件不复述）。
+- 记录面：审查记录字段与 run record 指针按 `capability-contract.md` §2.3/R-CC-002 登记（公共规则唯一权威，本文件不复述）。
+
+### 2.5 三角色 frontmatter 方言模板
+
+入口文件按角色合同生成，frontmatter 形态固定如下（description 承载派发摘要）：示例中的 `<role-contract-dir>` 必须按目标项目登记值展开；新项目默认 `rules/implementation/roles/`，旧项目使用登记的兼容目录（通常是 `docs/agent/roles/`）：
 
 ```text
 ---
@@ -99,31 +99,11 @@ tools: [Read, Grep, Glob, Bash]
 ---
 ```
 
-角色合同 → `required_capabilities` → 宿主工具清单对应：
-
-| 角色合同 | required_capabilities | tools |
-| --- | --- | --- |
-| <role-contract-dir>/implementation.md | inspect, search, read, edit, write, execute | [Read, Grep, Glob, Edit, Write, Bash] |
-| <role-contract-dir>/review.md | inspect, search, read, readonly-execute | [Read, Grep, Glob, Bash] |
-| <role-contract-dir>/commit.md | inspect, vcs-read, vcs-write | [Read, Grep, Glob, Bash] |
-
-### 2.4 独立执行体声明与降级路径
-
-#### R-ZC-003 独立执行体与降级如实记录 `MUST`
-
-- **When**：在 zcode 宿主派发独立 Review，或评估宿主独立执行体能力时。
-- **Action**：声明：本宿主独立 subagent 执行体状态＝local-observation（本仓库 `.zcode/agents/` 运行时入口按独立 subagent 会话形态派发执行，实跑观察面；官方文档指针未核验，状态标 pending，按 R-AT-001 事实准入不虚构来源）；独立 Review 默认由独立 subagent 执行；本宿主方言与装载时序的本地观察记录见 §3 注记（非规范事实源，不充当本条支持声明依据）。IF 部署裁剪或权限配置导致 subagent 不可用 THEN 按 capability-contract R-CC-002 依序尝试：(a) 新开独立 session 执行 Review；(b) 用不同执行身份或模型执行 Review；(c) 由用户本人执行独立 Review；并记录 `independent_review: unavailable` 及实际所选替代路径。
-- **Forbidden**：把同一执行体的自检标记为 Review pass；静默跳过独立 Review；把降级路径说成"与独立 subagent 等价无差"。
-- **Stop if**：三条替代路径均不可用 → 任务停在 review_ready，记录阻塞，不进入 Commit。
-- **Evidence**：审查记录含 `independent_review` 字段与所选路径；run record 可选指针字段按 schema 回填。
-- **Owner**：Review 执行体或主 agent（记录降级决定）。
-- **Authority**：capability-contract R-CC-002、SPEC-05 §5（R-05-004）。
-
 ## 3. 解释与例外
 
 - inspect 映射为 Glob + Read 的组合：目录结构盘点用 Glob，现状内容核对用 Read；单能力对应多工具时按任务需要选用。
-- 宿主本地适配层实例（目标项目内 `.zcode/agents/` 等目录）由本映射生成；其与 `<role-contract-dir>/` 合同冲突时以合同为准，并报告差异。
-- capability profile 档位与 platform 枚举扩展规则见 `capability-contract.md`；降级路径语义权威在其 §2.3（本文件 §2.4 只承载本宿主的执行体声明与衔接），不复述避免第二权威。
-- 本文件与 capability-contract 按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。
-- 本地观察注记（local-observation，2026-09-30 宿主实跑记录；非规范事实源，不作规则块支持声明依据）：钉模型的 agent 须显式声明思考档位——agent profile 的模型选择不继承会话档位，选中模型而档位缺失时 spawn 即报 reasoning-level-missing（注册表默认档位不自动落下）；声明语法＝frontmatter `model: provider/model$档位` 或独立字段 `thoughtLevel: <档位>`（来源＝宿主实装：模型选择分隔符常量与 agent profile 解析器，`model_fallback` 非宿主字段），适配层实例 frontmatter 已按 `$high` 补声明并移除死字段；agent profile 于会话启动时装载，会话中改写 frontmatter 不生效，补丁实弹验证归新会话首派发；验证通过前，general-purpose 子代理注入同内容角色合同仍为现行有效独立形态（落 R-ZC-003 降级路径 (b)「不同执行身份」，独立性与只读边界由角色合同条款承载）。
+- 宿主本地适配层实例（目标项目内 `.zcode/agents/` 等价目录）由本映射生成；其与 `<role-contract-dir>/` 合同冲突时以合同为准，并报告差异。
+- 本地观察注记（local-observation，2026-09-30 宿主实跑记录；非规范事实源，不作规则块支持声明依据）：钉模型的 agent 须显式声明思考档位——agent profile 的模型选择不继承会话档位，选中模型而档位缺失时 spawn 即报 reasoning-level-missing；声明语法＝frontmatter `model: provider/model$档位` 或独立字段 `thoughtLevel: <档位>`（来源＝宿主实装：模型选择分隔符常量与 agent profile 解析器，`model_fallback` 非宿主字段），适配层实例 frontmatter 已按 `$high` 补声明并移除死字段；agent profile 于会话启动时装载，会话中改写 frontmatter 不生效，补丁实弹验证归新会话首派发；验证通过前，general-purpose 子代理注入同内容角色合同仍为现行有效独立形态（落 §2.4 降级路径 (b)「不同执行身份」）。
 - 本地观察注记（local-observation，2026-10-26 单机实测；非规范事实源）：宿主默认沙箱对包外写入拒绝、工作区内写入不拦截；官方文档对默认沙箱行为的指针未核验（pending），核验前 readonly-execute 行维持 policy-only 从紧口径，本记录不充当 host-enforced/runner-enforced 等级依据。
+- 能力 base 与阶段语义见 §2.1 指针；本文件不复述公共规则正文。
+- 本文件与 capability-contract 按 `governance-format.md` 定稿的 frontmatter、三层结构与规则块格式书写（自举合规）。

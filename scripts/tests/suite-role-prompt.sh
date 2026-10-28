@@ -10,13 +10,15 @@ fi
 # suite: role-prompt（角色合同/Prompt 权威边界断言：角色合同模板是 MUST 行为
 # 规则与写入权限正文的唯一承载面，派发 Prompt 只承载派发参数、上下文与输出槽。
 # 正例＝四件角色合同模板权威面在位（能力声明行＋规则块）＋现行三件 Prompt 零
-# 合同正文＋Triage 模板登记闭合（数据表＋manifest 投影）＋占位符全集零漂移；
-# 负例＝duplicate-body Prompt 夹具（复制合同正文进 Prompt）扫描器指名角色失败、
-# parameter/context/output-only Prompt 夹具通过、duplicate-rule 与
+# 合同正文＋Triage 模板登记闭合（数据表＋manifest 投影）＋占位符全集零漂移＋五宿主
+# 映射去重态（单一公共规则权威指针段在位、零规则块、零公共规则正文）＋结构模板
+# 不复述规范正文；负例＝duplicate-body Prompt 夹具（复制合同正文进 Prompt）扫描器
+# 指名角色失败、parameter/context/output-only Prompt 夹具通过、duplicate-rule 与
 # missing-permission 角色合同夹具经 check-package 指名角色失败（检查 22/14）、
-# Triage 模板缺权限声明夹具结构断言指名角色失败。夹具全 mktemp 自建不入仓，
-# 被测对象只读；边界扫描为结构性标记代理（规则块头/七字段体/权限清单体/输出
-# 格式签名），README 叙事面豁免（对齐 check-package 检查 12 口径））
+# Triage 模板缺权限声明夹具结构断言指名角色失败、公共规则正文回写宿主夹具去重
+# 扫描失败。夹具全 mktemp 自建不入仓，被测对象只读；边界扫描为结构性标记代理
+# （规则块头/七字段体/权限清单体/输出格式签名），README 叙事面豁免（对齐
+# check-package 检查 12 口径））
 # ============================================================
 
 # 边界扫描器：对派发 Prompt 目录做「零合同正文」机械断言。
@@ -57,6 +59,37 @@ rp_role_check() {
     _rpf_bad=1
   fi
   return "$_rpf_bad"
+}
+
+# 去重态扫描器：宿主映射文件零规则块、零公共规则正文、唯一权威指针段在位。
+# 违规面＝①`#### R-` 规则块头（公共规则正文载体）；②公共规则正文回写（映射免责／能力映射
+# 与方言同步／独立执行体与降级／§2.4 记录面正文：审查记录字段与 run record 指针句）；
+# ③缺「公共规则唯一权威（指针）」段或 capability-contract.md 指针。用法:
+# rp_dedupe_check <host-file>；缺陷明细输出 stdout，有缺陷 return 1，清洁 return 0。
+rp_dedupe_check() {
+  _rpd_file="$1"
+  if [ ! -f "$_rpd_file" ]; then
+    printf 'missing-file: %s\n' "$_rpd_file"
+    return 1
+  fi
+  _rpd_bad=0
+  if LC_ALL=C grep -q '^#### R-' "$_rpd_file"; then
+    printf 'rule-block-present: %s\n' "$_rpd_file"
+    _rpd_bad=1
+  fi
+  if LC_ALL=C grep -qE '映射不是事实源|能力映射与方言同步|独立执行体与降级如实记录|审查记录含|run record 可选指针字段' "$_rpd_file"; then
+    printf 'public-rule-body-present: %s\n' "$_rpd_file"
+    _rpd_bad=1
+  fi
+  if ! LC_ALL=C grep -q '^### 2.1 公共规则唯一权威（指针）$' "$_rpd_file"; then
+    printf 'missing-authority-pointer-section: %s\n' "$_rpd_file"
+    _rpd_bad=1
+  fi
+  if ! LC_ALL=C grep -q 'capability-contract\.md' "$_rpd_file"; then
+    printf 'missing-authority-pointer: %s\n' "$_rpd_file"
+    _rpd_bad=1
+  fi
+  return "$_rpd_bad"
 }
 
 suite_role_prompt() {
@@ -135,6 +168,46 @@ suite_role_prompt() {
     ok '正例 P5 三件 Prompt 占位符全集零漂移（check-dispatch-contract --check-template exit 0）'
   else
     bad '正例 P5 三件 Prompt 占位符全集零漂移（check-dispatch-contract --check-template exit 0）' "exit=$_p5rc $(tail -n 3 "$D/p5-tmpl.out" | tr '\n' '|')"
+  fi
+
+  # 正例 P6（×5）：五宿主映射文件去重态——单一公共规则权威指针段在位、零规则块、
+  # 零公共规则正文（映射免责／能力映射同步／独立执行体降级三段标题与正文均不承载）。
+  for _p6h in zcode claude-code codex pi dsh; do
+    if rp_dedupe_check "$PKG_ROOT/references/adapters/$_p6h.md" > "$D/p6-$_p6h.out" 2>&1; then
+      ok "正例 P6 $_p6h.md 公共规则只留唯一权威指针（零规则块、零公共规则正文）"
+    else
+      bad "正例 P6 $_p6h.md 公共规则只留唯一权威指针（零规则块、零公共规则正文）" "$(cat "$D/p6-$_p6h.out")"
+    fi
+  done
+
+  # 正例 P7：结构模板不再复制规范正文——保留唯一权威指针句，不含规范等级表与降级路径枚举。
+  if grep -q '唯一权威＝`capability-contract.md`' "$TMPL/../adapters/adapter-template.md" \
+    && ! grep -q '^| 等级 | 定义 |' "$TMPL/../adapters/adapter-template.md" \
+    && ! grep -q '依序尝试：(a)' "$TMPL/../adapters/adapter-template.md"; then
+    ok '正例 P7 adapter-template.md 为结构基线（指针在位、规范正文不复述）'
+  else
+    bad '正例 P7 adapter-template.md 为结构基线（指针在位、规范正文不复述）' '模板含规范正文或指针缺失'
+  fi
+
+  # 负例 N6：duplicate-rule 宿主夹具（把公共规则块正文写回宿主文件）→ 去重扫描失败指名文件
+  mkdir -p "$D/adapter-dup"
+  cp "$PKG_ROOT/references/adapters/zcode.md" "$D/adapter-dup/zcode.md"
+  cat >> "$D/adapter-dup/zcode.md" <<'EOF'
+
+#### R-ZC-009 映射不是事实源 `MUST`
+
+- **When**：夹具注入。
+- **Action**：把公共规则正文写回宿主映射文件（重复承载）。
+- **Forbidden**：夹具外使用。
+- **Stop if**：无。
+- **Evidence**：扫描器指名。
+- **Owner**：测试夹具。
+- **Authority**：capability-contract R-CC-002。
+EOF
+  if ! rp_dedupe_check "$D/adapter-dup/zcode.md" > "$D/n6.out" 2>&1; then
+    ok '负例 N6 duplicate-rule 宿主夹具 → 去重扫描失败（公共规则正文回写被拒）'
+  else
+    bad '负例 N6 duplicate-rule 宿主夹具 → 去重扫描失败（公共规则正文回写被拒）' '扫描器对重复正文夹具意外通过（假绿）'
   fi
 
   # ---- 负例（mktemp 夹具）----

@@ -72,7 +72,11 @@ fi
 # check-package FAIL: 28（接通断言）、G5 文档侧单处篡改 exit 1、G6 方言锚语删除 exit 1
 # 指名段、G9 数据侧强调记号丢失 exit 1、G10 文档侧强调记号丢失经 check-package FAIL: 28、
 # G11 宿主 role 行多一列生成器 exit 1 指名 role-map、G12 同一夹具经 check-package FAIL: 27
-# 指名 role-map（角色表列数非 3 守卫，两引擎同口径不静默截断）；套件断言 87→89）
+# 指名 role-map（角色表列数非 3 守卫，两引擎同口径不静默截断）；适配器公共规则去重随票修
+# （五宿主映射删公共规则块、只留 capability-contract 唯一权威指针，adapter-template 收敛
+# 结构基线：检查 22 块计数 95→80 四金样块同步；检查 25 三例夹具锚点由已删宿主 R-XX-003
+# Authority 行改指 adapter-template R-AT-001 Authority 行；检查 24 行号锚点保持，面 31 件／
+# legacy 13 处／compatibility 52 处与失效豁免 0 不变）；套件断言 87→89）
 # ============================================================
 
 suite_check_package() {
@@ -135,7 +139,7 @@ PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行�
 PASS: 19 scripts 节 mode 断言（30 件，kind 数据驱动）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
+PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -167,7 +171,7 @@ PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行�
 PASS: 19 scripts 节 mode 断言（30 件，kind 数据驱动）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 33 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
+PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -208,7 +212,7 @@ FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械�
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 32 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
+PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -252,7 +256,7 @@ PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 33 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
+PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -1037,17 +1041,18 @@ EOF
   fi
 
   # 票 212 检查 25 待定规范声明检测夹具组（扫描面 references/adapters/*.md 的 MUST 块；
-  # cp 副本 mktemp 纪律，断言独立重建）。
-  # 负例 N48：MUST 块内注入【待定】来源行（R-ZC-003 Authority 行后）→ exit 1 且
+  # cp 副本 mktemp 纪律，断言独立重建）。公共规则去重后宿主映射文件零规则块，夹具锚点取
+  # 结构模板 R-AT-001 的 Authority 行（MUST 块内注入，行号现场提取）。
+  # 负例 N48：MUST 块内注入【待定】来源行（R-AT-001 Authority 行后）→ exit 1 且
   # FAIL: 25 指名文件:行号（规范事实不得依赖未定来源）。
   cp -R "$PKG_ROOT" "$D/pkpd1"
-  pdln=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-002' "$D/pkpd1/references/adapters/zcode.md" | tail -1 | cut -d: -f1)
-  { head -n "$pdln" "$D/pkpd1/references/adapters/zcode.md"; printf -- '- harness fixture 待定注入行：官方依据【待定】\n'; tail -n +"$((pdln + 1))" "$D/pkpd1/references/adapters/zcode.md"; } > "$D/zc.tmp" \
-    && mv "$D/zc.tmp" "$D/pkpd1/references/adapters/zcode.md"
+  pdln=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-005、SPEC-05 §4（R-05-003）。$' "$D/pkpd1/references/adapters/adapter-template.md" | head -1 | cut -d: -f1)
+  { head -n "$pdln" "$D/pkpd1/references/adapters/adapter-template.md"; printf -- '- harness fixture 待定注入行：官方依据【待定】\n'; tail -n +"$((pdln + 1))" "$D/pkpd1/references/adapters/adapter-template.md"; } > "$D/zc.tmp" \
+    && mv "$D/zc.tmp" "$D/pkpd1/references/adapters/adapter-template.md"
   sh "$D/pkpd1/scripts/check-package.sh" "$D/pkpd1" >"$D/act.n48" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && grep -q '^FAIL: 25 待定规范声明检测' "$D/act.n48" \
-    && grep -q "references/adapters/zcode.md:$((pdln + 1)) MUST 块命中【待定】来源标记" "$D/act.n48"; then
+    && grep -q "references/adapters/adapter-template.md:$((pdln + 1)) MUST 块命中【待定】来源标记" "$D/act.n48"; then
     ok '负例 N48 MUST 块注入【待定】来源行 → exit 1 且 FAIL: 25 指名文件:行号'
   else
     bad '负例 N48 MUST 块注入【待定】来源行 → exit 1 且 FAIL: 25 指名文件:行号' "exit=$rc"
@@ -1056,9 +1061,9 @@ EOF
   # 正例 N49：同一注入行带 <!-- pending-decl-exempt: 理由 --> 行级豁免 → 该行不报
   # exit 0（写入指引豁免生效；豁免计数 1→2 随注入行随动，R-AT-001 在册豁免不受扰）。
   cp -R "$PKG_ROOT" "$D/pkpd2"
-  pdln2=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-002' "$D/pkpd2/references/adapters/zcode.md" | tail -1 | cut -d: -f1)
-  { head -n "$pdln2" "$D/pkpd2/references/adapters/zcode.md"; printf -- '- harness fixture 待定注入行：官方依据【待定】<!-- pending-decl-exempt: harness fixture 写入指引豁免正例 -->\n'; tail -n +"$((pdln2 + 1))" "$D/pkpd2/references/adapters/zcode.md"; } > "$D/zc2.tmp" \
-    && mv "$D/zc2.tmp" "$D/pkpd2/references/adapters/zcode.md"
+  pdln2=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-005、SPEC-05 §4（R-05-003）。$' "$D/pkpd2/references/adapters/adapter-template.md" | head -1 | cut -d: -f1)
+  { head -n "$pdln2" "$D/pkpd2/references/adapters/adapter-template.md"; printf -- '- harness fixture 待定注入行：官方依据【待定】<!-- pending-decl-exempt: harness fixture 写入指引豁免正例 -->\n'; tail -n +"$((pdln2 + 1))" "$D/pkpd2/references/adapters/adapter-template.md"; } > "$D/zc2.tmp" \
+    && mv "$D/zc2.tmp" "$D/pkpd2/references/adapters/adapter-template.md"
   sh "$D/pkpd2/scripts/check-package.sh" "$D/pkpd2" >"$D/act.n49" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '^PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 2 行）' "$D/act.n49"; then
@@ -1070,13 +1075,13 @@ EOF
   # 负例 N50：失效豁免——标记行无【待定】命中 → exit 1 且 FAIL: 25 报失效豁免
   # （防漂移静默失效，检查 12/18/24 同款口径）。
   cp -R "$PKG_ROOT" "$D/pkpd3"
-  pdln3=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-002' "$D/pkpd3/references/adapters/zcode.md" | tail -1 | cut -d: -f1)
-  { head -n "$pdln3" "$D/pkpd3/references/adapters/zcode.md"; printf -- '- harness fixture 失效豁免注入行（无待定命中）<!-- pending-decl-exempt: harness fixture 失效豁免负例 -->\n'; tail -n +"$((pdln3 + 1))" "$D/pkpd3/references/adapters/zcode.md"; } > "$D/zc3.tmp" \
-    && mv "$D/zc3.tmp" "$D/pkpd3/references/adapters/zcode.md"
+  pdln3=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-005、SPEC-05 §4（R-05-003）。$' "$D/pkpd3/references/adapters/adapter-template.md" | head -1 | cut -d: -f1)
+  { head -n "$pdln3" "$D/pkpd3/references/adapters/adapter-template.md"; printf -- '- harness fixture 失效豁免注入行（无待定命中）<!-- pending-decl-exempt: harness fixture 失效豁免负例 -->\n'; tail -n +"$((pdln3 + 1))" "$D/pkpd3/references/adapters/adapter-template.md"; } > "$D/zc3.tmp" \
+    && mv "$D/zc3.tmp" "$D/pkpd3/references/adapters/adapter-template.md"
   sh "$D/pkpd3/scripts/check-package.sh" "$D/pkpd3" >"$D/act.n50" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && grep -q '^FAIL: 25 待定规范声明检测' "$D/act.n50" \
-    && grep -q "references/adapters/zcode.md:$((pdln3 + 1)) 失效豁免（pending-decl-exempt 标记行无【待定】命中或不在 MUST 块内，须复核更新或删除标记）" "$D/act.n50"; then
+    && grep -q "references/adapters/adapter-template.md:$((pdln3 + 1)) 失效豁免（pending-decl-exempt 标记行无【待定】命中或不在 MUST 块内，须复核更新或删除标记）" "$D/act.n50"; then
     ok '负例 N50 豁免标记行无命中 → exit 1 且 FAIL: 25 报失效豁免'
   else
     bad '负例 N50 豁免标记行无命中 → exit 1 且 FAIL: 25 报失效豁免' "exit=$rc"
