@@ -1,9 +1,11 @@
 #!/bin/sh
-# Input: 待检包根目录（默认为本脚本所在目录的父目录）与包清单数据文件
+# Input: 待检包根目录（默认为本脚本所在目录的父目录）与两份数据文件——包清单数据文件
 #        package-manifest.rules（与脚本同目录；入口文件/脚本必需件/模板清单/短码登记/
 #        platform 枚举/模糊措辞词表与豁免/镜像脚本/能力基元名单与检查目标/规则索引执行
-#        机制受控词表/平台适配注册表十一节唯一承载点，票 57/58/59/60/215）。
-# Output: 二十六项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
+#        机制受控词表/平台适配注册表十一节唯一承载点，票 57/58/59/60/215）与适配差异
+#        数据表 references/adapters/adapter-diffs.rules（包根相对落位；四节机器数据行，
+#        检查 27 数据源）。两份均为非执行式解析（fail-closed）。
+# Output: 二十七项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
 #         exit 1；检查 13 仓根无镜像落位目录时静默跳过无输出行；检查 19 非 git 语境静默
 #         跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
@@ -76,10 +78,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  二十六项检查全部通过
+  0  二十七项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-二十六项检查说明、例外登记与输出格式见同目录 README.md。
+二十七项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -145,12 +147,17 @@ pm_parsed=''
 pm_enf=''
 pm_enfvocab=''
 pm_adapters=''
+pm_adcap=''
+pm_adrole=''
+pm_adexec=''
+pm_addial=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
     "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
     "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_layoutface" "$pm_layoutu" \
     "$pm_layoutlf" "$pm_layoutce" "$pm_idxmech" "$pm_idxids" "$pm_parsed" \
-    "$pm_enf" "$pm_enfvocab" "$pm_adapters"
+    "$pm_enf" "$pm_enfvocab" "$pm_adapters" \
+    "$pm_adcap" "$pm_adrole" "$pm_adexec" "$pm_addial"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -177,6 +184,10 @@ pm_parsed=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_enf=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_enfvocab=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_adapters=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_adcap=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_adrole=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_adexec=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_addial=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 
 pm_die() {
   printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
@@ -188,6 +199,22 @@ pm_report() {
   # $1=结构校验错误文本（空＝通过）
   if [ -n "$1" ]; then
     printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
+    printf '%s\n' "$1" >&2
+    exit 2
+  fi
+}
+
+pm_die_ad() {
+  printf 'check-package: 错误：适配差异数据表不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_adrules" >&2
+  printf 'check-package: %s\n' "$1" >&2
+  exit 2
+}
+
+pm_report_data() {
+  # $1=结构校验错误文本（空＝通过） $2=数据文件路径 $3=数据文件抬头文案
+  # （适配差异数据表专用报告面，错误行文由各校验块自带节名前缀指名）。
+  if [ -n "$1" ]; then
+    printf 'check-package: 错误：%s不合预期（fail-closed，不产生部分结论）: %s\n' "$3" "$2" >&2
     printf '%s\n' "$1" >&2
     exit 2
   fi
@@ -209,8 +236,11 @@ fi
 # 求值零二次展开（awk 产出的 TAB 行只经引擎逐节再分发），字段值只作数据承载。行内制
 # 表符与 CR 为污染形态（字段边界唯一边界符＝解析器注入 TAB），直接拒绝。解析先落临时
 # 文件、末尾按指令名原子分发到各节账本（all-or-nothing：解析失败零行落账）。
-pm_parse_bad=''
-LC_ALL=C awk -v progin="$pm_rules" '
+pm_parse_data() {
+  # $1=数据文件（输入） $2=解析产物账本（覆盖写） $3=错误抬头文案（「包清单数据」／
+  # 「适配差异数据表」）；票 222 起两份数据文件共用同一引擎同一词法（程序单源）。
+  pm_parse_bad=''
+  LC_ALL=C awk -v progin="$1" '
   function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
   {
     raw = $0; ln++
@@ -254,26 +284,33 @@ LC_ALL=C awk -v progin="$pm_rules" '
     if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word" || cmd == "pm_layout_face" || cmd == "pm_enforcement_level") ar = 1
     else if (cmd == "pm_shortcode" || cmd == "pm_mirror" || cmd == "pm_layout_universe" || cmd == "pm_layout_legacy_file" || cmd == "pm_enforcement_target") ar = 2
     else if (cmd == "pm_script" || cmd == "pm_vague_exempt" || cmd == "pm_cite_exempt" || cmd == "pm_capability_target" || cmd == "pm_layout_compat_exempt") ar = 3
+    else if (cmd == "pm_adapter_exec" || cmd == "pm_adapter_dialect") ar = 3
+    else if (cmd == "pm_adapter_cap" || cmd == "pm_adapter_role") ar = 4
     else if (cmd == "pm_adapter") ar = 6
     if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
     if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
     print cmd "\t" substr(out, 1, length(out) - 1)
   }
   END { if (n > 0) exit 1 }
-' "$pm_rules" > "$pm_parsed" || pm_parse_bad=1
-pm_parse_bad=${pm_parse_bad:-}
-if [ -n "$pm_parse_bad" ]; then
-  printf 'check-package: 错误：包清单数据非执行式解析不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
-  rm -f "$pm_parsed"; pm_parsed=''
-  exit 2
-fi
-pm_dispatch_row=''
-pm_dispatch_cmd=''
-pm_dispatch_rest=''
-while IFS= read -r pm_dispatch_row; do
-  pm_dispatch_cmd=${pm_dispatch_row%%"$TAB"*}
-  pm_dispatch_rest=${pm_dispatch_row#*"$TAB"}
-  case $pm_dispatch_cmd in
+  ' "$1" > "$2" || pm_parse_bad=1
+  pm_parse_bad=${pm_parse_bad:-}
+  if [ -n "$pm_parse_bad" ]; then
+    printf 'check-package: 错误：%s非执行式解析不合预期（fail-closed，不产生部分结论）: %s\n' "$3" "$1" >&2
+    return 1
+  fi
+  return 0
+}
+pm_parse_data "$pm_rules" "$pm_parsed" '包清单数据' || { rm -f "$pm_parsed"; pm_parsed=''; exit 2; }
+pm_dispatch_file() {
+  # $1=解析产物账本（指令\t参数 TAB 行），逐行按指令名原子分发到各节账本
+  # （all-or-nothing：两份数据文件全部解析完成后才进入分发，账本零部分落账）。
+  pm_dispatch_row=''
+  pm_dispatch_cmd=''
+  pm_dispatch_rest=''
+  while IFS= read -r pm_dispatch_row; do
+    pm_dispatch_cmd=${pm_dispatch_row%%"$TAB"*}
+    pm_dispatch_rest=${pm_dispatch_row#*"$TAB"}
+    case $pm_dispatch_cmd in
     pm_entry) printf '%s\n' "$pm_dispatch_rest" >> "$pm_entries" ;;
     pm_script) printf '%s\n' "$pm_dispatch_rest" >> "$pm_scripts" ;;
     pm_template) printf '%s\n' "$pm_dispatch_rest" >> "$pm_templates" ;;
@@ -295,9 +332,32 @@ while IFS= read -r pm_dispatch_row; do
     pm_enforcement_level) printf '%s\n' "$pm_dispatch_rest" >> "$pm_enfvocab" ;;
     pm_enforcement_target) printf '%s\n' "$pm_dispatch_rest" >> "$pm_enf" ;;
     pm_adapter) printf '%s\n' "$pm_dispatch_rest" >> "$pm_adapters" ;;
+    pm_adapter_cap) printf '%s\n' "$pm_dispatch_rest" >> "$pm_adcap" ;;
+    pm_adapter_role) printf '%s\n' "$pm_dispatch_rest" >> "$pm_adrole" ;;
+    pm_adapter_exec) printf '%s\n' "$pm_dispatch_rest" >> "$pm_adexec" ;;
+    pm_adapter_dialect) printf '%s\n' "$pm_dispatch_rest" >> "$pm_addial" ;;
   esac
-done < "$pm_parsed"
+  done < "$1"
+}
+pm_dispatch_file "$pm_parsed"
 rm -f "$pm_parsed"; pm_parsed=''
+
+# ---- 适配差异数据表加载（票 222）：包根相对落位（包侧唯一副本，无 pm_mirror 镜像
+# 登记），与清单共用同一非执行式解析引擎与分发器；解析失败零行落账 exit 2。
+pm_adrules="$pkg_root/references/adapters/adapter-diffs.rules"
+pm_parsed=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+if [ ! -f "$pm_adrules" ]; then
+  printf 'check-package: 错误：适配差异数据表缺失: %s\n' "$pm_adrules" >&2
+  exit 2
+fi
+pm_parse_data "$pm_adrules" "$pm_parsed" '适配差异数据表' || { rm -f "$pm_parsed"; pm_parsed=''; exit 2; }
+pm_dispatch_file "$pm_parsed"
+rm -f "$pm_parsed"; pm_parsed=''
+
+[ -s "$pm_adcap" ] || pm_die_ad '差异数据表缺 capability-map 节（零行）'
+[ -s "$pm_adrole" ] || pm_die_ad '差异数据表缺 role-map 节（零行）'
+[ -s "$pm_adexec" ] || pm_die_ad '差异数据表缺 executor-status 节（零行）'
+[ -s "$pm_addial" ] || pm_die_ad '差异数据表缺 dialect-signature 节（零行）'
 
 [ -s "$pm_entries" ] || pm_die '清单缺 entry-files 节（零行）'
 [ -s "$pm_scripts" ] || pm_die '清单缺 scripts 节（零行）'
@@ -415,6 +475,110 @@ pm_bad=$(LC_ALL=C awk -F'\t' -v capnames="$pm_capnames" -v hostplat="$pm_hostpla
   END { if (n > 0) exit 1 }
 ' "$pm_adapters") || true
 pm_report "$pm_bad"
+
+# adapter-diffs 数据表结构校验（检查 27 数据面；票 222；需 pm_adapters／pm_caps／
+# pm_enfvocab 账本，两份数据文件分发已完结）。四节字段数、token 形态、跨行唯一、
+# platform ∈ 注册表平台集、primitive ⊆ 基元名单、readonly-execute 行等级 ∈
+# enforcement 词表 fail-closed；每平台基元集合 ↔ 注册表 coverage 双向全等收尾。
+pm_adplats=$(LC_ALL=C awk -F'\t' '{ if (n++) printf ","; printf "%s", $1 }' "$pm_adapters")
+pm_bad=$(LC_ALL=C awk -F'\t' -v adplats="$pm_adplats" -v capnames="$pm_capnames" '
+  function bad(msg) { printf "adapter-diffs capability-map 节第 %d 行: %s\n", FNR, msg; n++ }
+  BEGIN { m = split(adplats, a, ","); for (i = 1; i <= m; i++) ap[a[i]] = 1; cm = split(capnames, b, ","); for (i = 1; i <= cm; i++) cap[b[i]] = 1 }
+  NR == FNR { ev[$1] = 1; next }
+  {
+    if (NF != 4) { bad("字段数 " NF "（预期 4：platform、primitive、tool、constraint）"); next }
+    if ($1 !~ /^[a-z][a-z0-9-]*$/) { bad("platform 须小写 token: " $1); next }
+    if (!($1 in ap)) { bad("platform 不在 adapter-registry 节注册平台集: " $1); next }
+    if ($2 !~ /^[a-z][a-z0-9-]*$/) { bad("primitive 须小写 token: " $2); next }
+    if (!($2 in cap)) { bad("primitive 不在 capability-primitives 节名单: " $2); next }
+    key = $1 "\t" $2
+    if (key in seen) { bad("（platform, primitive）跨行重复: " $1 " " $2) } else { seen[key] = 1 }
+    if ($3 == "" || $4 == "") { bad("tool/constraint 不得为空"); next }
+    if ($2 == "readonly-execute") {
+      li = index($4, "readonly_enforcement:")
+      if (li == 0) { bad("readonly-execute 行 constraint 缺 readonly_enforcement: 等级声明"); next }
+      rest = substr($4, li + 21)
+      sub(/^[[:space:]]+/, "", rest)
+      if (match(rest, /[a-z][a-z-]*/)) {
+        lv = substr(rest, RSTART, RLENGTH)
+        if (!(lv in ev)) bad("readonly-execute 行等级不在 enforcement-levels 词表: " lv)
+      } else {
+        bad("readonly-execute 行 constraint 缺 readonly_enforcement: 等级声明")
+      }
+    }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_enfvocab" "$pm_adcap") || true
+pm_report_data "$pm_bad" "$pm_adrules" '适配差异数据表'
+
+pm_bad=$(LC_ALL=C awk -F'\t' -v adplats="$pm_adplats" '
+  function bad(msg) { printf "adapter-diffs role-map 节第 %d 行: %s\n", FNR, msg; n++ }
+  BEGIN { m = split(adplats, a, ","); for (i = 1; i <= m; i++) ap[a[i]] = 1 }
+  {
+    if (NF != 4) { bad("字段数 " NF "（预期 4：platform、role、capabilities、tools）"); next }
+    if ($1 !~ /^[a-z][a-z0-9-]*$/) { bad("platform 须小写 token: " $1); next }
+    if (!($1 in ap)) { bad("platform 不在 adapter-registry 节注册平台集: " $1); next }
+    if ($2 !~ /^[a-z][a-z0-9-]*$/) { bad("role 须小写 token: " $2); next }
+    if ($3 == "" || $4 == "") { bad("capabilities/tools 不得为空"); next }
+    key = $1 "\t" $2
+    if (key in seen) { bad("（platform, role）跨行重复: " $1 " " $2) } else { seen[key] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_adrole") || true
+pm_report_data "$pm_bad" "$pm_adrules" '适配差异数据表'
+
+pm_bad=$(LC_ALL=C awk -F'\t' -v adplats="$pm_adplats" '
+  function bad(msg) { printf "adapter-diffs executor-status 节第 %d 行: %s\n", FNR, msg; n++ }
+  BEGIN { m = split(adplats, a, ","); for (i = 1; i <= m; i++) ap[a[i]] = 1 }
+  {
+    if (NF != 3) { bad("字段数 " NF "（预期 3：platform、status、anchor）"); next }
+    if ($1 !~ /^[a-z][a-z0-9-]*$/) { bad("platform 须小写 token: " $1); next }
+    if (!($1 in ap)) { bad("platform 不在 adapter-registry 节注册平台集: " $1); next }
+    if ($1 in seenp) { bad("platform 跨行重复（每平台恰一行）: " $1) } else { seenp[$1] = 1 }
+    if ($2 !~ /^[a-z][a-z0-9-]*$/) { bad("status 须小写 token（语义单源＝本节登记）: " $2); next }
+    if ($3 == "") { bad("anchor 不得为空"); next }
+  }
+  END {
+    if (n == 0) {
+      for (i = 1; i <= m; i++) {
+        if (!(a[i] in seenp)) { printf "adapter-diffs executor-status 节: 缺平台行（每注册平台恰一行）: %s\n", a[i]; n++ }
+      }
+    }
+    if (n > 0) exit 1
+  }
+' "$pm_adexec") || true
+pm_report_data "$pm_bad" "$pm_adrules" '适配差异数据表'
+
+pm_bad=$(LC_ALL=C awk -F'\t' -v adplats="$pm_adplats" '
+  function bad(msg) { printf "adapter-diffs dialect-signature 节第 %d 行: %s\n", FNR, msg; n++ }
+  BEGIN { m = split(adplats, a, ","); for (i = 1; i <= m; i++) ap[a[i]] = 1 }
+  {
+    if (NF != 3) { bad("字段数 " NF "（预期 3：platform、key、anchor）"); next }
+    if ($1 !~ /^[a-z][a-z0-9-]*$/) { bad("platform 须小写 token: " $1); next }
+    if (!($1 in ap)) { bad("platform 不在 adapter-registry 节注册平台集: " $1); next }
+    if ($2 !~ /^[a-z][a-z0-9-]*$/) { bad("key 须小写 token（语义单源＝本节登记）: " $2); next }
+    if ($3 == "") { bad("anchor 不得为空"); next }
+    key = $1 "\t" $2
+    seenp[$1] = 1
+    if (key in seen) { bad("（platform, key）跨行重复: " $1 " " $2) } else { seen[key] = 1 }
+  }
+  END {
+    if (n == 0) {
+      for (i = 1; i <= m; i++) {
+        if (!(a[i] in seenp)) { printf "adapter-diffs dialect-signature 节: 缺平台行（每注册平台至少一行）: %s\n", a[i]; n++ }
+      }
+    }
+    if (n > 0) exit 1
+  }
+' "$pm_addial") || true
+pm_report_data "$pm_bad" "$pm_adrules" '适配差异数据表'
+
+# 每平台 cap 基元集合 ↔ adapter-registry 节 coverage 字段双向全等（fail-closed 收尾）。
+pm_adcov_dat=$(LC_ALL=C awk -F'\t' '{ print $1 "\t" $2 }' "$pm_adcap" | LC_ALL=C sort)
+pm_adcov_reg=$(LC_ALL=C awk -F'\t' '{ m = split($4, ca, ","); for (j = 1; j <= m; j++) print $1 "\t" ca[j] }' "$pm_adapters" | LC_ALL=C sort)
+if [ "$pm_adcov_dat" != "$pm_adcov_reg" ]; then
+  pm_report_data '每平台能力基元集合与 adapter-registry 节 coverage 字段须双向全等（capability-map 节 ↔ 注册表漂移）' "$pm_adrules" '适配差异数据表'
+fi
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
   function bad(msg) { printf "vague-words 节第 %d 行: %s\n", FNR, msg; n++ }
@@ -1852,7 +2016,7 @@ fi
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
-n_total_checks=26
+n_total_checks=27
 n_mrow=0
 mech_m='机械'
 if [ "$n_idx" -eq 0 ]; then
@@ -2910,8 +3074,123 @@ else
   pass 26 "适配器注册表闭合（注册 ${n26_rows} 行，投影 2 面）"
 fi
 
+# 检查 27：适配差异数据表一致性（票 222 新增）。数据＝references/adapters/
+# adapter-diffs.rules 四节机器数据行（pm_adapter_cap／pm_adapter_role／
+# pm_adapter_exec／pm_adapter_dialect；包根相对落位、包侧唯一副本，加载段结构
+# 校验 fail-closed）。断言「数据 ≡ 现行五宿主 Markdown 对应段」全等，两向漂移
+# 即 FAIL 指名宿主与段（表文修正归人工裁决，不静默互改；宿主文档改写归后继
+# 生成/去重票——其以本表为输入）。全等口径＝两侧同规约「剥离反引号（Markdown
+# 强调记号非内容）后逐行逐字段全等」：
+#   ①九行能力表——「| 能力基元 |」对照表数据行按（基元, 工具, 约束）三列比对，
+#     行序＝宿主文档行序（行序敏感）；
+#   ②三角色映射表——「| <role-contract-dir>/」行按（角色, 能力名单, 工具口径）
+#     三列比对（角色名自路径尾段剥 <role-contract-dir>/ 与 .md），行序敏感；
+#   ③独立执行体声明——exec 行锚语原文子串在场断言（宿主文件 grep -F）；
+#   ④宿主特有方言——dialect 行签名锚语原文子串在场断言（同上）。
+problems=''
+n27_cap=$(wc -l < "$pm_adcap" | tr -d ' ')
+n27_role=$(wc -l < "$pm_adrole" | tr -d ' ')
+n27_exec=$(wc -l < "$pm_adexec" | tr -d ' ')
+n27_dial=$(wc -l < "$pm_addial" | tr -d ' ')
+a27_extract_cap() {
+  # $1=宿主文件：「| 能力基元 |」对照表数据行规约化——剥反引号后（基元, 工具,
+  # 约束）三列 TAB 行；单元格数非 3 的行剥反引号原样输出（比对必失配＝漂移面）。
+  LC_ALL=C awk -v mk='| 能力基元' '
+    function trimbt(x) { gsub(/`/, "", x); gsub(/^[ \t]+/, "", x); gsub(/[ \t]+$/, "", x); return x }
+    {
+      if (!inh) { if (index($0, mk) == 1) inh = 1; next }
+      if ($0 !~ /^\|/) exit
+      c = $0
+      sub(/^[[:space:]]*\|/, "", c)
+      sub(/[[:space:]]*\|.*/, "", c)
+      gsub(/^[[:space:]]+/, "", c); gsub(/[[:space:]]+$/, "", c)
+      if (c ~ /^[-:]+$/) next
+      n = split($0, f, "|")
+      if (n - 2 != 3) { print trimbt($0); next }
+      print trimbt(f[2]) "\t" trimbt(f[3]) "\t" trimbt(f[4])
+    }
+  ' "$1"
+}
+a27_extract_role() {
+  # $1=宿主文件：「| <role-contract-dir>/」行规约化——（角色, 能力名单, 工具口径）
+  # 三列 TAB 行；角色名＝首列路径尾段剥 <role-contract-dir>/ 前缀与 .md 后缀。
+  LC_ALL=C awk '
+    function trimbt(x) { gsub(/`/, "", x); gsub(/^[ \t]+/, "", x); gsub(/[ \t]+$/, "", x); return x }
+    $0 ~ /^\| <role-contract-dir>\// {
+      n = split($0, f, "|")
+      r = trimbt(f[2])
+      sub(/^<role-contract-dir>\//, "", r)
+      sub(/\.md$/, "", r)
+      print r "\t" trimbt(f[3]) "\t" trimbt(f[4])
+    }
+  ' "$1"
+}
+a27_first_diff() {
+  # $1/$2=两规约化 TAB 行文件；stdout＝首个差异行号（两侧全等＝0；行数不齐＝
+  # 短侧行数＋1）。
+  LC_ALL=C awk '
+    NR == FNR { d[FNR] = $0; nd = FNR; next }
+    { if (!fd && $0 != d[FNR]) fd = FNR; nm = FNR }
+    END { if (!fd && nd != nm) fd = (nd < nm ? nd : nm) + 1; print fd + 0 }
+  ' "$1" "$2"
+}
+a27_cap_d=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+a27_cap_m=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+a27_role_d=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+a27_role_m=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+n27_hosts=0
+# shellcheck disable=SC2034  # 六变量整体解构对齐 pm_adapter 行六字段布局（read 尾字段不可省否则吞并剩余列）；sc/cov/role/ev 本循环不消费
+while IFS="$(printf '\t')" read -r a27_plat a27_sc a27_file a27_cov a27_role a27_ev; do
+  [ -n "$a27_plat" ] || continue
+  n27_hosts=$((n27_hosts + 1))
+  a27_host="$pkg_root/$a27_file"
+  if [ ! -f "$a27_host" ]; then
+    continue  # 适配器文件缺席已由检查 26② 指名，此处不重复计失败
+  fi
+  # ①九行能力表（行序敏感全等）
+  awk -F'\t' -v p="$a27_plat" '$1 == p { print $2 "\t" $3 "\t" $4 }' "$pm_adcap" > "$a27_cap_d"
+  a27_extract_cap "$a27_host" > "$a27_cap_m"
+  if ! cmp -s "$a27_cap_d" "$a27_cap_m"; then
+    a27_fd=$(a27_first_diff "$a27_cap_d" "$a27_cap_m")
+    add_problem "  - $a27_file 九行能力表与差异数据表漂移（段＝capability-map；首个差异行 ${a27_fd}，0＝行数不齐）"
+  fi
+  # ②三角色映射表（行序敏感全等）
+  awk -F'\t' -v p="$a27_plat" '$1 == p { print $2 "\t" $3 "\t" $4 }' "$pm_adrole" > "$a27_role_d"
+  a27_extract_role "$a27_host" > "$a27_role_m"
+  if ! cmp -s "$a27_role_d" "$a27_role_m"; then
+    a27_fd=$(a27_first_diff "$a27_role_d" "$a27_role_m")
+    add_problem "  - $a27_file 三角色映射表与差异数据表漂移（段＝role-map；首个差异行 ${a27_fd}，0＝行数不齐）"
+  fi
+done < "$pm_adapters"
+# ③独立执行体声明锚语（原文子串在场）
+while IFS="$(printf '\t')" read -r a27_plat a27_status a27_anchor; do
+  [ -n "$a27_plat" ] || continue
+  a27_file=$(LC_ALL=C awk -F'\t' -v p="$a27_plat" '$1 == p { print $3; exit }' "$pm_adapters")
+  if [ -n "$a27_file" ] && [ -f "$pkg_root/$a27_file" ]; then
+    if ! grep -qF -- "$a27_anchor" "$pkg_root/$a27_file"; then
+      add_problem "  - $a27_file 独立执行体声明锚语失据（段＝executor-status，status=${a27_status}）: $a27_anchor"
+    fi
+  fi
+done < "$pm_adexec"
+# ④宿主特有方言签名锚语（原文子串在场）
+while IFS="$(printf '\t')" read -r a27_plat a27_key a27_anchor; do
+  [ -n "$a27_plat" ] || continue
+  a27_file=$(LC_ALL=C awk -F'\t' -v p="$a27_plat" '$1 == p { print $3; exit }' "$pm_adapters")
+  if [ -n "$a27_file" ] && [ -f "$pkg_root/$a27_file" ]; then
+    if ! grep -qF -- "$a27_anchor" "$pkg_root/$a27_file"; then
+      add_problem "  - $a27_file 方言签名锚语失据（段＝dialect-signature，key=${a27_key}）: $a27_anchor"
+    fi
+  fi
+done < "$pm_addial"
+rm -f "$a27_cap_d" "$a27_cap_m" "$a27_role_d" "$a27_role_m"
+if [ -n "$problems" ]; then
+  fail 27 "适配差异数据表一致性（宿主 ${n27_hosts} 个，cap ${n27_cap} 行，role ${n27_role} 行，exec ${n27_exec} 行，dialect ${n27_dial} 行）" "$problems"
+else
+  pass 27 "适配差异数据表一致性（宿主 ${n27_hosts} 个，cap ${n27_cap} 行，role ${n27_role} 行，exec ${n27_exec} 行，dialect ${n27_dial} 行）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 26 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 27 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

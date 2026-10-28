@@ -1,0 +1,123 @@
+# Input: 五宿主适配文件（同目录 <platform>.md：zcode/claude-code/codex/pi/dsh）的宿主差异
+#        面（「| 能力基元 |」九行对照表、「| <role-contract-dir>/<role>.md |」三角色映射
+#        表、§2.4 独立执行体声明句、§2.3 方言模板签名）与 package-manifest.rules
+#        adapter-registry／capability-primitives／enforcement-levels 三节（结构校验比对
+#        基准）。
+# Output: 适配差异数据表（四节机器数据行；check-package.sh 检查 27 启动时非执行式解析
+#         本表，与五宿主 Markdown 对应段做一致性核对，漂移即 FAIL 指名宿主与段）：
+#         pm_adapter_cap <platform> <primitive> <tool> <constraint>——九基元↔宿主工具
+#           映射行（含 readonly-execute 行内嵌 readonly_enforcement: 等级声明）；
+#         pm_adapter_role <platform> <role> <capabilities> <tools>——三阶段角色映射行；
+#         pm_adapter_exec <platform> <status> <anchor>——独立执行体状态行（status 为
+#           受控 token、语义单源＝本节登记；anchor＝宿主文件声明句原文锚语）；
+#         pm_adapter_dialect <platform> <key> <anchor>——宿主特有方言行（key 为方言
+#           签名 token、语义单源＝本节登记；anchor＝宿主文件方言模板签名原文锚语）。
+# Pos: 公开包 adapters/ 差异数据表（数据＝机器真相、宿主 Markdown＝现行文档基线；两向
+#      漂移由检查 27 机械指名，表文修正归人工裁决，不静默互改；宿主文档改写归后继
+#      生成/去重票——其以本表为输入）。一致性核对全等口径＝两侧同规约「剥离反引号
+#      （Markdown 强调记号非内容）后逐行逐字段全等」：能力表按（基元, 工具, 约束）
+#      三列、角色表按（角色, 能力名单, 工具口径）三列、行序敏感；执行体与方言按锚语
+#      原文在场断言。本表零票号引用（检查 18 扫描面含 *.rules）。结构校验 fail-closed：
+#      字段数（pm_adapter_cap 恰 4、pm_adapter_role 恰 4、pm_adapter_exec 恰 3、
+#      pm_adapter_dialect 恰 3，字段内禁制表符）；platform 须小写 token 且 ∈
+#      adapter-registry 节注册平台集；cap.primitive 须小写 token 且 ⊆ capability-
+#      primitives 节名单、（platform, primitive）跨行唯一；readonly-execute 行
+#      constraint 须内嵌 readonly_enforcement: 声明且等级 ∈ enforcement-levels 词表；
+#      role/status/key 须小写 token、capabilities/tools/anchor 非空；（platform, role）
+#      与（platform, key）跨行唯一、exec 的 platform 跨行唯一；每平台 cap 基元集合与
+#      adapter-registry 节 coverage 字段双向全等。维护口径＝任一侧（本表或宿主
+#      Markdown）变化即被检查 27 拦截，同批同步两侧并随动 suite-check-package 金样
+#      （PASS 行含行数与条目计数）。
+
+# ==== capability-map：九基元↔宿主工具映射（检查 27；每平台九行，行序＝宿主对照表行序）====
+
+pm_adapter_cap zcode inspect 'Glob + Read' '目录与现状盘点'
+pm_adapter_cap zcode search 'Grep、Glob' '文件名与内容检索'
+pm_adapter_cap zcode read 'Read' '读取文件内容'
+pm_adapter_cap zcode edit 'Edit' '修改既有文件'
+pm_adapter_cap zcode write 'Write' '创建新文件'
+pm_adapter_cap zcode execute 'Bash' '可变更工作区状态的命令'
+pm_adapter_cap zcode readonly-execute 'Bash' '仅只读命令；readonly_enforcement: policy-only（只读性由调用方约束；宿主默认沙箱行为未核验，观察状态标 local-observation——本地观察记录见 §3 注记，不作本行等级依据）'
+pm_adapter_cap zcode vcs-read 'Bash' 'git status/log/diff 等只读命令'
+pm_adapter_cap zcode vcs-write 'Bash' 'git add/commit 等写命令'
+pm_adapter_cap claude-code inspect 'Glob + Read' '目录与现状盘点'
+pm_adapter_cap claude-code search 'Grep、Glob' '文件名与内容检索'
+pm_adapter_cap claude-code read 'Read' '读取文件内容'
+pm_adapter_cap claude-code edit 'Edit' '修改既有文件'
+pm_adapter_cap claude-code write 'Write' '创建新文件'
+pm_adapter_cap claude-code execute 'Bash' '可变更工作区状态的命令；受 permissions 规则约束'
+pm_adapter_cap claude-code readonly-execute 'Bash' '仅只读命令；readonly_enforcement: policy-only（permissions.allow/ask/deny 与 hooks 为调用面闸门与配置面护栏，官方 settings/hooks 文档取阅 2026-09-06；登记面无默认只读隔离，sandbox 类隔离能力未核验（状态 pending，不据此声明宿主强制隔离）；只读性由调用方约束）'
+pm_adapter_cap claude-code vcs-read 'Bash' 'git status/log/diff 等只读命令'
+pm_adapter_cap claude-code vcs-write 'Bash' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
+pm_adapter_cap codex inspect 'shell' '目录与现状盘点命令；盘点面随 sandbox_mode 收敛'
+pm_adapter_cap codex search 'shell' '检索命令（grep 等）'
+pm_adapter_cap codex read 'shell' '文件读取命令；Codex 无专用只读文件工具登记'
+pm_adapter_cap codex edit 'apply_patch' '补丁式修改既有文件'
+pm_adapter_cap codex write 'apply_patch' '补丁式创建文件'
+pm_adapter_cap codex execute 'shell' '可变更工作区状态的命令；受 sandbox_mode 与 approval_policy 约束'
+pm_adapter_cap codex readonly-execute 'shell' '仅只读命令；readonly_enforcement: runner-enforced（sandbox_mode = "read-only" 运行器沙箱口径，越界写被执行器拒绝；官方 security/config 文档登记，取阅 2026-09-06）'
+pm_adapter_cap codex vcs-read 'shell' 'git status/log/diff 等只读命令'
+pm_adapter_cap codex vcs-write 'shell' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
+pm_adapter_cap pi inspect 'find + read' '目录与现状盘点（find 列举、read 核对）'
+pm_adapter_cap pi search 'grep、find' '文件名与内容检索'
+pm_adapter_cap pi read 'read' '读取文件内容'
+pm_adapter_cap pi edit 'edit' '修改既有文件'
+pm_adapter_cap pi write 'write' '创建新文件'
+pm_adapter_cap pi execute 'bash' '可变更工作区状态的命令（Windows 对应为 powershell）；无内置 sandbox，隔离责任在宿主环境'
+pm_adapter_cap pi readonly-execute 'bash' '仅只读命令；readonly_enforcement: policy-only（官方 security 文档登记：无内置 sandbox、以启动用户账户权限运行、project trust 不是安全边界，取阅 2026-09-06；只读性由调用方约束，宿主不强制）'
+pm_adapter_cap pi vcs-read 'bash' 'git status/log/diff 等只读命令'
+pm_adapter_cap pi vcs-write 'bash' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
+pm_adapter_cap dsh inspect 'bash' '目录与现状盘点命令；sdk-minimal 口径无专用盘点工具（全量 roster 未核验，pending）'
+pm_adapter_cap dsh search 'bash' '检索命令（grep 等）（全量 roster 未核验，pending）'
+pm_adapter_cap dsh read 'bash' '文件读取命令（全量 roster 未核验，pending）'
+pm_adapter_cap dsh edit 'str_replace_editor' '补丁式修改（sdk-minimal 口径核验）'
+pm_adapter_cap dsh write 'str_replace_editor' '补丁式创建（sdk-minimal 口径核验）'
+pm_adapter_cap dsh execute 'bash' '持久 shell（Linux/macOS；Windows 为 pwsh），300 秒超时、单 owner 终端；受 approval/policy seam 约束（profile 依赖）'
+pm_adapter_cap dsh readonly-execute 'bash' '仅只读命令；readonly_enforcement: pending（只读性由调用方约束；approval/sandbox seam 为 profile 依赖配置面，dsh-base 与 sdk-minimal 档位口径未全量核验（pending：全量 roster），核验后落定四级之一，落定前按 policy-only 从紧处理）'
+pm_adapter_cap dsh vcs-read 'bash' 'git status/log/diff 等只读命令'
+pm_adapter_cap dsh vcs-write 'bash' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
+
+# ==== role-map：三阶段角色映射（检查 27；每平台三行，行序＝宿主角色表行序）====
+
+pm_adapter_role zcode implementation 'inspect, search, read, edit, write, execute' '[Read, Grep, Glob, Edit, Write, Bash]'
+pm_adapter_role zcode review 'inspect, search, read, readonly-execute' '[Read, Grep, Glob, Bash]'
+pm_adapter_role zcode commit 'inspect, vcs-read, vcs-write' '[Read, Grep, Glob, Bash]'
+pm_adapter_role claude-code implementation 'inspect, search, read, edit, write, execute' '[Read, Grep, Glob, Edit, Write, Bash]'
+pm_adapter_role claude-code review 'inspect, search, read, readonly-execute' '[Read, Grep, Glob, Bash]'
+pm_adapter_role claude-code commit 'inspect, vcs-read, vcs-write' '[Read, Grep, Glob, Bash]'
+pm_adapter_role codex implementation 'inspect, search, read, edit, write, execute' 'shell + apply_patch'
+pm_adapter_role codex review 'inspect, search, read, readonly-execute' 'shell（只读命令；sandbox read-only 口径）'
+pm_adapter_role codex commit 'inspect, vcs-read, vcs-write' 'shell（git 命令）'
+pm_adapter_role pi implementation 'inspect, search, read, edit, write, execute' 'find/read、grep/find、read、edit、write、bash'
+pm_adapter_role pi review 'inspect, search, read, readonly-execute' 'find/read、grep/find、read、bash（只读命令）'
+pm_adapter_role pi commit 'inspect, vcs-read, vcs-write' 'find/read、bash（git 命令）'
+pm_adapter_role dsh implementation 'inspect, search, read, edit, write, execute' 'bash + str_replace_editor'
+pm_adapter_role dsh review 'inspect, search, read, readonly-execute' 'bash（只读命令）'
+pm_adapter_role dsh commit 'inspect, vcs-read, vcs-write' 'bash（git 命令）'
+
+# ==== executor-status：独立执行体状态（检查 27；每平台恰一行）====
+# status 受控 token（语义单源＝本节登记）：supported＝宿主官方登记独立执行体支持；
+# none＝默认无独立执行体（降级路径为强制项）；profile-dependent＝按部署 profile 区分
+# （全量支持、裁剪档排除）；local-observation＝本地实跑观察面、官方指针未核验
+# （语义同 R-AT-001 状态词表 local-observation）。anchor＝宿主文件 §2.4/§1 声明句
+# 原文锚语（漂移即 FAIL 指名宿主）。
+
+pm_adapter_exec zcode local-observation '本宿主独立 subagent 执行体状态＝local-observation'
+pm_adapter_exec claude-code supported '本宿主支持独立 subagent 执行体'
+pm_adapter_exec codex supported '本宿主支持独立执行体'
+pm_adapter_exec pi none '本宿主默认无独立 subagent 执行体'
+pm_adapter_exec dsh profile-dependent '声明区分 profile：全量 profile 支持'
+
+# ==== dialect-signature：宿主特有方言签名（检查 27；每平台至少一行，（platform, key）
+#      跨行唯一）====
+# key 受控 token（语义单源＝本节登记）：frontmatter-tools-list＝三角色 frontmatter
+# 方言的 tools 行签名；frontmatter-model-inherit＝subagent frontmatter 的 model 占位
+# 方言；config-agents-table＝config.toml [agents.<name>] 自定义角色表方言；
+# skills-skill-md＝skills/ SKILL.md 承载方言；cordis-roles-plugin＝cordis.yml 插件
+# 注册承载方言。anchor＝宿主文件方言模板签名原文锚语（漂移即 FAIL 指名宿主）。
+
+pm_adapter_dialect zcode frontmatter-tools-list 'tools: [Read, Grep, Glob, Edit, Write, Bash]'
+pm_adapter_dialect claude-code frontmatter-model-inherit 'model: inherit'
+pm_adapter_dialect codex config-agents-table '[agents.implementation]'
+pm_adapter_dialect pi skills-skill-md 'skills/implementation/SKILL.md'
+pm_adapter_dialect dsh cordis-roles-plugin '- path: ./adapters/roles-implementation'

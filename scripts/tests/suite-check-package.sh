@@ -47,7 +47,20 @@ fi
 # N16 注入项号检查 26→27 随总数同步；补负例 N51 枚举节删宿主值（加载段 exit 2）／
 # N58 注册表删宿主注册行（检查段缺行方向）／N52 删适配器文件／
 # N53 shortcodes 节删镜像行／N54 targets 节删 table 行／N55 父 README 漏列平台（AC3）／
-# N56 目录 README 投影缺短码／N57 加载段重复短码 exit 2 fail-closed（AC4））
+# N56 目录 README 投影缺短码／N57 加载段重复短码 exit 2 fail-closed（AC4））；票 222
+# 适配差异数据表一致性随票修（新增检查 26→27——references/adapters/adapter-diffs.rules
+# 四节机器数据行（pm_adapter_cap/pm_adapter_role/pm_adapter_exec/pm_adapter_dialect）
+# 承载五宿主差异面，与清单共用非执行式解析引擎（包根相对落位、包侧唯一副本），加载段
+# 结构校验 fail-closed（字段数/token 形态/跨行唯一/platform ∈ 注册表平台集/primitive ⊆
+# 基元名单/readonly-execute 行等级 ∈ enforcement 词表/每平台基元集合 ↔ 注册表 coverage
+# 双向全等），检查段断言「数据 ≡ 现行五宿主 Markdown 对应段」剥反引号后逐行逐字段全等
+# （能力表/角色表三列行序敏感、执行体与方言锚语原文在场）；预期串计数 26→27 翻值、
+# 检查 1 计数 37→38 与检查 21 成员 50→51（数据表入册 entry-files）随动、四金样块补
+# PASS: 27 行且共数随总数同步、N16 注入项号检查 27→28 随总数同步；补负例 AD1 数据侧
+# 单处篡改（改数据不改文档）exit 1 指名宿主与段／AD2 文档侧单处篡改（改文档不改数据）
+# exit 1 指名宿主与段／AD3 方言锚语删除 exit 1 指名失据锚语／AD4 追加重复
+# （platform, primitive）行 exit 2 fail-closed 零部分结论／AD5 删单平台 exec 行与 AD6
+# 删单平台 dialect 行 exit 2 指名段与宿主（exec/dialect 平台集合↔注册平台集双向全等））
 # ============================================================
 
 suite_check_package() {
@@ -87,7 +100,7 @@ suite_check_package() {
   fi
   if [ "$_cp_in_wt" -eq 1 ]; then
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（37 个文件）
+PASS: 1 必需入口存在（38 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -109,17 +122,18 @@ PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 19 scripts 节 mode 断言（29 件，kind 数据驱动）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
+PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
+PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 check-package: PASS
 EOF
   else
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（37 个文件）
+PASS: 1 必需入口存在（38 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -139,12 +153,13 @@ PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 19 scripts 节 mode 断言（29 件，kind 数据驱动）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 32 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
+PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
+PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 check-package: PASS
 EOF
   fi
@@ -160,7 +175,7 @@ EOF
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
   cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（37 个文件）
+PASS: 1 必需入口存在（38 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -178,13 +193,14 @@ PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
+PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
-check-package: FAIL（3 项未通过，共 26 项）
+PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+check-package: FAIL（3 项未通过，共 27 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -202,7 +218,7 @@ EOF
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（37 个文件）
+PASS: 1 必需入口存在（38 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -220,13 +236,14 @@ PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 32 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 50 件，链接 2 个）
+PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
 PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
-check-package: FAIL（1 项未通过，共 26 项）
+PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+check-package: FAIL（1 项未通过，共 27 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -508,13 +525,13 @@ EOF
 
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
   # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 197 后为 24、
-  # 票 212 后为 25、票 215 后为 26；注入检查 27＝超界一位，随总数同步）。
+  # 票 212 后为 25、票 215 后为 26、票 222 后为 27；注入检查 28＝超界一位，随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 27） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 28） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 26 项）: 检查 27' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 27 项）: 检查 28' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -688,7 +705,7 @@ EOF
   rm -f "$D/pkgcopy25/references/workflows/triage.yaml"
   sh "$D/pkgcopy25/scripts/check-package.sh" "$D/pkgcopy25" >"$D/act.n29" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（37 个文件）' "$D/act.n29" \
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（38 个文件）' "$D/act.n29" \
     && grep -q '  - references/workflows/triage.yaml' "$D/act.n29"; then
     ok '负例 N29 删除已登记 references 成员 → exit 1 且 FAIL: 1 指名缺件'
   else
@@ -1068,9 +1085,15 @@ EOF
 
   # 负例 N58（①枚举闭合检查段）：adapter-registry 节删 dsh 注册行 → 枚举宿主值缺
   # 注册行方向 → exit 1 且 FAIL: 26 指名（④镜像方向联动 FAIL 不断言，归本组 N54 口径）。
+  # 票 222 起差异数据表 platform ∈ 注册表在加载段 fail-closed——注册行删除须同批同步
+  # 差异数据表 dsh 四节行（两处漂移分别由加载段与检查 26① 指名），本负例同步删除使
+  # 检查段 ① 方向可达。
   cp -R "$PKG_ROOT" "$D/pkar8"
   grep -v '^pm_adapter dsh ' "$D/pkar8/scripts/package-manifest.rules" > "$D/pm58.tmp" \
     && mv "$D/pm58.tmp" "$D/pkar8/scripts/package-manifest.rules"
+  sed -e '/^pm_adapter_cap dsh /d' -e '/^pm_adapter_role dsh /d' -e '/^pm_adapter_exec dsh /d' -e '/^pm_adapter_dialect dsh /d' \
+    "$D/pkar8/references/adapters/adapter-diffs.rules" > "$D/ad58.tmp" \
+    && mv "$D/ad58.tmp" "$D/pkar8/references/adapters/adapter-diffs.rules"
   sh "$D/pkar8/scripts/check-package.sh" "$D/pkar8" >"$D/act.n58" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && grep -q '^FAIL: 26 适配器注册表闭合' "$D/act.n58" \
@@ -1163,6 +1186,98 @@ EOF
     ok '负例 N57 注册表追加重复短码行 → exit 2 fail-closed 零部分结论且指名跨行短码'
   else
     bad '负例 N57 注册表追加重复短码行 → exit 2 fail-closed 零部分结论且指名跨行短码' "exit=$rc"
+  fi
+
+  # 票 222 检查 27 适配差异数据表一致性夹具组（数据源＝包根相对落位
+  # references/adapters/adapter-diffs.rules，引擎读 pkg_root 数据——主检出引擎可直接
+  # 运行，manifest 零夹具改动；cp 副本 mktemp 纪律，断言独立重建）。
+  # 负例 AD1（数据侧漂移，改数据不改文档）：capability-map 节 zcode inspect 行工具串
+  # 单处篡改 → exit 1 且 FAIL: 27 指名宿主与段（九行能力表）与首个差异行号。
+  cp -R "$PKG_ROOT" "$D/pkad1"
+  sed "s/pm_adapter_cap zcode inspect 'Glob + Read'/pm_adapter_cap zcode inspect 'Glob + ReadX'/" \
+    "$D/pkad1/references/adapters/adapter-diffs.rules" > "$D/ad1.tmp" \
+    && mv "$D/ad1.tmp" "$D/pkad1/references/adapters/adapter-diffs.rules"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkad1" >"$D/act.ad1" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 27 适配差异数据表一致性' "$D/act.ad1" \
+    && grep -q 'references/adapters/zcode.md 九行能力表与差异数据表漂移（段＝capability-map；首个差异行 1，0＝行数不齐）' "$D/act.ad1"; then
+    ok '负例 AD1 差异数据表单处篡改（改数据不改文档）→ exit 1 且 FAIL: 27 指名宿主与段'
+  else
+    bad '负例 AD1 差异数据表单处篡改（改数据不改文档）→ exit 1 且 FAIL: 27 指名宿主与段' "exit=$rc"
+  fi
+
+  # 负例 AD2（文档侧漂移，改文档不改数据）：宿主 zcode.md 对照表 search 行工具串单处
+  # 篡改 → exit 1 且 FAIL: 27 指名宿主与段（行序敏感全等的反方向；首个差异行 2）。
+  cp -R "$PKG_ROOT" "$D/pkad2"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  sed 's/| search | Grep、Glob | 文件名与内容检索 |/| search | Grep、GlobX | 文件名与内容检索 |/' \
+    "$D/pkad2/references/adapters/zcode.md" > "$D/ad2.tmp" \
+    && mv "$D/ad2.tmp" "$D/pkad2/references/adapters/zcode.md"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkad2" >"$D/act.ad2" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 27 适配差异数据表一致性' "$D/act.ad2" \
+    && grep -q 'references/adapters/zcode.md 九行能力表与差异数据表漂移（段＝capability-map；首个差异行 2，0＝行数不齐）' "$D/act.ad2"; then
+    ok '负例 AD2 宿主对照表单处篡改（改文档不改数据）→ exit 1 且 FAIL: 27 指名宿主与段'
+  else
+    bad '负例 AD2 宿主对照表单处篡改（改文档不改数据）→ exit 1 且 FAIL: 27 指名宿主与段' "exit=$rc"
+  fi
+
+  # 负例 AD3（锚语漂移）：宿主 zcode.md 删三处 frontmatter tools 方言签名行（锚语原文
+  # 只在 §2.3 模板块行首）→ exit 1 且 FAIL: 27 指名方言锚语失据（④在场断言方向；
+  # role-map 表行不含行首 tools: 形态不受扰）。
+  cp -R "$PKG_ROOT" "$D/pkad3"
+  # shellcheck disable=SC2016  # sed 程序刻意字面（方括号为字面锚语片段，非字符类）
+  grep -v '^tools: \[Read, Grep, Glob, Edit, Write, Bash\]$' \
+    "$D/pkad3/references/adapters/zcode.md" > "$D/ad3.tmp" \
+    && mv "$D/ad3.tmp" "$D/pkad3/references/adapters/zcode.md"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkad3" >"$D/act.ad3" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 27 适配差异数据表一致性' "$D/act.ad3" \
+    && grep -qF 'references/adapters/zcode.md 方言签名锚语失据（段＝dialect-signature，key=frontmatter-tools-list）' "$D/act.ad3"; then
+    ok '负例 AD3 宿主方言签名锚语删除 → exit 1 且 FAIL: 27 指名失据锚语（key 随报）'
+  else
+    bad '负例 AD3 宿主方言签名锚语删除 → exit 1 且 FAIL: 27 指名失据锚语（key 随报）' "exit=$rc"
+  fi
+
+  # 负例 AD4（加载段结构校验，fail-closed 钉死）：capability-map 节追加重复
+  # （platform, primitive）行 → exit 2 零部分结论（stdout 零 PASS 行）且指名跨行重复。
+  cp -R "$PKG_ROOT" "$D/pkad4"
+  grep '^pm_adapter_cap zcode inspect ' "$PKG_ROOT/references/adapters/adapter-diffs.rules" >> "$D/pkad4/references/adapters/adapter-diffs.rules"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkad4" >"$D/act.ad4" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'adapter-diffs capability-map 节第 46 行: （platform, primitive）跨行重复: zcode inspect' "$D/act.ad4" \
+    && ! grep -q '^PASS:' "$D/act.ad4"; then
+    ok '负例 AD4 差异数据表追加重复（platform, primitive）行 → exit 2 fail-closed 零部分结论且指名'
+  else
+    bad '负例 AD4 差异数据表追加重复（platform, primitive）行 → exit 2 fail-closed 零部分结论且指名' "exit=$rc"
+  fi
+
+  # 负例 AD5（executor-status 平台全集，R1 删除方向）：删 pm_adapter_exec zcode 整行 →
+  # 加载段平台集合 ↔ 注册平台集双向全等失败 → exit 2 fail-closed 零部分结论且指名段与宿主。
+  cp -R "$PKG_ROOT" "$D/pkad5"
+  grep -v '^pm_adapter_exec zcode ' "$PKG_ROOT/references/adapters/adapter-diffs.rules" \
+    > "$D/pkad5/references/adapters/adapter-diffs.rules"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkad5" >"$D/act.ad5" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'adapter-diffs executor-status 节: 缺平台行（每注册平台恰一行）: zcode' "$D/act.ad5" \
+    && ! grep -q '^PASS:' "$D/act.ad5"; then
+    ok '负例 AD5 差异数据表删单平台 exec 行 → exit 2 fail-closed 且指名段与宿主'
+  else
+    bad '负例 AD5 差异数据表删单平台 exec 行 → exit 2 fail-closed 且指名段与宿主' "exit=$rc"
+  fi
+
+  # 负例 AD6（dialect-signature 平台全集，R1 删除方向）：删 pm_adapter_dialect zcode 整行
+  # → 加载段平台集合 ↔ 注册平台集双向全等失败 → exit 2 fail-closed 零部分结论且指名段与宿主。
+  cp -R "$PKG_ROOT" "$D/pkad6"
+  grep -v '^pm_adapter_dialect zcode ' "$PKG_ROOT/references/adapters/adapter-diffs.rules" \
+    > "$D/pkad6/references/adapters/adapter-diffs.rules"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkad6" >"$D/act.ad6" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'adapter-diffs dialect-signature 节: 缺平台行（每注册平台至少一行）: zcode' "$D/act.ad6" \
+    && ! grep -q '^PASS:' "$D/act.ad6"; then
+    ok '负例 AD6 差异数据表删单平台 dialect 行 → exit 2 fail-closed 且指名段与宿主'
+  else
+    bad '负例 AD6 差异数据表删单平台 dialect 行 → exit 2 fail-closed 且指名段与宿主' "exit=$rc"
   fi
 
   suite_summary 'check-package'

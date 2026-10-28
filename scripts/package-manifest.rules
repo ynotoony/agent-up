@@ -132,6 +132,7 @@ pm_entry references/adapters/claude-code.md
 pm_entry references/adapters/codex.md
 pm_entry references/adapters/dsh.md
 pm_entry references/adapters/pi.md
+pm_entry references/adapters/adapter-diffs.rules
 pm_entry references/prompts/README.md
 pm_entry references/prompts/implementation-prompt.md
 pm_entry references/prompts/review-prompt.md
