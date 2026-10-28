@@ -28,6 +28,12 @@
 #      adapter-registry 节 coverage 字段双向全等。维护口径＝任一侧（本表或宿主
 #      Markdown）变化即被检查 27 拦截，同批同步两侧并随动 suite-check-package 金样
 #      （PASS 行含行数与条目计数）。
+#      强调记号口径（字段内容单源）：字段内的 Markdown 行内代码记号（反引号）与宿主
+#      Markdown 原文一致保留，本表因此可作为生成器的逐字节复现输入——scripts/
+#      generate-adapter-diffs.sh 按原文渲染并与宿主对应段逐字节比对（检查 28）；反引号
+#      在本表内为惰性文本（非执行式解析；解析器对本表允许单引号内字面反引号，命令替换
+#      与参数展开形态仍拒绝），检查 27 保持「剥离反引号后逐行逐字段全等」的宽松口径
+#      不变（两侧同剥）。
 
 # ==== capability-map：九基元↔宿主工具映射（检查 27；每平台九行，行序＝宿主对照表行序）====
 
@@ -45,7 +51,7 @@ pm_adapter_cap claude-code search 'Grep、Glob' '文件名与内容检索'
 pm_adapter_cap claude-code read 'Read' '读取文件内容'
 pm_adapter_cap claude-code edit 'Edit' '修改既有文件'
 pm_adapter_cap claude-code write 'Write' '创建新文件'
-pm_adapter_cap claude-code execute 'Bash' '可变更工作区状态的命令；受 permissions 规则约束'
+pm_adapter_cap claude-code execute 'Bash' '可变更工作区状态的命令；受 `permissions` 规则约束'
 pm_adapter_cap claude-code readonly-execute 'Bash' '仅只读命令；readonly_enforcement: policy-only（permissions.allow/ask/deny 与 hooks 为调用面闸门与配置面护栏，官方 settings/hooks 文档取阅 2026-09-06；登记面无默认只读隔离，sandbox 类隔离能力未核验（状态 pending，不据此声明宿主强制隔离）；只读性由调用方约束）'
 pm_adapter_cap claude-code vcs-read 'Bash' 'git status/log/diff 等只读命令'
 pm_adapter_cap claude-code vcs-write 'Bash' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
@@ -54,8 +60,8 @@ pm_adapter_cap codex search 'shell' '检索命令（grep 等）'
 pm_adapter_cap codex read 'shell' '文件读取命令；Codex 无专用只读文件工具登记'
 pm_adapter_cap codex edit 'apply_patch' '补丁式修改既有文件'
 pm_adapter_cap codex write 'apply_patch' '补丁式创建文件'
-pm_adapter_cap codex execute 'shell' '可变更工作区状态的命令；受 sandbox_mode 与 approval_policy 约束'
-pm_adapter_cap codex readonly-execute 'shell' '仅只读命令；readonly_enforcement: runner-enforced（sandbox_mode = "read-only" 运行器沙箱口径，越界写被执行器拒绝；官方 security/config 文档登记，取阅 2026-09-06）'
+pm_adapter_cap codex execute 'shell' '可变更工作区状态的命令；受 `sandbox_mode` 与 `approval_policy` 约束'
+pm_adapter_cap codex readonly-execute 'shell' '仅只读命令；readonly_enforcement: runner-enforced（`sandbox_mode = "read-only"` 运行器沙箱口径，越界写被执行器拒绝；官方 security/config 文档登记，取阅 2026-09-06）'
 pm_adapter_cap codex vcs-read 'shell' 'git status/log/diff 等只读命令'
 pm_adapter_cap codex vcs-write 'shell' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
 pm_adapter_cap pi inspect 'find + read' '目录与现状盘点（find 列举、read 核对）'

@@ -5,7 +5,7 @@
 #        机制受控词表/平台适配注册表十一节唯一承载点，票 57/58/59/60/215）与适配差异
 #        数据表 references/adapters/adapter-diffs.rules（包根相对落位；四节机器数据行，
 #        检查 27 数据源）。两份均为非执行式解析（fail-closed）。
-# Output: 二十七项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
+# Output: 二十八项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
 #         exit 1；检查 13 仓根无镜像落位目录时静默跳过无输出行；检查 19 非 git 语境静默
 #         跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
@@ -78,10 +78,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  二十七项检查全部通过
+  0  二十八项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-二十七项检查说明、例外登记与输出格式见同目录 README.md。
+二十八项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -238,9 +238,11 @@ fi
 # 文件、末尾按指令名原子分发到各节账本（all-or-nothing：解析失败零行落账）。
 pm_parse_data() {
   # $1=数据文件（输入） $2=解析产物账本（覆盖写） $3=错误抬头文案（「包清单数据」／
-  # 「适配差异数据表」）；票 222 起两份数据文件共用同一引擎同一词法（程序单源）。
+  # 「适配差异数据表」） $4=（可选）字面反引号模式 1／0：差异数据表的强调记号（行内代码
+  # 反引号）为惰性文本，须原样承载以支持生成器逐字节复现；清单侧保持默认 0（引号内
+  # 反引号仍按命令替换形态拒绝，恶意输入门禁不放宽）。命令替换与参数展开形态两侧一律拒绝。
   pm_parse_bad=''
-  LC_ALL=C awk -v progin="$1" '
+  LC_ALL=C awk -v progin="$1" -v allow_bt="${4:-0}" '
   function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
   {
     raw = $0; ln++
@@ -269,7 +271,7 @@ pm_parse_data() {
         continue
       }
       if (!inq && index("`$(;|<>&", c) > 0) { bad("引号外 shell 语法元字符（非执行式解析拒绝）: " c); next }
-      if (inq && c == "`") { bad("引号内命令替换形态（反引号）——非执行式解析拒绝"); next }
+      if (inq && c == "`" && allow_bt != 1) { bad("引号内命令替换形态（反引号）——非执行式解析拒绝"); next }
       if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "(") { bad("引号内命令替换形态（美元括号）——非执行式解析拒绝"); next }
       if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "{") { bad("引号内参数展开形态（美元花括号）——非执行式解析拒绝"); next }
       tok = tok c
@@ -350,7 +352,7 @@ if [ ! -f "$pm_adrules" ]; then
   printf 'check-package: 错误：适配差异数据表缺失: %s\n' "$pm_adrules" >&2
   exit 2
 fi
-pm_parse_data "$pm_adrules" "$pm_parsed" '适配差异数据表' || { rm -f "$pm_parsed"; pm_parsed=''; exit 2; }
+pm_parse_data "$pm_adrules" "$pm_parsed" '适配差异数据表' 1 || { rm -f "$pm_parsed"; pm_parsed=''; exit 2; }
 pm_dispatch_file "$pm_parsed"
 rm -f "$pm_parsed"; pm_parsed=''
 
@@ -2016,7 +2018,7 @@ fi
 # 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。
 problems=''
-n_total_checks=27
+n_total_checks=28
 n_mrow=0
 mech_m='机械'
 if [ "$n_idx" -eq 0 ]; then
@@ -3113,11 +3115,13 @@ a27_extract_cap() {
 }
 a27_extract_role() {
   # $1=宿主文件：「| <role-contract-dir>/」行规约化——（角色, 能力名单, 工具口径）
-  # 三列 TAB 行；角色名＝首列路径尾段剥 <role-contract-dir>/ 前缀与 .md 后缀。
+  # 三列 TAB 行；角色名＝首列路径尾段剥 <role-contract-dir>/ 前缀与 .md 后缀。列数非 3
+  # 的行剥反引号原样输出（与能力表同款守卫：比对必失配＝漂移面，防多/少列静默截断）。
   LC_ALL=C awk '
     function trimbt(x) { gsub(/`/, "", x); gsub(/^[ \t]+/, "", x); gsub(/[ \t]+$/, "", x); return x }
     $0 ~ /^\| <role-contract-dir>\// {
       n = split($0, f, "|")
+      if (n - 2 != 3) { print trimbt($0); next }
       r = trimbt(f[2])
       sub(/^<role-contract-dir>\//, "", r)
       sub(/\.md$/, "", r)
@@ -3147,15 +3151,16 @@ while IFS="$(printf '\t')" read -r a27_plat a27_sc a27_file a27_cov a27_role a27
   if [ ! -f "$a27_host" ]; then
     continue  # 适配器文件缺席已由检查 26② 指名，此处不重复计失败
   fi
-  # ①九行能力表（行序敏感全等）
-  awk -F'\t' -v p="$a27_plat" '$1 == p { print $2 "\t" $3 "\t" $4 }' "$pm_adcap" > "$a27_cap_d"
+  # ①九行能力表（行序敏感全等；两侧同规约剥反引号——数据侧强调记号原样承载，
+  #   剥离后与宿主抽取同形，检查 27 的宽松口径不变）
+  awk -F'\t' -v p="$a27_plat" '$1 == p { a = $2; b = $3; c = $4; gsub(/`/, "", a); gsub(/`/, "", b); gsub(/`/, "", c); print a "\t" b "\t" c }' "$pm_adcap" > "$a27_cap_d"
   a27_extract_cap "$a27_host" > "$a27_cap_m"
   if ! cmp -s "$a27_cap_d" "$a27_cap_m"; then
     a27_fd=$(a27_first_diff "$a27_cap_d" "$a27_cap_m")
     add_problem "  - $a27_file 九行能力表与差异数据表漂移（段＝capability-map；首个差异行 ${a27_fd}，0＝行数不齐）"
   fi
-  # ②三角色映射表（行序敏感全等）
-  awk -F'\t' -v p="$a27_plat" '$1 == p { print $2 "\t" $3 "\t" $4 }' "$pm_adrole" > "$a27_role_d"
+  # ②三角色映射表（行序敏感全等；同①两侧剥反引号口径）
+  awk -F'\t' -v p="$a27_plat" '$1 == p { a = $2; b = $3; c = $4; gsub(/`/, "", a); gsub(/`/, "", b); gsub(/`/, "", c); print a "\t" b "\t" c }' "$pm_adrole" > "$a27_role_d"
   a27_extract_role "$a27_host" > "$a27_role_m"
   if ! cmp -s "$a27_role_d" "$a27_role_m"; then
     a27_fd=$(a27_first_diff "$a27_role_d" "$a27_role_m")
@@ -3189,8 +3194,30 @@ else
   pass 27 "适配差异数据表一致性（宿主 ${n27_hosts} 个，cap ${n27_cap} 行，role ${n27_role} 行，exec ${n27_exec} 行，dialect ${n27_dial} 行）"
 fi
 
+# 检查 28：宿主差异段生成漂移（票 223 新增）。链路＝数据表 → 生成器渲染 → 渲染输出 ≡
+# 宿主对应段。渲染器＝同目录 generate-adapter-diffs.sh（--check 模式；数据表四节机器
+# 数据行 → Markdown 差异段），比对口径＝逐字节（含行内代码反引号等强调记号，数据表字段
+# 原样承载）：cap/role 段渲染行与宿主对应段只去首尾空白、按三列取单元格后逐行逐字节 cmp
+# （行序敏感，不剥反引号），exec/dialect 段锚语原文在场断言。与检查 27 的分工：27 断言
+# 「数据表 ≡ 文档」（宽松口径＝两侧同剥反引号后全等），28 断言「经生成器渲染 ≡ 文档」
+# （严格口径＝含强调记号逐字节一致，证明生成链路无损复现现行文档）；两者同批同步即
+# 表/文档/渲染三方一致，且 28 额外兜住「强调记号单侧丢失」。漂移即 FAIL 指名宿主文件
+# 与段；生成器缺件或数据面不合预期同样 FAIL（缺件另由检查 8 报）。
+problems=''
+n28_hosts=$(wc -l < "$pm_adapters" | tr -d ' ')
+n28_cap=$(wc -l < "$pm_adcap" | tr -d ' ')
+n28_role=$(wc -l < "$pm_adrole" | tr -d ' ')
+n28_exec=$(wc -l < "$pm_adexec" | tr -d ' ')
+n28_dial=$(wc -l < "$pm_addial" | tr -d ' ')
+a28_out=''
+if a28_out=$(sh "$script_dir/generate-adapter-diffs.sh" --pkg-root "$pkg_root" --check 2>&1); then
+  pass 28 "宿主差异段生成漂移零差异（宿主 ${n28_hosts} 个，cap ${n28_cap} 行，role ${n28_role} 行，exec ${n28_exec} 行，dialect ${n28_dial} 行）"
+else
+  fail 28 "宿主差异段生成漂移（宿主 ${n28_hosts} 个，cap ${n28_cap} 行，role ${n28_role} 行，exec ${n28_exec} 行，dialect ${n28_dial} 行）" "$a28_out"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 27 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 28 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

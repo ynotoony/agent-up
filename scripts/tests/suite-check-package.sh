@@ -60,7 +60,19 @@ fi
 # 单处篡改（改数据不改文档）exit 1 指名宿主与段／AD2 文档侧单处篡改（改文档不改数据）
 # exit 1 指名宿主与段／AD3 方言锚语删除 exit 1 指名失据锚语／AD4 追加重复
 # （platform, primitive）行 exit 2 fail-closed 零部分结论／AD5 删单平台 exec 行与 AD6
-# 删单平台 dialect 行 exit 2 指名段与宿主（exec/dialect 平台集合↔注册平台集双向全等））
+# 删单平台 dialect 行 exit 2 指名段与宿主（exec/dialect 平台集合↔注册平台集双向全等））；
+# 适配段生成链路随票修（检查 27→28 新增 generate-adapter-diffs.sh 宿主差异段生成器与
+# 生成漂移检查——生成器从数据表四节渲染 Markdown 差异段，--check 与现行五宿主逐段做
+# **逐字节** cmp（只去首尾空白；数据表字段保留行内代码反引号等强调记号，检查 27 仍按
+# 两侧同剥反引号的宽松口径），锚语原文在场；预期串计数 27→28 翻值、检查 8/19 清单
+# 29→30 件与检查 20 一级 32→33 项随动（worktree 变体 30→31、负例副本 31→32）、四金样块
+# 补 PASS: 28 行且共数随总数同步、N16 注入项号检查 28→29 随总数同步；补正例 G1 渲染无损
+# 首行断言／G2 首轮零漂移 exit 0 计数汇总／G7 数据与文档同批同步零假阳／G8 强调记号行
+# 逐字节等于宿主原文，负例 G3 数据侧单处篡改 exit 1 指名宿主与段、G4 同一篡改经
+# check-package FAIL: 28（接通断言）、G5 文档侧单处篡改 exit 1、G6 方言锚语删除 exit 1
+# 指名段、G9 数据侧强调记号丢失 exit 1、G10 文档侧强调记号丢失经 check-package FAIL: 28、
+# G11 宿主 role 行多一列生成器 exit 1 指名 role-map、G12 同一夹具经 check-package FAIL: 27
+# 指名 role-map（角色表列数非 3 守卫，两引擎同口径不静默截断）；套件断言 87→89）
 # ============================================================
 
 suite_check_package() {
@@ -108,7 +120,7 @@ PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（29 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（30 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
@@ -120,8 +132,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（29 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 30 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（30 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -129,6 +141,7 @@ PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 check-package: PASS
 EOF
   else
@@ -140,7 +153,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（29 个文件）
+PASS: 8 脚本必需件存在（30 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -151,8 +164,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（29 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 32 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（30 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 33 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -160,6 +173,7 @@ PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 check-package: PASS
 EOF
   fi
@@ -170,7 +184,7 @@ EOF
   else
     bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
   fi
-  assert_eq '正例输出逐行逐一相等（二十五项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、23 序言短指针与 25 待定规范声明检测）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（二十八项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、23 序言短指针、25 待定规范声明检测与 28 生成漂移）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -182,7 +196,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（29 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（30 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -192,7 +206,7 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 31 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 32 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -200,7 +214,8 @@ PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-check-package: FAIL（3 项未通过，共 27 项）
+PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+check-package: FAIL（3 项未通过，共 28 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -225,7 +240,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（29 个文件）
+PASS: 8 脚本必需件存在（30 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
@@ -235,7 +250,7 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 32 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 33 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 95 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -243,7 +258,8 @@ PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-check-package: FAIL（1 项未通过，共 27 项）
+PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+check-package: FAIL（1 项未通过，共 28 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -523,15 +539,16 @@ EOF
   done
   rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
 
-  # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 18）
+  # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 19）
   # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 197 后为 24、
-  # 票 212 后为 25、票 215 后为 26、票 222 后为 27；注入检查 28＝超界一位，随总数同步）。
+  # 票 212 后为 25、票 215 后为 26、票 222 后为 27、票 223 后为 28；注入检查 29＝超界一位，
+  # 随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 28） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 29） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 27 项）: 检查 28' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 28 项）: 检查 29' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -631,7 +648,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（29 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（30 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
@@ -1278,6 +1295,162 @@ EOF
     ok '负例 AD6 差异数据表删单平台 dialect 行 → exit 2 fail-closed 且指名段与宿主'
   else
     bad '负例 AD6 差异数据表删单平台 dialect 行 → exit 2 fail-closed 且指名段与宿主' "exit=$rc"
+  fi
+
+  # 票 223 检查 28 宿主差异段生成漂移夹具组（生成器＝同目录 generate-adapter-diffs.sh，
+  # 数据源＝包根相对落位 adapter-diffs.rules，宿主＝references/adapters/<platform>.md；
+  # 主检出引擎可直接运行，manifest 零夹具改动；cp 副本 mktemp 纪律，断言独立重建）。
+  # 正例 G1（渲染无损）：`--section cap --platform zcode` 首行逐字节等于宿主对照表首行
+  # （逐字节口径：只去首尾空白，不剥反引号）。
+  printf '| inspect | Glob + Read | 目录与现状盘点 |\n' > "$D/exp.g1"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --section cap --platform zcode >"$D/act.g1" 2>&1
+  sed -n '1p' "$D/act.g1" >"$D/act.g1.first"
+  assert_eq '正例 G1 生成器 cap 首行逐字节等于宿主对照表首行（渲染无损）' "$D/act.g1.first" "$D/exp.g1"
+
+  # 正例 G2（首轮零漂移）：现行包 `--check` exit 0 且输出计数汇总（五宿主四段条目数）。
+  if sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --pkg-root "$PKG_ROOT" --check >"$D/act.g2" 2>&1 \
+    && grep -q '^OK: 生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）' "$D/act.g2"; then
+    ok '正例 G2 生成器 --check 现行包零漂移 → exit 0 且计数汇总齐'
+  else
+    bad '正例 G2 生成器 --check 现行包零漂移 → exit 0 且计数汇总齐' "$(head -n 2 "$D/act.g2" | tr '\n' '|')"
+  fi
+
+  # 负例 G3（数据侧漂移，经生成器直核）：capability-map 节 zcode inspect 工具串单处篡改
+  # → 生成器 --check exit 1，指名宿主文件、段与首个差异行。
+  cp -R "$PKG_ROOT" "$D/pkgad7"
+  sed "s/pm_adapter_cap zcode inspect 'Glob + Read'/pm_adapter_cap zcode inspect 'Glob + ReadX'/" \
+    "$D/pkgad7/references/adapters/adapter-diffs.rules" > "$D/gd7.tmp" \
+    && mv "$D/gd7.tmp" "$D/pkgad7/references/adapters/adapter-diffs.rules"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --pkg-root "$D/pkgad7" --check >"$D/act.g3" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'references/adapters/zcode.md 九行能力表与生成输出漂移（段＝capability-map；首个差异行 1）' "$D/act.g3"; then
+    ok '负例 G3 数据侧单处篡改 → 生成器 exit 1 指名宿主与段与首个差异行'
+  else
+    bad '负例 G3 数据侧单处篡改 → 生成器 exit 1 指名宿主与段与首个差异行' "exit=$rc"
+  fi
+
+  # 负例 G4（检查 28 接通断言）：同一数据侧篡改副本经 check-package 检 → exit 1 且
+  # FAIL: 28 指名宿主与段（生成漂移检查在交付面可达路径上被行使）。
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkgad7" >"$D/act.g4" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 28 宿主差异段生成漂移' "$D/act.g4" \
+    && grep -q 'references/adapters/zcode.md 九行能力表与生成输出漂移（段＝capability-map' "$D/act.g4"; then
+    ok '负例 G4 数据改而文档未跟 → check-package FAIL: 28 指名宿主与段'
+  else
+    bad '负例 G4 数据改而文档未跟 → check-package FAIL: 28 指名宿主与段' "exit=$rc"
+  fi
+
+  # 负例 G5（文档侧漂移，改文档不改数据）：宿主 zcode.md 对照表 search 行单处篡改
+  # → 生成器 --check exit 1，首个差异行 2（反方向同口径）。
+  cp -R "$PKG_ROOT" "$D/pkgad8"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  sed 's/| search | Grep、Glob | 文件名与内容检索 |/| search | Grep、GlobX | 文件名与内容检索 |/' \
+    "$D/pkgad8/references/adapters/zcode.md" > "$D/gd8.tmp" \
+    && mv "$D/gd8.tmp" "$D/pkgad8/references/adapters/zcode.md"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --pkg-root "$D/pkgad8" --check >"$D/act.g5" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'references/adapters/zcode.md 九行能力表与生成输出漂移（段＝capability-map；首个差异行 2）' "$D/act.g5"; then
+    ok '负例 G5 文档侧单处篡改 → 生成器 exit 1 指名宿主与段与首个差异行'
+  else
+    bad '负例 G5 文档侧单处篡改 → 生成器 exit 1 指名宿主与段与首个差异行' "exit=$rc"
+  fi
+
+  # 负例 G6（锚语失据）：宿主 zcode.md 删三处 frontmatter tools 方言签名行 → 生成器
+  # --check exit 1 指名 dialect-signature 段。
+  cp -R "$PKG_ROOT" "$D/pkgad9"
+  # shellcheck disable=SC2016  # sed 程序刻意字面（方括号为字面锚语片段，非字符类）
+  grep -v '^tools: \[Read, Grep, Glob, Edit, Write, Bash\]$' \
+    "$D/pkgad9/references/adapters/zcode.md" > "$D/gd9.tmp" \
+    && mv "$D/gd9.tmp" "$D/pkgad9/references/adapters/zcode.md"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --pkg-root "$D/pkgad9" --check >"$D/act.g6" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'references/adapters/zcode.md 方言签名锚语失据（段＝dialect-signature）' "$D/act.g6"; then
+    ok '负例 G6 方言签名锚语删除 → 生成器 exit 1 指名宿主与段'
+  else
+    bad '负例 G6 方言签名锚语删除 → 生成器 exit 1 指名宿主与段' "exit=$rc"
+  fi
+
+  # 正例 G7（无假阳）：数据与文档同批同步（两侧同改 inspect 工具串）→ 生成器 --check
+  # exit 0（同步变更不误报，防「改两侧即红」的假阳性）。
+  cp -R "$PKG_ROOT" "$D/pkgad10"
+  sed "s/pm_adapter_cap zcode inspect 'Glob + Read'/pm_adapter_cap zcode inspect 'Glob + ReadX'/" \
+    "$D/pkgad10/references/adapters/adapter-diffs.rules" > "$D/gd10a.tmp" \
+    && mv "$D/gd10a.tmp" "$D/pkgad10/references/adapters/adapter-diffs.rules"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  sed 's/| inspect | Glob + Read | 目录与现状盘点 |/| inspect | Glob + ReadX | 目录与现状盘点 |/' \
+    "$D/pkgad10/references/adapters/zcode.md" > "$D/gd10b.tmp" \
+    && mv "$D/gd10b.tmp" "$D/pkgad10/references/adapters/zcode.md"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --pkg-root "$D/pkgad10" --check >"$D/act.g7" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^OK: 生成漂移零差异' "$D/act.g7"; then
+    ok '正例 G7 数据与文档同批同步 → 生成器 exit 0（同步变更零假阳）'
+  else
+    bad '正例 G7 数据与文档同批同步 → 生成器 exit 0（同步变更零假阳）' "exit=$rc"
+  fi
+
+  # 正例 G8（强调记号逐字节）：数据表保留行内代码反引号，渲染行须与宿主原文逐字节相等
+  # （claude-code execute 行；夹具期望串为该行原文，非剥反引号形态）。
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '| execute | Bash | 可变更工作区状态的命令；受 `permissions` 规则约束 |\n' > "$D/exp.g8"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --section cap --platform claude-code >"$D/act.g8" 2>&1
+  sed -n '6p' "$D/act.g8" >"$D/act.g8.row"
+  assert_eq '正例 G8 强调记号行渲染结果与宿主原文逐字节相等（不剥反引号）' "$D/act.g8.row" "$D/exp.g8"
+
+  # 负例 G9（数据侧强调记号丢失）：数据表 claude-code execute constraint 去掉两处反引号
+  # （文档仍带）→ 生成器 --check exit 1，指名 claude-code.md 与 capability-map 段。
+  cp -R "$PKG_ROOT" "$D/pkgad11"
+  # shellcheck disable=SC2016  # sed 程序刻意字面（反引号为被删字符，非命令替换）
+  sed 's/受 `permissions` 规则约束/受 permissions 规则约束/' \
+    "$D/pkgad11/references/adapters/adapter-diffs.rules" > "$D/gd11.tmp" \
+    && mv "$D/gd11.tmp" "$D/pkgad11/references/adapters/adapter-diffs.rules"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --pkg-root "$D/pkgad11" --check >"$D/act.g9" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'references/adapters/claude-code.md 九行能力表与生成输出漂移（段＝capability-map' "$D/act.g9"; then
+    ok '负例 G9 数据侧强调记号丢失 → 生成器 exit 1 指名宿主与段'
+  else
+    bad '负例 G9 数据侧强调记号丢失 → 生成器 exit 1 指名宿主与段' "exit=$rc"
+  fi
+
+  # 负例 G10（文档侧强调记号丢失，检查 28 接通方向）：宿主 claude-code.md execute 行去掉
+  # 两处反引号（数据仍带）→ check-package exit 1 且 FAIL: 28 指名宿主与段。
+  cp -R "$PKG_ROOT" "$D/pkgad12"
+  # shellcheck disable=SC2016  # sed 程序刻意字面（反引号为被删字符，非命令替换）
+  sed 's/受 `permissions` 规则约束/受 permissions 规则约束/' \
+    "$D/pkgad12/references/adapters/claude-code.md" > "$D/gd12.tmp" \
+    && mv "$D/gd12.tmp" "$D/pkgad12/references/adapters/claude-code.md"
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkgad12" >"$D/act.g10" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 28 宿主差异段生成漂移' "$D/act.g10" \
+    && grep -q 'references/adapters/claude-code.md 九行能力表与生成输出漂移（段＝capability-map' "$D/act.g10"; then
+    ok '负例 G10 文档侧强调记号丢失 → check-package FAIL: 28 指名宿主与段'
+  else
+    bad '负例 G10 文档侧强调记号丢失 → check-package FAIL: 28 指名宿主与段' "exit=$rc"
+  fi
+
+  # 负例 G11（宿主 role 行列数守卫，生成器侧）：zcode.md 角色映射表首行追加第 4 单元格
+  # → 生成器 --check exit 1 且指名 role-map 段（列数非 3 的行原样输出＝漂移，不静默截断
+  # 多余列）。
+  cp -R "$PKG_ROOT" "$D/pkgad13"
+  sed '/^| <role-contract-dir>\/implementation.md | inspect, search, read, edit, write, execute |/s/ |$/ extra |/' \
+    "$D/pkgad13/references/adapters/zcode.md" > "$D/gd13.tmp" \
+    && mv "$D/gd13.tmp" "$D/pkgad13/references/adapters/zcode.md"
+  sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --pkg-root "$D/pkgad13" --check >"$D/act.g11" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'references/adapters/zcode.md 三角色映射表与生成输出漂移（段＝role-map' "$D/act.g11"; then
+    ok '负例 G11 宿主 role 行多一列 → 生成器 exit 1 指名 role-map 段'
+  else
+    bad '负例 G11 宿主 role 行多一列 → 生成器 exit 1 指名 role-map 段' "exit=$rc"
+  fi
+
+  # 负例 G12（检查 27 同形缺口守卫）：同一夹具经 check-package → exit 1 且 FAIL: 27 指名
+  # role-map 段（角色表列数非 3 不再被静默截断）。
+  sh "$SCRIPT_DIR/check-package.sh" "$D/pkgad13" >"$D/act.g12" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 27 适配差异数据表一致性' "$D/act.g12" \
+    && grep -q 'references/adapters/zcode.md 三角色映射表与差异数据表漂移（段＝role-map' "$D/act.g12"; then
+    ok '负例 G12 宿主 role 行多一列 → check-package FAIL: 27 指名 role-map 段'
+  else
+    bad '负例 G12 宿主 role 行多一列 → check-package FAIL: 27 指名 role-map 段' "exit=$rc"
   fi
 
   suite_summary 'check-package'
