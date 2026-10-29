@@ -77,6 +77,10 @@ fi
 # 结构基线：检查 22 块计数 95→80 四金样块同步；检查 25 三例夹具锚点由已删宿主 R-XX-003
 # Authority 行改指 adapter-template R-AT-001 Authority 行；检查 24 行号锚点保持，面 31 件／
 # legacy 13 处／compatibility 52 处与失效豁免 0 不变）；套件断言 87→89）
+# 票 233 项目仪表盘入包随票修（新增 pm_script project-dashboard.html，kind=rules 非可执行
+# 数据件）：检查 8/19 计数 32→33、检查 20 scripts 一级 34→36 系列翻值（worktree 34、主检出 36、
+# 负例副本 35），金样串与 N23 fixture 断言独立重建；检查 9 成员表与检查 20 闭合面随登记行自动
+# 闭合。
 # ============================================================
 
 suite_check_package() {
@@ -124,7 +128,7 @@ PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（32 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（33 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
@@ -136,8 +140,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（32 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 33 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（33 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 34 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -157,7 +161,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（32 个文件）
+PASS: 8 脚本必需件存在（33 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -168,8 +172,8 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（32 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 35 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（33 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -200,7 +204,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（32 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（33 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -210,7 +214,7 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 34 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 35 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -244,7 +248,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 16 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（32 个文件）
+PASS: 8 脚本必需件存在（33 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
@@ -254,7 +258,7 @@ PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行�
 PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 35 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
 PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
@@ -652,7 +656,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（32 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（33 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \

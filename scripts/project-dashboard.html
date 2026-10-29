@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Up 项目仪表盘</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --panel: #ffffff; --line: #dfe3e8; --ink: #1d2430; --muted: #5f6b7a;
+    --accent: #2d5bd7; --ok: #1f7a4d; --warn: #a06200; --bad: #b3261e; --chip: #eef2f9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 14px; line-height: 1.5; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+    padding: 12px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  header h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; }
+  header .spacer { flex: 1 1 auto; }
+  button { font: inherit; border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+  button.secondary { background: var(--panel); color: var(--accent); }
+  button:disabled { opacity: 0.55; cursor: default; }
+  main { padding: 16px 20px 48px; max-width: 1600px; margin: 0 auto; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 16px; }
+  section > h2 { margin: 0; padding: 12px 16px; font-size: 15px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  section > h2 .note { font-weight: 400; color: var(--muted); font-size: 12px; }
+  .body { padding: 14px 16px; }
+  .banner { border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; border: 1px solid #f0c36d;
+    background: #fff8e6; color: #6b4a00; }
+  .banner.error { border-color: #e8a19b; background: #fdecea; color: #7d1d16; }
+  .banner.hidden { display: none; }
+  .status-line { color: var(--muted); font-size: 12.5px; padding: 8px 16px 0; }
+  .status-line strong { color: var(--ink); font-weight: 600; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .toolbar input[type="search"], .toolbar select { font: inherit; padding: 6px 10px; border: 1px solid var(--line);
+    border-radius: 6px; background: #fff; color: var(--ink); min-width: 220px; }
+  .toolbar select { min-width: 150px; }
+  .toolbar label { color: var(--muted); font-size: 12.5px; }
+  .counts { color: var(--muted); font-size: 12.5px; }
+  .graph-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: #fcfdff; max-height: 560px; }
+  svg.graph { display: block; }
+  svg.graph line.edge { stroke: #b9c3d3; stroke-width: 1; marker-end: url(#arrow); }
+  svg.graph line.edge-active { stroke: var(--accent); stroke-width: 2; }
+  svg.graph g.node rect { fill: #ffffff; stroke: #c3ccd9; }
+  svg.graph g.node text { fill: var(--ink); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  svg.graph g.node.node-match rect { fill: #fff5cc; stroke: #d8a72a; }
+  svg.graph g.node.node-active rect { fill: #e4ecff; stroke: var(--accent); stroke-width: 2; }
+  svg.graph g.node { cursor: pointer; }
+  .empty { color: var(--muted); font-size: 13px; }
+  .warning-list { margin: 0; padding-left: 18px; font-size: 12.5px; }
+  .warning-list li { margin: 2px 0; word-break: break-word; }
+  .warning-list li.bad { color: var(--bad); }
+  .split { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+  .card-list { max-height: 620px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+  .card-row { display: grid; grid-template-columns: 92px 74px minmax(0, 1fr) 60px; gap: 10px; align-items: baseline;
+    width: 100%; text-align: left; background: #fff; color: var(--ink); border: 0; border-bottom: 1px solid #eef1f5;
+    padding: 8px 12px; cursor: pointer; font: inherit; }
+  .card-row:hover { background: #f5f8ff; }
+  .card-row.selected { background: #e8efff; }
+  .card-row .id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-row .meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .badge { display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 11.5px; background: var(--chip);
+    color: var(--muted); border: 1px solid transparent; white-space: nowrap; }
+  .badge.done { background: #e6f4ec; color: var(--ok); }
+  .badge.in_progress { background: #e8efff; color: var(--accent); }
+  .badge.ready { background: #fff4dc; color: var(--warn); }
+  .badge.blocked { background: #fdecea; color: var(--bad); }
+  .badge.superseded { background: #efeff1; color: #6b6472; }
+  .badge.unindexed { background: #fdecea; color: var(--bad); }
+  .badge.conflict { background: #fdecea; color: var(--bad); }
+  .detail { border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; background: #fcfdff; }
+  .detail h3 { margin: 0 0 4px; font-size: 15px; word-break: break-word; }
+  .detail .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; word-break: break-word; }
+  .detail dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 8px 0; }
+  .detail dt { color: var(--muted); font-size: 12.5px; }
+  .detail dd { margin: 0; font-size: 12.5px; word-break: break-word; }
+  .detail ul { margin: 4px 0 8px; padding-left: 20px; font-size: 12.5px; }
+  .detail li { margin: 2px 0; word-break: break-word; }
+  .detail pre { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; background: #fff;
+    border: 1px solid var(--line); border-radius: 4px; padding: 10px; max-height: 340px; overflow: auto; }
+  .detail details { margin-top: 8px; }
+  .detail summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  .graph-detail { margin-top: 12px; font-size: 12.5px; }
+  .graph-detail h3 { font-size: 13.5px; margin: 0 0 6px; }
+  .node-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  .node-table th, .node-table td { text-align: left; border-bottom: 1px solid #eef1f5; padding: 4px 8px; word-break: break-word; }
+  .node-table th { color: var(--muted); font-weight: 600; }
+  .node-table td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  footer { color: var(--muted); font-size: 12px; padding: 0 20px 28px; max-width: 1600px; margin: 0 auto; }
+  .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #eef1f5; border-radius: 4px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent Up 项目仪表盘</h1>
+  <button id="pick-button" type="button">选择项目根目录（只读）</button>
+  <button id="refresh-button" class="secondary" type="button" disabled>立即重读</button>
+  <span class="spacer"></span>
+  <span id="root-label" class="counts">尚未选择目录</span>
+</header>
+
+<main>
+  <div id="capability-banner" class="banner hidden" role="alert"></div>
+  <div id="error-banner" class="banner error hidden" role="alert"></div>
+
+  <section aria-labelledby="controls-title">
+    <h2 id="controls-title">筛选与搜索 <span class="note">搜索匹配卡片 id、标题、验收条件与状态；同一输入同时高亮地图节点</span></h2>
+    <div class="body">
+      <div class="toolbar">
+        <label for="search-input">搜索</label>
+        <input id="search-input" type="search" placeholder="例如 233、dashboard、done" autocomplete="off">
+        <label for="status-filter">状态</label>
+        <select id="status-filter"><option value="all">全部状态</option></select>
+        <span id="filter-counts" class="counts"></span>
+      </div>
+      <p class="status-line" id="status-line" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section aria-labelledby="warnings-title">
+    <h2 id="warnings-title">数据问题 <span class="note">缺失、损坏与状态冲突逐项列出；不静默跳过，也不扫描源码重建</span></h2>
+    <div class="body"><ul id="warning-list" class="warning-list"></ul></div>
+  </section>
+
+  <section aria-labelledby="graph-title">
+    <h2 id="graph-title">项目依赖图 <span class="note">节点与边逐条来自 facts/project/architecture/module-map.json；点击节点查看依赖</span></h2>
+    <div class="body">
+      <p id="graph-meta" class="counts"></p>
+      <div id="graph-empty" class="empty">尚未选择项目根目录。</div>
+      <div id="graph-container" class="graph-wrap" hidden>
+        <svg id="graph" class="graph" role="img" aria-label="项目模块依赖图">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#b9c3d3"></path>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <div id="graph-node-detail" class="graph-detail"></div>
+      <details id="graph-list-details">
+        <summary>节点与边清单（全部）</summary>
+        <div id="graph-list"></div>
+      </details>
+    </div>
+  </section>
+
+  <section aria-labelledby="cards-title">
+    <h2 id="cards-title">需求卡片 <span class="note">历史 Markdown 卡与 JSON 卡一并列出；状态以 index.json 为准</span></h2>
+    <div class="body">
+      <div class="split">
+        <div>
+          <p id="cards-meta" class="counts"></p>
+          <div id="card-list" class="card-list"></div>
+        </div>
+        <div id="card-detail"><p class="empty">点击左侧任一卡片查看详情。</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  本页只在浏览器本地读取你授权的目录，不发送网络请求、不写入或删除任何文件；关闭页面即停止自动重读。
+  目录选择需要 Chrome 或 Edge（File System Access API），且每次打开页面都需重新选择。
+</footer>
+
+<script id="agent-up-dashboard-core">
+(function (global) {
+  'use strict';
+
+  var READ_PLAN = {
+    moduleMap: ['facts', 'project', 'architecture', 'module-map.json'],
+    index: ['facts', 'requirements', 'tickets', 'index.json'],
+    ticketsDir: ['facts', 'requirements', 'tickets']
+  };
+  var MAP_LABEL = READ_PLAN.moduleMap.join('/');
+  var INDEX_LABEL = READ_PLAN.index.join('/');
+  var TICKETS_LABEL = READ_PLAN.ticketsDir.join('/');
+
+  var EXCLUDED_EXACT = { 'README.md': true, 'progress-current.md': true, 'index.json': true };
+  var EXCLUDED_SUFFIX = ['-review-checkpoint.md', '-implementation-checkpoint.md'];
+
+  function isCardFileName(name) {
+    if (typeof name !== 'string' || name.length === 0) return false;
+    if (EXCLUDED_EXACT[name] === true) return false;
+    for (var i = 0; i < EXCLUDED_SUFFIX.length; i++) {
+      var suffix = EXCLUDED_SUFFIX[i];
+      if (name.length > suffix.length && name.slice(-suffix.length) === suffix) return false;
+    }
+    return /\.json$/i.test(name) || /\.md$/i.test(name);
+  }
+
+  function cardIdFromFileName(name) {
+    return String(name).replace(/\.(json|md)$/i, '');
+  }
+
+  function formatFromFileName(name) {
+    return /\.json$/i.test(String(name)) ? 'json' : 'markdown';
+  }
+
+  function plainText(value) {
+    if (value === null || value === undefined) return '';
+    var text = typeof value === 'string' ? value : String(value);
+    return text.replace(/\u0000/g, '').replace(/\r\n?/g, '\n');
+  }
+
+  function oneLine(value) {
+    return plainText(value).replace(/\s+/g, ' ').trim();
+  }
+
+  function escapeHtml(value) {
+    return plainText(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function truncate(value, limit) {
+    var text = oneLine(value);
+    var max = limit || 40;
+    if (text.length <= max) return text;
+    return text.slice(0, max - 1) + '…';
+  }
+
+  function errorMessage(err) {
+    if (!err) return '未知错误';
+    if (typeof err === 'string') return err;
+    if (err.name === 'NotFoundError') return '文件或目录不存在（NotFoundError）';
+    if (err.name === 'NotAllowedError') return '没有读取权限（NotAllowedError）';
+    if (err.name === 'AbortError') return '操作被取消（AbortError）';
+    return (err.name ? err.name + '：' : '') + plainText(err.message || String(err));
+  }
+
+  function detectCapabilities(scope) {
+    var target = scope || {};
+    if (typeof target.showDirectoryPicker === 'function') {
+      return { supported: true, code: 'ok', message: '当前浏览器支持 File System Access API（目录只读授权）' };
+    }
+    if (target.isSecureContext === false) {
+      return {
+        supported: false,
+        code: 'insecure',
+        message: '当前页面不是安全上下文，浏览器不开放目录选择接口。请用 Chrome 或 Edge 直接打开本地 HTML 文件。'
+      };
+    }
+    return {
+      supported: false,
+      code: 'unsupported',
+      message: '当前浏览器不支持 File System Access API（目录选择）。请改用 Chrome 或 Edge 打开本页；其他浏览器无法读取你选择的项目目录。'
+    };
+  }
+
+  function pickDirectory(scope) {
+    var target = scope || (typeof window !== 'undefined' ? window : {});
+    if (typeof target.showDirectoryPicker !== 'function') {
+      return Promise.reject(new Error('当前浏览器不支持 showDirectoryPicker'));
+    }
+    return Promise.resolve(target.showDirectoryPicker({ mode: 'read' }));
+  }
+
+  function parseJson(text) {
+    try {
+      return { ok: true, value: JSON.parse(plainText(text)), error: null };
+    } catch (err) {
+      return { ok: false, value: null, error: 'JSON 解析失败：' + oneLine(err && err.message ? err.message : err) };
+    }
+  }
+
+  function parseIndex(text) {
+    var parsed = parseJson(text);
+    var result = { ok: false, error: null, entries: [], byId: {}, warnings: [] };
+    if (!parsed.ok) {
+      result.error = parsed.error;
+      result.warnings.push(INDEX_LABEL + '：' + parsed.error);
+      return result;
+    }
+    var value = parsed.value;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      result.error = '结构不合预期：顶层不是对象';
+    } else if (!Array.isArray(value.issues)) {
+      result.error = '结构不合预期：缺少 issues 数组';
+    }
+    if (result.error) {
+      result.warnings.push(INDEX_LABEL + '：' + result.error);
+      return result;
+    }
+    value.issues.forEach(function (raw, position) {
+      if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || raw.id.length === 0) {
+        result.warnings.push(INDEX_LABEL + '：第 ' + (position + 1) + ' 条索引条目缺少 id，已跳过');
+        return;
+      }
+      var entry = {
+        id: raw.id,
+        status: typeof raw.status === 'string' && raw.status ? raw.status : null,
+        complexity: typeof raw.complexity === 'string' ? raw.complexity : null,
+        blockedBy: Array.isArray(raw.blocked_by) ? raw.blocked_by.map(function (v) { return oneLine(v); }) : [],
+        updatedAt: typeof raw.updated_at === 'string' ? raw.updated_at : null
+      };
+      if (!entry.status) result.warnings.push(INDEX_LABEL + '：条目 ' + entry.id + ' 缺少 status');
+      if (Object.prototype.hasOwnProperty.call(result.byId, entry.id)) {
+        result.warnings.push(INDEX_LABEL + '：条目重复 ' + entry.id + '（后一条覆盖前一条）');
+      }
+      result.byId[entry.id] = entry;
+      result.entries.push(entry);
+    });
+    result.ok = true;
+    return result;
+  }
+
+  var BOLD_FIELD_RE = /^\*\*([^*]+?):\*\*\s*(.*)$/;
+  var LIST_ITEM_RE = /^\s*[-*]\s+(.*)$/;
+
+  function cleanValue(text) {
+    var value = oneLine(text);
+    if (value.length > 1 && value.charAt(0) === '`' && value.charAt(value.length - 1) === '`') {
+      return value.slice(1, -1).trim();
+    }
+    return value;
+  }
+
+  function cleanTitle(text, id) {
+    var title = oneLine(text);
+    var number = id ? String(id).split('-')[0] : '';
+    if (number) {
+      var prefix = new RegExp('^' + number + '\\s*[—–]\\s*');
+      title = title.replace(prefix, '');
+    }
+    return title || oneLine(text);
+  }
+
+  function stripListMarker(text) {
+    return oneLine(text).replace(/^\[[ xX]\]\s*/, '');
+  }
+
+  function newCard(fileName) {
+    return {
+      id: cardIdFromFileName(fileName),
+      fileName: fileName,
+      format: formatFromFileName(fileName),
+      title: '',
+      declaredStatus: null,
+      statusNote: '',
+      status: 'unindexed',
+      statusSource: 'none',
+      indexStatus: null,
+      indexed: false,
+      complexity: null,
+      kind: null,
+      updatedAt: null,
+      blockedBy: [],
+      acceptance: [],
+      fields: [],
+      sections: {},
+      warnings: [],
+      invalid: false,
+      error: null,
+      body: null,
+      textLength: 0,
+      searchText: ''
+    };
+  }
+
+  function buildSearchText(card) {
+    card.searchText = [
+      card.id,
+      card.title,
+      card.status || '',
+      card.complexity || '',
+      card.kind || '',
+      card.blockedBy.join(' '),
+      card.acceptance.join(' ')
+    ].join(' ').toLowerCase();
+    return card;
+  }
+
+  function finalizeCard(card) {
+    if (!card.title) card.warnings.push('缺少标题（一级标题或 title 字段）');
+    if (!card.declaredStatus && card.format === 'markdown') card.warnings.push('正文未声明 Status（状态按索引）');
+    if (!card.complexity) card.warnings.push('缺少 Complexity');
+    buildSearchText(card);
+    return card;
+  }
+
+  function parseMarkdownCard(text, fileName) {
+    var source = plainText(text);
+    var lines = source.split('\n');
+    var card = newCard(fileName);
+    card.textLength = source.length;
+    var titleFound = false;
+    var i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (!titleFound) {
+        var heading = /^#\s+(.+)$/.exec(line);
+        if (heading) {
+          card.title = cleanTitle(heading[1], card.id);
+          titleFound = true;
+          i += 1;
+          continue;
+        }
+      }
+      var field = BOLD_FIELD_RE.exec(line);
+      if (field) {
+        var label = oneLine(field[1]);
+        var value = cleanValue(field[2]);
+        var key = label.toLowerCase();
+        card.fields.push({ label: label, value: value });
+        if (value === '') {
+          var items = [];
+          var j = i + 1;
+          while (j < lines.length) {
+            if (oneLine(lines[j]) === '') {
+              j += 1;
+              continue;
+            }
+            var item = LIST_ITEM_RE.exec(lines[j]);
+            if (!item) break;
+            items.push(stripListMarker(item[1]));
+            j += 1;
+          }
+          if (items.length > 0) {
+            card.sections[label] = items;
+            if (key === 'acceptance' || key === '验收') card.acceptance = items;
+          }
+        } else {
+          if (key === 'status') {
+            var statusMatch = /^`?([A-Za-z_]+)/.exec(value);
+            card.declaredStatus = statusMatch ? statusMatch[1] : value;
+            card.statusNote = value;
+          } else if (key === 'complexity') {
+            var complexityMatch = /^(C[0-3])/i.exec(value);
+            card.complexity = complexityMatch ? complexityMatch[1].toUpperCase() : value;
+          } else if (key === 'kind') card.kind = value;
+          else if (key === 'blocked by') card.blockedBy = /^无/.test(value) ? [] : [value];
+          else if (key === 'acceptance' || key === '验收') card.acceptance = [value];
+        }
+        i += 1;
+        continue;
+      }
+      i += 1;
+    }
+    return finalizeCard(card);
+  }
+
+  function normalizeTicketCard(value, fileName, textLength) {
+    var card = newCard(fileName);
+    card.textLength = typeof textLength === 'number' ? textLength : 0;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      card.invalid = true;
+      card.error = 'JSON 顶层不是对象';
+      card.warnings.push(card.error);
+      return card;
+    }
+    card.body = value;
+    if (typeof value.id === 'string' && value.id) card.id = value.id;
+    card.title = oneLine(value.title || '');
+    card.kind = typeof value.kind === 'string' ? value.kind : null;
+    card.complexity = typeof value.complexity === 'string' ? value.complexity : null;
+    if (typeof value.status === 'string' && value.status) card.declaredStatus = value.status;
+    if (typeof value.updated_at === 'string') card.updatedAt = value.updated_at;
+    if (Array.isArray(value.blocked_by)) card.blockedBy = value.blocked_by.map(oneLine);
+    if (Array.isArray(value.acceptance)) {
+      card.acceptance = value.acceptance.map(function (entry) {
+        if (typeof entry === 'string') return oneLine(entry);
+        if (entry && typeof entry === 'object' && typeof entry.text === 'string') return oneLine(entry.text);
+        return '[验收条件形状无法识别]';
+      });
+    }
+    card.fields.push({ label: 'kind', value: card.kind || '' });
+    return finalizeCard(card);
+  }
+
+  function describeTicketFields(body) {
+    var rows = [];
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return rows;
+    Object.keys(body).forEach(function (key) {
+      var value = body[key];
+      if (value === null || value === undefined) {
+        rows.push({ label: key, value: '—' });
+        return;
+      }
+      if (Array.isArray(value)) {
+        rows.push({ label: key, value: value.map(function (item) {
+          if (item && typeof item === 'object') return oneLine(JSON.stringify(item));
+          return oneLine(item);
+        }).join('；') });
+        return;
+      }
+      if (typeof value === 'object') {
+        rows.push({ label: key, value: truncate(JSON.stringify(value), 400) });
+        return;
+      }
+      rows.push({ label: key, value: truncate(value, 400) });
+    });
+    return rows;
+  }
+
+  function buildGraphModel(value) {
+    var graph = {
+      ok: false, error: null, nodes: [], edges: [], dangling: [], warnings: [],
+      generatedAt: null, fingerprintValue: null
+    };
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      graph.error = '地图顶层不是对象';
+      return graph;
+    }
+    var rawNodes = Array.isArray(value.nodes) ? value.nodes : null;
+    var rawEdges = Array.isArray(value.edges) ? value.edges : null;
+    var problems = [];
+    if (!rawNodes) problems.push('缺少 nodes 数组');
+    if (!rawEdges) problems.push('缺少 edges 数组');
+    if (problems.length > 0) {
+      graph.error = problems.join('；');
+      return graph;
+    }
+    var seen = {};
+    rawNodes.forEach(function (node) {
+      if (typeof node !== 'string' || node.length === 0) {
+        graph.warnings.push('忽略无法识别的节点条目');
+        return;
+      }
+      if (seen[node] === true) return;
+      seen[node] = true;
+      graph.nodes.push(node);
+    });
+    rawEdges.forEach(function (edge) {
+      if (!edge || typeof edge !== 'object' || typeof edge.from !== 'string' ||
+          typeof edge.to !== 'string' || edge.from.length === 0 || edge.to.length === 0) {
+        graph.warnings.push('忽略无法识别的边条目');
+        return;
+      }
+      var item = { from: edge.from, to: edge.to, label: typeof edge.label === 'string' ? edge.label : '' };
+      graph.edges.push(item);
+      if (seen[item.from] !== true || seen[item.to] !== true) graph.dangling.push(item);
+    });
+    graph.ok = true;
+    graph.generatedAt = typeof value.generated_at === 'string' ? value.generated_at : null;
+    graph.fingerprintValue = typeof value.workspace_fingerprint === 'string' ? value.workspace_fingerprint : null;
+    return graph;
+  }
+
+  function layoutGraph(graph, options) {
+    var settings = options || {};
+    var hGap = settings.hGap || 210;
+    var vGap = settings.vGap || 30;
+    var pad = settings.pad === undefined ? 24 : settings.pad;
+    var maxDepth = settings.maxDepth || 6;
+    var nodeWidth = settings.nodeWidth || 190;
+    var nodeHeight = settings.nodeHeight || 22;
+    var nodes = graph && Array.isArray(graph.nodes) ? graph.nodes.slice() : [];
+    var edges = graph && Array.isArray(graph.edges) ? graph.edges : [];
+    nodes.sort();
+    var known = {};
+    nodes.forEach(function (name) { known[name] = true; });
+    var parents = {};
+    nodes.forEach(function (name) { parents[name] = []; });
+    edges.forEach(function (edge) {
+      if (known[edge.from] !== true || known[edge.to] !== true) return;
+      if (parents[edge.to].indexOf(edge.from) < 0) parents[edge.to].push(edge.from);
+    });
+    var depth = {};
+    nodes.forEach(function (name) { depth[name] = 0; });
+    var passLimit = Math.min(nodes.length, 24);
+    for (var pass = 0; pass < passLimit; pass++) {
+      var changed = false;
+      nodes.forEach(function (name) {
+        parents[name].forEach(function (parent) {
+          var candidate = Math.min(depth[parent] + 1, maxDepth);
+          if (candidate > depth[name]) {
+            depth[name] = candidate;
+            changed = true;
+          }
+        });
+      });
+      if (!changed) break;
+    }
+    var columns = {};
+    var usedDepths = [];
+    nodes.forEach(function (name) {
+      var column = depth[name];
+      if (!columns[column]) { columns[column] = []; usedDepths.push(column); }
+      columns[column].push(name);
+    });
+    usedDepths.sort(function (a, b) { return a - b; });
+    var columnIndex = {};
+    usedDepths.forEach(function (value, position) { columnIndex[value] = position; });
+    var positions = {};
+    var placed = [];
+    var rows = 0;
+    usedDepths.forEach(function (value) {
+      var column = columns[value].slice().sort();
+      rows = Math.max(rows, column.length);
+      column.forEach(function (name, row) {
+        var x = pad + columnIndex[value] * hGap;
+        var y = pad + row * vGap;
+        positions[name] = { x: x, y: y };
+        placed.push({ id: name, depth: value, column: columnIndex[value], row: row, x: x, y: y });
+      });
+    });
+    var width = usedDepths.length === 0 ? pad * 2 : pad * 2 + (usedDepths.length - 1) * hGap + nodeWidth;
+    var height = rows === 0 ? pad * 2 : pad * 2 + (rows - 1) * vGap + nodeHeight;
+    return {
+      nodes: placed,
+      positions: positions,
+      columns: usedDepths.length,
+      width: width,
+      height: height,
+      nodeWidth: nodeWidth,
+      nodeHeight: nodeHeight
+    };
+  }
+
+  function hashText(text) {
+    var hash = 2166136261;
+    for (var i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return ('0000000' + hash.toString(16)).slice(-8);
+  }
+
+  function fingerprintSnapshot(snapshot) {
+    var parts = [];
+    parts.push('map|' + (snapshot.moduleMap && snapshot.moduleMap.error ? 'E:' + snapshot.moduleMap.error : 'T:' + (snapshot.moduleMap ? snapshot.moduleMap.text : '')));
+    parts.push('index|' + (snapshot.index && snapshot.index.error ? 'E:' + snapshot.index.error : 'T:' + (snapshot.index ? snapshot.index.text : '')));
+    parts.push('tickets|' + ((snapshot.tickets || []).length));
+    (snapshot.tickets || []).forEach(function (file) {
+      parts.push(file.name + '|' + (file.error ? 'E:' + file.error : 'T:' + file.text));
+    });
+    if (snapshot.ticketsError) parts.push('ticketsError|' + snapshot.ticketsError);
+    return hashText(parts.join('\u0001'));
+  }
+
+  function buildViewModel(snapshot) {
+    var source = snapshot || {};
+    var warnings = [];
+    var statusCounts = {};
+    var index = { ok: false, error: '未读取 ' + INDEX_LABEL, entries: [], byId: {}, warnings: [] };
+    if (source.index && source.index.error) {
+      index.error = source.index.error;
+      warnings.push(INDEX_LABEL + '：' + source.index.error);
+    } else if (source.index) {
+      index = parseIndex(source.index.text);
+      index.warnings.forEach(function (item) { warnings.push(item); });
+    }
+    if (!index.ok) warnings.push('状态以 ' + INDEX_LABEL + ' 为准；本次索引不可用，卡片状态按正文标注或标为未知');
+
+    var graph;
+    if (!source.moduleMap || source.moduleMap.error) {
+      graph = buildGraphModel(null);
+      graph.error = source.moduleMap ? source.moduleMap.error : '未读取 ' + MAP_LABEL;
+      warnings.push(MAP_LABEL + '：' + graph.error + '（本页不扫描源码重建地图）');
+    } else {
+      var parsedMap = parseJson(source.moduleMap.text);
+      if (!parsedMap.ok) {
+        graph = buildGraphModel(null);
+        graph.error = parsedMap.error;
+        warnings.push(MAP_LABEL + '：' + parsedMap.error + '（本页不扫描源码重建地图）');
+      } else {
+        graph = buildGraphModel(parsedMap.value);
+        if (!graph.ok) warnings.push(MAP_LABEL + '：' + graph.error + '（本页不扫描源码重建地图）');
+        graph.warnings.forEach(function (item) { warnings.push(MAP_LABEL + '：' + item); });
+      }
+    }
+    if (graph.ok && graph.dangling.length > 0) {
+      warnings.push(MAP_LABEL + '：' + graph.dangling.length + ' 条边指向未出现在 nodes 的引用（依赖查看中列为未解析引用）');
+    }
+    if (source.ticketsError) warnings.push(source.ticketsError);
+
+    var cards = [];
+    var byId = {};
+    (source.tickets || []).forEach(function (file) {
+      if (!isCardFileName(file.name)) return;
+      var card;
+      if (file.error) {
+        card = newCard(file.name);
+        card.invalid = true;
+        card.error = file.error;
+        card.warnings.push('读取失败：' + file.error);
+        warnings.push(TICKETS_LABEL + '/' + file.name + '：' + file.error);
+      } else if (formatFromFileName(file.name) === 'json') {
+        var parsedCard = parseJson(file.text);
+        if (!parsedCard.ok) {
+          card = newCard(file.name);
+          card.invalid = true;
+          card.error = parsedCard.error;
+          card.warnings.push(parsedCard.error);
+          warnings.push(TICKETS_LABEL + '/' + file.name + '：' + parsedCard.error);
+        } else {
+          card = normalizeTicketCard(parsedCard.value, file.name, plainText(file.text).length);
+          card.warnings.forEach(function (item) { warnings.push(TICKETS_LABEL + '/' + file.name + '：' + item); });
+        }
+      } else {
+        card = parseMarkdownCard(file.text, file.name);
+        card.warnings.forEach(function (item) { warnings.push(TICKETS_LABEL + '/' + file.name + '：' + item); });
+      }
+      var entry = Object.prototype.hasOwnProperty.call(index.byId, card.id) ? index.byId[card.id] : null;
+      card.indexed = !!entry;
+      card.indexStatus = entry && entry.status ? entry.status : null;
+      if (entry) {
+        if (entry.complexity && !card.complexity) card.complexity = entry.complexity;
+        if (entry.blockedBy.length > 0 && card.blockedBy.length === 0) card.blockedBy = entry.blockedBy.slice();
+        card.updatedAt = entry.updatedAt;
+      }
+      if (entry && entry.status) {
+        card.status = entry.status;
+        card.statusSource = 'index';
+      } else if (card.declaredStatus) {
+        card.status = card.declaredStatus;
+        card.statusSource = 'card';
+      } else {
+        card.status = 'unindexed';
+        card.statusSource = 'none';
+      }
+      if (entry && card.declaredStatus && card.declaredStatus !== entry.status) {
+        card.statusConflict = { card: card.declaredStatus, index: entry.status };
+        warnings.push(card.id + '：卡片正文状态 ' + card.declaredStatus + ' 与索引 ' + entry.status + ' 不一致（以索引为准）');
+      }
+      if (!entry) {
+        card.warnings.push('索引未登记该卡片，状态未知');
+        warnings.push(card.id + '：' + INDEX_LABEL + ' 未登记该卡片');
+      }
+      buildSearchText(card);
+      statusCounts[card.status] = (statusCounts[card.status] || 0) + 1;
+      if (byId[card.id]) {
+        card.warnings.push('同 id 卡片重复：' + byId[card.id].fileName);
+        byId[card.id].warnings.push('同 id 卡片重复：' + card.fileName);
+        warnings.push(card.id + '：同 id 卡片重复（' + byId[card.id].fileName + ' / ' + card.fileName + '）');
+      } else {
+        byId[card.id] = card;
+      }
+      cards.push(card);
+    });
+
+    var orphans = [];
+    index.entries.forEach(function (entry) {
+      if (!byId[entry.id]) {
+        orphans.push(entry);
+        warnings.push(entry.id + '：索引有条目但 ' + TICKETS_LABEL + ' 下没有对应卡片文件');
+      }
+    });
+
+    cards.sort(function (a, b) {
+      var na = parseInt(String(a.id), 10);
+      var nb = parseInt(String(b.id), 10);
+      if (!isNaN(na) && !isNaN(nb) && na !== nb) return nb - na;
+      return String(a.id) < String(b.id) ? 1 : (String(a.id) > String(b.id) ? -1 : 0);
+    });
+
+    var statuses = Object.keys(statusCounts).sort(function (a, b) {
+      if (a === b) return 0;
+      return statusCounts[b] - statusCounts[a] || (a < b ? -1 : 1);
+    }).map(function (status) { return { status: status, count: statusCounts[status] }; });
+
+    return {
+      at: source.at || null,
+      fingerprint: fingerprintSnapshot(source),
+      index: index,
+      indexOk: index.ok,
+      degraded: !index.ok,
+      graph: graph,
+      cards: cards,
+      cardsById: byId,
+      orphans: orphans,
+      statuses: statuses,
+      warnings: warnings,
+      conflicts: cards.filter(function (card) { return !!card.statusConflict; }),
+      counts: {
+        cards: cards.length,
+        invalidCards: cards.filter(function (card) { return card.invalid; }).length,
+        indexed: cards.filter(function (card) { return card.indexed; }).length,
+        nodes: graph.ok ? graph.nodes.length : 0,
+        edges: graph.ok ? graph.edges.length : 0
+      }
+    };
+  }
+
+  function cardMatchesFilter(card, query, status) {
+    if (status && status !== 'all' && card.status !== status) return false;
+    var needle = oneLine(query).toLowerCase();
+    if (!needle) return true;
+    return card.searchText.indexOf(needle) >= 0;
+  }
+
+  function filterCards(cards, query, status) {
+    return (cards || []).filter(function (card) { return cardMatchesFilter(card, query, status); });
+  }
+
+  function graphNodeMatches(node, query) {
+    var needle = oneLine(query).toLowerCase();
+    if (!needle) return true;
+    return String(node).toLowerCase().indexOf(needle) >= 0;
+  }
+
+  function nodeRelations(graph, nodeId) {
+    var outgoing = [];
+    var incoming = [];
+    var dangling = [];
+    if (!graph || !graph.ok) return { outgoing: outgoing, incoming: incoming, dangling: dangling };
+    graph.edges.forEach(function (edge) {
+      if (edge.from === nodeId) {
+        if (graph.nodes.indexOf(edge.to) >= 0) outgoing.push(edge); else dangling.push(edge);
+      }
+      if (edge.to === nodeId) incoming.push(edge);
+    });
+    return { outgoing: outgoing, incoming: incoming, dangling: dangling };
+  }
+
+  function buildSnapshot(current, changes) {
+    var next = {
+      at: current && current.at ? current.at : 0,
+      moduleMap: current && current.moduleMap ? { text: current.moduleMap.text, error: current.moduleMap.error } : { text: null, error: null },
+      index: current && current.index ? { text: current.index.text, error: current.index.error } : { text: null, error: null },
+      tickets: current && Array.isArray(current.tickets) ? current.tickets.slice() : [],
+      ticketsError: current ? current.ticketsError : null
+    };
+    (changes || []).forEach(function (change) {
+      if (!change || typeof change.name !== 'string') return;
+      var target = { name: change.name, text: change.text === undefined ? null : change.text, error: change.error || null };
+      for (var i = 0; i < next.tickets.length; i++) {
+        if (next.tickets[i].name === change.name) { next.tickets[i] = target; return; }
+      }
+      next.tickets.push(target);
+    });
+    return next;
+  }
+
+  function formatTime(milliseconds) {
+    if (!milliseconds) return '—';
+    var date = new Date(milliseconds);
+    if (isNaN(date.getTime())) return '—';
+    function pad(value) { return (value < 10 ? '0' : '') + value; }
+    return pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
+  }
+
+  function collectProjectModel(source) {
+    var startedAt = typeof source.now === 'function' ? source.now() : new Date().getTime();
+    var snapshot = {
+      at: startedAt,
+      moduleMap: { text: null, error: null },
+      index: { text: null, error: null },
+      tickets: [],
+      ticketsError: null
+    };
+    function readInto(slot, segments) {
+      return Promise.resolve().then(function () {
+        return source.readText(segments.slice());
+      }).then(function (text) {
+        slot.text = typeof text === 'string' ? text : plainText(text);
+      }, function (err) {
+        slot.error = errorMessage(err);
+      });
+    }
+    return readInto(snapshot.moduleMap, READ_PLAN.moduleMap)
+      .then(function () { return readInto(snapshot.index, READ_PLAN.index); })
+      .then(function () {
+        return Promise.resolve().then(function () { return source.listTickets(); }).then(function (names) {
+          return (names || []).filter(isCardFileName).sort();
+        }, function (err) {
+          snapshot.ticketsError = '无法列出 ' + TICKETS_LABEL + '：' + errorMessage(err);
+          return [];
+        });
+      })
+      .then(function (names) {
+        var chain = Promise.resolve();
+        names.forEach(function (name) {
+          chain = chain.then(function () {
+            var item = { name: name, text: null, error: null };
+            return Promise.resolve().then(function () {
+              return source.readText(READ_PLAN.ticketsDir.concat([name]));
+            }).then(function (text) {
+              item.text = typeof text === 'string' ? text : plainText(text);
+            }, function (err) {
+              item.error = errorMessage(err);
+            }).then(function () {
+              snapshot.tickets.push(item);
+            });
+          });
+        });
+        return chain;
+      })
+      .then(function () { return snapshot; });
+  }
+
+  var api = {
+    READ_PLAN: READ_PLAN,
+    MAP_LABEL: MAP_LABEL,
+    INDEX_LABEL: INDEX_LABEL,
+    TICKETS_LABEL: TICKETS_LABEL,
+    isCardFileName: isCardFileName,
+    cardIdFromFileName: cardIdFromFileName,
+    formatFromFileName: formatFromFileName,
+    plainText: plainText,
+    oneLine: oneLine,
+    escapeHtml: escapeHtml,
+    truncate: truncate,
+    errorMessage: errorMessage,
+    detectCapabilities: detectCapabilities,
+    pickDirectory: pickDirectory,
+    parseJson: parseJson,
+    parseIndex: parseIndex,
+    // escapeHtml / buildSnapshot 为测试与确定性工具导出的纯函数，DOM 层不拼接 HTML、不依赖它们。
+    buildSnapshot: buildSnapshot,
+    parseMarkdownCard: parseMarkdownCard,
+    normalizeTicketCard: normalizeTicketCard,
+    buildSearchText: buildSearchText,
+    describeTicketFields: describeTicketFields,
+    buildGraphModel: buildGraphModel,
+    layoutGraph: layoutGraph,
+    hashText: hashText,
+    fingerprintSnapshot: fingerprintSnapshot,
+    buildViewModel: buildViewModel,
+    filterCards: filterCards,
+    cardMatchesFilter: cardMatchesFilter,
+    graphNodeMatches: graphNodeMatches,
+    nodeRelations: nodeRelations,
+    formatTime: formatTime,
+    collectProjectModel: collectProjectModel
+  };
+
+  global.__agentUpDashboard = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<script>
+(function () {
+  'use strict';
+
+  var core = window.__agentUpDashboard;
+  var POLL_MS = 4000;
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var NODE_WIDTH = 190;
+  var NODE_HEIGHT = 22;
+  var TEXT_PREVIEW_LIMIT = 24000;
+
+  var state = {
+    directoryHandle: null,
+    rootName: '',
+    source: null,
+    snapshot: null,
+    model: null,
+    refreshing: false,
+    timer: null,
+    lastOkAt: null,
+    lastError: null,
+    refreshCount: 0,
+    filter: { query: '', status: 'all' },
+    selectedCardId: null,
+    selectedNodeId: null
+  };
+
+  var refs = {
+    pickButton: document.getElementById('pick-button'),
+    refreshButton: document.getElementById('refresh-button'),
+    rootLabel: document.getElementById('root-label'),
+    capabilityBanner: document.getElementById('capability-banner'),
+    errorBanner: document.getElementById('error-banner'),
+    statusLine: document.getElementById('status-line'),
+    searchInput: document.getElementById('search-input'),
+    statusFilter: document.getElementById('status-filter'),
+    filterCounts: document.getElementById('filter-counts'),
+    warningList: document.getElementById('warning-list'),
+    graphMeta: document.getElementById('graph-meta'),
+    graphEmpty: document.getElementById('graph-empty'),
+    graphContainer: document.getElementById('graph-container'),
+    graph: document.getElementById('graph'),
+    graphNodeDetail: document.getElementById('graph-node-detail'),
+    graphListDetails: document.getElementById('graph-list-details'),
+    graphList: document.getElementById('graph-list'),
+    cardsMeta: document.getElementById('cards-meta'),
+    cardList: document.getElementById('card-list'),
+    cardDetail: document.getElementById('card-detail')
+  };
+
+  function clear(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  function setText(node, value) {
+    node.textContent = core.plainText(value);
+  }
+
+  function make(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = core.plainText(text);
+    return node;
+  }
+
+  function makeSvg(tag, className, text) {
+    var node = document.createElementNS(SVG_NS, tag);
+    if (className) node.setAttribute('class', className);
+    if (text !== undefined && text !== null) node.textContent = core.plainText(text);
+    return node;
+  }
+
+  function statusBadge(status) {
+    var badge = make('span', 'badge ' + (status || 'unindexed'), status || '未知');
+    return badge;
+  }
+
+  function showCapability() {
+    var capabilities = core.detectCapabilities(window);
+    if (capabilities.supported) {
+      refs.capabilityBanner.className = 'banner hidden';
+      setText(refs.capabilityBanner, '');
+      refs.pickButton.disabled = false;
+      return;
+    }
+    refs.capabilityBanner.className = 'banner';
+    setText(refs.capabilityBanner, capabilities.message);
+    refs.pickButton.disabled = true;
+    refs.pickButton.textContent = '当前浏览器不支持目录选择';
+  }
+
+  function showError(message) {
+    if (!message) {
+      refs.errorBanner.className = 'banner error hidden';
+      setText(refs.errorBanner, '');
+      return;
+    }
+    refs.errorBanner.className = 'banner error';
+    setText(refs.errorBanner, message);
+  }
+
+  function makeSource(directoryHandle) {
+    return {
+      listTickets: function () {
+        return directoryHandle.getDirectoryHandle('facts', { create: false })
+          .then(function (facts) { return facts.getDirectoryHandle('requirements', { create: false }); })
+          .then(function (requirements) { return requirements.getDirectoryHandle('tickets', { create: false }); })
+          .then(function (tickets) {
+            var names = [];
+            var iterator = tickets.entries();
+            function step() {
+              return iterator.next().then(function (result) {
+                if (result.done) {
+                  names.sort();
+                  return names;
+                }
+                var entry = result.value;
+                if (entry && entry[1] && entry[1].kind === 'file') names.push(entry[0]);
+                return step();
+              });
+            }
+            return step();
+          });
+      },
+      readText: function (segments) {
+        var directory = directoryHandle;
+        var chain = Promise.resolve(directory);
+        for (var i = 0; i < segments.length - 1; i++) {
+          chain = chain.then((function (name) {
+            return function (current) { return current.getDirectoryHandle(name, { create: false }); };
+          })(segments[i]));
+        }
+        var fileName = segments[segments.length - 1];
+        return chain
+          .then(function (current) { return current.getFileHandle(fileName, { create: false }); })
+          .then(function (handle) { return handle.getFile(); })
+          .then(function (file) { return file.text(); });
+      }
+    };
+  }
+
+  function renderStatusLine() {
+    var parts = [];
+    if (!state.source) {
+      parts.push('尚未选择项目根目录');
+    } else {
+      parts.push('项目根：' + state.rootName);
+    }
+    if (state.model) {
+      parts.push('卡片 ' + state.model.counts.cards + ' 张');
+      parts.push(state.model.graph.ok
+        ? '地图 ' + state.model.counts.nodes + ' 节点 / ' + state.model.counts.edges + ' 边'
+        : '地图不可用');
+      if (state.model.conflicts.length > 0) parts.push('状态冲突 ' + state.model.conflicts.length + ' 处');
+      if (state.model.degraded) parts.push('索引不可用：' + state.model.counts.cards + ' 张卡状态非权威（按正文或未知）');
+      if (state.model.counts.invalidCards > 0) parts.push('损坏卡片 ' + state.model.counts.invalidCards + ' 张');
+    }
+    if (state.lastOkAt) parts.push('最后成功读取 ' + core.formatTime(state.lastOkAt));
+    if (state.refreshing) parts.push('正在重读…');
+    if (state.lastError) parts.push('最近一次读取失败：' + state.lastError);
+    parts.push('页面打开期间每 ' + Math.round(POLL_MS / 1000) + ' 秒自动重读（已重读 ' + state.refreshCount + ' 次）');
+    setText(refs.statusLine, parts.join(' ｜ '));
+  }
+
+  function renderWarnings() {
+    clear(refs.warningList);
+    var warnings = state.model ? state.model.warnings.slice() : [];
+    if (state.lastError && (!state.model || state.model.warnings.indexOf(state.lastError) < 0)) {
+      warnings.unshift('最近一次自动重读失败：' + state.lastError + '（下方内容为上一次成功读取的快照）');
+    }
+    if (warnings.length === 0) {
+      refs.warningList.appendChild(make('li', 'empty', state.source ? '未发现数据问题。' : '尚未选择项目根目录。'));
+      return;
+    }
+    warnings.forEach(function (text) {
+      var item = make('li', 'bad', text);
+      refs.warningList.appendChild(item);
+    });
+  }
+
+  function renderGraph() {
+    var model = state.model;
+    clear(refs.graph);
+    clear(refs.graphList);
+    clear(refs.graphNodeDetail);
+    refs.graphListDetails.hidden = true;
+    if (!model || !model.graph.ok) {
+      refs.graphContainer.hidden = true;
+      refs.graphEmpty.hidden = false;
+      if (!state.source) {
+        setText(refs.graphEmpty, '尚未选择项目根目录。');
+        setText(refs.graphMeta, '');
+      } else {
+        setText(refs.graphEmpty, '地图不可用：' + (model ? model.graph.error : '尚未读取') +
+          '。本页只展示现有 ' + core.MAP_LABEL + '，不扫描源码重建。');
+        setText(refs.graphMeta, '');
+      }
+      return;
+    }
+    refs.graphEmpty.hidden = true;
+    refs.graphContainer.hidden = false;
+    refs.graphListDetails.hidden = false;
+    var graph = model.graph;
+    var layout = core.layoutGraph(graph, { hGap: 210, vGap: 30, pad: 24, maxDepth: 6, nodeWidth: NODE_WIDTH, nodeHeight: NODE_HEIGHT });
+    var meta = ['节点 ' + graph.nodes.length + ' 个', '边 ' + graph.edges.length + ' 条'];
+    if (graph.dangling.length > 0) meta.push('未解析引用 ' + graph.dangling.length + ' 条');
+    if (graph.generatedAt) meta.push('地图生成于 ' + graph.generatedAt);
+    if (graph.fingerprintValue) meta.push('指纹 ' + graph.fingerprintValue);
+    setText(refs.graphMeta, meta.join(' ｜ '));
+
+    refs.graph.setAttribute('viewBox', '0 0 ' + layout.width + ' ' + layout.height);
+    refs.graph.setAttribute('width', String(layout.width));
+    refs.graph.setAttribute('height', String(Math.min(layout.height, 540)));
+    refs.graph.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+
+    var query = state.filter.query;
+    var activeNode = state.selectedNodeId;
+
+    graph.edges.forEach(function (edge) {
+      var from = layout.positions[edge.from];
+      var to = layout.positions[edge.to];
+      if (!from || !to) return;
+      var line = makeSvg('line', 'edge');
+      if (activeNode && (edge.from === activeNode || edge.to === activeNode)) line.setAttribute('class', 'edge edge-active');
+      line.setAttribute('x1', String(from.x + NODE_WIDTH));
+      line.setAttribute('y1', String(from.y + NODE_HEIGHT / 2));
+      line.setAttribute('x2', String(to.x));
+      line.setAttribute('y2', String(to.y + NODE_HEIGHT / 2));
+      var title = makeSvg('title', null, edge.from + ' → ' + edge.to + (edge.label ? '（' + edge.label + '）' : ''));
+      line.appendChild(title);
+      refs.graph.appendChild(line);
+    });
+
+    layout.nodes.forEach(function (node) {
+      var group = makeSvg('g', 'node');
+      if (activeNode === node.id) group.setAttribute('class', 'node node-active');
+      else if (query && core.graphNodeMatches(node.id, query)) group.setAttribute('class', 'node node-match');
+      group.setAttribute('transform', 'translate(' + node.x + ',' + node.y + ')');
+      var rect = makeSvg('rect');
+      rect.setAttribute('width', String(NODE_WIDTH));
+      rect.setAttribute('height', String(NODE_HEIGHT));
+      rect.setAttribute('rx', '4');
+      var label = makeSvg('text', null, core.truncate(node.id, 28));
+      label.setAttribute('x', '8');
+      label.setAttribute('y', '15');
+      var title = makeSvg('title', null, node.id);
+      group.appendChild(rect);
+      group.appendChild(label);
+      group.appendChild(title);
+      group.addEventListener('click', function () { selectNode(node.id); });
+      refs.graph.appendChild(group);
+    });
+
+    renderGraphList(graph);
+    renderNodeDetail();
+  }
+
+  function renderGraphList(graph) {
+    var table = make('table', 'node-table');
+    var head = make('tr');
+    ['节点', '依赖（出边）', '被依赖（入边）'].forEach(function (label) {
+      head.appendChild(make('th', null, label));
+    });
+    table.appendChild(head);
+    var relationsById = {};
+    graph.nodes.forEach(function (id) {
+      var relations = core.nodeRelations(graph, id);
+      relationsById[id] = relations;
+      var row = make('tr');
+      var cell = make('td', 'mono');
+      var link = make('button', 'secondary', id);
+      link.type = 'button';
+      link.addEventListener('click', function () { selectNode(id); });
+      cell.appendChild(link);
+      row.appendChild(cell);
+      row.appendChild(make('td', null, relations.outgoing.map(function (edge) { return edge.to; }).join('、') || '—'));
+      row.appendChild(make('td', null, relations.incoming.map(function (edge) { return edge.from; }).join('、') || '—'));
+      table.appendChild(row);
+    });
+    refs.graphList.appendChild(table);
+    if (graph.dangling.length > 0) {
+      var title = make('p', 'counts', '未出现在 nodes 的引用（边仍来自 module-map.json）：');
+      refs.graphList.appendChild(title);
+      var list = make('ul');
+      graph.dangling.forEach(function (edge) {
+        list.appendChild(make('li', null, edge.from + ' → ' + edge.to + (edge.label ? '（' + edge.label + '）' : '')));
+      });
+      refs.graphList.appendChild(list);
+    }
+  }
+
+  function selectNode(nodeId) {
+    state.selectedNodeId = state.selectedNodeId === nodeId ? null : nodeId;
+    renderGraph();
+  }
+
+  function renderNodeDetail() {
+    clear(refs.graphNodeDetail);
+    if (!state.model || !state.model.graph.ok || !state.selectedNodeId) return;
+    var graph = state.model.graph;
+    if (graph.nodes.indexOf(state.selectedNodeId) < 0) return;
+    var relations = core.nodeRelations(graph, state.selectedNodeId);
+    refs.graphNodeDetail.appendChild(make('h3', null, '节点：' + state.selectedNodeId));
+    function addSection(label, edges, describe) {
+      refs.graphNodeDetail.appendChild(make('p', 'counts', label + '（' + edges.length + '）'));
+      if (edges.length === 0) {
+        refs.graphNodeDetail.appendChild(make('p', 'empty', '—'));
+        return;
+      }
+      var list = make('ul');
+      edges.forEach(function (edge) { list.appendChild(make('li', null, describe(edge))); });
+      refs.graphNodeDetail.appendChild(list);
+    }
+    addSection('依赖（出边）', relations.outgoing, function (edge) {
+      return edge.to + (edge.label ? '（' + edge.label + '）' : '');
+    });
+    addSection('未解析引用（出边，目标未出现在 nodes）', relations.dangling, function (edge) { return edge.to; });
+    addSection('被依赖（入边）', relations.incoming, function (edge) {
+      return edge.from + (edge.label ? '（' + edge.label + '）' : '');
+    });
+  }
+
+  function renderStatusFilter() {
+    var current = state.filter.status;
+    clear(refs.statusFilter);
+    var all = make('option', null, '全部状态');
+    all.value = 'all';
+    refs.statusFilter.appendChild(all);
+    var statuses = state.model ? state.model.statuses : [];
+    var found = current === 'all';
+    statuses.forEach(function (item) {
+      var option = make('option', null, item.status + '（' + item.count + '）');
+      option.value = item.status;
+      refs.statusFilter.appendChild(option);
+      if (item.status === current) found = true;
+    });
+    if (!found) current = 'all';
+    refs.statusFilter.value = current;
+    state.filter.status = current;
+  }
+
+  function renderCards() {
+    var model = state.model;
+    clear(refs.cardList);
+    if (!model) {
+      refs.cardsMeta.textContent = '';
+      refs.filterCounts.textContent = '';
+      refs.cardList.appendChild(make('p', 'empty', state.source ? '尚未读取到卡片。' : '尚未选择项目根目录。'));
+      return;
+    }
+    var visible = core.filterCards(model.cards, state.filter.query, state.filter.status);
+    refs.cardsMeta.textContent = '共 ' + model.cards.length + ' 张卡片，当前显示 ' + visible.length +
+      ' 张；其中索引登记 ' + model.counts.indexed + ' 张，损坏 ' + model.counts.invalidCards + ' 张';
+    refs.filterCounts.textContent = '匹配 ' + visible.length + ' / ' + model.cards.length;
+    if (visible.length === 0) {
+      refs.cardList.appendChild(make('p', 'empty', '没有匹配当前筛选条件的卡片。'));
+      return;
+    }
+    var fragment = document.createDocumentFragment();
+    visible.forEach(function (card) {
+      var row = make('button', 'card-row');
+      row.type = 'button';
+      if (state.selectedCardId === card.id) row.className = 'card-row selected';
+      row.addEventListener('click', function () { selectCard(card.id); });
+      var statusCell = make('span');
+      statusCell.appendChild(statusBadge(card.status));
+      if (card.statusConflict) statusCell.appendChild(make('span', 'badge conflict', '冲突'));
+      row.appendChild(statusCell);
+      row.appendChild(make('span', 'id', card.id));
+      row.appendChild(make('span', 'title', card.title || '（无标题）'));
+      var meta = [];
+      if (card.complexity) meta.push(card.complexity);
+      meta.push(card.format === 'json' ? 'JSON' : 'MD');
+      if (card.invalid) meta.push('损坏');
+      row.appendChild(make('span', 'meta', meta.join(' · ')));
+      fragment.appendChild(row);
+    });
+    refs.cardList.appendChild(fragment);
+  }
+
+  function selectCard(cardId) {
+    state.selectedCardId = cardId;
+    renderCards();
+    renderCardDetail();
+  }
+
+  function addDefinition(list, label, value) {
+    list.appendChild(make('dt', null, label));
+    list.appendChild(make('dd', null, value === '' || value === null || value === undefined ? '—' : value));
+  }
+
+  function renderCardDetail() {
+    clear(refs.cardDetail);
+    var model = state.model;
+    if (!model || !state.selectedCardId) {
+      refs.cardDetail.appendChild(make('p', 'empty', '点击左侧任一卡片查看详情。'));
+      return;
+    }
+    var card = model.cardsById[state.selectedCardId];
+    if (!card) {
+      refs.cardDetail.appendChild(make('p', 'empty', '所选卡片已不在本次快照中。'));
+      return;
+    }
+    var panel = make('div', 'detail');
+    panel.appendChild(make('h3', null, card.title || '（无标题）'));
+    panel.appendChild(make('p', 'sub', card.id + ' ｜ 来源 ' + core.TICKETS_LABEL + '/' + card.fileName + ' ｜ ' + (card.format === 'json' ? 'JSON 卡' : 'Markdown 卡')));
+    var badges = make('p');
+    badges.appendChild(statusBadge(card.status));
+    badges.appendChild(document.createTextNode(' '));
+    badges.appendChild(make('span', 'badge', card.statusSource === 'index' ? '状态取索引' : (card.statusSource === 'card' ? '状态取卡片正文（索引未登记）' : '状态未知')));
+    if (card.statusConflict) {
+      badges.appendChild(document.createTextNode(' '));
+      badges.appendChild(make('span', 'badge conflict', '正文 ' + card.statusConflict.card + ' ≠ 索引 ' + card.statusConflict.index));
+    }
+    panel.appendChild(badges);
+
+    var list = make('dl');
+    addDefinition(list, '索引状态', card.indexStatus || '未登记');
+    addDefinition(list, '卡片正文状态', card.declaredStatus || '—');
+    addDefinition(list, 'Complexity', card.complexity || '—');
+    addDefinition(list, 'Kind', card.kind || '—');
+    addDefinition(list, 'Blocked by', card.blockedBy.join('、') || '—');
+    addDefinition(list, '索引更新时间', card.updatedAt || '—');
+    addDefinition(list, '文本长度', card.textLength + ' 字符');
+    panel.appendChild(list);
+
+    if (card.invalid && card.error) {
+      panel.appendChild(make('p', 'bad', '解析失败：' + card.error));
+    }
+
+    if (card.acceptance.length > 0) {
+      panel.appendChild(make('p', 'counts', '验收条件（' + card.acceptance.length + '）'));
+      var acceptance = make('ul');
+      card.acceptance.forEach(function (item) { acceptance.appendChild(make('li', null, item)); });
+      panel.appendChild(acceptance);
+    }
+
+    Object.keys(card.sections).forEach(function (label) {
+      var items = card.sections[label];
+      if (!items || items.length === 0) return;
+      var key = label.toLowerCase();
+      if (key === 'acceptance' || key === '验收') return;
+      panel.appendChild(make('p', 'counts', label + '（' + items.length + '）'));
+      var listNode = make('ul');
+      items.forEach(function (item) { listNode.appendChild(make('li', null, item)); });
+      panel.appendChild(listNode);
+    });
+
+    var otherFields = card.fields.filter(function (field) {
+      return ['status', 'complexity', 'kind', 'acceptance', '验收'].indexOf(field.label.toLowerCase()) < 0;
+    });
+    if (otherFields.length > 0) {
+      panel.appendChild(make('p', 'counts', '卡片字段'));
+      var fieldList = make('dl');
+      otherFields.forEach(function (field) { addDefinition(fieldList, field.label, field.value); });
+      panel.appendChild(fieldList);
+    }
+
+    if (card.format === 'json' && card.body) {
+      var rows = core.describeTicketFields(card.body);
+      if (rows.length > 0) {
+        var details = make('details');
+        details.appendChild(make('summary', null, '票本体字段（' + rows.length + ' 项）'));
+        var bodyList = make('dl');
+        rows.forEach(function (row) { addDefinition(bodyList, row.label, row.value); });
+        details.appendChild(bodyList);
+        panel.appendChild(details);
+      }
+    }
+
+    if (card.warnings.length > 0) {
+      panel.appendChild(make('p', 'counts', '该卡片的数据提示（' + card.warnings.length + '）'));
+      var warningList = make('ul', 'warning-list');
+      card.warnings.forEach(function (item) { warningList.appendChild(make('li', 'bad', item)); });
+      panel.appendChild(warningList);
+    }
+
+    var raw = state.snapshot ? findTicketText(card.fileName) : null;
+    if (raw !== null) {
+      var rawDetails = make('details');
+      rawDetails.appendChild(make('summary', null, '原始文本（只读预览）'));
+      var pre = make('pre', null, raw.length > TEXT_PREVIEW_LIMIT ? raw.slice(0, TEXT_PREVIEW_LIMIT) + '\n…（已截断预览）' : raw);
+      rawDetails.appendChild(pre);
+      panel.appendChild(rawDetails);
+    }
+
+    refs.cardDetail.appendChild(panel);
+  }
+
+  function findTicketText(fileName) {
+    if (!state.snapshot || !Array.isArray(state.snapshot.tickets)) return null;
+    for (var i = 0; i < state.snapshot.tickets.length; i++) {
+      var item = state.snapshot.tickets[i];
+      if (item.name === fileName) return item.error ? '（读取失败：' + item.error + '）' : core.plainText(item.text);
+    }
+    return null;
+  }
+
+  function renderAll() {
+    renderStatusLine();
+    renderWarnings();
+    renderStatusFilter();
+    renderGraph();
+    renderCards();
+    renderCardDetail();
+  }
+
+  function applyModel(snapshot, force) {
+    state.snapshot = snapshot;
+    var next = core.buildViewModel(snapshot);
+    var changed = force || !state.model || state.model.fingerprint !== next.fingerprint;
+    state.model = next;
+    state.lastOkAt = snapshot.at || new Date().getTime();
+    state.lastError = null;
+    showError(null);
+    if (state.selectedCardId && !next.cardsById[state.selectedCardId]) state.selectedCardId = null;
+    if (changed) renderAll();
+    else {
+      renderStatusLine();
+      renderWarnings();
+    }
+  }
+
+  function refresh(force) {
+    if (!state.source) return Promise.resolve();
+    if (state.refreshing) return Promise.resolve();
+    state.refreshing = true;
+    renderStatusLine();
+    return core.collectProjectModel(state.source).then(function (snapshot) {
+      state.refreshCount += 1;
+      applyModel(snapshot, force);
+      if (snapshot.tickets.length === 0 && !snapshot.ticketsError) {
+        showError('已连接到 ' + state.rootName + '，但在 ' + core.TICKETS_LABEL + ' 下没有发现任何 .json 或 .md 卡片文件。');
+      }
+    }, function (err) {
+      state.lastError = core.errorMessage(err);
+      showError('自动重读失败：' + state.lastError + '。页面保留上一次成功读取的内容，不会把旧数据当作最新。');
+      renderStatusLine();
+      renderWarnings();
+    }).then(function () {
+      state.refreshing = false;
+      renderStatusLine();
+    });
+  }
+
+  function startPolling() {
+    if (state.timer !== null) return;
+    state.timer = window.setInterval(function () { refresh(false); }, POLL_MS);
+  }
+
+  refs.pickButton.addEventListener('click', function () {
+    var capabilities = core.detectCapabilities(window);
+    if (!capabilities.supported) {
+      showError(capabilities.message);
+      return;
+    }
+    refs.pickButton.disabled = true;
+    showError(null);
+    core.pickDirectory(window).then(function (handle) {
+      state.directoryHandle = handle;
+      state.rootName = handle && handle.name ? handle.name : '（已选择的目录）';
+      state.source = makeSource(handle);
+      state.model = null;
+      state.snapshot = null;
+      state.selectedCardId = null;
+      state.selectedNodeId = null;
+      state.lastOkAt = null;
+      state.lastError = null;
+      refs.refreshButton.disabled = false;
+      setText(refs.rootLabel, '项目根：' + state.rootName + '（只读）');
+      return refresh(true);
+    }, function (err) {
+      if (err && err.name === 'AbortError') {
+        showError(null);
+        return;
+      }
+      showError('无法读取所选目录：' + core.errorMessage(err));
+    }).then(function () {
+      refs.pickButton.disabled = false;
+      if (state.source) startPolling();
+    });
+  });
+
+  refs.refreshButton.addEventListener('click', function () { refresh(true); });
+
+  refs.searchInput.addEventListener('input', function () {
+    state.filter.query = refs.searchInput.value;
+    renderGraph();
+    renderCards();
+  });
+
+  refs.statusFilter.addEventListener('change', function () {
+    state.filter.status = refs.statusFilter.value;
+    renderCards();
+  });
+
+  showCapability();
+  renderAll();
+})();
+</script>
+</body>
+</html>

@@ -66,3 +66,4 @@ ip_data agent-up/references/schemas/dispatch-contract.schema.json rules/implemen
 ip_data agent-up/references/prompts/implementation-prompt.md rules/implementation/references/prompts/implementation-prompt.md Conditional ticket-ops 'implementation 派发合同模板：check-dispatch-contract require_inputs 依赖（校验器邻接 references/ 定位，安装闭包数据件）'
 ip_data agent-up/references/prompts/review-prompt.md rules/implementation/references/prompts/review-prompt.md Conditional ticket-ops 'review 派发合同模板：check-dispatch-contract require_inputs 依赖（校验器邻接 references/ 定位，安装闭包数据件）'
 ip_data agent-up/references/prompts/commit-prompt.md rules/implementation/references/prompts/commit-prompt.md Conditional ticket-ops 'commit 派发合同模板：check-dispatch-contract require_inputs 依赖（校验器邻接 references/ 定位，安装闭包数据件）'
+ip_file agent-up/scripts/project-dashboard.html Conditional ticket-ops '本地项目仪表盘（单文件只读 HTML：用户点击选择项目根后读 module-map.json、票索引与全部卡片并轮询刷新；零网络零写入）'
