@@ -1,9 +1,11 @@
 # Input: 包清单事实（单源化拍板；历次扩节）：必需入口文件、脚本必需件、.tmpl 模板清单、
 #        规则块短码登记、platform 枚举、模糊措辞词表与豁免、镜像脚本、能力基元名单与检查
-#        目标、规则索引执行机制受控词表、平台适配注册表——十一节唯一承载点；
+#        目标、规则索引执行机制受控词表、平台适配注册表、退役能力与活动面、工作流图与
+#        定位、readonly 声明面、README 契约指针——二十二节唯一承载点；
 #        check-package.sh 检查 1/5/8 的清单与计数自本表读取（引擎内硬编码清单废止），检查
-#        9/10/11/12/13/14/15/16/17/21/24/25/26/27/28 以本表为比对基准（27 另读适配差异
-#        数据表四节；28 经 scripts/generate-adapter-diffs.sh 渲染后比对宿主差异段）。
+#        9/10/11/12/13/14/15/16/17/21/24/25/26/27/28/29/30/31/32/34/35/36 以本表为比对
+#        基准（27 另读适配差异数据表四节；28 经 scripts/generate-adapter-diffs.sh 渲染后
+#        比对宿主差异段；33 的扫描面与词表语义同检查 25，引擎常量为窄锚点）。
 # Output: check-package.sh 引擎启动时 source 本表——每行一个 pm_* 调用：
 #         pm_entry <pkg-rel-path>（必需入口文件，包根相对路径）；
 #         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
@@ -58,7 +60,20 @@
 #           值集，检查 16；受控三值＝机械/门禁/约定，语义唯一权威见
 #           references/protocol/governance-format.md §2.7）；
 #         pm_mechanism_marker <标记词>（外定义标记词，恰一行：模板 §16 中定义于模板外
-#           手册的规则块行须在机制列显式标注本标记词，未标注算漏行，检查 15/16）。
+#           手册的规则块行须在机制列显式标注本标记词，未标注算漏行，检查 15/16）；
+#         pm_retired_token <token> <说明>（退役能力 token，检查 29：令牌在活动面出现须同行
+#           带 legacy 标注词）；pm_retired_face <pkg-rel-path>（活动创建路径面，目录行递归取
+#           *.md/*.tmpl）；pm_legacy_marker <标注词>（legacy 显式标注词表）；
+#         pm_workflow <pkg-rel-path> <positioning>（工作流登记面，检查 30/31/36：positioning
+#           ∈ fixture/production）；pm_ticket_status <value>（票状态词表，检查 31 映射目标
+#           受控值）；pm_workflow_fixture_marker <标记词>（fixture 非生产定位标记词，恰一行，
+#           检查 36）；pm_production_entry <name>（生产入口名登记，检查 36）；
+#         pm_production_claim <token>（生产可执行声称词，fixture 不得含，检查 36）；
+#         pm_readonly_site <pkg-rel-path> <mode>（readonly-execute 声明面，检查 32：mode ∈
+#           authority/level/reference——level 须声明等级值 ∈ enforcement 词表且为
+#           pm_enforcement_target，reference 须含 readonly_enforcement 指针）；
+#         pm_contract_pointer <readme> <锚点> <指针原文> <权威文件> <权威锚点>（README 执行
+#           契约指针，检查 34：含锚点的 README 行须含指针原文，权威文件须含权威锚点）。
 # Pos: 包清单数据文件（先例 install-policy.rules：外置数据＋引擎零专名＋结构校验
 #      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
 #      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
@@ -78,7 +93,10 @@
 #      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1、
 #      pm_enforcement_level 恰 1、pm_enforcement_target 恰 2、
 #      pm_layout_face 恰 1、pm_layout_universe 恰 2、pm_layout_legacy_file 恰 2、
-#      pm_layout_compat_exempt 恰 3，字段内
+#      pm_layout_compat_exempt 恰 3、pm_retired_token 恰 2、pm_retired_face 恰 1、
+#      pm_legacy_marker 恰 1、pm_workflow 恰 2、pm_ticket_status 恰 1、
+#      pm_workflow_fixture_marker 恰 1、pm_production_entry 恰 1、pm_production_claim 恰 1、
+#      pm_readonly_site 恰 2、pm_contract_pointer 恰 5，字段内
 #      禁制表符）；路径禁前导斜杠、空白与
 #      .. 段；pm_script 须 scripts/ 前缀加单段文件名；kind 枚举三值（见 Output）；
 #      pm_template 须单段 .tmpl 文件名；短码两字母大写且「短码+owner」对跨行唯一（一短码
@@ -98,6 +116,13 @@
 #      pm_mechanism_marker 跨行恰一行；pm_layout_universe 锚点须受限字符集单 token 且
 #      登记模板跨行唯一；pm_layout_legacy_file 理由非空且路径跨行唯一；
 #      pm_layout_compat_exempt 行号须正整数、理由非空、路径+行号跨行唯一；
+#      pm_retired_token 非空单 token 且跨行唯一；pm_retired_face 路径形态同入口面且跨行唯一；
+#      pm_legacy_marker 非空单 token 且跨行唯一；pm_workflow 路径形态、positioning ∈
+#      fixture/production 且路径跨行唯一；pm_ticket_status 小写 token 且跨行唯一；
+#      pm_workflow_fixture_marker 跨行恰一行；pm_production_entry 小写 token 且跨行唯一；
+#      pm_production_claim 非空单 token 且跨行唯一；pm_readonly_site 路径形态、mode ∈
+#      authority/level/reference 且路径跨行唯一；pm_contract_pointer 路径形态、锚点/指针原文/
+#      权威锚点非空且 README+锚点 对跨行唯一；
 #      各节内路径/文件名/值跨行不重复（shortcodes 节按
 #      「短码+owner」对判重，一短码多行 owner 为合法形态）；除
 #      vague-exemptions 与 ticket-citation-ban、layout-compat-exempt 节可空外，其余各节
@@ -453,3 +478,68 @@ pm_layout_compat_exempt references/templates/README.md 78 '取舍与过渡登记
 pm_layout_compat_exempt references/templates/README.md 79 '取舍与过渡登记回灌核对义务条目（2026-09-20，记录保护）：源仓镜像拆三前文件名与节号当时事实，非现行指引'
 pm_layout_compat_exempt references/templates/README.md 80 '取舍与过渡登记流程权威拆三条目（2026-10-01，记录保护）：拆三前单件模板文件名为条目主题历史事实，非现行指引'
 pm_mirror json-validator.py mirror
+
+# ==== retired-path：退役能力与活动创建路径（检查 29）====
+# 退役 token 在活动创建路径面内出现时，同行须带显式 legacy 标注词（退役/legacy/
+# retired）；缺失即 FAIL 指名文件:行号、token 与冲突类型（退役能力仍在活动路径）。
+# 活动面＝当前生效的创建路径承载件（模板树与协议/适配权威件），历史档案面不入面。
+
+pm_retired_token create-request '历史治理写入许可（退役 2026-10-23：新需求走任务票，存量 REQ 冻结只读）'
+pm_retired_token Intake '历史 Intake 阶段（退役 2026-10-23：职责归 Triage）'
+pm_legacy_marker 退役
+pm_legacy_marker legacy
+pm_legacy_marker retired
+pm_retired_face references/templates
+pm_retired_face references/protocol/read-policy.md
+pm_retired_face references/adapters/capability-contract.md
+
+# ==== workflow-graph：Workflow 状态图与票状态映射（检查 30/31）====
+# 工作流登记面：positioning 供检查 36 定位，状态图与映射由检查 30/31 逐件核对
+# （states／transitions 端点存在、initial_state 在册、trigger 落在 steps；每 state
+# 须有 state_to_ticket_status 映射且映射目标 ∈ 票状态词表）。
+
+pm_workflow references/workflows/triage.yaml fixture
+pm_workflow references/workflows/implementation.yaml fixture
+pm_ticket_status ready
+pm_ticket_status in_progress
+pm_ticket_status blocked
+pm_ticket_status review_ready
+pm_ticket_status review_pass
+pm_ticket_status review_fail
+pm_ticket_status done
+pm_ticket_status superseded
+
+# ==== workflow-positioning：工作流定位（检查 36）====
+# fixture 类工作流须在 description 声明 fixture 标记词、入口名带 -fixture 后缀、不得
+# 占用生产入口名、不得含生产可执行声称词；production 类相反（不得带标记词与后缀，
+# 入口名须在 pm_production_entry 登记）。
+
+pm_workflow_fixture_marker '参考 fixture（非生产）'
+pm_production_entry triage
+pm_production_entry implementation
+pm_production_entry review
+pm_production_claim production-ready
+pm_production_claim 生产可执行
+
+# ==== readonly-sites：readonly-execute 声明面与 enforcement level（检查 32）====
+# 包内 references/ 树凡声明 readonly-execute 的文件须在本节登记（闭包双向）；mode
+# 语义：authority＝等级模型定义处（豁免等级值核对）／level＝声明具体等级值（值须 ∈
+# enforcement-levels 词表且文件须为 pm_enforcement_target，双向闭合）／reference＝
+# 引用等级模型（须含 readonly_enforcement 指针，不声明具体值）。
+
+pm_readonly_site references/adapters/capability-contract.md authority
+pm_readonly_site references/adapters/README.md authority
+pm_readonly_site references/adapters/adapter-template.md reference
+pm_readonly_site references/adapters/zcode.md level
+pm_readonly_site references/adapters/claude-code.md level
+pm_readonly_site references/adapters/codex.md level
+pm_readonly_site references/adapters/pi.md level
+pm_readonly_site references/adapters/dsh.md level
+pm_readonly_site references/templates/agents-review.md.tmpl reference
+
+# ==== contract-pointers：README 非唯一执行契约（检查 34）====
+# 每行＝README 路径、锚点词、指针原文、权威文件、权威锚点：含锚点词的 README 行须
+# 含指针原文（不得以 README 自任唯一契约），且权威文件须含权威锚点。README 行出现
+# 「唯一声明处＝本」「唯一执行契约＝本」自任契约形态即 FAIL。
+
+pm_contract_pointer scripts/README.md '唯一声明处' '../references/schemas/workflow.schema.json' references/schemas/workflow.schema.json 'executor 实际支持子集'

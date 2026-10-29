@@ -81,6 +81,18 @@ fi
 # 数据件）：检查 8/19 计数 32→33、检查 20 scripts 一级 34→36 系列翻值（worktree 34、主检出 36、
 # 负例副本 35），金样串与 N23 fixture 断言独立重建；检查 9 成员表与检查 20 闭合面随登记行自动
 # 闭合。
+# 包级语义一致性八项入册随票修（检查 28→36，新增清单四节数据面：retired-path／
+# workflow-graph／workflow-positioning／readonly-sites／contract-pointers）：检查 29 退役
+# 能力不在活动创建路径（退役 token 行须带 legacy 标注词）、30 workflow transition endpoint
+# 存在（initial_state/from/to ∈ states、trigger ∈ steps）、31 状态写票前有合法映射
+# （state_to_ticket_status 齐备且目标 ∈ 票状态词表）、32 readonly-execute 声明有
+# enforcement level（声明面闭包双向＋level 面词表与 enforcement 目标双向）、33 MUST 不
+# 引用待定规范事实（检查 25 适配面之外的整包面，行尾 HTML 注释豁免）、34 README 非唯一
+# 执行契约（contract-pointers 锚点行须含指针、README 不得自任契约）、35 平台短码注册表
+# 闭合（适配器归属短码入注册表＋两命名空间不相交）、36 fixture workflow 不标 production
+# executable（非生产标记词／入口名／声称词）；四处金样各补八行、汇总 28→36、N16 注入项号
+# 28+1→36+1、检查 17 自述总数 28→36；补正例 P29～P36 与负例 N64～N71（各单点注入，断言
+# FAIL 行逐字指名文件/条目、规则与冲突类型）；套件断言 89→105。
 # ============================================================
 
 suite_check_package() {
@@ -150,6 +162,14 @@ PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
+PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
+PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
+PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
+PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
+PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
 check-package: PASS
 EOF
   else
@@ -182,6 +202,14 @@ PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
+PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
+PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
+PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
+PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
+PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
+PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
 check-package: PASS
 EOF
   fi
@@ -192,7 +220,7 @@ EOF
   else
     bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
   fi
-  assert_eq '正例输出逐行逐一相等（二十八项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、23 序言短指针、25 待定规范声明检测与 28 生成漂移）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（三十六项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、23 序言短指针、25 待定规范声明检测、28 生成漂移与 29～36 包级语义一致性八项）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -223,7 +251,15 @@ PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-check-package: FAIL（3 项未通过，共 28 项）
+PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
+PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
+PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
+PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
+PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
+PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
+check-package: FAIL（3 项未通过，共 36 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -267,7 +303,15 @@ PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
 PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-check-package: FAIL（1 项未通过，共 28 项）
+PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
+PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
+PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
+PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
+PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
+PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
+check-package: FAIL（1 项未通过，共 36 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -549,14 +593,14 @@ EOF
 
   # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 19）
   # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 197 后为 24、
-  # 票 212 后为 25、票 215 后为 26、票 222 后为 27、票 223 后为 28；注入检查 29＝超界一位，
-  # 随总数同步）。
+  # 票 212 后为 25、票 215 后为 26、票 222 后为 27、票 223 后为 28、包级语义门禁入册后
+  # 为 36；注入检查 37＝超界一位，随总数同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 29） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
+  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 37） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 28 项）: 检查 29' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 36 项）: 检查 37' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -1460,6 +1504,163 @@ EOF
     ok '负例 G12 宿主 role 行多一列 → check-package FAIL: 27 指名 role-map 段'
   else
     bad '负例 G12 宿主 role 行多一列 → check-package FAIL: 27 指名 role-map 段' "exit=$rc"
+  fi
+
+  # 包级语义门禁八项（检查 29～36）：正例＝现行包正例运行的 PASS 行逐字在场（八项各自
+  # 独立编号与计数，正例面即零缺陷语境）；负例＝mktemp 副本单点注入，断言 FAIL 行逐字
+  # 指名文件/条目、规则与冲突类型（AC2 口径：文件、规则、冲突类型三者齐备）。
+  if grep -qxF 'PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）' "$D/act.positive"; then
+    ok '正例 P29 检查 29 退役能力不在活动创建路径 → PASS 行逐字在场（面 3 个，命中 0 处）'
+  else
+    bad '正例 P29 检查 29 退役能力不在活动创建路径 → PASS 行逐字在场（面 3 个，命中 0 处）' "$(grep -m1 '^..: 29' "$D/act.positive")"
+  fi
+  if grep -qxF 'PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）' "$D/act.positive"; then
+    ok '正例 P30 检查 30 workflow transition endpoint 存在 → PASS 行逐字在场（状态 12 个，转换 11 条）'
+  else
+    bad '正例 P30 检查 30 workflow transition endpoint 存在 → PASS 行逐字在场（状态 12 个，转换 11 条）' "$(grep -m1 '^..: 30' "$D/act.positive")"
+  fi
+  if grep -qxF 'PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）' "$D/act.positive"; then
+    ok '正例 P31 检查 31 状态写票前有合法映射 → PASS 行逐字在场（映射 12 条，词表 8 值）'
+  else
+    bad '正例 P31 检查 31 状态写票前有合法映射 → PASS 行逐字在场（映射 12 条，词表 8 值）' "$(grep -m1 '^..: 31' "$D/act.positive")"
+  fi
+  if grep -qxF 'PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）' "$D/act.positive"; then
+    ok '正例 P32 检查 32 readonly 声明有 enforcement level → PASS 行逐字在场（声明面 9 个，level 5 个）'
+  else
+    bad '正例 P32 检查 32 readonly 声明有 enforcement level → PASS 行逐字在场（声明面 9 个，level 5 个）' "$(grep -m1 '^..: 32' "$D/act.positive")"
+  fi
+  if grep -qxF 'PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）' "$D/act.positive"; then
+    ok '正例 P33 检查 33 MUST 不引用待定规范事实 → PASS 行逐字在场（adapters 外整包面）'
+  else
+    bad '正例 P33 检查 33 MUST 不引用待定规范事实 → PASS 行逐字在场（adapters 外整包面）' "$(grep -m1 '^..: 33' "$D/act.positive")"
+  fi
+  if grep -qxF 'PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）' "$D/act.positive"; then
+    ok '正例 P34 检查 34 README 非唯一执行契约 → PASS 行逐字在场（指针 1 条命中 1 行）'
+  else
+    bad '正例 P34 检查 34 README 非唯一执行契约 → PASS 行逐字在场（指针 1 条命中 1 行）' "$(grep -m1 '^..: 34' "$D/act.positive")"
+  fi
+  if grep -qxF 'PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）' "$D/act.positive"; then
+    ok '正例 P35 检查 35 平台短码注册表闭合 → PASS 行逐字在场（注册 5 行，平台短码 5 个）'
+  else
+    bad '正例 P35 检查 35 平台短码注册表闭合 → PASS 行逐字在场（注册 5 行，平台短码 5 个）' "$(grep -m1 '^..: 35' "$D/act.positive")"
+  fi
+  if grep -qxF 'PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）' "$D/act.positive"; then
+    ok '正例 P36 检查 36 fixture workflow 不标 production executable → PASS 行逐字在场（fixture 2 件）'
+  else
+    bad '正例 P36 检查 36 fixture workflow 不标 production executable → PASS 行逐字在场（fixture 2 件）' "$(grep -m1 '^..: 36' "$D/act.positive")"
+  fi
+
+  # 负例 N64（检查 29）：活动创建路径面注入未标注退役 token 行 → exit 1 且 FAIL: 29
+  # 指名文件:行号、token 与冲突类型。
+  cp -R "$PKG_ROOT" "$D/pksem1"
+  printf -- '- harness fixture 新需求经 create-request 路径开票\n' >> "$D/pksem1/references/templates/assessment.md.tmpl"
+  n64_ln=$(wc -l < "$D/pksem1/references/templates/assessment.md.tmpl" | tr -d ' ')
+  sh "$D/pksem1/scripts/check-package.sh" "$D/pksem1" >"$D/act.n64" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 29 退役能力不在活动创建路径' "$D/act.n64" \
+    && grep -qF "references/templates/assessment.md.tmpl:${n64_ln} 冲突类型=退役能力仍在活动创建路径（规则 retired-path · token「create-request」无 legacy 标注）" "$D/act.n64"; then
+    ok '负例 N64 活动面注入未标注退役 token → exit 1 且 FAIL: 29 指名文件:行号与冲突类型'
+  else
+    bad '负例 N64 活动面注入未标注退役 token → exit 1 且 FAIL: 29 指名文件:行号与冲突类型' "exit=$rc"
+  fi
+
+  # 负例 N65（检查 30）：transition 目标改未声明 state → exit 1 且 FAIL: 30 指名端点。
+  cp -R "$PKG_ROOT" "$D/pksem2"
+  sed 's/^      to: failed$/      to: missing-state/' "$D/pksem2/references/workflows/triage.yaml" > "$D/sem2.tmp" \
+    && mv "$D/sem2.tmp" "$D/pksem2/references/workflows/triage.yaml"
+  sh "$D/pksem2/scripts/check-package.sh" "$D/pksem2" >"$D/act.n65" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 30 workflow transition endpoint 存在' "$D/act.n65" \
+    && grep -qF '冲突类型=transition endpoint 未声明为 state（规则 workflow-graph · TO「missing-state」）' "$D/act.n65"; then
+    ok '负例 N65 transition 目标未声明 state → exit 1 且 FAIL: 30 指名端点与冲突类型'
+  else
+    bad '负例 N65 transition 目标未声明 state → exit 1 且 FAIL: 30 指名端点与冲突类型' "exit=$rc"
+  fi
+
+  # 负例 N66（检查 31）：删除一个 state 的票状态映射行 → exit 1 且 FAIL: 31 指名 state
+  # （状态写票前无合法映射）。
+  cp -R "$PKG_ROOT" "$D/pksem3"
+  grep -v '^    failed: blocked$' "$D/pksem3/references/workflows/triage.yaml" > "$D/sem3.tmp" \
+    && mv "$D/sem3.tmp" "$D/pksem3/references/workflows/triage.yaml"
+  sh "$D/pksem3/scripts/check-package.sh" "$D/pksem3" >"$D/act.n66" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 31 状态写票前有合法映射' "$D/act.n66" \
+    && grep -qF '冲突类型=状态无票映射（规则 workflow-state-map · state「failed」）' "$D/act.n66"; then
+    ok '负例 N66 删除 state 票映射 → exit 1 且 FAIL: 31 指名 state 与冲突类型'
+  else
+    bad '负例 N66 删除 state 票映射 → exit 1 且 FAIL: 31 指名 state 与冲突类型' "exit=$rc"
+  fi
+
+  # 负例 N67（检查 32）：enforcement 目标声明面降级为 reference（不再声明等级）→ 双向
+  # 闭合缺口 → exit 1 且 FAIL: 32 指名该文件与冲突类型。
+  cp -R "$PKG_ROOT" "$D/pksem4"
+  sed 's/^pm_readonly_site references\/adapters\/zcode.md level$/pm_readonly_site references\/adapters\/zcode.md reference/' \
+    "$D/pksem4/scripts/package-manifest.rules" > "$D/sem4.tmp" \
+    && mv "$D/sem4.tmp" "$D/pksem4/scripts/package-manifest.rules"
+  sh "$D/pksem4/scripts/check-package.sh" "$D/pksem4" >"$D/act.n67" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 32 readonly-execute 声明有 enforcement level' "$D/act.n67" \
+    && grep -qF 'references/adapters/zcode.md 冲突类型=enforcement 目标未登记 level 声明面（规则 readonly-site · 双向闭合缺 readonly-sites 行）' "$D/act.n67"; then
+    ok '负例 N67 level 声明面降级为 reference → exit 1 且 FAIL: 32 指名双向闭合缺口'
+  else
+    bad '负例 N67 level 声明面降级为 reference → exit 1 且 FAIL: 32 指名双向闭合缺口' "exit=$rc"
+  fi
+
+  # 负例 N68（检查 33）：非适配面 MUST 块注入【待定】行 → exit 1 且 FAIL: 33 指名
+  # 文件:行号与冲突类型（适配面归检查 25，本项覆盖其余整包面）。
+  cp -R "$PKG_ROOT" "$D/pksem5"
+  n68_f="$D/pksem5/references/protocol/read-policy.md"
+  n68_ln=$(grep -n '^#### R-RP-00[0-9] ' "$n68_f" | head -1 | cut -d: -f1)
+  { head -n "$n68_ln" "$n68_f"; printf -- '- harness fixture 【待定】宿主面待核验\n'; tail -n +"$((n68_ln + 1))" "$n68_f"; } > "$D/sem5.tmp"
+  mv "$D/sem5.tmp" "$n68_f"
+  sh "$D/pksem5/scripts/check-package.sh" "$D/pksem5" >"$D/act.n68" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 33 MUST 不引用待定规范事实' "$D/act.n68" \
+    && grep -qF "references/protocol/read-policy.md:$((n68_ln + 1)) 冲突类型=MUST 块引用【待定】规范事实" "$D/act.n68"; then
+    ok '负例 N68 非适配面 MUST 块注入【待定】 → exit 1 且 FAIL: 33 指名文件:行号'
+  else
+    bad '负例 N68 非适配面 MUST 块注入【待定】 → exit 1 且 FAIL: 33 指名文件:行号' "exit=$rc"
+  fi
+
+  # 负例 N69（检查 34）：README 追加自任唯一契约行 → exit 1 且 FAIL: 34 指名文件:行号
+  # 与冲突类型（执行契约正文须落在 schema／协议件）。
+  cp -R "$PKG_ROOT" "$D/pksem6"
+  printf -- '\n唯一声明处＝本 README（harness fixture 自任契约负例）\n' >> "$D/pksem6/scripts/README.md"
+  n69_ln=$(wc -l < "$D/pksem6/scripts/README.md" | tr -d ' ')
+  sh "$D/pksem6/scripts/check-package.sh" "$D/pksem6" >"$D/act.n69" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 34 README 非唯一执行契约' "$D/act.n69" \
+    && grep -qF "scripts/README.md:${n69_ln} 冲突类型=README 自任唯一执行契约（规则 contract-pointer" "$D/act.n69"; then
+    ok '负例 N69 README 自任唯一契约 → exit 1 且 FAIL: 34 指名文件:行号与冲突类型'
+  else
+    bad '负例 N69 README 自任唯一契约 → exit 1 且 FAIL: 34 指名文件:行号与冲突类型' "exit=$rc"
+  fi
+
+  # 负例 N70（检查 35）：shortcodes 节为适配器文件另立未注册短码行 → 归属短码未入注册表
+  # → exit 1 且 FAIL: 35 指名短码行与冲突类型。
+  cp -R "$PKG_ROOT" "$D/pksem7"
+  printf "pm_shortcode ZZ references/adapters/zcode.md\n" >> "$D/pksem7/scripts/package-manifest.rules"
+  sh "$D/pksem7/scripts/check-package.sh" "$D/pksem7" >"$D/act.n70" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 35 平台短码注册表闭合' "$D/act.n70" \
+    && grep -qF 'shortcodes 节 ZZ references/adapters/zcode.md 冲突类型=适配器归属短码未入注册表（规则 shortcode-closure' "$D/act.n70"; then
+    ok '负例 N70 适配器归属短码未入注册表 → exit 1 且 FAIL: 35 指名短码行与冲突类型'
+  else
+    bad '负例 N70 适配器归属短码未入注册表 → exit 1 且 FAIL: 35 指名短码行与冲突类型' "exit=$rc"
+  fi
+
+  # 负例 N71（检查 36）：fixture 工作流 description 去掉非生产标记词 → 标成生产流程即
+  # exit 1 且 FAIL: 36 指名文件与冲突类型。
+  cp -R "$PKG_ROOT" "$D/pksem8"
+  sed 's/参考 fixture（非生产）/生产流程/' "$D/pksem8/references/workflows/triage.yaml" > "$D/sem8.tmp" \
+    && mv "$D/sem8.tmp" "$D/pksem8/references/workflows/triage.yaml"
+  sh "$D/pksem8/scripts/check-package.sh" "$D/pksem8" >"$D/act.n71" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 36 fixture workflow 不标 production executable' "$D/act.n71" \
+    && grep -qF 'references/workflows/triage.yaml 冲突类型=fixture 未标非生产定位（规则 workflow-positioning' "$D/act.n71"; then
+    ok '负例 N71 fixture 去掉非生产标记 → exit 1 且 FAIL: 36 指名文件与冲突类型'
+  else
+    bad '负例 N71 fixture 去掉非生产标记 → exit 1 且 FAIL: 36 指名文件与冲突类型' "exit=$rc"
   fi
 
   suite_summary 'check-package'
