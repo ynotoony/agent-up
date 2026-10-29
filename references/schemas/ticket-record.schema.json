@@ -387,18 +387,11 @@
     "dispatch": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "implementation",
-        "review",
-        "commit"
-      ],
       "properties": {
         "implementation": {
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+            "type": "string"
           },
           "required": [
             "REPOSITORY_PATH",
@@ -418,14 +411,12 @@
             "ACTUAL_TIME",
             "TICKET_ID"
           ],
-          "description": "implementation 阶段派发合同数据：键集恰为本 required 数组（镜像自 dispatch-contract.schema.json contract_fields.implementation，键集权威在该字典、两处漂移由 tests 套件守卫核对），每键值为非空白字符串。"
+          "description": "implementation 阶段派发合同数据：键集恰为本 required 数组（镜像自 dispatch-contract.schema.json contract_fields.implementation，键集权威在该字典、两处漂移由 tests 套件守卫核对）（值为字符串；逐键非空白完整性归派发阶段 contract-build.sh 校验，收口事实不在开票时预填）。"
         },
         "review": {
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+            "type": "string"
           },
           "required": [
             "REVIEW_SCOPE",
@@ -435,14 +426,12 @@
             "REVIEW_DIMENSIONS",
             "TICKET_ID"
           ],
-          "description": "review 阶段派发合同数据：键集恰为本 required 数组（镜像自 dispatch-contract.schema.json contract_fields.review），每键值为非空白字符串。"
+          "description": "review 阶段派发合同数据：键集恰为本 required 数组（镜像自 dispatch-contract.schema.json contract_fields.review）（值为字符串；逐键非空白完整性归派发阶段 contract-build.sh 校验，收口事实不在开票时预填）。"
         },
         "commit": {
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "[^\\t\\n\\v\\f\\r \\u001c-\\u001f\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]"
+            "type": "string"
           },
           "required": [
             "REVIEW_PASS_CHECKPOINT",
@@ -452,10 +441,10 @@
             "SCOPE_CHECK_COMMAND",
             "TICKET_ID"
           ],
-          "description": "commit 阶段派发合同数据：键集恰为本 required 数组（镜像自 dispatch-contract.schema.json contract_fields.commit），每键值为非空白字符串。"
+          "description": "commit 阶段派发合同数据：键集恰为本 required 数组（镜像自 dispatch-contract.schema.json contract_fields.commit）（值为字符串；逐键非空白完整性归派发阶段 contract-build.sh 校验，收口事实不在开票时预填）。"
         }
       },
-      "description": "派发合同数据节（2026-10-26 增补；open 时点强制、存量零回扫）：承载三阶段派发合同渲染所需的逐字段实值。三阶段对象 implementation/review/commit 与 dispatch-contract.schema.json contract_fields 三阶段必备字段清单一一对应（implementation 16 键／review 6 键／commit 6 键）；各阶段 required 数组为该清单的镜像投影，键集权威＝dispatch-contract.schema.json（open 门与渲染器同源现场提取），两处漂移由 tests 套件守卫核对。每键值＝渲染派发合同时对应 {{KEY}} 占位符的实值，须为非空白字符串（strip 后非空；多行实值以换行承载）：票面可推导字段（GOAL/SCOPE_TREE/ACCEPTANCE_CRITERIA/VERIFICATION_COMMANDS 等）开票时自票面同源转写，运行时/协调面字段（REPOSITORY_PATH/TASK_DESCRIPTION/BUDGET_CHECKPOINTS/ACTUAL_TIME 及 review、commit 全部字段）由开票方按派发意图填写或留待派发时覆写。强制面＝ticket-ops open 机械门：新开票必备本节，且三阶段对象键集须与必备字段清单恰等（缺节/缺阶段/缺键/多键即拒）并逐键非空白，任一不合即 fail-closed 拒开零写入。存量票零回扫：读取校验（不传 --new-ticket）与 take/flip 均不要求本节，既有无节票照常可读（开票校验与读取校验分层，先例 profile_reason）；派发合同渲染对无节票 fail-closed 报缺。消费面＝scripts/contract-build.sh <stage> <NN>（读 dispatch.<stage>.<KEY> 渲染派发合同到 stdout，输出前经 check-dispatch-contract.sh --check 自校验）。"
+      "description": "派发合同数据节（2026-10-26 增补；现行为派发阶段数据，开票不强制）。承载三阶段派发合同渲染所需的逐字段实值：三阶段对象 implementation/review/commit 各为可选对象（开票可完全不带本节，或只带已确定阶段），各阶段 required 数组＝dispatch-contract.schema.json contract_fields 同名清单的镜像投影（键集权威在该字典，两处漂移由 tests 套件守卫核对）。每键值＝渲染合同时对应 {{KEY}} 占位符的实值，类型为字符串；本 schema 只约束形状，不强制非空白——派发阶段完整性（strip 后非空）由 scripts/contract-build.sh 与 check-dispatch-contract.sh 在派发时点执行，收口事实（ACTUAL_TIME、Review 结论、Commit pass 指针等）由收口工具按实际写入，开票不预填未来证据。消费面＝scripts/contract-build.sh <stage> <NN>（读 dispatch.<stage>.<KEY> 渲染合同到 stdout，输出前经 check-dispatch-contract.sh --check 自校验）；无节票在派发阶段由 contract-build.sh fail-closed 报缺（存量票零回扫，take/flip 与读取校验均不要求本节）。"
     },
     "record_only": {
       "type": "object",

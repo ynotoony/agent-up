@@ -18,8 +18,8 @@
 #      common-helpers.sh（die1/die2/resolve_repo_root）。安装闭包：
 #      check-dispatch-contract.sh＋dispatch-contract.schema.json＋references/prompts/
 #      三模板（校验器 require_inputs 面）随 ticket-ops 门控同落位
-#      （install-policy.rules 登记）。无节票（存量形态）本件 fail-closed 报缺——合同
-#      渲染只对带节票可用（开票门自 2026-10-26 起强制新票带节，存量不迁移）。
+#      （install-policy.rules 登记）。无节票本件 fail-closed 报缺——票 243 起开票不再
+#      要求 dispatch 节（不预填未来证据），本节由派发方在派发时点填齐后本件才可渲染。
 
 set -eu
 set -f  # 关闭文件名展开：票文件定位用受控一次性 set +f 段
@@ -126,14 +126,54 @@ dc_required=$(LC_ALL=C awk -v sect="\"${stage}\":" '
 [ -n "$dc_required" ] || \
   die1 "dispatch-contract.schema.json 无 ${stage} 阶段必备字段定义（键集权威文件损坏或漂移）"
 
+# 阶段键集恰等门（评审整改）：本阶段对象不得携带 contract_fields 之外的键、也不得缺键
+# ——越键/缺键即 exit 1 零 stdout，报文逐键指名（此前开票 dispatch 门删除后由本门承接）。
+python3 "$_engine" json len "$ticket_file" "dispatch.${stage}" >/dev/null 2>&1 || \
+  die1 "票 ${ticket_id} 缺 dispatch.${stage} 阶段对象（派发阶段须在票面 dispatch 节填齐本阶段合同数据）"
+_dc_diff=$(DC_REQUIRED="${dc_required}" python3 - "$ticket_file" "dispatch.${stage}" <<'PY'
+import json
+import os
+import sys
+
+path, expr = sys.argv[1], sys.argv[2]
+with open(path, encoding='utf-8') as fh:
+    node = json.load(fh)
+for part in expr.split('.'):
+    node = node[part]
+keys = set(node)
+req = set(os.environ['DC_REQUIRED'].split())
+missing = sorted(req - keys)
+extra = sorted(keys - req)
+if not missing and not extra:
+    sys.exit(0)
+parts = []
+if missing:
+    parts.append('缺键: ' + ', '.join(missing))
+if extra:
+    parts.append('越键: ' + ', '.join(extra))
+print('；'.join(parts))
+sys.exit(3)
+PY
+) || die1 "票 ${ticket_id} dispatch.${stage} 键集与 contract_fields 不恰等（${_dc_diff:-键集不可读}；键集权威＝dispatch-contract.schema.json contract_fields.${stage}）"
+
 # 逐字段取值缓冲（先凑齐再自校验再输出——半份合同不出门）
 contract=''
 # shellcheck disable=SC2086  # 字段清单逐名一行，刻意按空白分词
 for key in $dc_required; do
   val=$(python3 "$_engine" json get "$ticket_file" "dispatch.${stage}.${key}") || \
-    die1 "票 ${ticket_id} dispatch.${stage} 缺必备字段或不可读: ${key}（存量无节票不迁移——合同渲染须票自带 dispatch 节）"
-  [ -n "$(printf '%s' "$val" | tr -d ' \t\r\n')" ] || \
-    die1 "票 ${ticket_id} dispatch.${stage}.${key} 须为非空白字符串（strip 后非空，同 schema 非空口径）"
+    die1 "票 ${ticket_id} dispatch.${stage} 缺必备字段或不可读: ${key}（派发阶段须在票面 dispatch 节填齐本阶段合同数据——票 243 起开票不再预填，本节在派发时点落位）"
+  if [ -z "$(printf '%s' "$val" | tr -d ' \t\r\n')" ]; then
+    # 票 243：收口时点事实（净工时／实施摘要／审查通过指针）开票与派发时均不预填，
+    # 留空即在合同上标注「收口时按实际写入」，不阻断派发；其余键空白即派发门 fail-closed。
+    case $key in
+      ACTUAL_TIME|IMPLEMENTATION_SUMMARY|REVIEW_PASS_CHECKPOINT)
+        val='（收口时按实际写入）'
+        ;;
+      *)
+        die1 "票 ${ticket_id} dispatch.${stage}.${key} 须为非空白字符串（派发时点完整性门；ACTUAL_TIME/IMPLEMENTATION_SUMMARY/REVIEW_PASS_CHECKPOINT 属收口事实键，可留空）"
+        ;;
+    esac
+  fi
   if [ -z "$contract" ]; then
     contract="{{${key}}}${NL}${val}"
   else

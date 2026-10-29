@@ -17,14 +17,11 @@
 #         profile reason 开票门（新 task 必备 profile_reason 对象且逐键非空，缺项/越键/
 #         空白值即 fail-closed 零写入；存储合同单源＝schema profile_reason 属性与
 #         references/protocol/complexity-profile.md §2.2，与 verification 的
-#         record_only.reason 语义分立；读取面不要求本字段，存量零回扫）＋dispatch 节
-#         开票门（2026-10-26 起：新开票必备 dispatch 对象——三阶段 implementation/
-#         review/commit 键集与 references/schemas/dispatch-contract.schema.json
-#         contract_fields 必备字段清单恰等且逐键非空白，缺节/缺阶段/缺键/多键/空白值
-#         即 fail-closed 拒开零写入；键集自该 schema 现场提取，与 contract-build.sh
-#         渲染读取面同源；存量票零回扫，读取面与 take/flip 不要求本节）＋校验＋
-#         索引新增条目（status=ready）＋README 追加目录
-#         清单行（`任务票 <NN>；` 锚点零命中方可追加，已在场即拒零写入）＋账本追加行；
+#         record_only.reason 语义分立；读取面不要求本字段，存量零回扫）＋校验＋
+#         索引新增条目（status=ready；空索引 {"issues": []} 就地展开落首条目）＋
+#         README 追加目录清单行（`任务票 <NN>；` 锚点零命中方可追加，已在场即拒零写入）
+#         ＋账本追加行；dispatch 派发合同数据节不在开票门内（开票不预填未来证据，
+#         派发阶段由 contract-build.sh 做完整性门）；
 #         take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
 #         状态 token 替换＋账本追加行；take 另做 blocked_by 领取完整性门（task 票本体
 #         blocked_by 逐项须在索引登记且 status=done，缺失或未完成即 exit 1 指名 blocker
@@ -56,6 +53,14 @@
 #      再生调用 generate-progress.sh 不在此限）。
 
 # 用法、数据契约与退出码见同目录 README.md。
+# 单写路径（票 243）：索引为唯一可变状态真相源；状态写入先取写锁（mkdir 原子语义，
+# 锁目录按 repo 根落 $TMPDIR，pid 存活与锁龄双陈旧回收，等待超时即 exit 1 并发冲突），
+# 锁区间覆盖预检读取到投影收尾；每个写点先生成同目录临时件再 mv 原子替换（崩溃只留
+# 完整旧版或完整新版）；索引已达目标状态时走幂等重放（补齐 README/账本/投影后 exit 0，
+# 不重复落账本行），故崩溃后重跑同一命令即可收敛，无需手工编辑任何状态文件。
+# 故障注入契约（崩溃恢复测试）：TICKET_OPS_FAULT=<after-index-write|
+# after-ledger-write|after-projection-write>，该写点完整落盘后 exit 70 并打印
+# 「ticket-ops: FAULT injected: <point>」；未知值 exit 2 零写入。
 # ledger-rowtype-version: 3（五键/lesson 六键九键/replan 八键；机制版本注记，票 133 行型）
 # 行型合同：账本行键集/键序/值域适用表单一真相源＝agent-up 公开包
 # references/schemas/ledger-row.schema.json（本脚本行校验与其 rows[].keys/值域逐条
@@ -96,16 +101,17 @@ usage() {
                  additionalProperties 与条件 required 依 schema 执行（票 152），非空断言
                  同前，票 79；另强制新 task 七维 profile reason：profile_reason 对象
                  恰七键 D/B/I/U/S/M/O 且逐键非空，存储合同见 schema 属性与
-                 complexity-profile.md §2.2；另强制新 task dispatch 节：三阶段
-                 implementation/review/commit 对象键集与 references/schemas/
-                 dispatch-contract.schema.json contract_fields 必备字段清单恰等且逐键
-                 非空白，缺节/缺阶段/缺键/多键/空白值即拒（存储合同见 schema dispatch
-                 属性；存量票读取面不要求，缺节拒开零写入）；缺本体或校验不过即
-                 fail-closed 零写入），
+                 complexity-profile.md §2.2；dispatch 派发合同数据节不属开票门——开票
+                 不预填未来证据，本节由派发方在派发时点落位、contract-build.sh 在派发
+                 阶段做完整性门）；缺本体或校验不过即 fail-closed 零写入），
                  再写索引条目
-                 （status=ready）＋
+                 （status=ready；空索引 {"issues": []} 可就地展开落首条目）＋
                  issues-README 目录清单追加行（`任务票 <NN>；` 锚点已在场即拒——追加
-                 语义要求零命中，不制造重复锚点）＋账本追加行，收尾投影再生＋--check。
+                 语义要求零命中，不制造重复锚点；空表只有表头时插在表头之后）＋账本
+                 追加行，收尾投影再生＋--check。
+                 幂等：同一 id 已在索引且状态为 ready 时走幂等重放——只补齐 README 行、
+                 账本行与投影后 exit 0，不重写索引、不重复落账本行；索引已是其他状态
+                 则 exit 1 冲突（改状态须走 flip），零写入。
                  选项（前四必选）:
                    --id <NN-slug>            票 id（^[0-9]{2,}-[a-z0-9-]+$；须不在索引中且 NN 段未被
                              占用——同 NN 异 slug 撞号拒开，票 77）
@@ -148,16 +154,30 @@ usage() {
                  两值）→ 投影再生＋--check；不触 README/账本/票本体（README 状态列与
                  账本行归各自治道承载，票 35/37 口径），不得携带 --ledger-line。
   -h / --help    打印本用法。
-退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；open 条目
-        已存在即停，非幂等；take/flip 重跑会重复落账本行，核对后处理）；2 用法或环境错误。
+退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；并发写锁
+        等待超时＝并发冲突，零写入，重跑同一命令即收敛；open 目标状态非 ready 即冲突
+        拒绝）；2 用法或环境错误（含未知 TICKET_OPS_FAULT 注入点）；
+        70 故障注入点命中（TICKET_OPS_FAULT，崩溃恢复测试用；该写点已完整落盘）。
+环境变量: TICKET_OPS_LOCK_TIMEOUT  写锁等待上限秒数（缺省 20）
+          TICKET_OPS_LOCK_STALE    写锁过期秒数（缺省 600；另按持有者 pid 存活回收）
+          TICKET_OPS_FAULT         崩溃注入点 after-index-write|after-ledger-write|
+                                   after-projection-write（未设＝正常路径）
+互斥边界: 写锁目录落 $TMPDIR 且按 repo 根命名——只在同一用户、同一 TMPDIR 内互斥；
+          不同用户或不同 TMPDIR 不共享锁（需要跨用户互斥时须让双方 TMPDIR 指向同一共享路径）。
+          TICKET_OPS_TEST_LOCK_DELAY_MS=<0-999> 仅测试用：在「判定陈旧 → 原子认领」之间
+          插入毫秒级延迟以放大竞态窗口；未设或 0＝零开销，正常路径不受影响。
 USAGE
 }
 
 tmp_idx=''
 tmp_readme=''
 cleanup() {
-  if [ -n "${tmp_idx}" ]; then tmp_idx=''; rm -f "${tmp_idx}"; fi
-  if [ -n "${tmp_readme}" ]; then tmp_readme=''; rm -f "${tmp_readme}"; fi
+  if [ -n "${tmp_idx}" ]; then rm -f "${tmp_idx}"; tmp_idx=''; fi
+  if [ -n "${tmp_readme}" ]; then rm -f "${tmp_readme}"; tmp_readme=''; fi
+  if [ "${lock_held:-0}" -eq 1 ]; then
+    rm -rf "${lock_dir}"
+    lock_held=0
+  fi
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -360,12 +380,8 @@ ticket_file="${repo_root}/${issues_dir_rel}/${id}.json"
 schema_file_pkg="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
 schema_file="${schema_file_pkg}"
 [ -f "${schema_file}" ] || schema_file="${_self_dir}/../references/schemas/ticket-record.schema.json"
-# dispatch 节开票门的键集权威（2026-10-26 起；安装闭包定位同 schema 权威双布局口径：
-# 先包基线布局，缺失回退本脚本邻接 references/schemas/——与 contract-build.sh 渲染
-# 读取面同源同文件）。
-dispatch_schema_pkg="${repo_root}/agent-up/references/schemas/dispatch-contract.schema.json"
-dispatch_schema="${dispatch_schema_pkg}"
-[ -f "${dispatch_schema}" ] || dispatch_schema="${_self_dir}/../references/schemas/dispatch-contract.schema.json"
+# dispatch 节键集权威（dispatch-contract.schema.json）自票 243 起不在本件读取：开票不再
+# 校验派发合同数据节（AC6），键集核对移至派发阶段消费面（contract-build.sh 渲染前自校验）。
 
 # 票 100：flip 收口硬拦载体定位（actual_time 校验用）；ledger 无票面，不要求票本体。
 case ${cmd} in
@@ -384,6 +400,220 @@ case ${cmd} in
 esac
 
 nn=${id%%-*}
+
+# ---- 故障注入契约（票 243：崩溃恢复测试用，未设或空串＝正常路径零差异）----
+# TICKET_OPS_FAULT=<point>，point ∈ after-index-write|after-ledger-write|
+# after-projection-write：该写点完整落盘后立即 exit 70 并打印 FAULT 报文，其后写点不执行；
+# 未知值＝exit 2 零写入（用法/环境错误口径）。重跑同一命令由幂等路径收敛。
+case ${TICKET_OPS_FAULT:-} in
+  '') ;;
+  after-index-write|after-ledger-write|after-projection-write) ;;
+  *) die2 "未知 TICKET_OPS_FAULT 注入点: ${TICKET_OPS_FAULT}（合法值 after-index-write|after-ledger-write|after-projection-write）——未产生任何写入" ;;
+esac
+
+fault_point() {
+  # $1=写点名：命中注入点即完整落盘后终止（exit 70），供崩溃恢复测试与幂等重跑验证
+  [ "${TICKET_OPS_FAULT:-}" = "$1" ] || return 0
+  printf 'ticket-ops: FAULT injected: %s\n' "$1" >&2
+  exit 70
+}
+
+# ---- 状态写锁（票 243：单写路径并发串行化）----
+# mkdir 原子创建语义（POSIX，macOS/BSD 无 flock 亦可用）；锁目录落 $TMPDIR（不污染
+# 被治理仓库，check-artifacts 面零影响），按 repo 根 cksum 命名实现按仓互斥。
+# 互斥边界（如实声明）：只在「同一用户、同一 TMPDIR」内互斥——锁目录位于 $TMPDIR 且
+# 按 repo 根命名，不同用户或不同 TMPDIR 的进程不共享锁，不构成跨用户/跨机全局互斥；
+# 需要跨用户互斥时须让双方 TMPDIR 指向同一共享路径。
+# 等待上限 TICKET_OPS_LOCK_TIMEOUT 秒（缺省 20），超时即 exit 1「并发冲突」（失败方
+# 可见、零写入）。回收判据（不得放宽）：只有「持有者 pid 确认不存活」或「pid 字段缺失/
+# 不可解析且锁龄超 TICKET_OPS_LOCK_STALE 秒」才允许回收；持有者存活或无法证明死亡时
+# 一律不搬锁，只等待（锁龄仅作诊断信息，不单独授权回收）。回收采用原子认领：只有把
+# 陈旧锁目录 mv 到唯一旁路名成功的一方获得删除权（mv 失败＝他人已认领或锁已换新 →
+# 继续等待，绝不直接删原锁），认领后二次核验对象仍是判定时那一份；不符则放回——放回
+# 前先确认目标不存在（目标已被重建则删除自己的认领目录并放弃，避免 mv 嵌套）。
+# 所有等待路径（含回收尝试）每轮累计等待时间并统一判超时。持锁范围从状态预检读到投影收尾。
+lock_dir="${TMPDIR:-/tmp}/agent-up-ticket-ops-$(printf '%s' "${repo_root}" | cksum | awk '{print $1}').lock"
+lock_held=0
+lock_release() {
+  [ "${lock_held}" -eq 1 ] || return 0
+  rm -rf "${lock_dir}"
+  lock_held=0
+}
+
+lock_test_window() {
+  # 测试挂钩（仅并发回收用例使用）：放大「判定陈旧 → 原子认领」窗口；未设＝零开销
+  case ${TICKET_OPS_TEST_LOCK_DELAY_MS:-} in
+    ''|*[!0-9]*) return 0 ;;
+    0) return 0 ;;
+  esac
+  sleep "0.$(printf '%03d' "${TICKET_OPS_TEST_LOCK_DELAY_MS}")"
+}
+
+lock_restore_claim() {
+  # 认领后核验不符时放回：目标已被他人重建则绝不 mv（macOS 会把目录嵌进目标内），
+  # 直接删除本次认领目录并放弃回收。恒返回 1（未回收）。
+  if [ -e "${lock_dir}" ] || [ -L "${lock_dir}" ]; then
+    rm -rf "${lock_claim}"
+    return 1
+  fi
+  if ! mv "${lock_claim}" "${lock_dir}" 2>/dev/null; then
+    rm -rf "${lock_claim}"
+  fi
+  return 1
+}
+
+lock_reclaim() {
+  # $1=判据报文 $2=判定时读到的持有者 pid（可空）
+  # 调用方保证：持有者已确认不存活，或 pid 缺失且锁龄超阈值（存活者永不搬锁）。
+  # 0＝本进程认领并删除成功；1＝未认领（他人先到或锁已换新），调用方继续等待
+  lock_claim_pid=$2
+  lock_claim="${lock_dir}.reclaim.$$"
+  rm -rf "${lock_claim}"
+  mv "${lock_dir}" "${lock_claim}" 2>/dev/null || return 1
+  lock_claim_holder=$(sed -n '1p' "${lock_claim}/pid" 2>/dev/null) || lock_claim_holder=''
+  case ${lock_claim_holder} in
+    ''|*[!0-9]*) lock_claim_holder='' ;;
+  esac
+  if [ -n "${lock_claim_pid}" ] && [ "${lock_claim_holder}" != "${lock_claim_pid}" ]; then
+    lock_restore_claim
+    return 1
+  fi
+  if [ -n "${lock_claim_holder}" ] && kill -0 "${lock_claim_holder}" 2>/dev/null; then
+    lock_restore_claim
+    return 1
+  fi
+  warn "回收陈旧状态写锁（$1）: ${lock_dir}"
+  rm -rf "${lock_claim}"
+  return 0
+}
+
+lock_acquire() {
+  lock_timeout=${TICKET_OPS_LOCK_TIMEOUT:-20}
+  lock_stale=${TICKET_OPS_LOCK_STALE:-600}
+  case ${lock_timeout} in ''|*[!0-9]*) lock_timeout=20 ;; esac
+  case ${lock_stale} in ''|*[!0-9]*) lock_stale=600 ;; esac
+  lock_stale_min=$((lock_stale / 60))
+  [ "${lock_stale_min}" -ge 1 ] || lock_stale_min=1
+  lock_waited_cs=0
+  lock_refused_warned=0
+  while :; do
+    if mkdir "${lock_dir}" 2>/dev/null; then
+      printf '%s\n' "$$" > "${lock_dir}/pid" 2>/dev/null || true
+      lock_held=1
+      return 0
+    fi
+    lock_holder=$(sed -n '1p' "${lock_dir}/pid" 2>/dev/null) || lock_holder=''
+    case ${lock_holder} in
+      ''|*[!0-9]*) lock_holder='' ;;
+    esac
+    lock_age_stale=0
+    if [ -n "$(find "${lock_dir}" -prune -mmin +"${lock_stale_min}" 2>/dev/null)" ]; then
+      lock_age_stale=1
+    fi
+    lock_reason=''
+    if [ -n "${lock_holder}" ]; then
+      if ! kill -0 "${lock_holder}" 2>/dev/null; then
+        lock_reason="持有者 pid ${lock_holder} 已不存在"
+      elif [ "${lock_age_stale}" -eq 1 ] && [ "${lock_refused_warned}" -eq 0 ]; then
+        # 锁龄超阈值但持有者存活：仅诊断一次，绝不搬锁（锁龄不单独授权回收）
+        warn "状态写锁锁龄超过 ${lock_stale}s 但持有者 pid ${lock_holder} 仍存活——拒绝回收，继续等待锁释放"
+        lock_refused_warned=1
+      fi
+    elif [ "${lock_age_stale}" -eq 1 ]; then
+      lock_reason="pid 字段缺失且锁龄超过 ${lock_stale}s"
+    fi
+    if [ -n "${lock_reason}" ]; then
+      # 原子认领回收：成功即立刻重试建锁（推进，不计入等待）；失败落入统一等待路径
+      # （lock_reclaim 返回 1 属预期分支，用 if 兜住以免 set -e 中止）
+      lock_test_window
+      if lock_reclaim "${lock_reason}" "${lock_holder}"; then
+        continue
+      fi
+    fi
+    # 所有等待路径统一累计等待时间并判定超时（含回收尝试后未果的轮次）
+    if [ "${lock_waited_cs}" -ge $((lock_timeout * 100)) ]; then
+      if [ -n "${lock_holder}" ] && kill -0 "${lock_holder}" 2>/dev/null; then
+        die1 "并发冲突：等待锁释放超时 ${lock_timeout}s（持有者 pid ${lock_holder} 仍存活，拒绝回收）——索引零写入，重跑同一命令即按幂等路径收敛"
+      fi
+      die1 "并发冲突：等待锁释放超时 ${lock_timeout}s（持有者 pid ${lock_holder:-未知}）——索引零写入，重跑同一命令即按幂等路径收敛"
+    fi
+    sleep 0.05
+    lock_waited_cs=$((lock_waited_cs + 5))
+  done
+}
+
+# ---- 状态读取辅助（票 243：幂等判定共用；只读，写入前判定） ----
+
+ledger_rel='facts/project/changes.jsonl'
+ledger_file="${repo_root}/${ledger_rel}"
+
+index_entry_state() {
+  # 打印: absent | present <status>；排版破坏或锚点多行 exit 2（fail-closed，零写入）
+  IDX_ID=${id} awk '
+    BEGIN { id = ENVIRON["IDX_ID"]; anchor = "\"id\": \"" id "\"" }
+    index($0, "\"id\": \"") > 0 {
+      if ($0 !~ /"status": "/ || $0 !~ /"updated_at": "/) bad = 1
+      if (index($0, anchor) > 0) {
+        hits++
+        p = index($0, "\"status\": \"")
+        if (p > 0) {
+          s = substr($0, p + 11)
+          st = substr(s, 1, index(s, "\"") - 1)
+        }
+      }
+    }
+    END {
+      if (bad) {
+        printf "ticket-ops: FAIL: 索引条目行缺同行 status/updated_at 字段——一条目一行排版被破坏（票 33 终裁 T2）\n" > "/dev/stderr"
+        exit 2
+      }
+      if (hits == 0) { print "absent"; exit 0 }
+      if (hits > 1) { printf "ticket-ops: FAIL: 索引条目 id 命中 %d 行（须恰 1 行）: %s\n", hits, id > "/dev/stderr"; exit 2 }
+      print "present " st
+      exit 0
+    }
+  ' "${index_file}"
+}
+
+readme_anchor_count() {
+  # `任务票 <NN>；` 锚点行数（幂等判定：0＝缺失待插、1＝已在场、>1＝漂移拒写）
+  RD_NN_ANCHOR="任务票 ${nn}；" awk '
+    BEGIN { anchor = ENVIRON["RD_NN_ANCHOR"] }
+    index($0, anchor) > 0 { hits++ }
+    END { print hits + 0 }
+  ' "${readme_file}"
+}
+
+ledger_row_exists() {
+  # 账本幂等判定（仅状态操作 open/take/flip 使用；`ledger` 无票入口保持只追加）：
+  # 与既有行「逐字相同」或「解析后 JSON 对象相等」即视为同一操作已落账——后者吸收
+  # 键序与 JSON 内部空白差异，但不做「删掉全部空白」的宽松匹配（否则
+  # "decision":"a b" 与 "a  b" 会被误判为同一行）。
+  [ -f "${ledger_file}" ] || return 1
+  grep -Fqx -- "${ledger_line}" "${ledger_file}" && return 0
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "${ledger_file}" "${ledger_line}" <<'PY'
+import json
+import sys
+
+path, line = sys.argv[1], sys.argv[2]
+try:
+    target = json.loads(line)
+except ValueError:
+    sys.exit(1)
+with open(path, encoding='utf-8') as fh:
+    for raw in fh:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            if json.loads(raw) == target:
+                sys.exit(0)
+        except ValueError:
+            continue
+sys.exit(1)
+PY
+}
 
 # ---- actual_time 收口硬拦（票 100，flip 至 done 专属） ----
 
@@ -494,13 +724,17 @@ index_nn_check() {
 }
 
 readme_row_check() {
-  # open 预检：目录清单表行锚点（^\| `）须至少 1 行
+  # open 预检：目录清单表须在场——表头分隔行（^\| ---）或数据行（^\| `）至少一项；
+  # 票 243 起空表（仅表头、无数据行＝新项目首开形态）合法，新行插在表头之后。
   awk '
-    /^\| `/ { hits++ }
+    /^\| `/ { rows++ }
+    /^\| ---/ { head++ }
     END {
-      rc = 0
-      if (hits == 0) { printf "ticket-ops: FAIL: issues-README 未找到目录清单表行（^| ` 锚点零命中）\n" > "/dev/stderr"; rc = 1 }
-      exit rc
+      if (rows == 0 && head == 0) {
+        printf "ticket-ops: FAIL: issues-README 未找到目录清单表（^| --- 表头与 ^| ` 数据行均零命中）\n" > "/dev/stderr"
+        exit 1
+      }
+      exit 0
     }
   ' "${readme_file}"
 }
@@ -584,54 +818,6 @@ ticket_body_check() {
   python3 "${_engine}" ticket-check open-body "${ticket_file}" "${id}"
 }
 
-# ---- dispatch 节开票门（open 专属，2026-10-26 起） ----
-
-dispatch_check() {
-  # open 专属预检：新开票强制 dispatch 节（三阶段派发合同数据节）——缺节/缺阶段对象/
-  # 阶段键集与必备字段清单不恰等（缺键或多键）/逐键空白即 exit 1 指名，fail-closed
-  # 零写入。键集唯一权威＝references/schemas/dispatch-contract.schema.json
-  # contract_fields（纯 awk 现场提取，与 check-dispatch-contract.sh --check 及
-  # contract-build.sh 渲染读取面同源同法；键数恰等＋必备键逐一在场＝键集恰等）；值面
-  # 唯一 JSON 引擎承载（json len 数键、json get 取值）。仅 open 时点生效：存量票零
-  # 回扫——take/flip 与读取面不要求 dispatch 节（开票校验与读取校验分层，先例
-  # profile_reason 七维 reason 门）。request 票不达本门（open 时点已被引擎 --new-ticket
-  # kind 门拒绝）。
-  command -v python3 >/dev/null 2>&1 || \
-    die1 'python3 不可用——open dispatch 节校验无法执行（fail-closed）'
-  [ -r "${ticket_file}" ] || \
-    die1 "票 ${id} dispatch 门预检失败：票本体不可读: ${ticket_file}（dispatch 门须读本票 dispatch 节）"
-  [ -f "${dispatch_schema}" ] || \
-    die1 "dispatch-contract.schema.json 不存在（安装闭包双布局定位均未命中: ${dispatch_schema_pkg} 与 ${dispatch_schema}）（open dispatch 节校验 fail-closed；键集权威＝Agent Up 包内 references/schemas/dispatch-contract.schema.json）"
-  [ -f "${_engine}" ] || \
-    die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
-  _dc_stage=''
-  for _dc_stage in implementation review commit; do
-    _dc_required=$(LC_ALL=C awk -v sect="\"${_dc_stage}\":" '
-      index($0, sect) > 0 && /\[/ { in_block=1; next }
-      in_block && /\]/ { in_block=0; next }
-      in_block && /"[A-Z_]+"/ {
-        line=$0
-        gsub(/[",]/, "", line)
-        gsub(/^[[:space:]]+/, "", line)
-        gsub(/[[:space:]]+$/, "", line)
-        if (line ~ /^[A-Z_]+$/) print line
-      }
-    ' "${dispatch_schema}")
-    [ -n "${_dc_required}" ] || \
-      die1 "dispatch-contract.schema.json 无 ${_dc_stage} 阶段必备字段定义（键集权威文件损坏或漂移，fail-closed）"
-    _dc_nkeys=$(python3 "${_engine}" json len "${ticket_file}" "dispatch.${_dc_stage}" 2>/dev/null) || \
-      die1 "票 ${id} 缺 dispatch.${_dc_stage} 阶段对象（新开票须自带 dispatch 节：三阶段对象各承载该阶段派发合同字段实值，键集＝dispatch-contract.schema.json contract_fields；缺节拒开零写入）"
-    _dc_nreq=$(printf '%s\n' "${_dc_required}" | wc -l | tr -d ' ')
-    [ "${_dc_nkeys}" -eq "${_dc_nreq}" ] || \
-      die1 "票 ${id} dispatch.${_dc_stage} 键集与必备字段清单不恰等（期望 ${_dc_nreq} 键、实际 ${_dc_nkeys} 键——缺键或多键均拒；键集＝dispatch-contract.schema.json contract_fields ${_dc_stage} 清单）"
-    for _dc_key in ${_dc_required}; do
-      _dc_val=$(python3 "${_engine}" json get "${ticket_file}" "dispatch.${_dc_stage}.${_dc_key}" 2>/dev/null) || \
-        die1 "票 ${id} dispatch.${_dc_stage} 缺必备字段: ${_dc_key}"
-      [ -n "$(printf '%s' "${_dc_val}" | tr -d ' \t\r\n')" ] || \
-        die1 "票 ${id} dispatch.${_dc_stage}.${_dc_key} 须为非空白字符串（strip 后非空，同 schema 非空口径）"
-    done
-  done
-}
 
 # 生成器定位（收尾投影再生必需；同目录优先，PATH 回退；缺失即预检停止）
 # ledger（票 100 无票账本行入口）不触投影面，不要求生成器在位。
@@ -662,13 +848,33 @@ else
   fi
 fi
 
+# ---- 状态预检（锁内：票 243 单写路径——预检读取与写入同锁区间，防读-改-写丢更新）----
+
+lock_acquire
+
+replay=0
 if [ "${cmd}" = 'open' ]; then
-  ticket_body_check || die1 "新票本体校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入"
-  dispatch_check || die1 "dispatch 节开票门未通过: ${issues_dir_rel}/${id}.json——未产生任何写入"
-  index_check open || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
-  index_nn_check || die1 "NN 段预检未通过: ${issues_index_rel}——未产生任何写入"
-  readme_row_check || die1 "issues-README 预检未通过: ${issues_readme_rel}——未产生任何写入"
-  readme_nn_check || die1 "issues-README 锚点预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
+  open_state=$(index_entry_state) || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
+  case ${open_state} in
+    absent)
+      ticket_body_check || die1 "新票本体校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入"
+      index_nn_check || die1 "NN 段预检未通过: ${issues_index_rel}——未产生任何写入"
+      readme_row_check || die1 "issues-README 预检未通过: ${issues_readme_rel}——未产生任何写入"
+      readme_nn_check || die1 "issues-README 锚点预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
+      ;;
+    'present ready')
+      # 票 243 幂等：崩溃后重跑同一 open 命令即走此路径——索引已在目标状态，只补齐
+      # README 行、账本行与投影，不重写索引、不重复落行（AC3 收敛的实现基础）。
+      replay=1
+      printf 'ticket-ops: 幂等重放: 索引已是目标状态 ready（%s）——补齐记录面与投影，不重写索引\n' "${id}"
+      ;;
+    'present '*)
+      die1 "索引条目 id 已存在且状态为 ${open_state#present }（open 幂等仅限目标状态 ready；改状态须走 flip）: ${id}——未产生任何写入"
+      ;;
+    *)
+      die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
+      ;;
+  esac
 elif [ "${cmd}" = 'ledger' ]; then
   : # 无票面：账本行形状校验已于公共段完成（票 100），无索引/README 预检
 else
@@ -683,72 +889,102 @@ else
   if [ "${cmd}" = 'flip' ] && [ "${status}" = 'done' ]; then
     actual_time_check || die1 "actual_time 收口校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（票 100 fail-closed）"
   fi
+  # 票 243 幂等：索引已是目标状态即跳过索引写（flip-index 由显式 --updated-at 承载，
+  # 重放写同值属无害幂等，不另判）
+  if [ "${cmd}" != 'flip-index' ]; then
+    cur_entry=$(index_entry_state) || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
+    if [ "${cur_entry}" = "present ${status}" ]; then
+      replay=1
+      printf 'ticket-ops: 幂等重放: 索引已是目标状态 %s（%s）——补齐记录面与投影，不重写索引\n' "${status}" "${id}"
+    fi
+  fi
 fi
+# ---- 写入（锁内单写路径：索引 → README → 账本 → 投影；票 243） ----
+# 写序固定；每个写点先在同目录临时件上生成全文再 mv 原子替换（同文件系统 rename 原子：
+# 崩溃只留完整旧版或完整新版，不留半行/半文件）；写点后设故障注入检查点
+# （TICKET_OPS_FAULT，票 243 AC3）；索引已处目标状态时走幂等重放——只补齐派生面与
+# 记录面，不重写索引、不重复落账本行，故崩溃后重跑同一命令无需编辑任何文件。
 
-# ---- 写入（索引 → README → 账本 → 投影再生＋--check） ----
-
-t_dir=${TMPDIR:-/tmp}
 now_ua=$(date +%Y-%m-%dT%H:%M)
 today=$(date +%F)
+index_dir=$(dirname -- "${index_file}")
+readme_dir=$(dirname -- "${readme_file}")
 
-if [ "${cmd}" = 'open' ]; then
+if [ "${cmd}" = 'open' ] && [ "${replay}" -eq 0 ]; then
   new_entry="    {\"id\": \"${id}\", \"status\": \"ready\", \"complexity\": \"${complexity}\", \"blocked_by\": [${blocked_json}], \"updated_at\": \"${now_ua}\"}"
-  tmp_idx=$(mktemp "${t_dir%/}/tix-idx.XXXXXX")
-  IDX_NEW=${new_entry} awk '
-    BEGIN { new = ENVIRON["IDX_NEW"] }
-    {
-      lines[++n] = $0
-      if (index($0, "\"id\": \"") > 0) last_entry = n
-      if ($0 ~ /^  ]$/) found = 1
+  tmp_idx=$(mktemp "${index_dir}/.tix-tmp.idx.XXXXXX")
+  if grep -qF '"id": "' "${index_file}"; then
+    # 常规模态：有条目行，新条目插在末条目之后（末行补逗号）
+    IDX_NEW=${new_entry} awk '
+      BEGIN { new = ENVIRON["IDX_NEW"] }
+      {
+        lines[++n] = $0
+        if (index($0, "\"id\": \"") > 0) last_entry = n
+        if ($0 ~ /^[[:space:]]*\][[:space:]]*$/) close_line = n
+      }
+      END {
+        if (last_entry == 0 || close_line == 0) {
+          printf "ticket-ops: FAIL: 索引条目区收口行缺失（^ ] 零命中）——拒绝插入\n" > "/dev/stderr"
+          exit 1
+        }
+        for (i = 1; i <= n; i++) {
+          if (i == last_entry) {
+            line = lines[i]
+            if (line !~ /,[[:space:]]*$/) sub(/$/, ",", line)
+            print line
+            print new
+          } else {
+            print lines[i]
+          }
+        }
+        exit 0
+      }
+    ' "${index_file}" > "${tmp_idx}" || {
+      rm -f "${tmp_idx}"; tmp_idx=''
+      die1 "索引插入未通过校验: ${issues_index_rel}——未产生任何写入"
     }
-    END {
-      rc = 0
-      if (!found) { printf "ticket-ops: FAIL: 索引未找到条目数组收口行（^  ]$）——拒绝插入\n" > "/dev/stderr"; rc = 1 }
-      if (last_entry == 0) { printf "ticket-ops: FAIL: 索引未找到条目行——拒绝插入\n" > "/dev/stderr"; rc = 1 }
-      if (rc == 1) exit rc
-      for (i = 1; i <= n; i++) {
-        if (i == last_entry) {
-          line = lines[i]
-          if (line !~ /,[[:space:]]*$/) sub(/$/, ",", line)
+  else
+    # 空索引首开（票 243 AC1）：{\n  "issues": []\n} 就地展开为多行数组并落首条目，
+    # 不预置占位条目。
+    IDX_NEW=${new_entry} awk '
+      BEGIN { new = ENVIRON["IDX_NEW"] }
+      {
+        if (!expanded && $0 ~ /"issues"[[:space:]]*:[[:space:]]*\[[[:space:]]*\][[:space:]]*,?[[:space:]]*$/) {
+          line = $0
+          comma = (line ~ /,[[:space:]]*$/) ? "," : ""
+          sub(/\[[[:space:]]*\][[:space:]]*,?[[:space:]]*$/, "[", line)
           print line
           print new
-        } else {
-          print lines[i]
+          print "  ]" comma
+          expanded = 1
+          next
         }
+        print
       }
+      END {
+        if (!expanded) {
+          printf "ticket-ops: FAIL: 空索引未找到可展开的 issues 数组（\"issues\": [] 零命中）——拒绝插入\n" > "/dev/stderr"
+          exit 1
+        }
+        exit 0
+      }
+    ' "${index_file}" > "${tmp_idx}" || {
+      rm -f "${tmp_idx}"; tmp_idx=''
+      die1 "空索引首开插入未通过校验: ${issues_index_rel}——未产生任何写入"
     }
-  ' "${index_file}" > "${tmp_idx}" || {
-    rm -f "${tmp_idx}"; tmp_idx=''
-    die1 "索引插入未通过校验: ${issues_index_rel}——未产生任何写入"
-  }
+  fi
   mv "${tmp_idx}" "${index_file}"
   tmp_idx=''
   printf "ticket-ops: 索引新增条目: ${issues_index_rel}（%s → ready，updated_at %s）\n" "${id}" "${now_ua}"
-
-  row="| \`${id}.json\` | 任务票 ${nn}；\`ready\`（${today} 开票） | ${title} |"
-  tmp_readme=$(mktemp "${t_dir%/}/tix-readme.XXXXXX")
-  RD_ROW=${row} awk '
-    BEGIN { row = ENVIRON["RD_ROW"] }
-    { lines[++n] = $0; if ($0 ~ /^\| `/) last = n }
-    END {
-      if (last == 0) { printf "ticket-ops: FAIL: issues-README 目录清单表行锚点零命中——拒绝插入\n" > "/dev/stderr"; exit 1 }
-      for (i = 1; i <= n; i++) { print lines[i]; if (i == last) print row }
-    }
-  ' "${readme_file}" > "${tmp_readme}" || {
-    rm -f "${tmp_readme}"; tmp_readme=''
-    die1 "issues-README 行插入未通过校验——索引已写入（${id}），README 未写入"
-  }
-  mv "${tmp_readme}" "${readme_file}"
-  tmp_readme=''
-  printf "ticket-ops: README 追加目录清单行: ${issues_readme_rel}（任务票 %s；\`ready\`）\n" "${nn}"
-elif [ "${cmd}" != 'ledger' ]; then
+  fault_point after-index-write
+elif [ "${cmd}" != 'open' ] && [ "${cmd}" != 'ledger' ] && [ "${replay}" -eq 0 ]; then
   # take/flip/flip-index 共用索引单写（票 228 F1/F2：全仓 index.json 写入仅本件承载；
   # flip-index 的 updated_at 用显式 --updated-at 值，take/flip 由本件生成 now_ua）
   idx_ua=${now_ua}
   if [ "${cmd}" = 'flip-index' ]; then
     idx_ua=${updated_at}
   fi
-  tmp_idx=$(mktemp "${t_dir%/}/tix-idx.XXXXXX")
+  tmp_idx=$(mktemp "${index_dir}/.tix-tmp.idx.XXXXXX")
   IDX_ID=${id} IDX_STATUS=${status} IDX_UA=${idx_ua} awk '
     BEGIN {
       id = ENVIRON["IDX_ID"]; nstatus = ENVIRON["IDX_STATUS"]; nua = ENVIRON["IDX_UA"]
@@ -788,11 +1024,45 @@ elif [ "${cmd}" != 'ledger' ]; then
   mv "${tmp_idx}" "${index_file}"
   tmp_idx=''
   printf "ticket-ops: 索引单写: ${issues_index_rel}（%s → %s，updated_at %s）\n" "${id}" "${status}" "${idx_ua}"
+  fault_point after-index-write
+fi
 
-  # flip-index（票 228 F1/F2 索引单写代理）到此收口：不触 README 状态列（README 状态列
-  # 同步归各自治道承载，票 35/37 口径）
-  if [ "${cmd}" != 'flip-index' ]; then
-  tmp_readme=$(mktemp "${t_dir%/}/tix-readme.XXXXXX")
+# ---- README 同步（open 追加目录行；take/flip 替换状态 token） ----
+
+if [ "${cmd}" = 'open' ]; then
+  row="| \`${id}.json\` | 任务票 ${nn}；\`ready\`（${today} 开票） | ${title} |"
+  readme_rows=$(readme_anchor_count)
+  case ${readme_rows} in
+    0)
+      tmp_readme=$(mktemp "${readme_dir}/.tix-tmp.readme.XXXXXX")
+      RD_ROW=${row} awk '
+        BEGIN { row = ENVIRON["RD_ROW"] }
+        { lines[++n] = $0; if ($0 ~ /^\| `/) last = n; if ($0 ~ /^\| ---/) head = n }
+        END {
+          if (last == 0) last = head
+          if (last == 0) {
+            printf "ticket-ops: FAIL: issues-README 未找到目录清单表行或表头锚点——拒绝插入\n" > "/dev/stderr"
+            exit 1
+          }
+          for (i = 1; i <= n; i++) { print lines[i]; if (i == last) print row }
+        }
+      ' "${readme_file}" > "${tmp_readme}" || {
+        rm -f "${tmp_readme}"; tmp_readme=''
+        die1 "issues-README 行插入未通过校验——索引已写入（${id}），README 未写入；重跑同一命令即收敛"
+      }
+      mv "${tmp_readme}" "${readme_file}"
+      tmp_readme=''
+      printf "ticket-ops: README 追加目录清单行: ${issues_readme_rel}（任务票 %s；\`ready\`）\n" "${nn}"
+      ;;
+    1)
+      printf 'ticket-ops: README 行已在场（幂等跳过插入）: 任务票 %s\n' "${nn}"
+      ;;
+    *)
+      die1 "issues-README 锚点行命中 ${readme_rows} 行（须恰 1 行）: 任务票 ${nn}；——先核对索引与 README 漂移，不静默叠行（索引已写入 ${id}）"
+      ;;
+  esac
+elif [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ]; then
+  tmp_readme=$(mktemp "${readme_dir}/.tix-tmp.readme.XXXXXX")
   RD_ANCHOR="任务票 ${nn}；" RD_STATUS=${status} awk '
     BEGIN { anchor = ENVIRON["RD_ANCHOR"]; nstatus = ENVIRON["RD_STATUS"] }
     index($0, anchor) > 0 {
@@ -822,21 +1092,29 @@ elif [ "${cmd}" != 'ledger' ]; then
     }
   ' "${readme_file}" > "${tmp_readme}" || {
     rm -f "${tmp_readme}"; tmp_readme=''
-    die1 "README 状态 token 替换未通过校验——索引已单写（${id} → ${status}），README 未写入"
+    die1 "README 状态 token 替换未通过校验——索引已单写（${id} → ${status}），README 未写入；重跑同一命令即收敛"
   }
   mv "${tmp_readme}" "${readme_file}"
   tmp_readme=''
   printf "ticket-ops: README 状态列替换: ${issues_readme_rel}（任务票 %s → \`%s\`，行内其余文本不动）\n" "${nn}" "${status}"
-  fi
 fi
 
-# ---- 账本落行（票 228 F7：changes.jsonl 唯一写入方＝同目录 ledger-append.sh）----
-# 懒创建、可写性与追加均由写入方承载，本件零直接账本写面；行形校验已于公共段经其
-# --check 零写入模式预检（fail-closed 时序：校验先于票务面任何写入）。flip-index 不落
-# 账本行（索引单写代理，票 228 F1/F2）。
-if [ "${cmd}" != 'flip-index' ]; then
+# ---- 账本落行（票 228 F7 唯一写入方＝同目录 ledger-append.sh；票 243 状态操作幂等） ----
+# 行形校验已于公共段经其 --check 零写入模式预检（fail-closed 时序：校验先于票务面任何
+# 写入）。去重边界：只对状态操作（open/take/flip）判重——同一操作重跑不重复落行；
+# `ledger` 无票入口保持只追加不判重（无「同一操作」概念，静默跳过会吞掉事实）。
+if [ "${cmd}" = 'open' ] || [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ]; then
+  if ledger_row_exists; then
+    printf 'ticket-ops: 账本行已在场（幂等跳过追加）: %s\n' "${ledger_rel}"
+  else
+    sh "${ledger_cmd}" "${repo_root}" --ledger-line "${ledger_line}" || \
+      die1 "账本落行未过（唯一写入方 ledger-append.sh fail-closed，详见上方输出）——已写部分如实报告；重跑同一命令即收敛"
+  fi
+  fault_point after-ledger-write
+elif [ "${cmd}" = 'ledger' ]; then
   sh "${ledger_cmd}" "${repo_root}" --ledger-line "${ledger_line}" || \
-    die1 "账本落行未过（唯一写入方 ledger-append.sh fail-closed，详见上方输出）——已写部分如实报告"
+    die1 "账本落行未过（唯一写入方 ledger-append.sh fail-closed，详见上方输出）——未产生任何写入"
+  fault_point after-ledger-write
 fi
 
 if [ "${cmd}" = 'ledger' ]; then
@@ -845,12 +1123,19 @@ if [ "${cmd}" = 'ledger' ]; then
   exit 0
 fi
 
-sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本均已写入、投影未刷新；按生成器报因处理后核对重跑"
-sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引与 README 与账本均已写入；投影与索引不一致，核对后重跑"
+# ---- 投影再生＋核对（唯一派生面；票 243 失败即非零退出，重跑幂等收敛） ----
+
+sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本均已写入、投影未刷新；按生成器报因处理后重跑同一命令即收敛"
+fault_point after-projection-write
+sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引、README、账本与投影均已写入；投影与索引不一致，重跑同一命令即收敛"
 printf 'ticket-ops: 投影已再生并核对: %s\n' "$progress_current_rel"
 
+replay_note=''
+if [ "${replay}" -eq 1 ]; then
+  replay_note='（幂等重放）'
+fi
 if [ "${cmd}" = 'flip-index' ]; then
   printf 'ticket-ops: PASS（flip-index 完成：索引单写＋投影 --check 落地；不触 README/账本/票本体——票 228 F1/F2 索引单写代理）\n'
 else
-  printf 'ticket-ops: PASS（%s 完成：索引、issues-README、账本、投影 --check 全部落地）\n' "${cmd}"
+  printf 'ticket-ops: PASS（%s 完成%s：索引、issues-README、账本、投影 --check 全部落地）\n' "${cmd}" "${replay_note}"
 fi

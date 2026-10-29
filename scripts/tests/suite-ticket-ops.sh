@@ -47,9 +47,9 @@ tix_body() {
   "complexity_reason": "fixture 定级理由（正例，非空）",
   "priority_reason": "fixture 优先级理由（正例，非空）",
   "dispatch": {
-    "implementation": {"REPOSITORY_PATH": "fixture repo root", "TASK_DESCRIPTION": "fixture task", "GOAL": "fixture goal", "SCOPE_TREE": "fixture scope tree", "OUT_OF_SCOPE": "fixture out of scope", "CONTEXT_EVIDENCE": "fixture context", "CONSTRAINTS": "fixture constraints", "FORBIDDEN_CHANGES": "fixture forbidden", "ACCEPTANCE_CRITERIA": "fixture acceptance", "VERIFICATION_COMMANDS": "fixture verification", "DEPENDENCIES_BLOCKERS": "fixture deps", "RISKS": "fixture risks", "BUDGET_CHECKPOINTS": "80 calls", "ESTIMATED_TIME": "0.5d", "ACTUAL_TIME": "by coordinator", "TICKET_ID": "$2"},
-    "review": {"REVIEW_SCOPE": "fixture review scope", "IMPLEMENTATION_SUMMARY": "fixture summary", "ACCEPTANCE_CRITERIA": "fixture acceptance", "DIFF_LOCATION": "fixture worktree", "REVIEW_DIMENSIONS": "fixture dimensions", "TICKET_ID": "$2"},
-    "commit": {"REVIEW_PASS_CHECKPOINT": "fixture checkpoint", "FILE_WHITELIST": "fixture whitelist", "COMMIT_MESSAGE": "fixture message", "RECORD_FLIP_AUTHORIZATION": "fixture authorization", "SCOPE_CHECK_COMMAND": "fixture command", "TICKET_ID": "$2"}
+    "implementation": {"REPOSITORY_PATH": "fixture repo root", "TASK_DESCRIPTION": "fixture task", "GOAL": "fixture goal", "SCOPE_TREE": "fixture scope tree", "OUT_OF_SCOPE": "fixture out of scope", "CONTEXT_EVIDENCE": "fixture context", "CONSTRAINTS": "fixture constraints", "FORBIDDEN_CHANGES": "fixture forbidden", "ACCEPTANCE_CRITERIA": "fixture acceptance", "VERIFICATION_COMMANDS": "fixture verification", "DEPENDENCIES_BLOCKERS": "fixture deps", "RISKS": "fixture risks", "BUDGET_CHECKPOINTS": "80 calls", "ESTIMATED_TIME": "0.5d", "ACTUAL_TIME": "", "TICKET_ID": "$2"},
+    "review": {"REVIEW_SCOPE": "fixture review scope", "IMPLEMENTATION_SUMMARY": "", "ACCEPTANCE_CRITERIA": "fixture acceptance", "DIFF_LOCATION": "fixture worktree", "REVIEW_DIMENSIONS": "fixture dimensions", "TICKET_ID": "$2"},
+    "commit": {"REVIEW_PASS_CHECKPOINT": "", "FILE_WHITELIST": "fixture whitelist", "COMMIT_MESSAGE": "fixture message", "RECORD_FLIP_AUTHORIZATION": "fixture authorization", "SCOPE_CHECK_COMMAND": "fixture command", "TICKET_ID": "$2"}
   }
 }
 EOF
@@ -229,6 +229,100 @@ tix_expect_full() {
   fi
 }
 
+# ============================================================
+# 票 243 夹具：票务状态单写与崩溃恢复（AC1～AC6）
+# 实现必须提供的可注入契约（测试据此注入崩溃，不依赖实现内部行号）：
+#   1. 故障注入环境变量 TICKET_OPS_FAULT=<point>，point ∈
+#      after-index-write | after-ledger-write | after-projection-write。
+#      语义：该写点完整落盘后立即 exit 70，并向 stderr 打印
+#      `ticket-ops: FAULT injected: <point>`；其后写点一律不执行。
+#      未设或空串＝正常路径（零行为差异）；未知值＝exit 2 零写入。
+#   2. 并发冲突：状态写入互斥串行；无法串行时失败方 exit 非 0，报文含「冲突」或「conflict」。
+#   3. 幂等：同一操作（同 id 同目标状态）重跑收敛，不重复落账本行、不重复插 README 行。
+# 契约检测失败时测试退回「临时副本写点桩替换」（只在 mktemp 副本上插 exit 70，产品文件零改动）。
+# ============================================================
+
+tix243_fresh_fixture() {
+  # $1=夹具根：空索引 {"issues":[]}＋无数据行 README＋无账本文件（新项目首开现场，AC1 载体）
+  tix_build_fixture "$1"
+  printf '{\n  "issues": []\n}\n' > "$1/facts/requirements/tickets/index.json"
+  cat > "$1/facts/requirements/tickets/README.md" <<'EOF'
+# 票据索引（fixture）
+
+| 名字 | 状态 | 说明 |
+| --- | --- | --- |
+EOF
+  rm -f "$1/facts/project/changes.jsonl"
+}
+
+tix243_json_ok() {
+  # $1=文件：JSON 可解析即 0（索引合法性断言用）
+  python3 -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$1" >/dev/null 2>&1
+}
+
+tix243_count() {
+  # $1=文件 $2=固定串：命中行数（零命中输出 0）
+  grep -c -F -- "$2" "$1" 2>/dev/null | tr -d ' '
+}
+
+tix243_fault_marker() {
+  # $1=注入点：该写点的行内标记片段（契约缺席时的兜底桩替换定位）
+  case $1 in
+    after-index-write) printf '%s' 'mv "${tmp_idx}" "${index_file}"' ;;
+    after-ledger-write) printf '%s' '账本落行未过' ;;
+    after-projection-write) printf '%s' '投影再生失败' ;;
+    *) return 1 ;;
+  esac
+}
+
+tix243_inject() {
+  # $1=脚本副本 $2=标记片段 $3=第几次命中：命中处下一行插入 exit 70 桩；命中不足即 1
+  [ -n "${2:-}" ] || return 1
+  tix243_mark=$2
+  tix243_nth=${3:-1}
+  TIX243_MARK=$tix243_mark TIX243_NTH=$tix243_nth awk '
+    { print }
+    index($0, ENVIRON["TIX243_MARK"]) > 0 {
+      hit++
+      if (hit == ENVIRON["TIX243_NTH"] + 0) print "  exit 70"
+    }
+  ' "$1" > "$1.tix243fault" || { rm -f "$1.tix243fault"; return 1; }
+  if [ "$(tix243_count "$1.tix243fault" '  exit 70')" = '1' ]; then
+    mv "$1.tix243fault" "$1"
+    return 0
+  fi
+  rm -f "$1.tix243fault"
+  return 1
+}
+
+tix243_reason() {
+  # $1=日志：取首条含 FAIL 的行作失败详情（无则回退前两行折行），避免详情只留定位噪声
+  tix243_line=$(grep -F 'FAIL' "$1" 2>/dev/null | head -n 1) || tix243_line=''
+  [ -n "$tix243_line" ] || tix243_line=$(head -n 2 "$1" 2>/dev/null | tr '\n' '|')
+  printf '%s' "$tix243_line"
+}
+
+tix243_converged() {
+  # $1=夹具根：收敛判定（输出空串＝收敛；否则输出未收敛面清单，AC3 重跑断言用）
+  tix243_cv=''
+  tix243_json_ok "$1/facts/requirements/tickets/index.json" || tix243_cv="$tix243_cv index非JSON"
+  [ "$(tix243_count "$1/facts/requirements/tickets/index.json" '"id": "30-gamma-third"')" = '1' ] || \
+    tix243_cv="$tix243_cv 索引条目数≠1"
+  [ "$(tix243_count "$1/facts/requirements/tickets/README.md" '30-gamma-third.json')" = '1' ] || \
+    tix243_cv="$tix243_cv README行数≠1"
+  if [ -f "$1/facts/requirements/tickets/progress-current.md" ]; then
+    [ "$(tix243_count "$1/facts/requirements/tickets/progress-current.md" '| 30-gamma-third |')" = '1' ] || \
+      tix243_cv="$tix243_cv 投影行数≠1"
+    sh "$1/rules/implementation/scripts/generate-progress.sh" --check "$1" >/dev/null 2>&1 || \
+      tix243_cv="$tix243_cv 投影--check失败"
+  else
+    tix243_cv="$tix243_cv 投影缺失"
+  fi
+  [ "$(tix243_count "$1/facts/project/changes.jsonl" '票243 崩溃收敛')" = '1' ] || \
+    tix243_cv="$tix243_cv 账本行数≠1"
+  printf '%s' "$tix243_cv"
+}
+
 suite_ticket_ops() {
   # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='ticket-ops'
@@ -376,9 +470,9 @@ PYTHON
   S0=$(tix_state "$F")
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" open --id 10-alpha-first --complexity C1 --title dup --ledger-line "$LED_OPEN" >/dev/null 2>&1
   if [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ]; then
-    ok '负例 N1 重复 id open → exit 1 零写入（open 非幂等）'
+    ok '负例 N1 重复 id open（目标状态非 ready）→ exit 1 零写入（冲突不可静默覆盖）'
   else
-    bad '负例 N1 重复 id open → exit 1 零写入（open 非幂等）' "exit/状态不符"
+    bad '负例 N1 重复 id open（目标状态非 ready）→ exit 1 零写入（冲突不可静默覆盖）' "exit/状态不符"
   fi
   sh "$F/rules/implementation/scripts/ticket-ops.sh" "$F" flip --id 99-ghost-none --status 'done' --ledger-line "$LED_FLIP" >/dev/null 2>&1
   if [ "$?" -eq 1 ] && [ "$S0" = "$(tix_state "$F")" ]; then
@@ -462,18 +556,20 @@ EOF
     bad '正例 锚点零命中后同 id open → exit 0 且索引落条目（新锚点预检零误伤，票 191）' "exit=$rc $(head -n 2 "$D/rd3p.log" | tr '\n' '|')"
   fi
 
-  # N-rd4：open 缺表锚（README 目录清单表行零命中）→ 表行预检停止零写入（追加无处可附）
+  # N-rd4：open 缺表锚（README 无表头也无数据行＝无目录清单表）→ 表锚预检停止零写入
+  # 票 243 起「仅有表头、无数据行」是合法首开形态（AC1），故本负例改为整表缺失；
+  # 缺表锚仍 fail-closed（追加无处可附），旧断言仅放宽了「表头在场」这一新合法形态。
   tix_build_fixture "$D/fixrd4"
   Frd4=$D/fixrd4
   tix_body "$Frd4/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
-  sed '/^| `/d' "$Frd4/facts/requirements/tickets/README.md" > "$Frd4/rd.tmp" && mv "$Frd4/rd.tmp" "$Frd4/facts/requirements/tickets/README.md"
+  sed '/^|/d' "$Frd4/facts/requirements/tickets/README.md" > "$Frd4/rd.tmp" && mv "$Frd4/rd.tmp" "$Frd4/facts/requirements/tickets/README.md"
   Srd4=$(tix_state "$Frd4")
   sh "$Frd4/rules/implementation/scripts/ticket-ops.sh" "$Frd4" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/rd4.log" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && [ "$Srd4" = "$(tix_state "$Frd4")" ] && [ ! -f "$Frd4/facts/requirements/tickets/progress-current.md" ] && grep -q '目录清单表行' "$D/rd4.log"; then
-    ok '负例 N-rd4 README 目录清单表行零命中（缺表锚）open → exit 1 零写入（票 191 AC2）'
+  if [ "$rc" -eq 1 ] && [ "$Srd4" = "$(tix_state "$Frd4")" ] && [ ! -f "$Frd4/facts/requirements/tickets/progress-current.md" ] && grep -q '未找到目录清单表' "$D/rd4.log"; then
+    ok '负例 N-rd4 README 目录清单表整表缺失（缺表锚）open → exit 1 零写入（票 191 AC2）'
   else
-    bad '负例 N-rd4 README 目录清单表行零命中（缺表锚）open → exit 1 零写入（票 191 AC2）' "exit=$rc $(head -n 2 "$D/rd4.log" | tr '\n' '|')"
+    bad '负例 N-rd4 README 目录清单表整表缺失（缺表锚）open → exit 1 零写入（票 191 AC2）' "exit=$rc $(head -n 2 "$D/rd4.log" | tr '\n' '|')"
   fi
 
   # N5：索引一条目一行排版破坏（条目缺 updated_at）→ 预检停止，零写入且无投影
@@ -1391,26 +1487,26 @@ EOF
     bad '负例 N-228f flip-index 锚点零命中 → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n6.log" | tr '\n' '|')"
   fi
 
-  # ---- dispatch 节开票门断言（票 230：新开票强制三阶段派发合同数据节，AC1 常驻负例）----
-  # 独立夹具 fix230（免受前段状态影响）。缺节／缺阶段对象／缺键／越键／空白值五形态
-  # open 均 exit 1、四载体指纹零写入且无投影、报文指名 dispatch 路径（键集恰等＝
-  # dispatch-contract.schema.json contract_fields 现场提取，与 contract-build 渲染读取面
-  # 同源）；读取面兼容：存量无节票（tix_body_at 形态）flip 照旧 exit 0——开票校验与
-  # 读取校验分层，存量零回扫。夹具全 mktemp。
-  tix_build_fixture "$D/fix230"
-  F230=$D/fix230
-  TIX230="$F230/rules/implementation/scripts/ticket-ops.sh"
-  PR230="$F230/facts/requirements/tickets/80-dispatch-gate.json"
-  dc230_variant() {
-    # $1=variant $2=out：自 tix_body 正例基体派生各形态（python3 json 原子改写）
+  # ---- 派发合同门分层（AC6 改判：开票不校验 dispatch 节；完整性门归派发阶段）----
+  # 原「dispatch 节开票门」五例随本票改判，改判理由逐条：
+  #   缺 dispatch 节 → open 走 AC6（开票不预填未来证据），原 exit 1 期望改为 exit 0；
+  #   缺阶段对象 → 阶段对象改可选（派发可逐阶段填），open 不再拒；改由 contract-build 守；
+  #   越键 → 开票门删除后 open 不拒；改由 contract-build 阶段键集恰等门守（越键 exit 1）；
+  #   空白值 → schema 值约束改形状（字符串），非空白完整性移派发时点；改由 contract-build 守；
+  #   缺键 → 开票不拒：json-validator 只执行顶层 required，不递归 stage 的 required（实测），
+  #          schema 对本阶段只保留形状约束；缺键由派发阶段 contract-build 拒绝（json get 零命中）。
+  # 该 block 同时守住「派发阶段生成合同」：contract-build 对无节/缺阶段/越键/缺键/必填键空白
+  # exit 1 零 stdout，对收口事实（ACTUAL_TIME/实施摘要/审查指针）留空按其标注渲染。
+  dc243_variant() {
+    # $1=variant $2=out：自 tix_body 正例基体派生各形态（python3 json 改写）
     tix_body "$2.base" 80-dispatch-gate
     python3 - "$2.base" "$2" "$1" <<'PYTHON'
 import json, sys
 body = json.load(open(sys.argv[1], encoding='utf-8'))
 mode = sys.argv[3]
-dp = body['dispatch']
+dp = body.get('dispatch')
 if mode == 'absent':
-    del body['dispatch']
+    body.pop('dispatch', None)
 elif mode == 'missing-stage':
     del dp['commit']
 elif mode == 'missing-key':
@@ -1419,29 +1515,65 @@ elif mode == 'extra-key':
     dp['review']['EXTRA_KEY'] = 'fixture 越键'
 elif mode == 'blank-value':
     dp['review']['TICKET_ID'] = '   '
+elif mode == 'blank-future':
+    dp['implementation']['ACTUAL_TIME'] = ''
+    dp['review']['IMPLEMENTATION_SUMMARY'] = 'pending'
+    dp['commit']['REVIEW_PASS_CHECKPOINT'] = 'pending'
 with open(sys.argv[2], 'w', encoding='utf-8') as f:
     json.dump(body, f, ensure_ascii=False)
 PYTHON
   }
-  dc230_neg() {
-    # $1=负例名 $2=variant $3=报文必含片段：open 拒且零写入指名 dispatch 路径
-    dc230_variant "$2" "$D/dc230-$2.json"
-    mv "$D/dc230-$2.json" "$PR230"
-    S230=$(tix_state "$F230")
-    sh "$TIX230" "$F230" open --id 80-dispatch-gate --complexity C1 --title 'Dispatch fixture ticket' --ledger-line "$LED_OPEN" >"$D/dc230-$2.log" 2>&1
+  dc243_open_ok() {
+    # $1=例名 $2=variant：独立夹具 open 必 exit 0 且索引落 ready 条目
+    FG243=$D/fix243gate-$2
+    tix_build_fixture "$FG243"
+    dc243_variant "$2" "$D/gate-$2.json"
+    mv "$D/gate-$2.json" "$FG243/facts/requirements/tickets/80-dispatch-gate.json"
+    sh "$FG243/rules/implementation/scripts/ticket-ops.sh" "$FG243" open --id 80-dispatch-gate --complexity C1 --title 'Dispatch fixture ticket' --ledger-line "$LED_OPEN" >"$D/gate-$2.log" 2>&1
     rc=$?
-    if [ "$rc" -eq 1 ] && [ "$S230" = "$(tix_state "$F230")" ] && [ ! -f "$F230/facts/requirements/tickets/progress-current.md" ] && grep -qF -- "$3" "$D/dc230-$2.log"; then
-      ok "负例 AC1 dispatch 门 ${1} → exit 1 零写入且报文指名"
+    if [ "$rc" -eq 0 ] && grep -q '"id": "80-dispatch-gate", "status": "ready"' "$FG243/facts/requirements/tickets/index.json"; then
+      ok "正例 AC6 开票不校验 dispatch（${1}）→ exit 0 且索引落 ready"
     else
-      bad "负例 AC1 dispatch 门 ${1} → exit 1 零写入且报文指名" "exit=$rc $(head -n 2 "$D/dc230-$2.log" | tr '\n' '|')"
+      bad "正例 AC6 开票不校验 dispatch（${1}）→ exit 0 且索引落 ready" "exit=$rc $(head -n 2 "$D/gate-$2.log" | tr '\n' '|')"
     fi
   }
-  dc230_neg '缺 dispatch 节' absent '缺 dispatch.implementation 阶段对象'
-  dc230_neg '缺 commit 阶段对象' missing-stage '缺 dispatch.commit 阶段对象'
-  dc230_neg '缺键（implementation.GOAL）' missing-key 'dispatch.implementation 键集与必备字段清单不恰等'
-  dc230_neg '越键（review.EXTRA_KEY）' extra-key 'dispatch.review 键集与必备字段清单不恰等'
-  dc230_neg '空白值（review.TICKET_ID）' blank-value 'dispatch.review.TICKET_ID 须为非空白字符串'
+  dc243_open_ok '缺 dispatch 节' absent
+  dc243_open_ok '缺 commit 阶段对象' missing-stage
+  dc243_open_ok '越键（review.EXTRA_KEY）' extra-key
+  dc243_open_ok '收口事实留空（ACTUAL_TIME/实施摘要/审查指针）' blank-future
+  dc243_open_ok '空白值（review.TICKET_ID）' blank-value
+  dc243_open_ok '缺键（implementation.GOAL，嵌套 required 归派发阶段）' missing-key
+  # 派发阶段完整性门（contract-build 渲染面；票 243 起开票不预填，合同在派发时点生成）
+  dc243_build_gate() {
+    # $1=例名 $2=variant $3=stage $4=期望 exit $5=输出必含片段（空＝不查）
+    FG243B=$D/fix243build-$2
+    tix_build_fixture "$FG243B"
+    dc243_variant "$2" "$D/build-$2.json"
+    mv "$D/build-$2.json" "$FG243B/facts/requirements/tickets/80-dispatch-gate.json"
+    sh "$SCRIPT_DIR/contract-build.sh" "$3" 80 "$FG243B" >"$D/build-$2-$3.log" 2>&1
+    rc=$?
+    dc243_hit=''
+    if [ -n "$5" ]; then
+      grep -qF -- "$5" "$D/build-$2-$3.log" && dc243_hit='yes'
+    else
+      dc243_hit='yes'
+    fi
+    if [ "$rc" -eq "$4" ] && [ -n "$dc243_hit" ]; then
+      ok "派发阶段门 ${1}（contract-build $3 → exit $4）"
+    else
+      bad "派发阶段门 ${1}（contract-build $3 → exit $4）" "exit=$rc $(head -n 2 "$D/build-$2-$3.log" | tr '\n' '|')"
+    fi
+  }
+  dc243_build_gate '越键（review.EXTRA_KEY）不可渲染' extra-key review 1 '键集'
+  dc243_build_gate '无节票不可渲染' absent implementation 1 'dispatch.implementation'
+  dc243_build_gate '缺阶段对象即拒' missing-stage commit 1 'dispatch.commit'
+  dc243_build_gate '必填键空白即拒' blank-value review 1 'TICKET_ID'
+  dc243_build_gate '缺键（implementation.GOAL）不可渲染' missing-key implementation 1 '键集与 contract_fields 不恰等'
+  dc243_build_gate '收口事实留空按标注渲染' blank-future implementation 0 '（收口时按实际写入）'
   # 读取面兼容正例：存量无节票（tix_body_at 形态）flip 照旧——开票校验与读取校验分层
+  tix_build_fixture "$D/fix230"
+  F230=$D/fix230
+  TIX230="$F230/rules/implementation/scripts/ticket-ops.sh"
   tix_body_at "$F230/facts/requirements/tickets/20-beta-second.json" 20-beta-second
   sh "$TIX230" "$F230" flip --id 20-beta-second --status in_progress --ledger-line "$LED_FLIP" >"$D/dc230-flip.log" 2>&1
   rc=$?
@@ -1449,6 +1581,361 @@ PYTHON
     ok '正例 存量无节票 flip → exit 0 且索引单写（读取面不要求 dispatch，存量零回扫）'
   else
     bad '正例 存量无节票 flip → exit 0 且索引单写（读取面不要求 dispatch，存量零回扫）' "exit=$rc $(head -n 2 "$D/dc230-flip.log" | tr '\n' '|')"
+  fi
+
+  # ============================================================
+  # 票 243：票务状态单写与崩溃恢复（AC1～AC6）
+  # 契约单源见本文件「票 243 夹具」节头注（TICKET_OPS_FAULT 三注入点／并发冲突报文／幂等重跑）。
+  # 夹具全 mktemp；被测脚本一律在夹具副本上执行，仓库 facts/ 零写入。
+  # ============================================================
+  TIX243_CONC_ROUNDS=${TIX243_CONC_ROUNDS:-8}
+
+  # ---- AC1：空索引 {"issues":[]} 可开第一张票，索引/README/投影一致 ----
+  F243A1=$D/fix243a1
+  tix243_fresh_fixture "$F243A1"
+  tix_body "$F243A1/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  sh "$F243A1/rules/implementation/scripts/ticket-ops.sh" "$F243A1" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac1-open.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok 'AC1 空索引首开 → open exit 0'
+  else
+    bad 'AC1 空索引首开 → open exit 0' "exit=$rc $(tix243_reason "$D/ac1-open.log")"
+  fi
+  if tix243_json_ok "$F243A1/facts/requirements/tickets/index.json" && \
+     [ "$(tix243_count "$F243A1/facts/requirements/tickets/index.json" '"id": "30-gamma-third"')" = '1' ]; then
+    ok 'AC1 首开后索引为合法 JSON 且该票恰一条目'
+  else
+    bad 'AC1 首开后索引为合法 JSON 且该票恰一条目' "条目数=$(tix243_count "$F243A1/facts/requirements/tickets/index.json" '"id": "30-gamma-third"') 索引=$(tr '\n' '|' < "$F243A1/facts/requirements/tickets/index.json" | cut -c 1-120)"
+  fi
+  if [ "$(tix243_count "$F243A1/facts/requirements/tickets/README.md" '30-gamma-third.json')" = '1' ] && \
+     [ -f "$F243A1/facts/requirements/tickets/progress-current.md" ] && \
+     [ "$(tix243_count "$F243A1/facts/requirements/tickets/progress-current.md" '| 30-gamma-third |')" = '1' ] && \
+     sh "$F243A1/rules/implementation/scripts/generate-progress.sh" --check "$F243A1" >/dev/null 2>&1; then
+    ok 'AC1 首开后 README 行与投影一致（生成器 --check exit 0）'
+  else
+    bad 'AC1 首开后 README 行与投影一致（生成器 --check exit 0）' "README行=$(tix243_count "$F243A1/facts/requirements/tickets/README.md" '30-gamma-third.json') 投影行=$(tix243_count "${F243A1}/facts/requirements/tickets/progress-current.md" '| 30-gamma-third |')"
+  fi
+
+  # ---- AC2：两个并发 open 不丢更新；失败方得明确冲突；索引保持合法 JSON ----
+  tix243_lost=0
+  tix243_invalid=0
+  tix243_no_conflict=0
+  tix243_round=1
+  while [ "$tix243_round" -le "$TIX243_CONC_ROUNDS" ]; do
+    F243C="$D/fix243conc$tix243_round"
+    tix_build_fixture "$F243C"
+    tix_body "$F243C/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+    tix_body "$F243C/facts/requirements/tickets/40-delta-fourth.json" 40-delta-fourth
+    SK243C="$F243C/rules/implementation/scripts/ticket-ops.sh"
+    ( sh "$SK243C" "$F243C" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2-$tix243_round-a.log" 2>&1 ) &
+    tix243_p1=$!
+    ( sh "$SK243C" "$F243C" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2-$tix243_round-b.log" 2>&1 ) &
+    tix243_p2=$!
+    wait "$tix243_p1"
+    tix243_r1=$?
+    wait "$tix243_p2"
+    tix243_r2=$?
+    tix243_json_ok "$F243C/facts/requirements/tickets/index.json" || tix243_invalid=$((tix243_invalid + 1))
+    tix243_n30=$(tix243_count "$F243C/facts/requirements/tickets/index.json" '"id": "30-gamma-third"')
+    tix243_n40=$(tix243_count "$F243C/facts/requirements/tickets/index.json" '"id": "40-delta-fourth"')
+    if [ "$tix243_r1" -eq 0 ] && [ "$tix243_r2" -eq 0 ]; then
+      if [ "$tix243_n30" = '0' ] || [ "$tix243_n40" = '0' ]; then
+        tix243_lost=$((tix243_lost + 1))
+      fi
+    elif ! grep -qi '冲突\|conflict' "$D/ac2-$tix243_round-a.log" "$D/ac2-$tix243_round-b.log"; then
+      tix243_no_conflict=$((tix243_no_conflict + 1))
+    fi
+    tix243_round=$((tix243_round + 1))
+  done
+  if [ "$tix243_lost" -eq 0 ]; then
+    ok "AC2 并发 $TIX243_CONC_ROUNDS 轮零丢更新（双方 exit 0 时两条目并存）"
+  else
+    bad "AC2 并发 $TIX243_CONC_ROUNDS 轮零丢更新（双方 exit 0 时两条目并存）" "丢更新轮数=$tix243_lost/${TIX243_CONC_ROUNDS}（双方均 exit 0 但索引缺条目＝读-改-写窗口未串行）"
+  fi
+  if [ "$tix243_invalid" -eq 0 ]; then
+    ok 'AC2 并发后索引恒为合法 JSON'
+  else
+    bad 'AC2 并发后索引恒为合法 JSON' "非法轮数=$tix243_invalid/$TIX243_CONC_ROUNDS"
+  fi
+  if [ "$tix243_no_conflict" -eq 0 ]; then
+    ok 'AC2 失败方报文含冲突标记（或双方均成功且未被吞掉）'
+  else
+    bad 'AC2 失败方报文含冲突标记（或双方均成功且未被吞掉）' "静默失败轮数=$tix243_no_conflict/$TIX243_CONC_ROUNDS"
+  fi
+
+  # ---- AC2b：陈旧锁并发回收（评审 B1：mv 原子认领，不得删他人刚建的新锁）----
+  # 构造陈旧锁（pid 不存在）后双进程并发 open，用 TICKET_OPS_TEST_LOCK_DELAY_MS 放大
+  # 「判定陈旧 → 认领」窗口；断言两票都落索引（＝任意时刻至多一方在临界区，无丢更新），
+  # 且无 reclaim 旁路目录残留。
+  F243S=$D/fix243stale
+  tix_build_fixture "$F243S"
+  tix_body "$F243S/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  tix_body "$F243S/facts/requirements/tickets/40-delta-fourth.json" 40-delta-fourth
+  tix243_phys=$(CDPATH='' cd -- "$F243S" && pwd -P)
+  tix243_lockdir="${TMPDIR:-/tmp}/agent-up-ticket-ops-$(printf '%s' "${tix243_phys}" | cksum | awk '{print $1}').lock"
+  rm -rf "${tix243_lockdir}"
+  mkdir -p "${tix243_lockdir}"
+  printf '%s\n' 999999 > "${tix243_lockdir}/pid"
+  S243S="$F243S/rules/implementation/scripts/ticket-ops.sh"
+  ( TICKET_OPS_TEST_LOCK_DELAY_MS=300 sh "$S243S" "$F243S" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2b-a.log" 2>&1 ) &
+  tix243_sp1=$!
+  ( TICKET_OPS_TEST_LOCK_DELAY_MS=300 sh "$S243S" "$F243S" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2b-b.log" 2>&1 ) &
+  tix243_sp2=$!
+  wait "$tix243_sp1"
+  tix243_sr1=$?
+  wait "$tix243_sp2"
+  tix243_sr2=$?
+  tix243_sn30=$(tix243_count "$F243S/facts/requirements/tickets/index.json" '"id": "30-gamma-third"')
+  tix243_sn40=$(tix243_count "$F243S/facts/requirements/tickets/index.json" '"id": "40-delta-fourth"')
+  # 认领互斥的直接观测：同一陈旧锁只允许一个进程认领成功 → 回收 WARNING 合计恰 1；
+  # 旧实现（判定即 rm -rf）会两进程各删一次、各得一把锁（合计 2），临界区失去互斥。
+  tix243_reclaim_warns=$(( $(grep -c '回收陈旧状态写锁' "$D/ac2b-a.log" 2>/dev/null || true) + $(grep -c '回收陈旧状态写锁' "$D/ac2b-b.log" 2>/dev/null || true) ))
+  if [ "$tix243_sn30" = '1' ] && [ "$tix243_sn40" = '1' ] && [ "$tix243_reclaim_warns" -eq 1 ] && tix243_json_ok "$F243S/facts/requirements/tickets/index.json"; then
+    ok "AC2b 陈旧锁并发回收零丢更新且仅一方认领（rc=${tix243_sr1}/${tix243_sr2}，回收 WARNING 合计=1）"
+  else
+    bad "AC2b 陈旧锁并发回收零丢更新且仅一方认领（rc=${tix243_sr1}/${tix243_sr2}，回收 WARNING 合计=1）" "索引30=${tix243_sn30} 索引40=${tix243_sn40} 回收WARNING合计=${tix243_reclaim_warns} A=$(tix243_reason "$D/ac2b-a.log" | cut -c 1-90) B=$(tix243_reason "$D/ac2b-b.log" | cut -c 1-90)"
+  fi
+  tix243_reclaim_left=$(find "$(dirname -- "${tix243_lockdir}")" -maxdepth 1 -name "$(basename -- "${tix243_lockdir}").reclaim.*" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$tix243_reclaim_left" = '0' ] && [ ! -d "${tix243_lockdir}" ]; then
+    ok 'AC2b 回收后无 reclaim 旁路目录与锁目录残留'
+  else
+    bad 'AC2b 回收后无 reclaim 旁路目录与锁目录残留' "旁路=${tix243_reclaim_left} 锁目录残留=$([ -d "${tix243_lockdir}" ] && echo yes || echo no)"
+  fi
+
+  # ---- AC2c：锁龄超阈值但持有者存活 → 拒绝回收并按时超时（评审 B1' 自旋修复）----
+  # 构造 mtime 极旧（2020）的锁目录、pid 指向真实存活的 sleep 进程；TICKET_OPS_LOCK_STALE=60
+  # ＋ TICKET_OPS_LOCK_TIMEOUT=1：必须数秒内 exit 1、报文含「并发冲突」与 WARNING「拒绝回收」，
+  # 零写入；锁不得被搬走（无嵌套 .lock、无 reclaim 旁路残留）。
+  F243W=$D/fix243livelock
+  tix_build_fixture "$F243W"
+  tix_body "$F243W/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  tix243_phys_w=$(CDPATH='' cd -- "$F243W" && pwd -P)
+  tix243_lockw="${TMPDIR:-/tmp}/agent-up-ticket-ops-$(printf '%s' "${tix243_phys_w}" | cksum | awk '{print $1}').lock"
+  rm -rf "${tix243_lockw}"
+  mkdir -p "${tix243_lockw}"
+  sleep 30 &
+  tix243_sleeper=$!
+  printf '%s\n' "${tix243_sleeper}" > "${tix243_lockw}/pid"
+  touch -t 202001010000 "${tix243_lockw}" "${tix243_lockw}/pid"
+  S243W="$F243W/rules/implementation/scripts/ticket-ops.sh"
+  tix243_w_before=$(tix_state "$F243W")
+  tix243_w_start=$(date +%s)
+  TICKET_OPS_LOCK_STALE=60 TICKET_OPS_LOCK_TIMEOUT=1 sh "$S243W" "$F243W" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2c.log" 2>&1
+  tix243_w_rc=$?
+  tix243_w_elapsed=$(( $(date +%s) - tix243_w_start ))
+  kill "${tix243_sleeper}" 2>/dev/null || true
+  wait "${tix243_sleeper}" 2>/dev/null || true
+  if [ "$tix243_w_rc" -eq 1 ] && [ "$tix243_w_elapsed" -le 5 ] && \
+     [ "$tix243_w_before" = "$(tix_state "$F243W")" ] && \
+     grep -q '并发冲突' "$D/ac2c.log" && grep -q 'WARNING: .*拒绝回收' "$D/ac2c.log"; then
+    ok "AC2c 锁龄超阈值但持有者存活 → ${tix243_w_elapsed}s 内 exit 1（并发冲突·WARNING 拒绝回收）且零写入"
+  else
+    bad "AC2c 锁龄超阈值但持有者存活 → ${tix243_w_elapsed}s 内 exit 1（并发冲突·WARNING 拒绝回收）且零写入" "exit=$tix243_w_rc 耗时=${tix243_w_elapsed}s $(tix243_reason "$D/ac2c.log" | cut -c 1-120)"
+  fi
+  tix243_w_nested=$(find "${tix243_lockw}" -mindepth 1 -maxdepth 1 -name '*.lock' 2>/dev/null | wc -l | tr -d ' ')
+  tix243_w_sidecar=$(find "$(dirname -- "${tix243_lockw}")" -maxdepth 1 -name "$(basename -- "${tix243_lockw}").reclaim.*" 2>/dev/null | wc -l | tr -d ' ')
+  if [ -d "${tix243_lockw}" ] && [ "$tix243_w_nested" = '0' ] && [ "$tix243_w_sidecar" = '0' ]; then
+    ok 'AC2c 存活持有者的锁未被搬走（无嵌套 .lock 目录、无 reclaim 旁路残留）'
+  else
+    bad 'AC2c 存活持有者的锁未被搬走（无嵌套 .lock 目录、无 reclaim 旁路残留）' "lock目录=$([ -d "${tix243_lockw}" ] && echo yes || echo no) 嵌套=${tix243_w_nested} 旁路=${tix243_w_sidecar}"
+  fi
+  rm -rf "${tix243_lockw}"
+
+  # ---- AC3：索引写后／账本写后／投影写后分别注入失败，重跑同一命令收敛 ----
+  # 注入优先走实现契约 TICKET_OPS_FAULT（探针：expect exit 70 ＋ FAULT injected 报文）；
+  # 契约缺席时退回临时副本写点桩替换（只在 mktemp 副本上插 exit 70，产品文件零改动）。
+  tix243_contract_hits=0
+  for tix243_point in after-index-write after-ledger-write after-projection-write; do
+    F243K="$D/fix243-$tix243_point"
+    tix_build_fixture "$F243K"
+    tix_body "$F243K/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+    SK243K="$F243K/rules/implementation/scripts/ticket-ops.sh"
+    LED243K='{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票243 崩溃收敛", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
+    tix243_mech=''
+    TICKET_OPS_FAULT=$tix243_point sh "$SK243K" "$F243K" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED243K" >"$D/ac3-$tix243_point-probe.log" 2>&1
+    rc=$?
+    if [ "$rc" -eq 70 ] && grep -qF "FAULT injected: $tix243_point" "$D/ac3-$tix243_point-probe.log"; then
+      tix243_mech='contract'
+      tix243_contract_hits=$((tix243_contract_hits + 1))
+    fi
+    # 探针可能已在正常路径写完全部面（契约缺席时），统一重建现场再注入
+    tix_build_fixture "$F243K"
+    tix_body "$F243K/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+    SK243K="$F243K/rules/implementation/scripts/ticket-ops.sh"
+    if [ -z "$tix243_mech" ]; then
+      cp "$SK243K" "$D/ac3-$tix243_point.orig"
+      if tix243_inject "$SK243K" "$(tix243_fault_marker "$tix243_point")" 1; then
+        tix243_mech='patch'
+      fi
+    fi
+    if [ -z "$tix243_mech" ]; then
+      bad "AC3 $tix243_point 崩溃可注入（契约或写点桩）" "探针 exit=${rc}（TICKET_OPS_FAULT 未生效），且写点标记零命中——崩溃路径不可测"
+      continue
+    fi
+    if [ "$tix243_mech" = 'contract' ]; then
+      TICKET_OPS_FAULT=$tix243_point sh "$SK243K" "$F243K" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED243K" >"$D/ac3-$tix243_point-crash.log" 2>&1
+      rc=$?
+    else
+      sh "$SK243K" "$F243K" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED243K" >"$D/ac3-$tix243_point-crash.log" 2>&1
+      rc=$?
+      cp "$D/ac3-$tix243_point.orig" "$SK243K"
+    fi
+    if [ "$rc" -eq 70 ]; then
+      ok "AC3 $tix243_point 崩溃已注入（机制=${tix243_mech}）"
+    else
+      bad "AC3 $tix243_point 崩溃已注入（机制=${tix243_mech}）" "exit=$rc $(tix243_reason "$D/ac3-$tix243_point-crash.log")"
+    fi
+    sh "$SK243K" "$F243K" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED243K" >"$D/ac3-$tix243_point-retry.log" 2>&1
+    rc=$?
+    tix243_cv=$(tix243_converged "$F243K")
+    if [ "$rc" -eq 0 ] && [ -z "$tix243_cv" ]; then
+      ok "AC3 $tix243_point 崩溃后重跑同一命令收敛（索引/README/投影/账本一致且无重复行）"
+    else
+      bad "AC3 $tix243_point 崩溃后重跑同一命令收敛（索引/README/投影/账本一致且无重复行）" "重跑 exit=$rc 未收敛面=${tix243_cv:-（无）} 报文=$(tix243_reason "$D/ac3-$tix243_point-retry.log")"
+    fi
+  done
+  if [ "$tix243_contract_hits" -eq 3 ]; then
+    ok 'AC3 实现提供 TICKET_OPS_FAULT 三注入点契约（测试不依赖内部写点桩）'
+  else
+    bad 'AC3 实现提供 TICKET_OPS_FAULT 三注入点契约（测试不依赖内部写点桩）' "契约命中 $tix243_contract_hits/3；未命中点须靠临时副本写点桩，属实现缺口"
+  fi
+
+  # ---- AC3b：故障注入契约边界——未知值 exit 2 且零写入（评审固化）----
+  F243N=$D/fix243faultbad
+  tix_build_fixture "$F243N"
+  tix_body "$F243N/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  S243N="$F243N/rules/implementation/scripts/ticket-ops.sh"
+  S243N_BEFORE=$(tix_state "$F243N")
+  TICKET_OPS_FAULT=bogus sh "$S243N" "$F243N" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac3b.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && [ "$S243N_BEFORE" = "$(tix_state "$F243N")" ] && [ ! -f "$F243N/facts/requirements/tickets/progress-current.md" ]; then
+    ok 'AC3b 未知 TICKET_OPS_FAULT 值 → exit 2 零写入'
+  else
+    bad 'AC3b 未知 TICKET_OPS_FAULT 值 → exit 2 零写入' "exit=$rc $(tix243_reason "$D/ac3b.log" | cut -c 1-110)"
+  fi
+
+  # ---- AC3c：账本去重边界（评审整改）——只对状态操作判重，且按 JSON 对象相等；
+  #      `ledger` 无票入口保持只追加不判重（静默跳过会吞事实）。----
+  F243L=$D/fix243ledger
+  tix_build_fixture "$F243L"
+  tix_body "$F243L/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  S243L="$F243L/rules/implementation/scripts/ticket-ops.sh"
+  LED_AB='{"date": "2026-09-20", "kind": "scope", "scope": "s", "decision": "a b", "evidence_ref": "y"}'
+  LED_NO_SPACE='{"date": "2026-09-20", "kind": "scope", "scope": "s", "decision": "ab", "evidence_ref": "y"}'
+  sh "$S243L" "$F243L" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_AB" >"$D/ac3c-open.log" 2>&1
+  rc1=$?
+  sh "$S243L" "$F243L" take --id 30-gamma-third --status in_progress --ledger-line "$LED_NO_SPACE" >"$D/ac3c-take.log" 2>&1
+  rc2=$?
+  if [ "$rc1" -eq 0 ] && [ "$rc2" -eq 0 ] && \
+     [ "$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "a b"')" = '1' ] && \
+     [ "$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "ab"')" = '1' ]; then
+    ok 'AC3c 内部空白不同的两行不误判重复（decision "a b" 与 "ab" 各一行）'
+  else
+    bad 'AC3c 内部空白不同的两行不误判重复（decision "a b" 与 "ab" 各一行）' "rc=${rc1}/${rc2} a_b=$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "a b"') ab=$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "ab"')"
+  fi
+  sh "$S243L" "$F243L" take --id 30-gamma-third --status in_progress --ledger-line "$LED_NO_SPACE" >"$D/ac3c-take2.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "ab"')" = '1' ]; then
+    ok 'AC3c 同一状态操作重跑不重复落账本行（幂等，行数不变）'
+  else
+    bad 'AC3c 同一状态操作重跑不重复落账本行（幂等，行数不变）' "exit=$rc ab=$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "ab"')"
+  fi
+  LED_NOTICKET='{"date": "2026-09-20", "kind": "scope", "scope": "s", "decision": "no-ticket", "evidence_ref": "y"}'
+  sh "$S243L" "$F243L" ledger --ledger-line "$LED_NOTICKET" >/dev/null 2>&1
+  sh "$S243L" "$F243L" ledger --ledger-line "$LED_NOTICKET" >/dev/null 2>&1
+  if [ "$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "no-ticket"')" = '2' ]; then
+    ok 'AC3c ledger 无票入口保持只追加不判重（同文两次＝两行）'
+  else
+    bad 'AC3c ledger 无票入口保持只追加不判重（同文两次＝两行）' "行数=$(tix243_count "$F243L/facts/project/changes.jsonl" '"decision": "no-ticket"')"
+  fi
+
+  # ---- AC4：投影删除/篡改由生成器重建，手改不成为真相源 ----
+  F243P=$D/fix243proj
+  tix_build_fixture "$F243P"
+  GP243="$F243P/rules/implementation/scripts/generate-progress.sh"
+  PP243="$F243P/facts/requirements/tickets/progress-current.md"
+  rm -f "$PP243"
+  sh "$GP243" "$F243P" >"$D/ac4-rebuild.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ -f "$PP243" ]; then
+    ok 'AC4 投影删除 → 生成器重建 exit 0 且落盘'
+  else
+    bad 'AC4 投影删除 → 生成器重建 exit 0 且落盘' "exit=$rc $(head -n 1 "$D/ac4-rebuild.log")"
+  fi
+  sh "$GP243" --check "$F243P" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok 'AC4 重建后 --check 一致'
+  else
+    bad 'AC4 重建后 --check 一致' "exit=$rc"
+  fi
+  printf 'HAND EDIT 手工改投影\n' >> "$PP243"
+  sh "$GP243" --check "$F243P" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ]; then
+    ok 'AC4 手工改投影被检出 → --check exit 1'
+  else
+    bad 'AC4 手工改投影被检出 → --check exit 1' "exit=${rc}（手改未被识别）"
+  fi
+  sh "$GP243" "$F243P" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(tix243_count "$PP243" 'HAND EDIT')" = '0' ]; then
+    ok 'AC4 再生成覆盖手改内容（手改不成为真相源）'
+  else
+    bad 'AC4 再生成覆盖手改内容（手改不成为真相源）' "exit=$rc 残留手改行=$(tix243_count "$PP243" 'HAND EDIT')"
+  fi
+
+  # ---- AC5：测试与登记面在册（真正包检留自检步，命令见票面 verification[1]）----
+  if [ -f "$TESTS_DIR/suite-ticket-ops.sh" ] && grep -q 'AC1 空索引首开' "$TESTS_DIR/suite-ticket-ops.sh"; then
+    ok 'AC5 票 243 用例在册于 suite-ticket-ops.sh（--suite ticket-ops 入口可达）'
+  else
+    bad 'AC5 票 243 用例在册于 suite-ticket-ops.sh（--suite ticket-ops 入口可达）' "文件或自登记标记缺失: $TESTS_DIR/suite-ticket-ops.sh"
+  fi
+  if [ -f "$SCRIPT_DIR/check-package.sh" ] && grep -q 'ticket-ops' "$TESTS_DIR/test-runner.sh"; then
+    ok 'AC5 包检入口与 runner 派发表在册'
+  else
+    bad 'AC5 包检入口与 runner 派发表在册' "check-package.sh=${SCRIPT_DIR}/check-package.sh"
+  fi
+
+  # ---- AC6：开票不预填 ACTUAL_TIME、Review 结论或 Commit pass 指针 ----
+  F243Q=$D/fix243ac6
+  tix_build_fixture "$F243Q"
+  tix_body "$F243Q/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  python3 - "$F243Q/facts/requirements/tickets/30-gamma-third.json" <<'PYTHON'
+import json, sys
+path = sys.argv[1]
+body = json.load(open(path, encoding='utf-8'))
+body.pop('dispatch', None)
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(body, f, ensure_ascii=False)
+PYTHON
+  sh "$F243Q/rules/implementation/scripts/ticket-ops.sh" "$F243Q" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line '{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture open ac6a", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}' >"$D/ac6a.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok 'AC6 无 dispatch 节开票 exit 0（不要求开票时预填派发合同）'
+  else
+    bad 'AC6 无 dispatch 节开票 exit 0（不要求开票时预填派发合同）' "exit=$rc $(tix243_reason "$D/ac6a.log")——当前实现要求开票即预填三阶段合同（含 ACTUAL_TIME/Review 结论/Commit pass 指针），与 AC6 相反"
+  fi
+  tix_build_fixture "$F243Q"
+  tix_body "$F243Q/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  python3 - "$F243Q/facts/requirements/tickets/30-gamma-third.json" <<'PYTHON'
+import json, sys
+path = sys.argv[1]
+body = json.load(open(path, encoding='utf-8'))
+dp = body['dispatch']
+dp['implementation']['ACTUAL_TIME'] = ''
+dp['implementation']['ESTIMATED_TIME'] = ''
+dp['review']['IMPLEMENTATION_SUMMARY'] = 'pending'
+dp['commit']['REVIEW_PASS_CHECKPOINT'] = 'pending'
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(body, f, ensure_ascii=False)
+PYTHON
+  sh "$F243Q/rules/implementation/scripts/ticket-ops.sh" "$F243Q" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line '{"date": "2026-09-20", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture open ac6b", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}' >"$D/ac6b.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok 'AC6 未来证据留空/pending 时开票 exit 0（ACTUAL_TIME、Review 结论、Commit pass 指针均不预填）'
+  else
+    bad 'AC6 未来证据留空/pending 时开票 exit 0（ACTUAL_TIME、Review 结论、Commit pass 指针均不预填）' "exit=$rc $(tix243_reason "$D/ac6b.log")"
   fi
 
   suite_summary 'ticket-ops'
