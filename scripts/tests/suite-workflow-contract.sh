@@ -1191,21 +1191,16 @@ EOF
   # 票索引夹具 mktemp 自建，经 issues_index_rel 指向，不触仓内真实 index.json。
 
   wf_map_fixture() {
-    mkdir -p "$1"
-    cat > "$1/index.json" <<EOF
+    mkdir -p "$1/facts/requirements/tickets"
+    cat > "$1/facts/requirements/tickets/index.json" <<EOF
 {
   "issues": [
-    {
-      "id": "wf-map-enforce-test",
-      "kind": "task",
-      "status": "$2",
-      "updated_at": "2026-10-26T00:00:00"
-    }
+    {"id": "90-wf-map-enforce-test", "kind": "task", "status": "$2", "updated_at": "2026-10-26T00:00:00"}
   ]
 }
 EOF
-    cp "$1/index.json" "$1/index.before"
-    printf '{"id":"wf-map-enforce-test","kind":"task","title":"WF Map Enforce Test","created_at":"2026-10-26"}\n' > "$1/ticket.json"
+    cp "$1/facts/requirements/tickets/index.json" "$1/index.before"
+    printf '{"id":"90-wf-map-enforce-test","kind":"task","title":"WF Map Enforce Test","created_at":"2026-10-26"}\n' > "$1/ticket.json"
   }
 
   # P15（AC4）：合法映射端到端写入——私有态 working 经映射写 in_progress（非私有状态名直写）
@@ -1243,15 +1238,15 @@ state_machine:
   state_to_ticket_status:
     working: in_progress
 EOF
-  issues_index_rel="$D/map/pos/index.json" sh "$EXECUTOR" "$D/map/pos/wf.yaml" \
+  issues_index_rel="$D/map/pos/facts/requirements/tickets/index.json" sh "$EXECUTOR" "$D/map/pos/wf.yaml" \
     --ticket-file "$D/map/pos/ticket.json" --allow-shell > "$D/map/pos/run.log" 2>&1
   map_pos_rc=$?
   if [ "$map_pos_rc" -eq 0 ] && python3 - "$D/map/pos" > /dev/null <<'PY'
 import json, sys
 
 base = sys.argv[1]
-with open(base + '/index.json', encoding='utf-8') as handle:
-    issue = next(i for i in json.load(handle)['issues'] if i['id'] == 'wf-map-enforce-test')
+with open(base + '/facts/requirements/tickets/index.json', encoding='utf-8') as handle:
+    issue = next(i for i in json.load(handle)['issues'] if i['id'] == '90-wf-map-enforce-test')
 assert issue['status'] == 'in_progress', f'状态漂移: {issue["status"]!r}（期望映射值 in_progress）'
 assert issue['status'] != 'working', '私有状态名 working 直写票索引'
 assert issue['updated_at'] != '2026-10-26T00:00:00', 'updated_at 未随写入更新'
@@ -1299,11 +1294,11 @@ state_machine:
   state_to_ticket_status:
     in_progress: in_progress
 EOF
-  issues_index_rel="$D/map/neg-unmapped/index.json" sh "$EXECUTOR" "$D/map/neg-unmapped/wf.yaml" \
+  issues_index_rel="$D/map/neg-unmapped/facts/requirements/tickets/index.json" sh "$EXECUTOR" "$D/map/neg-unmapped/wf.yaml" \
     --ticket-file "$D/map/neg-unmapped/ticket.json" --allow-shell > "$D/map/neg-unmapped/run.log" 2>&1
   map_unmapped_rc=$?
   if [ "$map_unmapped_rc" -eq 0 ] \
-    && cmp -s "$D/map/neg-unmapped/index.json" "$D/map/neg-unmapped/index.before" \
+    && cmp -s "$D/map/neg-unmapped/facts/requirements/tickets/index.json" "$D/map/neg-unmapped/index.before" \
     && grep -q '未映射不写票索引: implementation_done' "$D/map/neg-unmapped/run.log"; then
     ok 'N15 implementation_done 未映射：转换被拒、票索引 cmp 零差（私有状态不直写，回归负例）'
   else
@@ -1316,11 +1311,11 @@ EOF
   sed 's/    in_progress: in_progress/    implementation_done: implemented/' \
     "$D/map/neg-unmapped/wf.yaml" | sed 's/name: contract-map-unmapped/name: contract-map-outofenum/' \
     > "$D/map/neg-outofenum/wf.yaml"
-  issues_index_rel="$D/map/neg-outofenum/index.json" sh "$EXECUTOR" "$D/map/neg-outofenum/wf.yaml" \
+  issues_index_rel="$D/map/neg-outofenum/facts/requirements/tickets/index.json" sh "$EXECUTOR" "$D/map/neg-outofenum/wf.yaml" \
     --ticket-file "$D/map/neg-outofenum/ticket.json" --allow-shell > "$D/map/neg-outofenum/run.log" 2>&1
   map_out_rc=$?
   if [ "$map_out_rc" -eq 0 ] \
-    && cmp -s "$D/map/neg-outofenum/index.json" "$D/map/neg-outofenum/index.before" \
+    && cmp -s "$D/map/neg-outofenum/facts/requirements/tickets/index.json" "$D/map/neg-outofenum/index.before" \
     && grep -q '映射目标越票状态枚举，拒绝写票索引: implementation_done → implemented' "$D/map/neg-outofenum/run.log"; then
     ok 'N16 映射目标 implemented 越票状态枚举：拒绝写票索引、票索引 cmp 零差'
   else
@@ -1332,7 +1327,7 @@ EOF
   # ---- AC1 空 checkpoint 不恒真、AC2 失败进 blocked、AC3 retry 门控 ----
 
   # P16（AC2）：验证失败先落结构化 failed 记录（六键）再进 blocked（端到端）
-  mkdir -p "$D/blocked"
+  mkdir -p "$D/blocked/facts/requirements/tickets"
   cat > "$D/blocked/wf.yaml" <<'EOF'
 workflow:
   name: contract-blocked
@@ -1360,20 +1355,24 @@ state_machine:
   state_to_ticket_status:
     blocked: blocked
 EOF
-  cat > "$D/blocked/index.json" <<'EOF'
-{"issues":[{"id":"wf-cond-blocked-test","kind":"task","status":"in_progress","updated_at":"2026-10-26T00:00:00"}]}
+  cat > "$D/blocked/facts/requirements/tickets/index.json" <<'EOF'
+{
+  "issues": [
+    {"id": "91-wf-cond-blocked-test", "kind": "task", "status": "in_progress", "updated_at": "2026-10-26T00:00:00"}
+  ]
+}
 EOF
-  cp "$D/blocked/index.json" "$D/blocked/index.before"
-  printf '{"id":"wf-cond-blocked-test","kind":"task","title":"WF Cond Blocked Test","created_at":"2026-10-26"}\n' > "$D/blocked/ticket.json"
-  issues_index_rel="$D/blocked/index.json" sh "$EXECUTOR" "$D/blocked/wf.yaml" \
+  cp "$D/blocked/facts/requirements/tickets/index.json" "$D/blocked/index.before"
+  printf '{"id":"91-wf-cond-blocked-test","kind":"task","title":"WF Cond Blocked Test","created_at":"2026-10-26"}\n' > "$D/blocked/ticket.json"
+  issues_index_rel="$D/blocked/facts/requirements/tickets/index.json" sh "$EXECUTOR" "$D/blocked/wf.yaml" \
     --ticket-file "$D/blocked/ticket.json" --allow-shell > "$D/blocked/run.log" 2>&1
   blocked_rc=$?
   if [ "$blocked_rc" -eq 1 ] && python3 - "$D/blocked" > /dev/null <<'PY'
 import json, sys
 
 base = sys.argv[1]
-with open(base + '/index.json', encoding='utf-8') as handle:
-    issue = next(i for i in json.load(handle)['issues'] if i['id'] == 'wf-cond-blocked-test')
+with open(base + '/facts/requirements/tickets/index.json', encoding='utf-8') as handle:
+    issue = next(i for i in json.load(handle)['issues'] if i['id'] == '91-wf-cond-blocked-test')
 assert issue['status'] == 'blocked', f'状态漂移: {issue["status"]!r}（验证失败应进入 blocked）'
 with open(base + '/ticket.json.workflow-checkpoint-v1.json', encoding='utf-8') as handle:
     record = json.load(handle)['checkpoint']['blocked']['verify']
@@ -1536,7 +1535,7 @@ EOF
   fi
 
   # P19（AC3 正例）：blocked 票经显式 --retry 重试成功 → manual_retry_requested 推进回 in_progress
-  mkdir -p "$D/retry/pos"
+  mkdir -p "$D/retry/pos/facts/requirements/tickets" "$D/retry/neg/facts/requirements/tickets"
   cat > "$D/retry/wf.yaml" <<'EOF'
 workflow:
   name: contract-retry
@@ -1561,14 +1560,18 @@ state_machine:
   state_to_ticket_status:
     in_progress: in_progress
 EOF
-  cat > "$D/retry/pos/index.json" <<'EOF'
-{"issues":[{"id":"wf-cond-retry-test","kind":"task","status":"blocked","updated_at":"2026-10-26T00:00:00"}]}
+  cat > "$D/retry/pos/facts/requirements/tickets/index.json" <<'EOF'
+{
+  "issues": [
+    {"id": "92-wf-cond-retry-test", "kind": "task", "status": "blocked", "updated_at": "2026-10-26T00:00:00"}
+  ]
+}
 EOF
-  printf '{"id":"wf-cond-retry-test","kind":"task","title":"WF Cond Retry Test","created_at":"2026-10-26","checkpoint_ref":"workflow-checkpoint-v1:ticket.json.workflow-checkpoint-v1.json"}\n' > "$D/retry/pos/ticket.json"
+  printf '{"id":"92-wf-cond-retry-test","kind":"task","title":"WF Cond Retry Test","created_at":"2026-10-26","checkpoint_ref":"workflow-checkpoint-v1:ticket.json.workflow-checkpoint-v1.json"}\n' > "$D/retry/pos/ticket.json"
   cat > "$D/retry/pos/ticket.json.workflow-checkpoint-v1.json" <<'EOF'
 {"version":1,"checkpoint":{"retry":{"step":{"step_name":"retry-step","completed_at":"2026-10-20T00:00:00Z","outputs":"","status":"failed","exit_code":1,"verification_results":[]}}}}
 EOF
-  WF_RETRY_MARK="$D/retry/pos/marker" issues_index_rel="$D/retry/pos/index.json" \
+  WF_RETRY_MARK="$D/retry/pos/marker" issues_index_rel="$D/retry/pos/facts/requirements/tickets/index.json" \
     sh "$EXECUTOR" "$D/retry/wf.yaml" --ticket-file "$D/retry/pos/ticket.json" \
     --allow-shell --retry retry-step > "$D/retry/pos/run.log" 2>&1
   retry_pos_rc=$?
@@ -1576,8 +1579,8 @@ EOF
 import json, sys
 
 base = sys.argv[1]
-with open(base + '/index.json', encoding='utf-8') as handle:
-    issue = next(i for i in json.load(handle)['issues'] if i['id'] == 'wf-cond-retry-test')
+with open(base + '/facts/requirements/tickets/index.json', encoding='utf-8') as handle:
+    issue = next(i for i in json.load(handle)['issues'] if i['id'] == '92-wf-cond-retry-test')
 assert issue['status'] == 'in_progress', f'状态漂移: {issue["status"]!r}（显式 retry 应推进 blocked→in_progress）'
 with open(base + '/ticket.json.workflow-checkpoint-v1.json', encoding='utf-8') as handle:
     record = json.load(handle)['checkpoint']['retry']['step']
@@ -1594,18 +1597,22 @@ PY
 
   # N19（AC3 负例）：同一 workflow 无 --retry 正常执行 → manual_retry_requested 为假、票索引零写入
   mkdir -p "$D/retry/neg"
-  cat > "$D/retry/neg/index.json" <<'EOF'
-{"issues":[{"id":"wf-cond-retry-test","kind":"task","status":"blocked","updated_at":"2026-10-26T00:00:00"}]}
+  cat > "$D/retry/neg/facts/requirements/tickets/index.json" <<'EOF'
+{
+  "issues": [
+    {"id": "92-wf-cond-retry-test", "kind": "task", "status": "blocked", "updated_at": "2026-10-26T00:00:00"}
+  ]
+}
 EOF
-  cp "$D/retry/neg/index.json" "$D/retry/neg/index.before"
-  printf '{"id":"wf-cond-retry-test","kind":"task","title":"WF Cond Retry Test","created_at":"2026-10-26"}\n' > "$D/retry/neg/ticket.json"
-  WF_RETRY_MARK="$D/retry/neg/marker" issues_index_rel="$D/retry/neg/index.json" \
+  cp "$D/retry/neg/facts/requirements/tickets/index.json" "$D/retry/neg/index.before"
+  printf '{"id":"92-wf-cond-retry-test","kind":"task","title":"WF Cond Retry Test","created_at":"2026-10-26"}\n' > "$D/retry/neg/ticket.json"
+  WF_RETRY_MARK="$D/retry/neg/marker" issues_index_rel="$D/retry/neg/facts/requirements/tickets/index.json" \
     sh "$EXECUTOR" "$D/retry/wf.yaml" --ticket-file "$D/retry/neg/ticket.json" \
     --allow-shell > "$D/retry/neg/run.log" 2>&1
   retry_neg_rc=$?
   if [ "$retry_neg_rc" -eq 0 ] \
     && [ "$(cat "$D/retry/neg/marker")" = "retried" ] \
-    && cmp -s "$D/retry/neg/index.json" "$D/retry/neg/index.before" \
+    && cmp -s "$D/retry/neg/facts/requirements/tickets/index.json" "$D/retry/neg/index.before" \
     && grep -q '无可用状态转换' "$D/retry/neg/run.log"; then
     ok 'N19 AC3 负例：无 --retry 时 manual_retry_requested 为假——步骤照跑、票索引 cmp 零差（blocked 不被穿越）'
   else

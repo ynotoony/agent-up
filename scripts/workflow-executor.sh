@@ -4,9 +4,10 @@
 # Pos: 工作流执行器（票 166）；解析 agent-up/references/schemas/workflow.schema.json v2 格式的 YAML
 #      文件，执行 agent/command/verification 三种步骤类型，步骤级 checkpoint 原子化落盘。
 #      checkpoint 与票文件分离，票只保存 checkpoint_ref；中断后从外部 checkpoint 恢复执行。
-#      JSON 层唯一引擎（票 227 F3）：YAML 解析、step/checkpoint/index 的全部 JSON 操作
-#      改调同目录 json-validator.py（workflow/json 模式；原内嵌 python heredoc 已收敛 retired），
-#      本件零内嵌解释器代码；引擎缺件 fail-closed 指名。
+#      JSON 层唯一引擎（票 227 F3）：YAML 解析、step/checkpoint 与索引只读查询改调
+#      同目录 json-validator.py（workflow/json 模式）；索引写入只委托同目录
+#      ticket-ops.sh flip-index（含投影再生与 --check），本件零自带索引写面。
+#      本件零内嵌解释器代码；引擎或票务原子层缺件 fail-closed 指名。
 #      条件语义结构化（票 209）：每步写结构化结果（status/exit_code/
 #      verification_results，写面恒六键；存量 legacy 三键叶读面兼容，缺 status
 #      按 passed 解释），失败步骤先落 sidecar 再终局；状态机条件为可实现词表
@@ -177,33 +178,28 @@ python3 "$_engine_file" workflow check-conditions "$state_machine_json" || \
 
 # ---- State Machine Executor ----
 
-# 读取当前票状态（从 index.json）
-get_current_status() {
-  ticket_id=$1
-  index_file="${issues_index_rel:-facts/requirements/tickets/index.json}"
-
-  if [ ! -f "$index_file" ]; then
-    echo "unknown"
-    return
-  fi
-
-  _gcs_rc=0
-  _gcs_status=$(python3 "$_engine_file" json pick "$index_file" issues id "$ticket_id" status) || _gcs_rc=$?
-  if [ "$_gcs_rc" -eq 3 ] || { [ "$_gcs_rc" -eq 0 ] && [ -z "$_gcs_status" ]; }; then
-    echo 'unknown'
-    return 0
-  fi
-  if [ "$_gcs_rc" -ne 0 ]; then
-    return "$_gcs_rc"
-  fi
-  printf '%s\n' "$_gcs_status"
-}
-
-# 校验值是否为 issue-index 票状态枚举合法值（Task 流转值，不含生命周期标签
-# superseded）。判定在唯一 JSON 引擎面 workflow check-status（票 221；pattern 与
-# issue-index.schema.json status pattern 同源）。
-is_valid_ticket_status() {
-  python3 "$_engine_file" workflow check-status "$1" >/dev/null 2>&1
+# 票索引写入只委托 ticket-ops flip-index；本执行器不再实现索引写面。
+# 相对索引路径沿用调用 cwd 语义；绝对路径须为标准 facts/... 布局，以推导代理仓根。
+delegate_status() {
+  _ds_ticket_id=$1
+  _ds_new_status=$2
+  _ds_index_file="${issues_index_rel:-facts/requirements/tickets/index.json}"
+  case $_ds_index_file in
+    /*)
+      _ds_repo_root=${_ds_index_file%/facts/requirements/tickets/index.json}
+      [ "$_ds_repo_root" != "$_ds_index_file" ] || \
+        die1 "索引翻转代理要求标准 facts/requirements/tickets/index.json 布局: ${_ds_index_file}"
+      ;;
+    *)
+      _ds_repo_root=$(resolve_repo_root --git) || _ds_repo_root=$(pwd -P)
+      ;;
+  esac
+  _ds_ticket_ops=$(dirname "$0")/ticket-ops.sh
+  [ -r "$_ds_ticket_ops" ] || die1 "索引翻转原子层缺失: ${_ds_ticket_ops}"
+  printf '  状态转换委托 ticket-ops flip-index: %s → %s\n' "$_ds_ticket_id" "$_ds_new_status"
+  sh "$_ds_ticket_ops" "$_ds_repo_root" flip-index \
+    --id "$_ds_ticket_id" --status "$_ds_new_status" --updated-at "$(date -u +%Y-%m-%dT%H:%M)" || \
+    die1 '状态更新代理失败'
 }
 
 # 验证状态转换是否合法（根据 state_machine 定义）
@@ -235,34 +231,20 @@ evaluate_condition() {
   printf '%s\n' "$_ecv_result"
 }
 
-# 原子化更新票状态（使用临时文件 + mv；引擎侧原子写）
-# 原子化更新票状态（使用临时文件 + mv；引擎侧原子写）。
-# 写票索引前强制值域死守（票 221）：越枚举值零写入 fail-closed；workflow 私有
-# 状态不经 state_to_ticket_status 映射不得到达本函数写面（引擎 index-status 内
-# 另有同 pattern 二次校验，双层防御）。
-update_status() {
-  ticket_id=$1
-  new_status=$2
-  index_file="${issues_index_rel:-facts/requirements/tickets/index.json}"
-
-  if [ ! -f "$index_file" ]; then
-    die1 "index.json 不存在: $index_file"
-  fi
-
-  if ! is_valid_ticket_status "$new_status"; then
-    die1 "拒绝写票索引: $new_status 不在 issue-index 票状态枚举（Task 流转值）内"
-  fi
-
-  printf '  状态转换: %s → %s\n' "$(get_current_status "$ticket_id")" "$new_status"
-
-  python3 "$_engine_file" workflow index-status "$index_file" "$ticket_id" "$new_status" || \
-    die1 "状态更新失败"
-}
-
 # 尝试推进状态机（检查所有可能的转换）
 try_advance_state() {
   ticket_id=$1
-  current_status=$(get_current_status "$ticket_id")
+  index_file="${issues_index_rel:-facts/requirements/tickets/index.json}"
+  current_status=unknown
+  if [ -f "$index_file" ]; then
+    _ta_rc=0
+    _ta_status=$(python3 "$_engine_file" json pick "$index_file" issues id "$ticket_id" status) || _ta_rc=$?
+    if [ "$_ta_rc" -eq 0 ] && [ -n "$_ta_status" ]; then
+      current_status=$_ta_status
+    elif [ "$_ta_rc" -ne 3 ]; then
+      return "$_ta_rc"
+    fi
+  fi
 
   printf '\nworkflow-executor: 检查状态机转换（当前状态: %s）\n' "$current_status"
 
@@ -289,7 +271,7 @@ try_advance_state() {
         if [ "$(validate_transition "$from_state" "$to_state")" = "valid" ]; then
           # 映射强制（票 221）：workflow 私有状态不直写票索引；每条转换到达时
           # 查 state_to_ticket_status[to]，未映射或映射目标越票状态枚举 → 拒绝
-          # 转换且零写票索引；映射合法才按映射值写。
+          # 转换且零写票索引；映射合法才委托 ticket-ops 按映射值写。
           _ms_rc=0
           mapped_status=$(printf '%s' "$state_machine_json" | \
             python3 "$_engine_file" workflow map-status - "$to_state") || _ms_rc=$?
@@ -298,8 +280,7 @@ try_advance_state() {
           elif [ "$_ms_rc" -ne 0 ]; then
             printf '  警告：映射目标越票状态枚举，拒绝写票索引: %s → %s\n' "$to_state" "$mapped_status" >&2
           else
-            # 执行状态转换（写映射值，非私有状态名）
-            update_status "$ticket_id" "$mapped_status"
+            delegate_status "$ticket_id" "$mapped_status"
             return 0
           fi
         else

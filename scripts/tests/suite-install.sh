@@ -26,7 +26,7 @@ inst_build_pkg() {
   P=$1
   rm -rf "$P"; mkdir -p "$P/scripts" "$P/references/schemas" "$P/references/protocol" "$P/references/prompts"
   cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/install-policy.rules" "$P/scripts/"
-  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh ledger-append.sh checkpoint-write.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-validator.py dp-load-rules.sh contract-build.sh check-dispatch-contract.sh; do
+  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh ticket-ops.sh ledger-append.sh checkpoint-write.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-validator.py dp-load-rules.sh contract-build.sh check-dispatch-contract.sh ticket-run.sh; do
     if [ ! -f "$SCRIPT_DIR/$f" ]; then
       printf 'test-record-layer: 夹具依赖缺失: %s/%s（安装闭包登记源）\n' "$SCRIPT_DIR" "$f" >&2
       exit 2
@@ -100,26 +100,21 @@ suite_install() {
     return 0
   fi
 
-  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 23 件（脚本 17＋数据 6；stdout 摘要行计数）
-  # （json-helpers.sh 退役并入唯一 JSON 引擎后：脚本件 13＝原 14 撤 json-helpers，数据件 2 不变；
-  #   票 228：ledger-append.sh 入 ticket-ops 门控闭包 → 脚本件 14；
-  #   票 230 派发合同链随票修：脚本件 16＝14＋contract-build/check-dispatch-contract，
-  #   数据件 6＝2＋dispatch-contract.schema＋三模板——ticket-ops 门控安装闭包；
-  #   票 229 记录写入拆分：fast-lane 闭包补 checkpoint-write.sh／ledger-append.sh → 脚本件 18 中 ledger-append 已属 ticket-ops 门控，按路径去重后实际复制 23 件（脚本 17＋数据 6））
-  # install.sh 的 R-DP-036 worktree 自拒按调用 cwd 判定（非 Git 语境放行）：夹具安装
-  # 从 harness 的 mktemp 非 Git 目录调用，避免 harness 在 worktree 内跑时栅栏误拦夹具。
+  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 24 件（脚本 18＋数据 6；stdout 摘要行计数）
+  # ticket-run 编排闭包在 ticket-ops 单门控补四依赖；双门控仅 ticket-run 为新增唯一文件。
   inst_build_pkg "$D/pkg1"; mkdir -p "$D/proj1"
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p1.out" 2>&1
   rc=$?
   p1_n=$(grep -c '^install: OK:' "$D/p1.out")
-  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 23 ] && grep -q '^install: DONE: 复制 23 件（脚本 17＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
+  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 24 ] && grep -q '^install: DONE: 复制 24 件（脚本 18＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
     && [ -f "$D/proj1/rules/implementation/scripts/check-gates.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-ops.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ledger-append.sh" ] \
-    && [ -f "$D/proj1/rules/implementation/scripts/contract-build.sh" ]; then
-    ok '正例 P1 合法表双门控安装 → exit 0 复制 23 件（脚本 17＋数据 6）落位'
+    && [ -f "$D/proj1/rules/implementation/scripts/contract-build.sh" ] \
+    && [ -f "$D/proj1/rules/implementation/scripts/ticket-run.sh" ]; then
+    ok '正例 P1 合法表双门控安装 → exit 0 复制 24 件（脚本 18＋数据 6）落位'
   else
-    bad '正例 P1 合法表双门控安装 → exit 0 复制 23 件（脚本 17＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
+    bad '正例 P1 合法表双门控安装 → exit 0 复制 24 件（脚本 18＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
   fi
 
   # 正例 P2：幂等重跑 → 逐件 SKIP exit 0 零新写入（文件集与首跑逐一相等）
@@ -127,11 +122,11 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p2.out" 2>&1
   rc=$?
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
-  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 23 件' "$D/p2.out" \
+  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 24 件' "$D/p2.out" \
     && cmp -s "$D/p2.tree.before" "$D/p2.tree.after"; then
-    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 23 件（文件集零变化）'
+    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 24 件（文件集零变化）'
   else
-    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 23 件（文件集零变化）' "exit=$rc"
+    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 24 件（文件集零变化）' "exit=$rc"
   fi
 
   # 负例 N1：规则表缺失 → exit 2 零写入
@@ -200,6 +195,10 @@ suite_install() {
     && [ -f "$D/projr/rules/implementation/scripts/common-helpers.sh" ] \
     && [ -f "$D/projr/rules/implementation/scripts/contract-build.sh" ] \
     && [ -f "$D/projr/rules/implementation/scripts/check-dispatch-contract.sh" ] \
+    && [ -f "$D/projr/rules/implementation/scripts/ticket-run.sh" ] \
+    && [ -f "$D/projr/rules/implementation/scripts/worktree-add.sh" ] \
+    && [ -f "$D/projr/rules/implementation/scripts/dp-load-rules.sh" ] \
+    && [ -f "$D/projr/rules/implementation/scripts/check-gates.sh" ] \
     && cmp -s "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$D/projr/rules/implementation/references/schemas/ticket-record.schema.json" \
     && cmp -s "$SCRIPT_DIR/../references/protocol/complexity-profile.md" "$D/projr/rules/implementation/references/protocol/complexity-profile.md" \
     && cmp -s "$SCRIPT_DIR/../references/schemas/dispatch-contract.schema.json" "$D/projr/rules/implementation/references/schemas/dispatch-contract.schema.json" \
