@@ -121,21 +121,22 @@ suite_install() {
     return 0
   fi
 
-  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 25 件（脚本 19＋数据 6；stdout 摘要行计数）
+  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 26 件（脚本 20＋数据 6；stdout 摘要行计数）
   # ticket-run 编排闭包在 ticket-ops 单门控补四依赖；双门控仅 ticket-run 为新增唯一文件。
+  # 票 234 证据审计引擎随 ticket-ops 门控新增一件：脚本 19→20、合计 25→26。
   inst_build_pkg "$D/pkg1"; mkdir -p "$D/proj1"
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p1.out" 2>&1
   rc=$?
   p1_n=$(grep -c '^install: OK:' "$D/p1.out")
-  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 25 ] && grep -q '^install: DONE: 复制 25 件（脚本 19＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
+  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 26 ] && grep -q '^install: DONE: 复制 26 件（脚本 20＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
     && [ -f "$D/proj1/rules/implementation/scripts/check-gates.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-ops.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ledger-append.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/contract-build.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-run.sh" ]; then
-    ok '正例 P1 合法表双门控安装 → exit 0 复制 25 件（脚本 19＋数据 6）落位'
+    ok '正例 P1 合法表双门控安装 → exit 0 复制 26 件（脚本 20＋数据 6）落位'
   else
-    bad '正例 P1 合法表双门控安装 → exit 0 复制 25 件（脚本 19＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
+    bad '正例 P1 合法表双门控安装 → exit 0 复制 26 件（脚本 20＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
   fi
 
   # 正例 P1b（票 244 AC1）：安装后每个可执行脚本 --help 冒烟运行 exit 0
@@ -157,11 +158,11 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p2.out" 2>&1
   rc=$?
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
-  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 25 件' "$D/p2.out" \
+  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 26 件' "$D/p2.out" \
     && cmp -s "$D/p2.tree.before" "$D/p2.tree.after"; then
-    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 25 件（文件集零变化）'
+    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 26 件（文件集零变化）'
   else
-    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 25 件（文件集零变化）' "exit=$rc"
+    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 26 件（文件集零变化）' "exit=$rc"
   fi
 
   # 负例 N1：规则表缺失 → exit 2 零写入

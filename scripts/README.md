@@ -1,5 +1,5 @@
 <!-- Input: `check-package.sh` 的三十六项检查实现（清单数据驱动）与 SPEC-06 §5、包重组与例外登记的现行定稿事实（JSON 契约头例外登记正文在 `../references/schemas/README.md`、artifacts-yaml YAML 契约头例外登记正文在 `../references/templates/README.md`）；道脚本与票务运维脚本的现行安装政策（`install-policy.rules`）、包清单数据表（`package-manifest.rules`）、镜像登记（mirrors 节，检查 13 机械核对）与各脚本现行行为；派发合同链现行定稿事实（`ticket-record.schema.json` 的 `dispatch` 三阶段派发合同数据节键集镜像 `dispatch-contract.schema.json` `contract_fields`，键集权威在该字典，两处漂移由 dispatch-contract 套件守卫核对；ticket-ops open 对新 task 强制三阶段对象键集恰等且逐键非空白，缺节/缺阶段/缺键/多键/空白值拒开零写入，存量票读取面零回扫；`contract-build.sh` 将票 dispatch 节渲染为 stdout 派发合同纯函数，输出前经 check-dispatch-contract --check 自校验，失败零 stdout；安装闭包随 ticket-ops 门控扩六件——渲染器＋校验器脚本件＋schema＋三模板数据件，install 套件金样 16→22 件随动；dispatch-contract 套件增渲染器正负例与键集单源守卫，ticket-ops 套件增开票门五负例与存量无节票 flip 兼容正例；检查 8/19 清单 28→29 件、检查 13 比对 15→16 对、检查 20 一级 31→32 项，check-package 套件金样串随动；道收尾记录写入拆分——`checkpoint-write.sh` 入册 pm_script 与 mirror、`ledger-append.sh` 增 `--micro` 微账本行模式，检查 8/19 件数与检查 13 比对对数各加一件、检查 20 scripts 一级条目加一项，install 套件双门控实复制件数随动；三阶段编排入口——`ticket-run.sh` 入册 pm_script 与 mirror，implementation/review 两行交付站路径＋合同文件、commit 经结论位（首个非空行须为整行结论记号，或全文件唯一 `Verdict:`／`评审结论：` 行；`PASS:` 证据行不作数）判定 Review pass 后经 check-gates 自动两段提交，workflow-executor 索引写入改委托 ticket-ops flip-index，ticket-chain 索引读取改经唯一 JSON 引擎；安装闭包随 ticket-ops 门控补 ticket-run/worktree-add/dp-load-rules/check-gates，套件与包检金样随动）；适配差异数据表现行定稿事实（`../references/adapters/adapter-diffs.rules` 四节机器数据行承载五宿主×九基元×三角色映射、enforcement level、独立执行体状态与宿主方言签名；与清单共用非执行式解析引擎，加载段结构校验 fail-closed，检查 27 断言数据 ≡ 现行五宿主 Markdown 对应段，漂移 FAIL；check-package 套件正负例四断言与金样计数随动）；历次入包采纳核对、检查项扩项与行为定稿的历史决策记录原文见包根 `../CHANGELOG.md`「2026-10-26（文档分层波）」迁移节（2026-10-26 自本 README 契约头迁出——README 不再兼任历史决策载体）。 -->
-<!-- Output: 公开包 scripts/ 目录索引与共享 harness 约定：脚本用途、用法、三十六项检查说明（清单数据驱动）、包清单数据表格式、适配差异数据表格式、易腐断言扫描器两模式与登记表说明、投影生成器用法与退出码、模块地图生成器用法与语言登记表、道脚本收尾行为（索引翻转经 ticket-ops flip-index 代理、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append --micro、微道预检）、票务运维脚本五子命令用法与账本写入方 ledger-append 单写方合同、落位口径与 README 状态列同步合同、三阶段编排入口接口与 commit 两段提交、安装脚本用法/退出码与安装政策数据表格式、Record 只追加守卫用法与守卫口径、治理产物对账器用法与受管口径/豁免维护规则、输出格式、退出码、维护联动规则与构建规约（脚本写法约定与 check 系 --fix 设计准则）。 -->
+<!-- Output: 公开包 scripts/ 目录索引与共享 harness 约定：脚本用途、用法、三十六项检查说明（清单数据驱动）、包清单数据表格式、适配差异数据表格式、易腐断言扫描器两模式与登记表说明、投影生成器用法与退出码、模块地图生成器用法与语言登记表、道脚本收尾行为（索引翻转经 ticket-ops flip-index 代理、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append --micro、微道预检）、票务运维脚本五子命令用法与账本写入方 ledger-append 单写方合同、落位口径与 README 状态列同步合同、三阶段编排入口接口与 commit 两段提交、安装脚本用法/退出码与安装政策数据表格式、Record 只追加守卫用法与守卫口径、治理产物对账器用法与受管口径/豁免维护规则、输出格式、退出码、维护联动规则与构建规约（脚本写法约定与 check 系 --fix 设计准则）、证据审计引擎接口（十一谓词、证据位置回溯、操作面窗口与策略/收据字段口径）。 -->
 <!-- Pos: 公开包脚本目录索引；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 脚本
@@ -41,10 +41,11 @@
 | `check-dispatch-contract.sh` | 派发合同校验器 | 双模式派发合同校验器：`--check-template` 模板漂移检查（schema 占位符全集与 `../references/prompts/` 三份派发合同模板占位符并集双向零差集）＋`--check <合同文件>` 执行体自查（按特征字段推断合同类型，对照 schema 该类型必备字段清单核对占位符完整性，缺失逐名报出）。POSIX sh＋awk、零外部依赖（无 jq/python）、全程只读。数据件＝`../references/schemas/dispatch-contract.schema.json`。详见下文专节。 |
 | `contract-build.sh` | 派发合同渲染器 | `contract-build.sh <stage> <NN> [repo-root]`：读票 JSON `dispatch.<stage>.<KEY>` 逐字段渲染派发合同到 stdout（{{KEY}} 实值行块形态与 `../references/prompts/` 三模板占位符一致）；字段清单唯一来源＝`../references/schemas/dispatch-contract.schema.json` `contract_fields.<stage>`（纯 awk 现场提取，与校验器同源同法），值唯一来源＝票 dispatch 节（存储合同单源＝`ticket-record.schema.json` dispatch 属性）；纯函数——stdout 唯一交付面、零仓内落盘（自校验暂存件落 `$TMPDIR` 用毕即清），输出前自调同目录 `check-dispatch-contract.sh --check` 自校验，不过即 exit 1 零 stdout（fail-closed：半份合同不出门）；票定位 `facts/requirements/tickets/<NN>-*.json` 恰一命中（零命中或同 NN 撞号 fail-closed）；无节票（存量形态）报缺不迁移；POSIX sh＋python3（唯一 JSON 引擎）＋source `common-helpers.sh`；安装闭包随 ticket-ops 门控同落位（`install-policy.rules`：本件＋校验器＋schema＋三模板）。回归＝`tests/` 的 dispatch-contract 套件。 |
 | `ticket-run.sh` | 主 agent 三阶段编排入口 | `ticket-run.sh <NN> <stage> [repo-root]`：implementation/review 恰输出站路径与合同文件两行，主 agent 据此派发，脚本不启动子 agent；implementation 缺站时经 `worktree-add.sh` 创建。commit 只认 Review 结论位（首个非空行须为整行结论记号 `PASS`/`PASS_WITH_NOTES`/`FAIL`，或全文件唯一 `Verdict:`／`评审结论：` 标签行；`PASS:` 证据行不作数，缺失或多义即 fail-closed）后经 `check-gates.sh` 执行范围与白名单门禁，自动创建产品提交；合同明列的索引翻转经 `ticket-ops.sh flip-index` 执行并另建纯记录提交，不伪造 User Review Checkpoint。commit 阶段不渲染合同文件。安装闭包随 ticket-ops 门控同落位。详见下文专节。 |
+| `ticket-audit.sh` | 证据审计引擎 | `ticket-audit.sh <NN> [--operation read|analyze|merge|push|release]`：对票审查收据做只读审计，逐谓词打印 `PASS`/`FAIL`/`UNKNOWN` 并给操作面判定（read/analyze 放行 unknown，merge/push/release 只认 conformant）；证据位置可回溯到 `路径@提交:blob`；策略数据＝`facts/requirements/audit-policy.json`，收据 schema＝`references/schemas/receipt.schema.json`；POSIX sh、全程只读零写入。详见下文专节。 |
 | `test-checkpoint-recovery.sh` | Checkpoint 中断续传回归测试 | workflow-executor.sh 中断续传机制回归测试：模拟工作流中断后从 checkpoint 恢复继续执行的场景，验证 checkpoint 文件格式、恢复逻辑正确性；POSIX sh、mktemp 夹具 trap 清理、零工作区写入。供开发/升级时自检 checkpoint 机制。 |
 | `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控显示 N/A；快道证据两源＝delivery.rules 在场或快道专属脚本已装，多门控共享脚本（如 generate-progress.sh）不构成快道证据——未启用快道时 delivery.rules 恒 N/A，快道脚本已装而缺配置才报落后；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
-| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋27 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
+| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋28 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
 
 旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
@@ -954,6 +955,41 @@ commit 只认「结论位」，取值仅三种：`PASS`、`PASS_WITH_NOTES`、`F
 
 - 存量格式 `评审结论：**pass**` 及其带注记写法（`- 评审结论：**pass**（…）`）经归一化后等价于标签行，兼容读取；新增审查文件仍建议用 `Verdict: PASS` 单行。
 
+## ticket-audit.sh（证据审计引擎）
+
+`sh scripts/ticket-audit.sh <NN> [--repo <dir>] [--operation read|analyze|merge|push|release] [--evidence <path>] [--policy <path>]` 对一张任务票的审查收据做只读审计：逐谓词打印 `PASS`／`FAIL`／`UNKNOWN`，再按操作面给放行判定。票定位＝`facts/requirements/tickets/<NN>-*.json`（排除 `*.review-evidence.json` 与 `*.workflow-checkpoint-v1.json`，恰一命中，否则 exit 2）；缺省仓库根＝`git rev-parse --show-toplevel`，缺省证据＝票文件同名 `.review-evidence.json`，缺省策略＝`facts/requirements/audit-policy.json`。target＝仓库 HEAD；全程只读零写入，Git 只读命令之外不落任何文件。
+
+| 谓词 | 名称 | 判据（不合格分支） |
+| --- | --- | --- |
+| P01 | receipt-parseable | 证据存在、可解析、`schema_version=1`、`receipt_kind=review`、`ticket_id` 与票文件一致；失败即短路，依赖证据内容的谓词不评估 |
+| P02 | evidence-committed | 证据被 HEAD 跟踪且工作树内容与 HEAD blob 一致（提交后再改动 FAIL） |
+| P03 | base-sha-present | `base_sha` 为 40 位小写十六进制、可解析且为 head 祖先 |
+| P04 | review-boundary-clean | `head_sha` 可解析且为 target 祖先；`head..target` 改动只允许证据路径，多余改动指名 `<path>:1` |
+| P05 | diff-sha-bound | `diff_sha` 等于 `base..head` 重算指纹（`git diff --binary` 经 `git hash-object --stdin`） |
+| P06 | reviewer-identity-present | `reviewer_identity` 非空且不含空白字符 |
+| P07 | reviewer-identity-corroborated | 与证据提交 author email 大小写不敏感相等，且属策略 `trusted_reviewers`；条件不足即 UNKNOWN，不判 FAIL |
+| P08 | reviewer-distinct-from-implementer | 审查者不得为 head 作者或策略 `implementation_identities` 成员（自签即 FAIL） |
+| P09 | reviewed-at-valid | `reviewed_at` 为 UTC 秒粒度；日粒度 ≥ head 提交日、≤ 证据提交日、≥ 策略 `effective_from`（早于生效日＝旧 PASS，FAIL） |
+| P10 | acceptance-results-present | `verdict` 严格三值 `PASS`／`PASS_WITH_NOTES`／`FAIL`；`acceptance` 非空，逐项 `ac_id` 非空且 `result` ∈ `pass`／`fail`／`unknown`；`PASS` 须全 `pass`，`FAIL` 即拒 |
+| P11 | policy-applicable | 策略可加载且适用（见下）；任一不满足即 UNKNOWN |
+
+输出三行契约：逐谓词行 `PASS|FAIL|UNKNOWN <Pxx> <名称>: <相对路径>:<行号> — <原因>`；`ticket-audit: 证据位置: <路径>@<提交>:<blob>`（未提交为 `@未提交`）；`ticket-audit: 操作面: <op> 允许|拒绝（…）` 与 `ticket-audit: 判定: conformant|nonconformant|unknown（…）`。退出码：`0`＝conformant，或 unknown 下的 read/analyze；`1`＝nonconformant（任何操作面皆拒），或 unknown 下的 merge/push/release；`2`＝用法或环境错误。unknown 不阻断读面与诊断，写面（merge/push/release）只以 conformant 为门。
+
+### 审查收据与审计策略
+
+收据 schema 为 `references/schemas/receipt.schema.json`（draft-07，`additionalProperties: false`）：`receipt_kind=review` 时必备 `base_sha`、`head_sha`、`diff_sha`、`reviewer_identity`、`reviewed_at`、`verdict`、`acceptance`。审计引擎只读取这些字段，不写回。
+
+策略文件（缺省 `facts/requirements/audit-policy.json`，不建独立 schema，字段口径即本节）必备：
+
+- `schema_version`：须为 `1`。
+- `effective_from`：`YYYY-MM-DD`；晚于 target 提交日即不适用（UNKNOWN），审查时间早于该日视为旧 PASS（P09 FAIL）。
+- `baseline_sha`：40 位小写提交号，须可解析且为 target 祖先。
+- `release_baseline`：`none` 或可解析的标签名。
+- `trusted_reviewers`：非空 email 数组，P07 据此佐证审查者独立性。
+- `implementation_identities`：实现者 email 数组，P08 据此识别自签。
+
+策略缺失、不可解析或任一项不合格即 P11 UNKNOWN；引擎不以默认值兜底，也不据猜测放行写面。
+
 ## test-record-layer.sh（记录层回归 harness）
 
 - 布局：`test-record-layer.sh` 为兼容入口（委托 `tests/test-runner.sh`，参数不变）；`tests/test-helpers.sh` 承载 ok/bad/assert_eq/suite_summary/cleanup 等共享函数；每个 suite 一个 `tests/suite-<name>.sh`（内含该套件私有夹具函数），文件头带独立入口（直接 `sh tests/suite-<name>.sh` 即跑该套件）。新增套件三处同步：runner 派发表、本节 suite 覆盖表、清单 scripts 节 dir 行描述。
@@ -967,7 +1003,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 ```
 
 - 无参数：`--suite all`；被测脚本目录缺省＝本脚本所在目录，包根缺省＝被测脚本目录的上一级（check-package.sh 同款）。
-- `--suite module-map|ticket-ops|progress|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|ticket-run|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
+- `--suite module-map|ticket-ops|progress|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|ticket-run|ticket-audit|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
 - `--script-dir <dir>`：被测脚本所在目录（须含被测成员全集，权威清单＝`tests/test-runner.sh` 启动核对，含 `generate-module-map.sh`＋`module-map.rules`、`ticket-ops.sh`＋`generate-progress.sh`、`check-package.sh`、`check-append-only.sh`、`check-artifacts.sh`、`check-stale-claims.sh`、`worktree-add.sh`、`dp-load-rules.sh`；main-only 栅栏件 install.sh/export-payload.sh 不在核对清单，相关套件自行 SKIP）；对复制落位副本或被测脚本修改副本复跑时使用。
 - `--pkg-root <dir>`：check-package 套件的包根，缺省＝script-dir 的上一级。
 - `-h` / `--help`：打印用法。
@@ -1004,6 +1040,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `project-dashboard` |  | 本地项目仪表盘常驻回归：静态单文件面（无外部脚本/样式引用）＋不可信文本零 HTML 注入面＋零网络 API＋零写入/删与 readwrite 面＋`mode: 'read'` 只读授权＋核心块与测试钩子在场；Node 抽取运行核心逻辑——能力检测与不支持提示／`pickDirectory` 传 `{mode:'read'}` 且缺 API 拒绝／JSON 与索引解析（畸形与缺 id 逐项报）／Markdown 与 JSON 卡片解析（标题、状态、复杂度、对象形态验收、缺字段提示）／状态合并以索引为准并记录正文冲突／全部卡片无遗漏与孤儿索引条目／地图节点边一致与未解析引用／缺失地图声明不重建／损坏与读取失败逐卡指名且不影响其他卡／不可信文本纯文本保留与转义／布局确定性／搜索与状态筛选／快照增量不改输入／自动刷新数据源（每轮重新读取、内容变更、新增与删除文件、单文件读取失败、空目录）＋指纹稳定与变更检出＋核心零写入能力＋页面文件逐字节不变；公开包登记断言（清单 scripts 节、README 成员表、安装政策 ticket-ops 行、runner 派发表）＋安装闭包真跑（登记行复制一件且与基线一致）与缺源件预检负例；搜索按生效状态与索引失败降级两组断言（worktree 栅栏环境 install.sh 不在场时，两条安装闭包断言显式 SKIP，计数 40 为全量口径） | 40 |
 | `check-gates` |  | check-gates.sh 验证执行边界正负例：合法只读验证 exit 0 且既有 PASS/汇总行格式保持；五类越界写——新建未跟踪文件（exit 1 指名文件、保持现场、同批后续 verify 输出 SKIP 且不执行）、删除跟踪文件、修改索引（git add）、创建符号链接、改写已修改文件（git status 行不变仍经内容哈希检出）；allow-output 目录内产出 exit 0 且工作区只留白名单改动与允许输出、既有产物复跑按允许输出放行；allow-output 含跟踪文件或路径含 .. → exit 2；record-only + verify N/A 语义不变 | 11 |
 | （仅 all）注入自检 |  | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
+| `ticket-audit` |  | 证据审计引擎十一谓词正负例：正例 analyze/read/merge 三面 conformant 且十一谓词逐行 PASS、证据位置 `路径@提交:blob` 与 `git log`／`rev-parse` 逐一相等；负例按谓词分离——P01 证据缺失／非 review 收据／票号不匹配（P01 短路），P02 提交后又改动／未提交（HEAD 未跟踪），P04 证据之后混入产品改动（指名路径）与 head 非祖先，P05 diff 指纹篡改（按行号指名），P09 旧 PASS 与 reviewed_at 越界，P10 自由文本 verdict／FAIL verdict／PASS 含未知验收，P08 自签与策略实现者名单命中；未知分支——P07 身份不可佐证（author 不一致／不在可信名单）与 P11 策略缺失／非法 effective_from／不适用／发布基线标签缺失（analyze exit 0 且 merge/push 拒绝）；用法与环境错误 exit 2；一次审计零写入（文件 cksum 与 HEAD 前后一致） | 35 |
 
 断言计数随维护增减（suite 汇总行按实际计数输出；stale-claims/ticket-ops/append-only 行计数删格——数字以 `--suite` 实跑输出为唯一真相源）。
 

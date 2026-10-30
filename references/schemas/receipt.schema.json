@@ -1,0 +1,224 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agent-up/references/schemas/receipt.schema.json",
+  "title": "Agent Up 阶段收据 schema",
+  "description": "三阶段收据（dispatch／implementation／review／commit）的机器格式合同（draft-07）。收据是「已提交、可绑定 base/diff」的证据载体：审查收据至少含 base_sha、diff_sha、reviewer_identity、reviewed_at 与逐条验收结果；自由文本结论不构成证据。收据本身必须作为 Git 提交对象落库，未提交或绑定 diff 已变化即失效——判定归 scripts/ticket-audit.sh（本 schema 只承载格式，不承载判定）。审计策略文件不设独立 schema（策略结构由审计引擎加载段结构化校验）。字段语义：base_sha＝审查起点的提交 sha；head_sha＝被审产品提交 sha；diff_sha＝git diff base..head 的二进制补丁指纹（引擎按固定命令重算比对）；reviewer_identity＝审查者邮箱，须与收据提交的 author email 一致，且不得与实现者身份相同——本机填写的字段不构成独立身份证明，无法核验时审计输出 unknown。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_kind",
+    "ticket_id",
+    "created_at",
+    "actor"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "收据格式版本，现行唯一值 1。"
+    },
+    "receipt_kind": {
+      "type": "string",
+      "enum": [
+        "dispatch",
+        "implementation",
+        "review",
+        "commit"
+      ],
+      "description": "受控枚举：dispatch（派发收据）／implementation（实现收据）／review（审查收据，审计引擎唯一消费面）／commit（提交收据）。"
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[0-9]{2,}-[a-z0-9-]+$",
+      "description": "任务票标识，形态 <NN>-<slug>，须与票文件名去扩展名一致。"
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "收据创建时间，UTC ISO 8601 秒粒度。"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "收据填写主体标识（执行体或角色名，非身份证明）。"
+    },
+    "base_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "审查起点提交 sha（40 位小写十六进制），须可解析且为 head 的祖先。"
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "被审产品提交 sha；证据提交须为其后继，两者差异只允许是证据文件本身。"
+    },
+    "diff_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "diff 指纹：git diff --no-color --no-ext-diff --no-textconv --binary <base_sha> <head_sha> 的输出经 git hash-object --stdin 的 sha。"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "实现或提交阶段实际产生的提交 sha。"
+    },
+    "target_stage": {
+      "type": "string",
+      "enum": [
+        "implementation",
+        "review",
+        "commit"
+      ],
+      "description": "派发收据的目标阶段。"
+    },
+    "implementer_identity": {
+      "type": "string",
+      "minLength": 1,
+      "description": "实现者邮箱。审查收据自签判定面另取 head 提交 author email 与策略实现者清单，不以下列字段自证。"
+    },
+    "reviewer_identity": {
+      "type": "string",
+      "minLength": 1,
+      "description": "审查者邮箱；须与证据提交 author email 一致（大小写不敏感），且不得与实现者身份相同。"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "审查完成时间，UTC ISO 8601 秒粒度；日粒度须不早于 head 提交日、不晚于证据提交日，且不早于策略生效日。"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "PASS_WITH_NOTES",
+        "FAIL"
+      ],
+      "description": "受控三值结论；自由文本（含「PASS: 全部通过」形态）不作证据。"
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "description": "逐条验收结果；verdict=PASS 时每项 result 须为 pass。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ac_id",
+          "result"
+        ],
+        "properties": {
+          "ac_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "验收条件标识（如 AC1）。"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unknown"
+            ],
+            "description": "受控三值结果；unknown 不得与 verdict=PASS 同时出现。"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "description": "该条验收的证据定位（文件:行号或命令输出摘录）。"
+          }
+        }
+      }
+    },
+    "commit_message": {
+      "type": "string",
+      "minLength": 1,
+      "description": "提交阶段拟用或实际提交信息。"
+    },
+    "notes": {
+      "type": "string",
+      "description": "可选补充说明。"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "receipt_kind": {
+            "const": "dispatch"
+          }
+        },
+        "required": [
+          "receipt_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "base_sha",
+          "target_stage"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_kind": {
+            "const": "implementation"
+          }
+        },
+        "required": [
+          "receipt_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "base_sha",
+          "head_sha",
+          "implementer_identity",
+          "commit_sha"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_kind": {
+            "const": "review"
+          }
+        },
+        "required": [
+          "receipt_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "base_sha",
+          "head_sha",
+          "diff_sha",
+          "reviewer_identity",
+          "reviewed_at",
+          "verdict",
+          "acceptance"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_kind": {
+            "const": "commit"
+          }
+        },
+        "required": [
+          "receipt_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "base_sha",
+          "commit_sha",
+          "commit_message"
+        ]
+      }
+    }
+  ]
+}

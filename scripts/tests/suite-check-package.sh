@@ -81,6 +81,9 @@ fi
 # 数据件）：检查 8/19 计数 32→33、检查 20 scripts 一级 34→36 系列翻值（worktree 34、主检出 36、
 # 负例副本 35），金样串与 N23 fixture 断言独立重建；检查 9 成员表与检查 20 闭合面随登记行自动
 # 闭合。
+# 票 234 证据审计引擎入包随票修（新增 pm_script ticket-audit.sh 与 pm_entry references/schemas/
+# receipt.schema.json）：检查 1 计数 41→42、检查 8/19 计数 34→35、检查 20 scripts 一级 35/37/36→
+# 36/38/37（worktree/主检出/负例副本）、检查 21 成员 55→56；金样串与 N23/N29 断言独立重建。
 # 包级语义一致性八项入册随票修（检查 28→36，新增清单四节数据面：retired-path／
 # workflow-graph／workflow-positioning／readonly-sites／contract-pointers）：检查 29 退役
 # 能力不在活动创建路径（退役 token 行须带 legacy 标注词）、30 workflow transition endpoint
@@ -139,7 +142,7 @@ suite_check_package() {
   fi
   if [ "$_cp_in_wt" -eq 1 ]; then
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（41 个文件）
+PASS: 1 必需入口存在（42 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
@@ -147,7 +150,7 @@ PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（34 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（35 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
@@ -159,9 +162,9 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（34 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 35 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 19 scripts 节 mode 断言（35 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -180,14 +183,14 @@ check-package: PASS
 EOF
   else
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（41 个文件）
+PASS: 1 必需入口存在（42 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（34 个文件）
+PASS: 8 脚本必需件存在（35 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -198,9 +201,9 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（34 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 37 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 19 scripts 节 mode 断言（35 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 38 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -230,14 +233,14 @@ EOF
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
   cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（41 个文件）
+PASS: 1 必需入口存在（42 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（34 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（35 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -247,8 +250,8 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-CO-007 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 37 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -281,14 +284,14 @@ EOF
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（41 个文件）
+PASS: 1 必需入口存在（42 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（34 个文件）
+PASS: 8 脚本必需件存在（35 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
@@ -298,8 +301,8 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 37 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 38 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
@@ -685,7 +688,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（34 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（35 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
@@ -759,7 +762,7 @@ EOF
   rm -f "$D/pkgcopy25/references/workflows/triage.yaml"
   sh "$D/pkgcopy25/scripts/check-package.sh" "$D/pkgcopy25" >"$D/act.n29" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（41 个文件）' "$D/act.n29" \
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（42 个文件）' "$D/act.n29" \
     && grep -q '  - references/workflows/triage.yaml' "$D/act.n29"; then
     ok '负例 N29 删除已登记 references 成员 → exit 1 且 FAIL: 1 指名缺件'
   else
