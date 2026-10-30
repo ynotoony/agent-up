@@ -579,34 +579,41 @@ suite_project_dashboard() {
     bad 'runner 派发表登记 project-dashboard 套件' 'test-runner.sh 未登记'
   fi
 
-  # ---- 安装闭包真跑：按登记的复制行落位（夹具政策＝真实登记两行，源件齐） ----
-  PKG="$D/pkg"
-  mkdir -p "$PKG/scripts" "$D/proj"
-  cp "$SCRIPT_DIR/install.sh" "$HTML" "$PKG/scripts/"
-  grep -F 'ip_gate ticket-ops --ticket-ops ' "$POLICY" > "$PKG/scripts/install-policy.rules"
-  grep -F "ip_file agent-up/scripts/$DASH_NAME Conditional ticket-ops " "$POLICY" >> "$PKG/scripts/install-policy.rules"
-  ( cd "$D" && sh "$PKG/scripts/install.sh" --target "$D/proj" --ticket-ops ) > "$D/install.out" 2>&1
-  install_rc=$?
-  if [ "$install_rc" -eq 0 ] \
-    && [ -f "$D/proj/rules/implementation/scripts/$DASH_NAME" ] \
-    && cmp -s "$HTML" "$D/proj/rules/implementation/scripts/$DASH_NAME" \
-    && grep -q '^install: DONE: 复制 1 件（脚本 1＋数据 0）' "$D/install.out"; then
-    ok '安装闭包真跑：登记行经 ticket-ops 门控复制仪表盘一件且与基线字节一致'
+  # 栅栏环境跳过（口径同 check-package 检查 8/9 与 suite-install：worktree-add.sh 按
+  # delivery.rules dp_mainonly 排除 main-only 件，install.sh 在 worktree 内物理不在场）：
+  # 两条安装闭包断言显式 SKIP 不计数，覆盖归主检出全量，不宣称不存在的验证。
+  if [ ! -f "$SCRIPT_DIR/install.sh" ]; then
+    printf 'SKIP  [project-dashboard] 安装闭包真跑与缺源件负例（install.sh main-only 栅栏件不在场）——两条断言跳过，覆盖归主检出\n'
   else
-    bad '安装闭包真跑：登记行经 ticket-ops 门控复制仪表盘一件且与基线字节一致' "exit=$install_rc out=$(tail -n 2 "$D/install.out" | tr '\n' '|')"
-  fi
+    # ---- 安装闭包真跑：按登记的复制行落位（夹具政策＝真实登记两行，源件齐） ----
+    PKG="$D/pkg"
+    mkdir -p "$PKG/scripts" "$D/proj"
+    cp "$SCRIPT_DIR/install.sh" "$HTML" "$PKG/scripts/"
+    grep -F 'ip_gate ticket-ops --ticket-ops ' "$POLICY" > "$PKG/scripts/install-policy.rules"
+    grep -F "ip_file agent-up/scripts/$DASH_NAME Conditional ticket-ops " "$POLICY" >> "$PKG/scripts/install-policy.rules"
+    ( cd "$D" && sh "$PKG/scripts/install.sh" --target "$D/proj" --ticket-ops ) > "$D/install.out" 2>&1
+    install_rc=$?
+    if [ "$install_rc" -eq 0 ] \
+      && [ -f "$D/proj/rules/implementation/scripts/$DASH_NAME" ] \
+      && cmp -s "$HTML" "$D/proj/rules/implementation/scripts/$DASH_NAME" \
+      && grep -q '^install: DONE: 复制 1 件（脚本 1＋数据 0）' "$D/install.out"; then
+      ok '安装闭包真跑：登记行经 ticket-ops 门控复制仪表盘一件且与基线字节一致'
+    else
+      bad '安装闭包真跑：登记行经 ticket-ops 门控复制仪表盘一件且与基线字节一致' "exit=$install_rc out=$(tail -n 2 "$D/install.out" | tr '\n' '|')"
+    fi
 
-  # 负例：包内缺仪表盘源件 → 预检失败 exit 1 指名路径、零写入
-  PKGB="$D/pkgb"
-  mkdir -p "$PKGB/scripts" "$D/projb"
-  cp "$SCRIPT_DIR/install.sh" "$PKGB/scripts/"
-  cp "$PKG/scripts/install-policy.rules" "$PKGB/scripts/"
-  ( cd "$D" && sh "$PKGB/scripts/install.sh" --target "$D/projb" --ticket-ops ) > /dev/null 2>"$D/install-bad.err"
-  bad_rc=$?
-  if [ "$bad_rc" -eq 1 ] && grep -q "$DASH_NAME" "$D/install-bad.err" && [ ! -d "$D/projb/rules" ]; then
-    ok '安装预检负例：缺源件 exit 1 指名路径、零写入'
-  else
-    bad '安装预检负例：缺源件 exit 1 指名路径、零写入' "exit=$bad_rc err=$(head -n 1 "$D/install-bad.err")"
+    # 负例：包内缺仪表盘源件 → 预检失败 exit 1 指名路径、零写入
+    PKGB="$D/pkgb"
+    mkdir -p "$PKGB/scripts" "$D/projb"
+    cp "$SCRIPT_DIR/install.sh" "$PKGB/scripts/"
+    cp "$PKG/scripts/install-policy.rules" "$PKGB/scripts/"
+    ( cd "$D" && sh "$PKGB/scripts/install.sh" --target "$D/projb" --ticket-ops ) > /dev/null 2>"$D/install-bad.err"
+    bad_rc=$?
+    if [ "$bad_rc" -eq 1 ] && grep -q "$DASH_NAME" "$D/install-bad.err" && [ ! -d "$D/projb/rules" ]; then
+      ok '安装预检负例：缺源件 exit 1 指名路径、零写入'
+    else
+      bad '安装预检负例：缺源件 exit 1 指名路径、零写入' "exit=$bad_rc err=$(head -n 1 "$D/install-bad.err")"
+    fi
   fi
 
   suite_summary 'project-dashboard'
