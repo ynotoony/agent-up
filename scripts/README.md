@@ -16,7 +16,7 @@
 | `check-append-only.sh` | Record 只追加守卫 | 守卫记录层两类写入语义（承接「Record 行级保护」候选口径）：`facts/project/changes.jsonl` 与 `facts/project/micro.jsonl` 只追加账本（HEAD 旧 blob 须为新内容前缀，中间插入/改写历史行/截断/删除即 FAIL 指名文件与首个违规行号）、`facts/project/archive/progress.md` 与 `facts/project/archive/changes.md` 冻结历史档案（任何 diff 即 FAIL；迁移窗口按 HEAD 旧路径承继基线核对）；文件不存在跳过（懒创建语义）、无 Git 基线（无 HEAD）WARN 退出 0（不硬猜基线先例）；POSIX sh、零外部依赖（仅 POSIX 标准工具与 Git 只读子命令）、fail-closed。可作 verify 命令加入门禁清单。详见下文专节。 |
 | `check-artifacts.sh` | 治理产物对账器 | 治理产物登记与实物双向对账（兑现 R-DP-007 逐件登记核对）：正向＝`facts/project/artifacts.yaml` 每条登记 path 目标必须存在（缺失 FAIL 指名条目；数据块懒创建面登记暂缺 SKIP），反向＝数据块受管口径内文件必须被登记（精确/glob/目录聚合覆盖）或命中豁免规则（未登记 FAIL 指名路径，豁免命中不报）；受管口径与豁免规则落脚本内对账数据块（引擎零目录硬编码，对账数据块定谳）；登记解析破坏 exit 2 不产生部分结论；POSIX sh、零外部依赖（仅 POSIX 标准工具）、fail-closed；`--fix` 修复形态（反向未登记 → 十三字段登记条目骨架，dry-run 缺省零写入、`--apply` 显式落盘且与预览逐字一致、与检测共用判定代码；正向缺失不修）。详见下文专节。 |
 | `check-stale-claims.sh` | 易腐断言扫描器 | 登记表驱动的高流转状态句扫描（REQ-20260904-010；S3 改投影 vs 索引比对、消 S1-1e 恒触发缺口；S4 计数漂移哨兵：README 锚点行数↔index 条目数相等断言＋「N～M 共」「共 N 量词」计数模式扫描；S5 方案结论标注句：结论行 file: 出处＋轨:受控两值格式断言，向前生效只查工作区新增/修改面；S6 终态哨兵：索引 id 曾达 done/superseded 被改回非终态即 STALE 指名票 id 与跃迁方向，终态史取 Git 基线，对账分层＝一致性对账之外终态语义由 S6 承载；S7 替代标记存在性：索引条目 superseded_by 指向票必须真实存在（R-DP-039 替代标记面，悬挂/链环 STALE、非终态指向 WARN）；S8 复盘沉淀指针：lesson 行 promoted_to∈{rules,validator,test} 且指针可 grep 时核对文件存在＋锚点在场，缺失/丢失＝STALE（R-DP-041 检查面））；票收口拦截（gate，发现过期断言 exit 1）与会话启动警告（session，恒 exit 0）两模式；POSIX sh、全程只读、零外部依赖。详见下文专节。 |
-| `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的只读门禁核对（REQ-20260904-011）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；POSIX sh、严格只读、零外部依赖。详见下文专节。 |
+| `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的门禁核对（REQ-20260904-011）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；现行版本起对验证命令写工作区零容忍——每条 verify 前后各取一次完整快照（跟踪/未跟踪/忽略文件内容哈希、可执行位、目录、符号链接目标、索引、HEAD），allow-output 缺省为空，白名单外变化一律失败并保持现场；POSIX sh、零外部依赖。详见下文专节。 |
 | `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011；单写机制改造；微道预检两断言）：门禁 → 白名单产品提交 → 索引翻转（经同目录 `ticket-ops.sh` `flip-index` 代理承载索引单写＋投影再生＋`--check` 收尾链——写入方收敛，本件零直接 index.json 写入面与零直接生成器调用）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 经 `checkpoint-write.sh` 追加或微账本（`facts/project/micro.jsonl`）经 `ledger-append.sh --micro` 落行（记录写职责拆分，本件零 checkpoint/账本写入面）→ 记录提交（两段式，R-RC-003）；micro 道预检两断言（白名单 ≤3 条目、改动集零新建（??）零删除（D），违者 exit 1，user-review 道不受限）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
 | `generate-progress.sh` | 现役状态投影生成器 | 自 `facts/requirements/tickets/index.json`（票状态真相源，一条目一行）生成 `facts/requirements/tickets/progress-current.md` 现役状态投影（Derived，生成器独占写）；`--check` 为 dry-run 一致性核对；再生调用单点＝`ticket-ops.sh`（open/take/flip/flip-index 收尾链独占调用；快道索引翻转经 `lane-commit.sh`→`flip-index` 代理触达，零直接调用方；`check-stale-claims.sh` 仅调用 `--check` 只读一致性核对，非写链）；运行时依赖＝同目录 common-helpers.sh（die 与 resolve_repo_root）与 json-validator.py json fields 模式（条目字段解析唯一引擎，缺件 fail-closed 指名）；POSIX sh、fail-closed。详见下文专节。 |
 | `generate-module-map.sh` | 模块地图生成器 | 静态导入行提取生成 `<root>/facts/project/architecture/module-map.json` 检索索引（方案 A 静态导入行提取拍板；Rust 扩展、表驱动化、七语言批量扩展迭代）：Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌（R-DP-015 算法，输入排除本图自身）；repo-root 参数化（缺省 git toplevel）；引擎为通用规则解释器（加载规则表→发现源码→匹配捕获→策略产边→存在性过滤→组装 JSON），语言知识外置 `module-map.rules`（每语言一行，引擎零语言专名，加语言＝加规则行零引擎改动）；POSIX sh、无 jq/python（stat 与 SHA-256 工具依赖声明见专节）、fail-closed。详见下文专节。 |
@@ -43,7 +43,7 @@
 | `test-checkpoint-recovery.sh` | Checkpoint 中断续传回归测试 | workflow-executor.sh 中断续传机制回归测试：模拟工作流中断后从 checkpoint 恢复继续执行的场景，验证 checkpoint 文件格式、恢复逻辑正确性；POSIX sh、mktemp 夹具 trap 清理、零工作区写入。供开发/升级时自检 checkpoint 机制。 |
 | `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控显示 N/A；快道证据两源＝delivery.rules 在场或快道专属脚本已装，多门控共享脚本（如 generate-progress.sh）不构成快道证据——未启用快道时 delivery.rules 恒 N/A，快道脚本已装而缺配置才报落后；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
-| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋24 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
+| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋25 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
 
 旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
@@ -298,7 +298,16 @@ R-DP-033 加固（2026-09-23 复盘产出）配套格式断言：调研/对比�
 
 ## check-gates.sh（快道门禁核对器）
 
-分级交付道快道的只读门禁核对器（REQ-20260904-011）：对行式门禁清单逐项核对「工作区实际改动 ⊆ 白名单」，并按清单重跑验证命令、记录退出码，供票收口与道脚本收尾调用。POSIX sh（`#!/bin/sh`、`set -eu`）、严格只读（除向 stdout/stderr 打印外无任何写操作；Git 仅使用只读子命令 `rev-parse`/`status`，无临时文件）、零外部依赖、零网络依赖。
+分级交付道快道的门禁核对器（REQ-20260904-011）：对行式门禁清单逐项核对「工作区实际改动 ⊆ 白名单」，并按清单重跑验证命令、记录退出码，供票收口与道脚本收尾调用。现行版本起对「验证命令更改工作区」零容忍：check-gates 自身不写工作区，但 verify 是任意 shell 命令、可能写入原工作区；每条 verify 执行前后各取一次完整快照，白名单外变化一律失败并保持现场。POSIX sh（`#!/bin/sh`、`set -eu`）、零外部依赖（POSIX 工具与 Git 只读子命令）、零网络依赖。
+
+### 验证命令执行边界
+
+- 快照面：仓库内全部普通文件（含被 `.gitignore` 忽略的文件）的路径、内容对象哈希（经 `git hash-object`，零临时写入仓库）与可执行位；全部目录条目；符号链接的目标哈希；FIFO/套接字等特殊文件的路径存在性；索引条目（mode、blob、stage）；`HEAD` 提交与 `HEAD` 符号引用。
+- 快照时机：每条 verify 执行前、执行后各一次。已被修改的文件被再次改写时 `git status` 行可以不变，内容哈希仍能检出——状态行不是判定依据。
+- 越界处置：白名单外出现新增、删除或变更即 exit 1，输出失败命令、异常路径（新增/删除/变更）与前后状态差异；异常路径不删除、不回滚，前后快照保留在 `$TMPDIR` 的 `check-gates.*` 目录供诊断；同批剩余 verify 不再执行（输出 `SKIP:` 行），避免越界写入继续扩大。
+- 允许输出目录：门禁清单可选 `allow-output:` 行，逗号分隔仓库根相对目录，缺省为空（默认不允许任何写入）。该目录内未跟踪产物的创建、修改与删除视为合法输出，不计越界，也不要求写进 `whitelist:`；同一产物在后续门禁复跑中同样按允许输出放行。目录内含已跟踪文件即拒绝配置（exit 2）——放行面只覆盖未跟踪产物，跟踪文件的任何改动仍须经白名单核对。路径不得为绝对路径、不得含 `..` 段、不得指向 `.git`。
+- 已知边界：`.git` 内部对象与引用不在快照面（Git 自身内务会触碰；索引与 HEAD 的变化另经索引/HEAD 快照检出）；验证命令的瞬时写入在同一命令内删除或恢复（净零变化）不判；工作区或索引路径含换行、制表符时拒绝生成快照（exit 2）。
+- 成本：每次快照对仓库内全部文件做内容哈希（未使用 `allow-output` 时含 `node_modules` 等被忽略目录）。大缓存目录应登记到 `allow-output`，或接受门禁耗时随仓库体积增长。
 
 ### 用法
 
@@ -318,32 +327,43 @@ sh scripts/check-gates.sh [repo-root] <gates-file>
 | --- | --- |
 | `whitelist: <逗号分隔的仓库根相对路径>` | 必需，至少一行；一行可多项，逗号分隔。 |
 | `verify: <验证命令>` | 一行一条，可多行；普通快道至少一条真实命令。纯记录例外只允许唯一 `verify: N/A`，且必须同时声明 `record-only: <理由>`。 |
+| `allow-output: <逗号分隔的仓库根相对目录>` | 可选，缺省为空（不允许任何 verify 写入）；目录内未跟踪产物视为合法输出。目录内含已跟踪文件、路径为绝对路径或含 `..` 段即拒绝配置（exit 2）。 |
 | `record-only: <纯记录理由>` | 可选，显式声明纯记录例外；不得与真实 verify 命令混用。 |
 | `# 注释` / 空行 | 行首 `#` 与空行忽略；无法识别的行判格式错误（exit 2）。 |
 
-白名单口径：白名单条目须为仓库根相对**文件路径**。改动集以 `git status --porcelain -uall` 逐文件展开（未跟踪目录不折叠为目录条目），逐文件与白名单条目做全字面比对——目录形态条目（如 `docs/`）在逐文件口径下永不可 PASS，属 fail-closed 方向；路径含空白或转义引用时拒绝解析（exit 2）。
+白名单口径：白名单条目须为仓库根相对**文件路径**。改动集以 `git status --porcelain -uall` 逐文件展开（未跟踪目录不折叠为目录条目），逐文件与白名单条目做全字面比对——目录形态条目（如 `docs/`）在逐文件口径下永不可 PASS，属 fail-closed 方向；`allow-output` 目录内的未跟踪改动按允许输出放行（输出 `PASS: 改动 <路径>（在允许输出目录内）`），不要求重复登记到白名单；路径含空白或转义引用时拒绝解析（exit 2）。
 
 ### 输出格式
 
 ```text
 PASS: 改动 <路径>（在白名单内）
+PASS: 改动 <路径>（在允许输出目录内）
 FAIL: 改动 <路径>（不在白名单内）
 PASS: verify[<序号>] exit=0 <命令>
 FAIL: verify[<序号>] exit=<退出码> <命令>
   <verify 失败时的命令输出，逐行缩进两空格>
+FAIL: verify[<序号>] 越界改动工作区 N 项（新增 X／删除 Y／变更 Z）
+  失败命令: <命令>
+  异常路径（新增/删除/变更 ...）:
+    + <路径>（新增）／- <路径>（删除）／~ <路径>（变更）
+  前后状态差异（前 -／后 +）:
+    - <前快照行>
+    + <后快照行>
+  现场保留: 异常路径不自动删除、不回滚；前后快照保留于 <目录>
+SKIP: verify[<序号>] 未执行（前序验证越界改动工作区，就地停止） <命令>
 check-gates: PASS（改动 N 项全部在白名单内，verify N 条全部通过）
 check-gates: FAIL（N 项未通过）
 ```
 
-- 实际改动的每个文件（重命名行展开为新旧两侧）逐项输出一行 PASS 或 FAIL；verify 逐条输出退出码记录行，失败时附命令输出（缩进两空格）；结尾汇总行给出计数与结论。
+- 实际改动的每个文件（重命名行展开为新旧两侧）逐项输出一行 PASS 或 FAIL；verify 逐条输出退出码记录行，失败时附命令输出（缩进两空格）；越界写入另输出失败命令、异常路径与前后快照差异行（快照行格式为 `路径<TAB>类型<TAB>状态`，差异行截断至 20 行，完整内容见保留的快照目录）；结尾汇总行给出计数与结论。
 
 ### 退出码
 
 | 退出码 | 语义 |
 | --- | --- |
-| 0 | 全部通过（改动全在白名单内且 verify 全部 exit 0）。 |
-| 1 | 有未过项（越界改动或 verify 失败，逐项 FAIL 行见输出）。 |
-| 2 | 用法或环境错误（参数数量不合、仓库根不存在或不是 Git 仓库、清单不可读、清单缺少 whitelist 行、清单行无法识别、git status 行无法解析等）。 |
+| 0 | 全部通过（改动全在白名单内且 verify 全部 exit 0 且未越界写工作区）。 |
+| 1 | 有未过项（越界改动、verify 失败或 verify 越界写工作区，逐项 FAIL 行见输出）。 |
+| 2 | 用法或环境错误（参数数量不合、仓库根不存在或不是 Git 仓库、清单不可读、清单缺少 whitelist 行、清单行无法识别、allow-output 配置非法、快照无法生成、git status 行无法解析等）。 |
 
 ## lane-commit.sh（快道收尾脚本）
 
@@ -390,7 +410,7 @@ flips 语义（单写机制）：
 
 1. 合同解析与语义校验（车道组合、必填行缺失、禁止组合、索引翻转车道/id/取值校验；先于任何写入）；micro 道预检两断言（白名单条目 ≤3——超出属非微任务改走 user-review 道；`git status` 改动集零新建（??）零删除（D）——微道只修不建不删；任一违者 exit 1，停止时零提交零写入；user-review 道行为零变化）。
 2. 翻转目标与预检（只扫描不写入）：翻转目标存在性、索引一条目一行排版与 id 锚点唯一命中、正文 Status 行唯一命中、行翻转锚点唯一命中、写入代理可用性（`ticket-ops.sh`、`checkpoint-write.sh`、`ledger-append.sh`：均同目录 → PATH）；全部通过才继续。
-3. 门禁核对（内部调用同目录 check-gates.sh，只读）；任一不符 exit 1。
+3. 门禁核对（内部调用同目录 check-gates.sh：白名单比对＋验证前后工作区快照，verify 越界写工作区同样失败）；任一不符 exit 1。
 4. 产品提交：按白名单逐项 `git add`，防御性核对暂存内容不越出白名单，按合同 `message` 创建提交。
 5. 记录写入：索引翻转（经 `ticket-ops.sh` `flip-index` 代理——索引单写＋投影再生＋`--check` 由代理承载）→ 票正文 Status 投影打印件回写（`.json` 票跳过并打印说明行）→ 行翻转 → user-review 道经 `checkpoint-write.sh review-checkpoint` 落 User Review Checkpoint（裁决原文、裁决时间、产品提交 ID 与说明、diff 摘要；`.md` 票追加票尾，`.json` 票落独立 `facts/requirements/tickets/<id>-review-checkpoint.md`——不存在则创建带一级标题、已存在则追加记录块，票体零追加；代理 stdout 末行目标文件契约行登记进记录提交）/ micro 道经 `ledger-append.sh --micro` 向 `facts/project/micro.jsonl` 落一行 JSON。
 6. 记录提交：索引、票文件、投影、微账本等记录内容统一入第二段提交（`chore(lane): 记录翻转 — <message>`）。
@@ -980,6 +1000,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `role-prompt` |  | 角色合同/Prompt 权威边界正负例（单一合同权威——角色合同模板承载 MUST 与权限正文，派发 Prompt 只承载参数/上下文/输出槽）：四件角色合同模板权威面正例（能力声明行＋规则块在位，含 Triage）＋现行三件 Prompt 零合同正文边界扫描＋Triage 模板登记闭合五断言（实物＋清单 pm_template/pm_shortcode 数据行＋templates/README.md manifest 与短码投影行）＋占位符全集零漂移（--check-template）＋负例四：duplicate-body Prompt 夹具（复制白名单/规则正文进 Prompt）扫描器失败指名角色文件:行号、duplicate-rule 角色合同夹具（整块复制 R-RT-001）经 check-package 检查 22 失败指名 ID 与角色模板、missing-permission 角色合同夹具（删 readonly-execute）检查 14 失败指名角色模板、Triage 缺权限声明夹具结构断言指名 missing-decl；parameter/context/output-only 对照 Prompt 夹具通过（零误报防线） |  |
 | `ticket-run` |  | 同一带 dispatch 节夹具票真实走完 implementation 建站与两行输出、review 合同复用、commit 缺 Review/最终 FAIL 零提交两负例、结论位负例（首行 fail＋PASS 证据行、`Verdict: FAIL`＋PASS 证据行、仅证据行无结论、仅 `PASS:` 证据行均零提交）、存量格式 `- 评审结论：**pass**（注记）` 兼容正例、Review PASS 后产品/记录两段提交＋索引投影；独立 Review 文件入产品提交且不伪造 User Review Checkpoint；commit 不在 `$TMPDIR` 留合同文件；非法 stage 负例与两个编排器的原子层静态边界 | 15 |
 | `project-dashboard` |  | 本地项目仪表盘常驻回归：静态单文件面（无外部脚本/样式引用）＋不可信文本零 HTML 注入面＋零网络 API＋零写入/删与 readwrite 面＋`mode: 'read'` 只读授权＋核心块与测试钩子在场；Node 抽取运行核心逻辑——能力检测与不支持提示／`pickDirectory` 传 `{mode:'read'}` 且缺 API 拒绝／JSON 与索引解析（畸形与缺 id 逐项报）／Markdown 与 JSON 卡片解析（标题、状态、复杂度、对象形态验收、缺字段提示）／状态合并以索引为准并记录正文冲突／全部卡片无遗漏与孤儿索引条目／地图节点边一致与未解析引用／缺失地图声明不重建／损坏与读取失败逐卡指名且不影响其他卡／不可信文本纯文本保留与转义／布局确定性／搜索与状态筛选／快照增量不改输入／自动刷新数据源（每轮重新读取、内容变更、新增与删除文件、单文件读取失败、空目录）＋指纹稳定与变更检出＋核心零写入能力＋页面文件逐字节不变；公开包登记断言（清单 scripts 节、README 成员表、安装政策 ticket-ops 行、runner 派发表）＋安装闭包真跑（登记行复制一件且与基线一致）与缺源件预检负例；搜索按生效状态与索引失败降级两组断言 | 40 |
+| `check-gates` |  | check-gates.sh 验证执行边界正负例：合法只读验证 exit 0 且既有 PASS/汇总行格式保持；五类越界写——新建未跟踪文件（exit 1 指名文件、保持现场、同批后续 verify 输出 SKIP 且不执行）、删除跟踪文件、修改索引（git add）、创建符号链接、改写已修改文件（git status 行不变仍经内容哈希检出）；allow-output 目录内产出 exit 0 且工作区只留白名单改动与允许输出、既有产物复跑按允许输出放行；allow-output 含跟踪文件或路径含 .. → exit 2；record-only + verify N/A 语义不变 | 11 |
 | （仅 all）注入自检 |  | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 
 断言计数随维护增减（suite 汇总行按实际计数输出；stale-claims/ticket-ops/append-only 行计数删格——数字以 `--suite` 实跑输出为唯一真相源）。
