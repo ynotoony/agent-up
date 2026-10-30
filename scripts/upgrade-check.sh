@@ -57,6 +57,7 @@ policy="$pkg_dir/scripts/install-policy.rules"
 for _required in \
   references/templates/delivery-rules.tmpl \
   references/templates/AGENTS.md.tmpl \
+  references/templates/core.md.tmpl \
   references/templates/assessment.md.tmpl \
   references/templates/discipline.md.tmpl \
   references/templates/project.md.tmpl \
@@ -119,6 +120,7 @@ LC_ALL=C awk -F'|' '
   || die2 "模板 manifest 的条件 README emits 无法解析: $pkg_dir/references/templates/README.md"
 
 # A docs path alone is never legacy evidence. Only complete combinations select a layout.
+# core.md 不参与布局判定（存量仓无该件仍判 modern），缺失由规则块比对报「落后 缺失」
 modern_complete=1
 for _p in AGENTS.md rules/assessment.md rules/implementation/discipline.md rules/project.md facts/project/artifacts.yaml; do
   [ -f "$repo_root/$_p" ] || modern_complete=0
@@ -311,6 +313,7 @@ uc_check_blocks() {
 printf '%s: 规则块 ID 集（不比较块内语义）:\n' "$prog"
 uc_check_blocks AGENTS.md references/templates/AGENTS.md.tmpl
 if [ "$layout" = modern ] || [ "$layout" = mixed ]; then
+  uc_check_blocks rules/core.md references/templates/core.md.tmpl
   uc_check_blocks rules/assessment.md references/templates/assessment.md.tmpl
   uc_check_blocks rules/implementation/discipline.md references/templates/discipline.md.tmpl
   uc_check_blocks rules/project.md references/templates/project.md.tmpl

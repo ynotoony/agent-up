@@ -1,4 +1,4 @@
-<!-- Input: `SKILL.md` 对新项目治理骨架的生成约定、seed 七件套与触发矩阵约定（`../protocol/` 手册）、SPEC-05 角色合同七节与能力声明约定（能力语义见 `../adapters/capability-contract.md`），以及本目录的模板文件；ticket-record schema 落 `../schemas/`、不以模板承载的定稿事实。 -->
+<!-- Input: `SKILL.md` 对新项目治理骨架的生成约定、seed 骨架与触发矩阵约定（`../protocol/` 手册）、SPEC-05 角色合同七节与能力声明约定（能力语义见 `../adapters/capability-contract.md`），以及本目录的模板文件；ticket-record schema 落 `../schemas/`、不以模板承载的定稿事实。 -->
 <!-- Output: `agent-up` 生成治理文件时可读取的模板 manifest：直接成员、Emits 目标路径、创建触发条件、产物生命周期与规则块短码登记。 -->
 <!-- Pos: Skill 治理模板目录索引与模板 manifest；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
@@ -40,7 +40,7 @@
 | `assessment.md.tmpl` | Seed | `rules/assessment.md` | always | `DP` | 生成评估规则（决策表）：工作分类与接手、需求工作三道、分级交付道三车道准入判据、C0–C3 定级判据、复杂度两问与拆票判据；条款以 C1–C10 引用。 |
 | `discipline.md.tmpl` | Seed | `rules/implementation/discipline.md` | always | `DP` | 生成实现纪律：两层协作与阶段门禁、委派合同 16 字段、验证命令要求、冲突/中断/恢复处置指针；条款以 C1–C10 引用。 |
 | `project.md.tmpl` | Seed | `rules/project.md` | always | `DP` | 生成项目规则骨架（目标项目自有条款与三张表）：读取阶梯与权威层级、目录边界、产物生命周期（五类/触发矩阵/登记）、同步门槛、状态机、会话恢复顺序、写入所有权矩阵与项目自有条款槽位。 |
-| `artifacts-yaml.tmpl` | Seed | `facts/project/artifacts.yaml` | always | 无 | 生成产物机器索引：十三字段说明与 seed 七件初始登记。 |
+| `artifacts-yaml.tmpl` | Seed | `facts/project/artifacts.yaml` | always | 无 | 生成产物机器索引：十三字段说明与 seed 骨架初始登记。 |
 | `dir-README.md.tmpl` | Seed（兼条件性） | `<目录>/README.md` | rules/ 与 facts/ 目录：always；其他受 Git 管理目录：新建目录时 | 无 | 生成目录 README 与直接成员登记。 |
 | `CONTEXT.md.tmpl` | Conditional | `facts/project/CONTEXT.md` | 确认了项目特有术语、角色或状态 | 无 | 生成结构化词条 + 自然语言定义的领域上下文。 |
 | `issues-README.md.tmpl` | Conditional | `facts/requirements/tickets/README.md` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 | 无 | 生成任务票目录规则与票模板（含 category 类别声明与 superseded_by 替代标记注记，R-DP-039）。 |

@@ -21,7 +21,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 
 ## 3. 不可违反的核心规则
 
-违反任何一条即失败；完整协议权威是安装到目标项目的规则三件 `rules/assessment.md`＋`rules/implementation/discipline.md`＋`rules/project.md`（由本包 `references/templates/` 拆三规则模板生成）：
+违反任何一条即失败；完整协议权威是安装到目标项目的 `rules/core.md`（可执行条款 C1–C10）与流程规则三件 `rules/assessment.md`＋`rules/implementation/discipline.md`＋`rules/project.md`（分别由 `core.md.tmpl` 与拆三规则模板生成）：
 
 1. **路由不复制**：`AGENTS.md` 只做路由和边界声明；流程细节只存在于规则三件（`rules/assessment.md`＋`rules/implementation/discipline.md`＋`rules/project.md`）这一事实源。
 2. **不覆盖事实**：既有文档、代码布局、命名和规则一律视为项目事实，只登记、只补缺；冲突报告用户，不静默改写。

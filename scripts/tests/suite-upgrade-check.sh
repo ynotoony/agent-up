@@ -21,6 +21,7 @@ uc_build_fixture() {
   printf "ip_gate fast-lane --fast-lane 'fixture fast lane'\nip_gate ticket-ops --ticket-ops 'fixture ticket ops'\nip_file agent-up/scripts/upgrade-check.sh Conditional fast-lane 'fixture checker'\nip_file agent-up/scripts/generate-progress.sh Conditional fast-lane 'fixture shared script'\nip_file agent-up/scripts/generate-progress.sh Conditional ticket-ops 'fallback dependency'\n" > "$1/pkg/scripts/install-policy.rules"
   printf '# ==== payload：导出形态（export-payload.sh 读）====\n# ==== boundary：禁入名单（pre-push 安检读）====\n# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n# ==== main-only：worktree 排除清单（worktree-add.sh 读）====\n' > "$1/pkg/references/templates/delivery-rules.tmpl"
   printf '#### R-AG-001 Agent\nbody\n' > "$1/pkg/references/templates/AGENTS.md.tmpl"
+  printf '#### R-CO-001 Grant\nbody\n' > "$1/pkg/references/templates/core.md.tmpl"
   printf '#### R-DP-001 Alpha\nbody\n#### R-DP-002 Beta\nbody\n' > "$1/pkg/references/templates/assessment.md.tmpl"
   printf '#### R-DP-003 Discipline\nbody\n' > "$1/pkg/references/templates/discipline.md.tmpl"
   printf '#### R-DP-004 Project\nbody\n' > "$1/pkg/references/templates/project.md.tmpl"
@@ -33,6 +34,7 @@ uc_build_fixture() {
 uc_build_modern_repo() {
   mkdir -p "$1/rules/implementation/roles" "$1/facts/project"
   cp "$2/pkg/references/templates/AGENTS.md.tmpl" "$1/AGENTS.md"
+  cp "$2/pkg/references/templates/core.md.tmpl" "$1/rules/core.md"
   cp "$2/pkg/references/templates/assessment.md.tmpl" "$1/rules/assessment.md"
   cp "$2/pkg/references/templates/discipline.md.tmpl" "$1/rules/implementation/discipline.md"
   cp "$2/pkg/references/templates/project.md.tmpl" "$1/rules/project.md"
@@ -89,6 +91,16 @@ suite_upgrade_check() {
     ok '负例 N1 缺块 → 落后并列出 R-DP-002'
   else
     bad '负例 N1 缺块 → 落后并列出 R-DP-002' "exit=$rc $(tail -n 2 "$D/n1.out" | tr '\n' '|')"
+  fi
+
+  # New core.md is checked by block comparison only; a modern repo without it is behind.
+  uc_modern "$D/n9"
+  rm -f "$D/n9/repo/rules/core.md"
+  sh "$UC" "$D/n9/pkg" "$D/n9/repo" > "$D/n9.out" 2>&1; rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '落后  rules/core.md 缺失' "$D/n9.out"; then
+    ok '负例 N9 现代仓缺 rules/core.md → 落后 exit 1（布局仍判 modern）'
+  else
+    bad '负例 N9 现代仓缺 rules/core.md → 落后 exit 1（布局仍判 modern）' "exit=$rc $(tail -n 2 "$D/n9.out" | tr '\n' '|')"
   fi
 
   # Extra block is a non-blocking divergence candidate.

@@ -19,7 +19,7 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
 
 ## 1. 判别与盘点（动手前完成）
 
-- 判别：以用户话语（"升级/同步包新版/拉新模板"）确认进入本手册；布局再由完整信号组合核对，不单凭某个 `docs/` 或 `rules/` 路径自行定轨。现代完整面是 `AGENTS.md`＋`rules/` 规则三件＋`facts/project/artifacts.yaml`；旧式完整面是 `AGENTS.md`＋`docs/development-process.md`＋`docs/agent/artifacts.yaml`。两套都完整时标记混合并分别核对；两套都不完整时停止，列出缺失项等用户裁决。
+- 判别：以用户话语（"升级/同步包新版/拉新模板"）确认进入本手册；布局再由完整信号组合核对，不单凭某个 `docs/` 或 `rules/` 路径自行定轨。现代完整面是 `AGENTS.md`＋`rules/` 流程规则三件＋`facts/project/artifacts.yaml`（`rules/core.md` 为后加核心件：对账器对它做规则块比对，缺失或落后即报「落后」，但不参与布局判定）；旧式完整面是 `AGENTS.md`＋`docs/development-process.md`＋`docs/agent/artifacts.yaml`。两套都完整时标记混合并分别核对；两套都不完整时停止，列出缺失项等用户裁决。
 - 盘点已装的部分（列成清单供第 2 步对比）：
   - **装上的脚本**：`rules/implementation/scripts/`（新布局）或旧项目已有的 `scripts/`（兼容布局）内来自包的件（登记面以目标项目实际布局为准）；两处同时存在时两份都核对，不静默选边。
   - **模板生成的文件**：`rules/assessment.md`、`rules/implementation/discipline.md`、`rules/project.md`、各 README、`AGENTS.md`（登记 `generated_from` 指向包内 `.tmpl`）。

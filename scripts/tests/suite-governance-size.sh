@@ -8,6 +8,7 @@ fi
 # ============================================================
 # suite: governance-size（安装面预算回归）
 #   预算表内嵌于本套件：9 件安装件逐件上限 + 合计 ≤30000 + 安装面规则块恰 10 +
+#   核心规则 G 覆盖（逐条带 G1–G5）+ 每阶段读取集 ≤15000 + 隔离门槛在位 +
 #   安装件不得引用未安装手册（悬空指针防复发）。
 #   字符数口径＝python3 len(text)（中文按字计）；超限即 FAIL 并打印实测值与上限。
 #   9 件＝AGENTS + core + project + assessment + discipline + 四份角色合同。
@@ -16,7 +17,7 @@ fi
 GOV_INSTALL_FILES='AGENTS.md.tmpl core.md.tmpl project.md.tmpl assessment.md.tmpl discipline.md.tmpl agents-triage.md.tmpl agents-implementation.md.tmpl agents-review.md.tmpl agents-commit.md.tmpl'
 GOV_LIMIT_AGENTS=1800
 GOV_LIMIT_CORE=4400
-GOV_LIMIT_PROJECT=2900
+GOV_LIMIT_PROJECT=3200
 GOV_LIMIT_ASSESSMENT=2800
 GOV_LIMIT_DISCIPLINE=4600
 GOV_LIMIT_ROLE=2600
@@ -81,6 +82,48 @@ suite_governance_size() {
     ok "安装面规则块恰 ${GOV_BLOCK_TOTAL} 个"
   else
     bad "安装面规则块恰 ${GOV_BLOCK_TOTAL} 个" "实测 ${blocks} 个（上限/期望 ${GOV_BLOCK_TOTAL}）"
+  fi
+
+  # 核心规则 G 覆盖：10 条逐条带（G1）～（G5），且五条保证各至少出现一次
+  _co_file="$TPL/core.md.tmpl"
+  _co_tagged=$(grep -cE '^#### R-CO-[0-9]{3}.*（G[1-5]' "$_co_file" 2>/dev/null || true)
+  if [ "${_co_tagged:-0}" -eq "$GOV_BLOCK_TOTAL" ]; then
+    ok "核心规则 G 覆盖: ${_co_tagged}/${GOV_BLOCK_TOTAL} 条带 G 标注"
+  else
+    bad "核心规则 G 覆盖: ${_co_tagged}/${GOV_BLOCK_TOTAL} 条带 G 标注" "逐条须带（G1）～（G5）之一"
+  fi
+  _co_missing_g=''
+  for g in 1 2 3 4 5; do grep -q "（G$g" "$_co_file" || _co_missing_g="$_co_missing_g G$g"; done
+  if [ -z "$_co_missing_g" ]; then
+    ok '核心规则覆盖 G1–G5 五条保证'
+  else
+    bad '核心规则覆盖 G1–G5 五条保证' "缺:$_co_missing_g"
+  fi
+
+  GOV_STAGE_LIMIT=15000
+  gov_stage_check() {
+    _gs_name=$1; shift
+    _gs_sum=0
+    for _gs_f in "$@"; do
+      if [ ! -f "$TPL/$_gs_f" ]; then bad "每阶段读取集: $_gs_name 缺件 $_gs_f" '缺件'; return; fi
+      _gs_n=$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding="utf-8").read()))' "$TPL/$_gs_f")
+      _gs_sum=$((_gs_sum + _gs_n))
+    done
+    if [ "$_gs_sum" -le "$GOV_STAGE_LIMIT" ]; then
+      ok "每阶段读取集: $_gs_name ${_gs_sum} ≤ ${GOV_STAGE_LIMIT}"
+    else
+      bad "每阶段读取集: $_gs_name ${_gs_sum} ≤ ${GOV_STAGE_LIMIT}" "实测 ${_gs_sum} 超上限"
+    fi
+  }
+  gov_stage_check triage AGENTS.md.tmpl core.md.tmpl assessment.md.tmpl project.md.tmpl agents-triage.md.tmpl
+  gov_stage_check implementation AGENTS.md.tmpl core.md.tmpl discipline.md.tmpl project.md.tmpl agents-implementation.md.tmpl
+  gov_stage_check review AGENTS.md.tmpl core.md.tmpl discipline.md.tmpl project.md.tmpl agents-review.md.tmpl
+  gov_stage_check commit AGENTS.md.tmpl core.md.tmpl project.md.tmpl agents-commit.md.tmpl
+
+  if grep -q '^### 3\.1 工作隔离门槛' "$TPL/project.md.tmpl"; then
+    ok 'project.md.tmpl 含 §3.1 工作隔离门槛'
+  else
+    bad 'project.md.tmpl 含 §3.1 工作隔离门槛' '缺该节'
   fi
 
   # 安装面零模糊措辞（与包检检查 12 同词表；此处只测安装面九件）
