@@ -902,8 +902,10 @@ EOF
   # ---- 票 193 断言：统一账本行合同（references/schemas/ledger-row.schema.json 单源）----
   # AC1：合同文件为行型真相源——内部一致（example 键序＝keys 逐字、五/七/九键行族键数
   # 在场），合同正例行族 example 经 ticket-ops ledger 全数收录（合同↔校验同源实证），
-  # 三方消费者（ticket-ops.sh 头注／lane-commit.sh 头注／project.md.tmpl 票务脚本承载
-  # 注记）均指向该合同且模板键序串与合同 keys 逐字一致。AC2：未知键／键序破坏／值域
+  # 三方消费者同源且各有其合法面：ticket-ops.sh／lane-commit.sh 头注指名包内合同
+  # （包内面），模板属安装面、不得留包内悬空路径，改以目标项目
+  # `rules/implementation/scripts/ledger-append.sh` 的行族校验为生效面并以键序串与
+  # 合同 keys 逐字承接（模板指名包内 schema 即判红）。AC2：未知键／键序破坏／值域
   # 越界负例 fail-closed 零写入且报文指名行形态（行族键集／具体键／值域）。夹具全
   # mktemp，ledger 无票入口不触票务面；合同文件为套件依赖（缺失 exit 2，同 ticket-record
   # schema 先例）。
@@ -945,13 +947,18 @@ PYTHON
     fi
   done
 
-  LR_TMPL="${SCRIPT_DIR}/../references/templates/project.md.tmpl"
+  LR_TMPL="${SCRIPT_DIR}/../references/templates/discipline.md.tmpl"
   if grep -qF 'references/schemas/ledger-row.schema.json' "$SCRIPT_DIR/ticket-ops.sh" \
     && grep -qF 'references/schemas/ledger-row.schema.json' "$SCRIPT_DIR/lane-commit.sh" \
-    && grep -qF 'references/schemas/ledger-row.schema.json' "$LR_TMPL"; then
-    ok '三方消费者同指一合同（ticket-ops.sh＋lane-commit.sh 头注＋模板承载注记，票 193 AC1）'
+    && grep -qF 'rules/implementation/scripts/ledger-append.sh' "$LR_TMPL"; then
+    ok '三方消费者同源（两脚本头注指名合同；模板以 ledger-append 行族校验为生效面，票 193 AC1）'
   else
-    bad '三方消费者同指一合同（ticket-ops.sh＋lane-commit.sh 头注＋模板承载注记，票 193 AC1）' '至少一方缺合同指针'
+    bad '三方消费者同源（两脚本头注指名合同；模板以 ledger-append 行族校验为生效面，票 193 AC1）' '至少一方缺合同指针'
+  fi
+  if grep -qF 'references/schemas/ledger-row.schema.json' "$LR_TMPL"; then
+    bad '模板不指名包内合同路径（安装面零悬空指针，键序串承接合同，票 193 AC1）' '模板含 references/schemas/ledger-row.schema.json'
+  else
+    ok '模板不指名包内合同路径（安装面零悬空指针，键序串承接合同，票 193 AC1）'
   fi
   if grep -qF "$(cat "$D/lr/changes-order.txt")" "$LR_TMPL" \
     && grep -qF "$(cat "$D/lr/micro-order.txt")" "$LR_TMPL"; then

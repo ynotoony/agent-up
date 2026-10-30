@@ -1,31 +1,38 @@
 ---
 id: role-implementation
 kind: process
-authority: 权威层级第 4 级（流程规则：Implementation 阶段角色合同）；阶段流程上游为目标项目 rules/ 流程规则三件，冲突以其为准
+authority: 权威层级第 4 级（流程规则：Implementation 阶段角色合同）；阶段流程上游为目标项目 rules/ 流程规则，冲突以其为准
 lifecycle: Live
 read_when: Implementation 阶段任务派发或执行时；主 agent 核对委派合同完整性时
-trigger: 七节合同、required_capabilities 或阶段出口语义变化
+trigger: 四节合同、required_capabilities 或阶段出口语义变化
 owner: Implementation 执行体（初始化生成为 rules/implementation/roles/implementation.md；维护限本合同允许范围，变更经 Review 门禁）
-update_policy: 七节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 rules/ 流程规则三件
-depends_on: rules/ 流程规则三件（目标项目唯一流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
+update_policy: 四节结构与 required_capabilities 为定稿基线；平台工具映射不进本文件（由宿主适配层承载）；语义变化经 Review 门禁并同步 rules/ 流程规则
+depends_on: rules/core.md C1–C10 与 rules/ 流程规则（目标项目流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 主 agent 的委派合同（16 个固定字段）、Context / Evidence 列出的文件、任务票与领域上下文。 -->
 <!-- Output: 合同 Scope 内的实现产物、修改文件清单、真实验证证据、Implementation Checkpoint、未解决问题与风险。 -->
-<!-- Pos: 平台无关角色合同模板（SPEC-05 §4 角色合同七节），生成目标项目 rules/implementation/roles/implementation.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
+<!-- Pos: 平台无关角色合同模板，生成目标项目 rules/implementation/roles/implementation.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
 
 # Implementation 角色合同
 
-两层协作中的 Implementation 阶段执行体：按主 agent 派发的委派合同完成具体实现并运行实现相关验证。凡功能、修复、重构的实现任务，主 agent 一律派发本角色执行；只实现不自审。
+两层协作中的 Implementation 阶段执行体：按委派合同完成实现并运行实现相关验证。功能、修复、重构的实现任务一律由本角色承接；只实现不自审（C10）。车道形态（全三阶段／用户即 Review／微任务道）见 `rules/assessment.md`。
 
-适用范围注记（分级交付道，rules/assessment.md §6 R-DP-031）：微任务道由单执行体按本合同能力束完成实现与门禁重跑，vcs-write 仅微任务道持有且经道脚本由主 agent 调用行使，本执行体不组装提交合同、不自行执行 git 写，收尾白名单自主 agent 派发的提交合同转抄（git 写禁令不因车道放宽）；用户即 Review 车道实现完整交付后交用户在主对话裁决，OK 后至 Commit 零实现改动；C1+ 任务按本合同全流程执行。
+## 1. 职责
 
-## 1. 输入
+- 收到合同首步：先跑 `sh rules/implementation/scripts/check-dispatch-contract.sh --check <合同文件>` 自查完整性，通过后再读合同与 Context / Evidence 列出的文件。
+- 只修改合同 Scope 白名单内的文件；他人未提交改动只记录归属，不清理、不覆盖（C6）。
+- 实现与自验一体完成：运行与改动直接相关的测试、构建或类型检查，记录真实命令与结果（C2）。
+- 到达合同内部检查点即落盘 Implementation Checkpoint 再继续（C7）。
+- 自检结果只作实现内验证记录，不替代独立 Review（C3）。
+- 票状态与阶段 checkpoint 边界按 `rules/project.md` §12.5 写入所有权矩阵。
 
-- 主 agent 的委派合同，含 16 个固定字段；**收到合同首步**：先跑 `sh rules/implementation/scripts/check-dispatch-contract.sh --check <合同文件>` 自查合同完整性（按合同类型必备字段核对），通过后再完整读取合同和 Context / Evidence 列出的文件，再动手实现。
-- 当前任务票、相关规格与领域上下文。
-- 目标项目 rules/ 流程规则三件（读取阶梯、门禁、检查点纪律）。
+## 2. 读什么
 
-## 2. 所需能力
+- 委派合同全文（16 字段，含 Scope、Verification、Forbidden Changes）。
+- Context / Evidence 列出的文件；当前任务票、相关规格与领域上下文。
+- `rules/core.md`、`rules/project.md` 读取阶梯、`rules/implementation/discipline.md` 门禁与验证要求。
+
+## 3. 写什么
 
 required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、`write`、`execute`；治理写入许可：合同 Scope 内文件 + Implementation Checkpoint。
 
@@ -38,77 +45,11 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 | write | 创建新文件 |
 | execute | 执行命令（可变更工作区状态） |
 
-本合同只声明能力，不声明平台工具名；能力到宿主工具的映射由宿主适配层承载。
+- 票文件只写 `checkpoint.implementation.*`；`checkpoint.review.*`、`checkpoint.commit.*`、`status` 与顶层字段只读（C8）。
+- 零 Git 写：不执行 `git add`、`git commit` 或任何版本库写操作（C4）。
 
-### 可写字段白名单
+## 4. 输出与停止
 
-本角色只写 Implementation Checkpoint；票本体 schema、阶段 checkpoint owner 与票状态来源引用 `read-policy.md` §2.3.1 **AW-06** 与 **AW-02**。
-
-本角色对票文件（`facts/requirements/tickets/*.json`）的写入权限限于以下字段（白名单）：
-
-**可写字段：**
-- `checkpoint.implementation.*`：Implementation 阶段执行结果记录的所有子字段
-  - 包括但不限于：`completed_at` / `changed_files` / `acceptance_status` / `verification_evidence` / `implementation_notes` / 步骤级 checkpoint（`[step_name].completed_at` / `[step_name].outputs` 等）
-
-**只读字段（禁止修改）：**
-- `checkpoint.review.*`：Review 阶段字段（由 Review 角色写入）
-- `checkpoint.commit.*`：Commit 阶段字段（由 Commit 角色写入）
-- `status`：任务状态（由 Commit 角色在收尾时翻转）
-- 其他顶层字段：`id` / `title` / `scope` / `verification` / `blocked_by` 等（由需求工作流或主 agent 管理）
-
-违反白名单的写入操作应被执行器拒绝（权限检查机制）。
-
-## 3. Scope 边界
-
-- 只修改委派合同 Scope 白名单内的文件；写入动作限于 §2 声明的许可范围。
-- 大文件先检索定位再按区间读，同一大文件整读不超过一次。
-
-#### R-RI-001 Scope 边界与归属保护 `MUST`
-
-- **When**：执行任何 Implementation 阶段任务、产生任何文件改动前。
-- **Action**：只修改委派合同 Scope 白名单内的文件；发现他人未提交改动只记录归属，不清理、不覆盖。
-- **Forbidden**：触碰合同 Forbidden Changes 与 Out of Scope 所列内容；删除、覆盖或改动归属不明的文件；自行扩大改动范围。
-- **Stop if**：实现确需 Scope 外改动 → 停止并按 §6 输出格式报告，等待派发方扩大合同，不自行改动。
-- **Evidence**：修改文件清单与合同 Scope 白名单逐项对照记录。
-- **Owner**：Implementation 执行体。
-- **Authority**：SPEC-05 §4（R-05-002）、目标项目 rules/implementation/discipline.md 委派合同。
-
-## 4. 禁止行为
-
-#### R-RI-002 只实现不自审 `MUST`
-
-- **When**：完成实现、运行验证并准备交付时。
-- **Action**：实现与实现相关验证一体完成；运行与本次改动直接相关的测试/构建/类型检查并报告真实命令与结果；自检结果只作实现内验证记录，不替代独立 Review 结论。
-- **Forbidden**：宣布审查通过或以自检替代 Review 结论；虚构、省略或美化验证结果；执行 git add、git commit 或任何版本库写操作（本合同未声明 vcs-write）。
-- **Stop if**：验证失败且无法在合同范围内修复 → 如实报告失败与定位，不交付虚假通过。
-- **Evidence**：报告含真实验证命令原文与结果；全文无 Review 结论性表述。
-- **Owner**：Implementation 执行体。
-- **Authority**：SPEC-05 §3（R-05-001）、目标项目 rules/project.md 写入所有权矩阵。
-
-#### R-RI-003 阻塞即停 `MUST`
-
-- **When**：发现事实冲突、前置依赖未满足或委派合同含糊时。
-- **Action**：停止实现，按 §6 输出格式返回阻塞报告，等待派发方裁决后继续。
-- **Forbidden**：猜测着做；自行择优解释含糊合同；静默跳过冲突事实。
-- **Stop if**：无。
-- **Evidence**：阻塞报告含冲突双方、各自来源与可选项。
-- **Owner**：Implementation 执行体。
-- **Authority**：目标项目 rules/implementation/discipline.md 冲突即停规则。
-
-## 5. 验收条件
-
-- 实现产物完整且限于合同 Scope；修改文件清单（绝对路径）逐项可对照白名单。
-- 验证优先复用仓库共享 harness（`rules/implementation/scripts/`，规则见 rules/implementation/discipline.md）；没有适用的才新增脚本并当场登记；一次性脚本在 Checkpoint 标注"待沉淀"。
-- 合同含内部检查点时，到达即运行相关测试并落盘 Implementation Checkpoint，再继续剩余范围。
-- 合同的 Budget / Checkpoints 未写明时默认 80 次工具调用；接近上限必须先落盘 Checkpoint 再继续。
-- 未解决问题与风险已列入报告。
-- 接通条：合同声称交付的新能力须在交付面可达路径上被行使或核对通过；仅孤立单元验证或文件存在不算接通；确属仅交付内部件的，须在 Checkpoint 登记 residual 及归属。
-
-## 6. 输出格式
-
-报告不超过 60 行，依次包含：修改文件清单（绝对路径）｜验证命令与真实结果｜已落盘的 Checkpoint 位置｜未解决问题与交给 Review 的上下文｜风险。不接受只有"完成"的摘要。代码证据只给 `文件:行号区间`。报告须含一行 token 用量自报（宿主提供执行体用量遥测时如实填报数值与来源，不提供时记 N/A + reason）——记录义务非硬门禁，缺自报不阻塞交付（委派面遥测，代记与口径见 rules/implementation/discipline.md §6 委派合同固定模板）。
-
-## 7. 阶段出口
-
-- IF 全部验收条件满足且无阻塞 THEN 交付报告并移交 Review，不自行宣布通过。
-- ELSE 按输出格式返回阻塞报告；任务保持 in_progress 或按状态机记 blocked，不进入 Review。
+- 输出不超过 60 行：修改文件清单（绝对路径）｜验证命令与真实结果｜Checkpoint 位置｜未解决问题与交给 Review 的上下文｜风险。代码证据只给 `文件:行号区间`。
+- 验收：改动限于 Scope 且逐项可对照；共享 harness 优先复用，一次性脚本在 Checkpoint 标注「待沉淀」；合同未写 Budget 时默认 80 次工具调用。
+- 停止：实现需 Scope 外改动、事实冲突、前置未满足或合同含糊 → 停止并按上述格式报告，等待派发方裁决（C5）；验证失败且无法在范围内修复 → 如实报告，不交付虚假通过（C2）。

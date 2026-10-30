@@ -8,7 +8,8 @@ fi
 
 
 authority_matrix_check() {
-  awk -F'|' -v template_root="$PKG_ROOT/references/templates" '
+  # $1=矩阵文件 $2=（可选）模板根：缺省取包内 templates（负例夹具用临时副本根）
+  awk -F'|' -v template_root="${2:-$PKG_ROOT/references/templates}" '
     function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
     function fail(message) { print "authority-matrix: FAIL: " message > "/dev/stderr"; failed = 1 }
     BEGIN {
@@ -41,32 +42,26 @@ authority_matrix_check() {
       for (i = 1; i <= n; i++) {
         name = trim(names[i])
         if (name !~ /^[A-Za-z0-9-]+\.md\.tmpl$/) fail("invalid template consumer for " topic ": " name)
-        expected_ref[name, id] = 1
         template_seen[name] = 1
       }
     }
     END {
       if (rows != 6) fail("expected six authority topics; found " rows)
       for (id in expected_topic) if (!(expected_topic[id] in topic_seen)) fail("missing topic: " expected_topic[id])
+      # 安装面收敛后 authority/writer 事实的唯一承载点＝生成物 rules/project.md §12.5 写入所有权
+      # 矩阵；声明为消费者的模板须指向该矩阵（每件至少一处），且不得再引用未安装的
+      # read-policy.md 或其 AW-0x 编号（悬空指针防复发，与 governance-size 套件同口径）。
       for (file in template_seen) {
         path = template_root "/" file
+        ptr = 0
         while ((getline line < path) > 0) {
-          rest = line
-          while (match(rest, /AW-[0-9][0-9]/)) {
-            ref = substr(rest, RSTART, RLENGTH)
-            if (!(ref in expected_topic)) fail("unknown template reference " ref " in " file)
-            else if (!expected_ref[file, ref]) fail("undeclared template reference " ref " in " file)
-            actual_ref[file, ref] = 1
-            rest = substr(rest, RSTART + RLENGTH)
-          }
+          if (index(line, "§12.5") > 0) ptr++
+          if (line ~ /AW-0[0-9]/ || index(line, "read-policy") > 0) fail("dangling manual pointer in " file ": " line)
         }
         close(path)
+        if (ptr == 0) fail("missing §12.5 authority pointer in " file)
       }
-      for (pair in expected_ref) {
-        split(pair, parts, SUBSEP)
-        if (!actual_ref[parts[1], parts[2]]) fail("missing template reference " parts[2] " in " parts[1])
-      }
-      if (!failed) print "authority-matrix: PASS: six topics and template references agree"
+      if (!failed) print "authority-matrix: PASS: six topics and §12.5 pointers agree"
       exit failed ? 1 : 0
     }
   ' "$1"
@@ -84,9 +79,31 @@ suite_authority_matrix() {
   MATRIX="$PKG_ROOT/references/protocol/read-policy.md"
 
   if authority_matrix_check "$MATRIX" >"$D/valid.out" 2>&1; then
-    ok 'unique-authority 正例：六组 authority/writer/resolution 与模板引用逐项一致'
+    ok 'unique-authority 正例：六组 authority/writer/resolution 与消费者模板 §12.5 指针一致'
   else
-    bad 'unique-authority 正例：六组 authority/writer/resolution 与模板引用逐项一致' "$(cat "$D/valid.out")"
+    bad 'unique-authority 正例：六组 authority/writer/resolution 与消费者模板 §12.5 指针一致' "$(cat "$D/valid.out")"
+  fi
+
+  # 负例：消费者模板删去 §12.5 指针 → 必须 fail 并指名缺指针件
+  cp -R "$PKG_ROOT/references/templates" "$D/tpl-no125"
+  grep -v '§12.5' "$D/tpl-no125/agents-triage.md.tmpl" > "$D/no125.tmp" \
+    && mv "$D/no125.tmp" "$D/tpl-no125/agents-triage.md.tmpl"
+  if authority_matrix_check "$MATRIX" "$D/tpl-no125" >"$D/no125.out" 2>&1; then
+    bad 'negative-no-pointer 负例：消费者模板缺 §12.5 指针 → 必须拒绝' '变异模板意外通过'
+  elif grep -q 'missing §12.5 authority pointer in agents-triage.md.tmpl' "$D/no125.out"; then
+    ok 'negative-no-pointer 负例：消费者模板缺 §12.5 指针 → 拒绝并指名模板'
+  else
+    bad 'negative-no-pointer 负例：消费者模板缺 §12.5 指针 → 必须拒绝' "$(head -n 2 "$D/no125.out" | tr '\n' '|')"
+  fi
+  # 负例：消费者模板回填未安装手册指针 → 必须 fail 并指名悬空指针
+  cp -R "$PKG_ROOT/references/templates" "$D/tpl-dangling"
+  printf '\n- 悬空指针夹具：见 `references/protocol/read-policy.md` §2.3.1 AW-04。\n' >> "$D/tpl-dangling/agents-review.md.tmpl"
+  if authority_matrix_check "$MATRIX" "$D/tpl-dangling" >"$D/dang.out" 2>&1; then
+    bad 'negative-dangling 负例：模板回填 read-policy 指针 → 必须拒绝' '变异模板意外通过'
+  elif grep -q 'dangling manual pointer in agents-review.md.tmpl' "$D/dang.out"; then
+    ok 'negative-dangling 负例：模板回填 read-policy 指针 → 拒绝并指名悬空行'
+  else
+    bad 'negative-dangling 负例：模板回填 read-policy 指针 → 必须拒绝' "$(head -n 2 "$D/dang.out" | tr '\n' '|')"
   fi
 
   # 目标类正例：用户决策定义目标状态；生成输入仅在用户未明确决定处降级到既有事实取信，

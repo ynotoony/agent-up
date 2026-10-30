@@ -42,7 +42,7 @@ rp_scan_boundary() {
   [ "$_rpb_hits" -eq 0 ]
 }
 
-# 角色合同权威面结构断言：required_capabilities 声明行＋至少一个规则块头在位。
+# 角色合同权威面结构断言：required_capabilities 声明行＋C1–C10 指针在位（条款正文归核心规则，合同零规则块）。
 # 用法: rp_role_check <template-file>；缺陷明细输出 stdout，缺陷 return 1。
 rp_role_check() {
   _rpf_file="$1"
@@ -55,8 +55,8 @@ rp_role_check() {
     printf 'missing-decl: %s\n' "$_rpf_file"
     _rpf_bad=1
   fi
-  if ! LC_ALL=C grep -q '^#### R-' "$_rpf_file"; then
-    printf 'missing-rule-block: %s\n' "$_rpf_file"
+  if ! LC_ALL=C grep -q 'C1–C10' "$_rpf_file"; then
+    printf 'missing-core-pointer: %s\n' "$_rpf_file"
     _rpf_bad=1
   fi
   return "$_rpf_bad"
@@ -136,9 +136,9 @@ suite_role_prompt() {
   # 正例 P1（×4）：四件角色合同模板承载 MUST/权限唯一权威面（能力声明行＋规则块在位）
   for _p1r in implementation review commit triage; do
     if rp_role_check "$TMPL/agents-$_p1r.md.tmpl" > "$D/p1-$_p1r.out" 2>&1; then
-      ok "正例 P1 角色合同承载 MUST/权限唯一权威面：agents-$_p1r.md.tmpl（能力声明行＋规则块在位）"
+      ok "正例 P1 角色合同承载 MUST/权限唯一权威面：agents-$_p1r.md.tmpl（能力声明行＋C1–C10 指针在位）"
     else
-      bad "正例 P1 角色合同承载 MUST/权限唯一权威面：agents-$_p1r.md.tmpl（能力声明行＋规则块在位）" "$(cat "$D/p1-$_p1r.out")"
+      bad "正例 P1 角色合同承载 MUST/权限唯一权威面：agents-$_p1r.md.tmpl（能力声明行＋C1–C10 指针在位）" "$(cat "$D/p1-$_p1r.out")"
     fi
   done
 
@@ -171,11 +171,15 @@ suite_role_prompt() {
   else
     bad '正例 P3d Triage 模板 manifest 投影：templates/README.md 目录清单行在位' '缺 manifest 目录清单行'
   fi
-  # shellcheck disable=SC2016  # 反引号为 grep 字面模式（短码表行锚点），非命令替换
-  if LC_ALL=C grep -q '^| `RT` | `agents-triage' "$TMPL/README.md"; then
-    ok '正例 P3e Triage 短码投影：templates/README.md 短码登记行在位'
+  # 安装面收敛后 Triage 模板零规则块：登记闭合改断三面——实物、清单 pm_template 数据行、
+  # manifest 目录清单行；短码投影面改断安装面唯一带块件 CO（历史引用码不入人读短码表）。
+  if [ -f "$TMPL/agents-triage.md.tmpl" ] \
+    && LC_ALL=C grep -q '^pm_template agents-triage\.md\.tmpl$' "$MANIFEST" \
+    && LC_ALL=C grep -q '^| `agents-triage\.md\.tmpl` |' "$TMPL/README.md" \
+    && LC_ALL=C grep -q '^| `CO` | `core\.md\.tmpl`' "$TMPL/README.md"; then
+    ok '正例 P3e Triage 模板登记闭合（实物＋清单数据行＋manifest 行）＋安装面 CO 短码投影'
   else
-    bad '正例 P3e Triage 短码投影：templates/README.md 短码登记行在位' '缺 RT 短码登记行'
+    bad '正例 P3e Triage 模板登记闭合（实物＋清单数据行＋manifest 行）＋安装面 CO 短码投影' '登记面缺项'
   fi
 
   # 正例 P4（×3）：三件派发 Prompt 均含角色合同权威指针（上下文面）
@@ -291,13 +295,13 @@ EOF
 
   # 负例 N3：duplicate-rule 角色合同夹具（整块复制 R-RT-001）→ check-package 检查 22 失败指名角色（triage）
   cp -R "$PKG_ROOT" "$D/pkg-duprule"
-  sed -n '/^#### R-RT-001/,/^#### R-RT-002/p' "$TMPL/agents-triage.md.tmpl" | sed '$d' >> "$D/pkg-duprule/references/templates/agents-triage.md.tmpl"
+  sed -n '/^#### R-CO-001/,/^#### R-CO-002/p' "$TMPL/core.md.tmpl" | sed '$d' >> "$D/pkg-duprule/references/templates/agents-triage.md.tmpl"
   sh "$D/pkg-duprule/scripts/check-package.sh" "$D/pkg-duprule" > "$D/n3-cp.out" 2>&1
   _n3rc=$?
-  if [ "$_n3rc" -eq 1 ] && grep -q 'FAIL: 22' "$D/n3-cp.out" && grep -q 'R-RT-001' "$D/n3-cp.out" && grep -q 'agents-triage\.md\.tmpl' "$D/n3-cp.out"; then
-    ok '负例 N3 duplicate-rule 角色合同夹具 → check-package 检查 22 失败指名 R-RT-001 与角色模板'
+  if [ "$_n3rc" -eq 1 ] && grep -q 'FAIL: 22' "$D/n3-cp.out" && grep -q 'R-CO-001' "$D/n3-cp.out" && grep -q 'agents-triage\.md\.tmpl' "$D/n3-cp.out"; then
+    ok '负例 N3 duplicate-rule 角色合同夹具 → check-package 检查 22 失败指名 R-CO-001 与角色模板'
   else
-    bad '负例 N3 duplicate-rule 角色合同夹具 → check-package 检查 22 失败指名 R-RT-001 与角色模板' "exit=$_n3rc $(grep -m 2 'FAIL' "$D/n3-cp.out" | tr '\n' '|')"
+    bad '负例 N3 duplicate-rule 角色合同夹具 → check-package 检查 22 失败指名 R-CO-001 与角色模板' "exit=$_n3rc $(grep -m 2 'FAIL' "$D/n3-cp.out" | tr '\n' '|')"
   fi
 
   # 负例 N4：missing-permission 角色合同夹具（删 readonly-execute）→ check-package 检查 14 失败指名角色（review）

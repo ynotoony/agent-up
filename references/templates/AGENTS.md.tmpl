@@ -1,78 +1,48 @@
-<!-- Input: 目标项目盘点与访谈确认的边界事实、seed 治理骨架与快速规则。 -->
-<!-- Output: 所有 agent 的统一路由入口：先读什么、快速规则、工作类型路由与停止条件。 -->
-<!-- Pos: 仓库级 Agent 路由器（seed 七件之一）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
+<!-- Input: 目标项目盘点与访谈确认的边界事实、seed 治理骨架。 -->
+<!-- Output: 所有 agent 的统一路由入口：先读什么、核心规则索引、工作类型路由与停止条件。 -->
+<!-- Pos: 仓库级 Agent 路由器；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # Agent 工作入口
 
-本文件只做路由与边界声明，不复制流程细节。唯一流程权威（拆三）：[`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md) 与 [`rules/project.md`](./rules/project.md)。
+本文件只做路由与边界声明，不复制条款正文。核心规则＝[`rules/core.md`](./rules/core.md)；流程三件＝[`rules/project.md`](./rules/project.md)、[`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md)。条款冲突以 `rules/core.md` 为准；授权与写入边界按 `rules/project.md` §12.5 写入所有权矩阵与 C8。
 
-系统职责面按三层定位（路由层/编码层/文档层）划分，与两层协作的执行角色划分正交；层权映射与定义见流程权威。
+## 快速规则索引
+
+十条核心规则的正文只在 `rules/core.md`，本文件不复写：
+
+- C1 授权先于写入｜C2 无验证证据不算完成｜C3 独立审查才可提交——三道硬门禁。
+- C4 只提交白名单｜C8 单一写者｜C9 记录只追加——写入边界。
+- C5 冲突即停｜C6 不删不盖不重置｜C7 状态落盘可接续｜C10 角色不越界——权威与接续。
 
 ## 先读什么
 
-1. 本文件（每个会话第一步）。
-2. `facts/requirements/tickets/progress-current.md` 与涉及目录的 `README.md`：当前状态与导航。
-3. 当前任务票、相关规格与 `facts/project/artifacts.yaml`：任务合同、规范本体与产物登记。
-4. 与改动相关的源码、测试：实施对象事实。
-5. `facts/project/archive/changes.md` 等冻结历史与协议资料：按需读取。
+1. 本文件。
+2. `facts/requirements/tickets/progress-current.md` 与涉及目录的 `README.md`。
+3. 当前任务票、相关规格与 `facts/project/artifacts.yaml`。
+4. 与改动相关的源码与测试。
+5. 冻结历史与协议资料按需读取。
 
-完整读取阶梯、任务型最小读取范围与两套顺序见 `rules/project.md`：权威层级只承载冲突裁决（用户决策定义目标，实际文件、测试与 Git 观察定义当前状态，冲突即停交用户）；生成输入取信是另一套顺序，仅用户未明确决定处按 既有事实 > 模板 > 自动推断 取信（模板只填补缺失结构，自动推断最低）。本文件不复制其细节。
-
-冲突域的 authority 与写入边界统一见 `rules/project.md` §2.3 及其所引用的 `read-policy.md` §2.3.1 **AW-01**、**AW-02**、**AW-03**（AW-03 为退役登记项：历史 Intake/Triage 边界，request 类别退役 2026-10-23 后仅 Triage 开票）；本路由文件不另立规则源。
-
-## 快速规则
-
-#### R-AG-001 记录保护 `MUST`
-
-- **When**：模板升级、初始化补缺或任何自动化写入触及事实记录类产物（进度、变更、请求、运行记录）时。
-- **Action**：保留既有事实记录，只追加或按状态机更新；补缺只补结构性缺失（如缺表头、缺登记行）。
-- **Forbidden**：用新模板重写历史记录；静默截断或覆盖既有条目。
-- **Stop if**：记录内容与模板结构冲突 → 报告用户并给选项，等待裁决。
-- **Evidence**：既有条目在变更前后可对照。
-- **Owner**：该记录产物登记的写入 owner。
-- **Authority**：`rules/project.md`（产物生命周期：记录保护）。
-
-#### R-AG-002 条件产物默认不创建 `MUST`
-
-- **When**：规划任何任务的产物与治理文件时。
-- **Action**：IF 命中触发矩阵至少一条 THEN 经 Artifact Plan 与用户确认后创建 ELSE 不创建。
-- **Forbidden**：为目录完整性预建空目录、占位文件或"以后会用到"的产物。
-- **Stop if**：触发条件命中与否无法判定 → 列入 Artifact Plan 待决项，向用户确认。
-- **Evidence**：每个条件产物的创建能指向命中的触发条件行。
-- **Owner**：当前任务执行体。
-- **Authority**：`rules/project.md`（产物生命周期：触发矩阵）。
-
-#### R-AG-003 三道门禁 `MUST`
-
-- **When**：推进任何写入、交付或提交时。
-- **Action**：语义变化未经用户确认不写文件；无验证证据不算完成；无独立 Review 通过不提交。
-- **Forbidden**：以自动化评估替代用户确认；用"应该可以"代替验证证据；跳过独立 Review 提交。
-- **Stop if**：任一门禁不满足 → 停止并记录阻塞。
-- **Evidence**：写文件前的确认记录、完成时的验证证据、提交前的 Review 结论。
-- **Owner**：各阶段执行体。
-- **Authority**：`rules/implementation/discipline.md`（代理协作：三道门禁）。
+读取阶梯与任务型最小读取范围见 `rules/project.md`；生成取信顺序（既有事实 ＞ 模板 ＞ 自动推断）仅用于用户未明确决定处。
 
 ## 工作类型路由
 
-用户以需求动作发话时按「需求工作三道」分流（细则见 `rules/assessment.md` §4「需求工作三道」）：新增需求＝对话出方案、用户拍板后存卡即止（存卡不开工，实施以用户明确发令为准）；整理需求＝只做梳理、总结与实施建议，只读不开卡；完成需求＝按已确认卡面直接执行。
+用户以需求动作发话时按「需求工作三道」分流（细则见 `rules/assessment.md`）：新增需求＝对话出方案、用户拍板后存卡即止（存卡不开工）；整理需求＝只做梳理、总结与实施建议，只读不开卡；完成需求＝按已确认卡面执行。
 
-- **回答、解释、只读审查或诊断**：只读检查，不领取任务、不修改进度、不实施修复。
-- **治理或文档维护**：按 [`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md)、[`rules/project.md`](./rules/project.md) 执行；改变项目事实时写入对应规格或 `facts/project/changes.jsonl`。
-- **功能、修复或重构**：先读上下文、规格、任务票与进度，领取 blocker 已完成的任务，再按流程执行。
-- **代理协作**：主 agent（路由层 Triage）只做理解、拆分、派发与验收，不写产品与治理文件；编码层三阶段执行体（Implementation / Review / Commit）分阶段承接生产性写入；角色边界、委派合同与阶段顺序以流程文档为准，执行体不得创建下级执行体。
+- 回答、解释、只读审查或诊断：只读，不领取任务、不改进度、不实施修复。
+- 治理或文档维护：按流程三件执行，改变项目事实时写入对应规格或 `facts/project/changes.jsonl`。
+- 功能、修复或重构：先读上下文、规格、任务票与进度，领取 blocker 已完成的任务，再按流程执行。
+- 代理协作：主 agent（路由层 Triage）只做理解、拆分、派发与验收（C10）；编码层三阶段分阶段承接生产性写入；执行体不得创建下级执行体。
 
 ## 停止条件
 
-- 权威来源对同一事实给出不一致结论 → 停止修改，报告冲突双方与各自层级，等用户裁决。
-- 任务 blocker 未完成、前置未满足或任务范围变化 → 不动手，先报告或进入拆票流程。
-- 无依据的领域事实、目录职责或验证命令 → 写【待定：...】并报告，不编造。
-- 用户不在场 → 保持停止状态并记录阻塞，不推进。
+- 权威来源对同一事实结论不一致 → 停止，报告双方与各自层级，等用户裁决（C5）。
+- 任务 blocker 未完成、前置未满足或范围变化 → 不动手，先报告或拆票。
+- 无依据的领域事实、目录职责或验证命令 → 报告，不编造。
+- 用户不在场 → 保持停止并记录阻塞。
 
 ## 最小仓库边界
 
-- 【按项目填写：代码放哪个目录、项目事实放哪个目录、发布材料放哪个目录；页面/调用方如何使用业务接口，不得复制业务规则。】
-- 不覆盖、回滚、重置、清理或删除不属于当前工作的改动；密钥、真实客户数据和生产环境变量不得进入 Git。
-- 受 Git 管理的目录必须有 `README.md` 登记直接成员；人工维护且语法允许注释的文本文件必须有 `Input / Output / Pos` 契约头，并维护与所属目录 README 的联动声明。
-- 产物生成、删除或移动同步登记 `facts/project/artifacts.yaml`；未经用户明确要求，不自动推送远端、部署或发布。
-
-详细规则唯一入口：[`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md)、[`rules/project.md`](./rules/project.md)。
+- 【按项目填写：代码目录、项目事实目录、发布材料目录；页面与调用方如何使用业务接口，不复制业务规则。】
+- 不覆盖、回滚、重置或清理不属于当前工作的改动；密钥与真实客户数据不进 Git。
+- 受 Git 管理的目录须有 `README.md` 登记直接成员；人工维护且可注释的文本文件须有 `Input / Output / Pos` 契约头并维护目录联动声明。
+- 产物生成、删除或移动同步登记 `facts/project/artifacts.yaml`；未经用户明确要求不推送、不部署、不发布。

@@ -136,7 +136,6 @@ pm_caps=''
 pm_capauth=''
 pm_captargets=''
 pm_mechs=''
-pm_mechmark=''
 pm_citeex=''
 pm_layoutface=''
 pm_layoutu=''
@@ -165,7 +164,7 @@ pm_cptrs=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
     "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
-    "$pm_mechs" "$pm_mechmark" "$pm_citeex" "$pm_layoutface" "$pm_layoutu" \
+    "$pm_mechs" "$pm_citeex" "$pm_layoutface" "$pm_layoutu" \
     "$pm_layoutlf" "$pm_layoutce" "$pm_idxmech" "$pm_idxids" "$pm_parsed" \
     "$pm_enf" "$pm_enfvocab" "$pm_adapters" \
     "$pm_adcap" "$pm_adrole" "$pm_adexec" "$pm_addial" \
@@ -185,7 +184,6 @@ pm_caps=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_capauth=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_captargets=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_mechs=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
-pm_mechmark=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_citeex=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_layoutface=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_layoutu=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -349,7 +347,6 @@ pm_dispatch_file() {
     pm_capability_authority) printf '%s\n' "$pm_dispatch_rest" >> "$pm_capauth" ;;
     pm_capability_target) printf '%s\n' "$pm_dispatch_rest" >> "$pm_captargets" ;;
     pm_mechanism) printf '%s\n' "$pm_dispatch_rest" >> "$pm_mechs" ;;
-    pm_mechanism_marker) printf '%s\n' "$pm_dispatch_rest" >> "$pm_mechmark" ;;
     pm_cite_exempt) printf '%s\n' "$pm_dispatch_rest" >> "$pm_citeex" ;;
     pm_layout_face) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutface" ;;
     pm_layout_universe) printf '%s\n' "$pm_dispatch_rest" >> "$pm_layoutu" ;;
@@ -408,7 +405,6 @@ rm -f "$pm_parsed"; pm_parsed=''
 [ -s "$pm_enfvocab" ] || pm_die '清单缺 enforcement 词表登记（零行）'
 [ -s "$pm_enf" ] || pm_die '清单缺 enforcement targets 登记（零行）'
 [ -s "$pm_mechs" ] || pm_die '清单缺 mechanism-vocab 节（零行）'
-[ -s "$pm_mechmark" ] || pm_die '清单缺 mechanism 外定义标记词登记（零行）'
 [ -s "$pm_layoutface" ] || pm_die '清单缺 layout-face 节（零行）'
 [ -s "$pm_layoutu" ] || pm_die '清单缺 layout-universe 节（零行）'
 [ -s "$pm_layoutlf" ] || pm_die '清单缺 layout-legacy-file 节（零行）'
@@ -825,18 +821,6 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
   }
   END { if (n > 0) exit 1 }
 ' "$pm_mechs") || true
-pm_report "$pm_bad"
-
-[ "$(wc -l < "$pm_mechmark" | tr -d ' ')" -eq 1 ] || pm_die 'mechanism 外定义标记词须恰一行'
-pm_bad=$(LC_ALL=C awk -F'\t' '
-  function bad(msg) { printf "mechanism 外定义标记词行: %s\n", msg; n++ }
-  {
-    if (NF != 1) { bad("字段数 " NF "（预期 1，字段内禁制表符）"); next }
-    if ($1 == "") { bad("标记词为空"); next }
-    if ($1 ~ /[[:space:]]/) { bad("标记词含空白（须为单 token）: " $1); next }
-  }
-  END { if (n > 0) exit 1 }
-' "$pm_mechmark") || true
 pm_report "$pm_bad"
 
 # retired-path 三节结构校验（检查 29 数据面；token 须单 token、标注词非空、活动面
@@ -1970,178 +1954,122 @@ else
   pass 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个，enforcement ${n_enf} 个）"
 fi
 
-# 检查 15：模板规则索引表与规则块全集全等（票 60 新增；流程权威拆三适配）。全集＝清单
-# templates 节全部 .tmpl 文件的规则块 ID（R-<短码>-NNN）grep 并集去重；索引表＝索引宿主
-# 模板「## 16. 规则索引」节内三列表行的并集（窄锚点，先例检查 11/14）——流程权威拆三后
-# 索引宿主为 assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl 三件，逐件只登本件
-# 承载块与模板外手册块（跨件不重复登记，机制列「定义于 <件名>」互指形态），三件并集＝
-# 拆分前单件索引；宿主判定＝模板正文含锚点即宿主，引擎零宿主文件名硬编码，宿主锚点
-# 缺失时其块 ID 落入「全集 ID 缺索引行」方向按名指认（等效拦截）。
-# 外定义行＝短码登记 owner 不在 references/templates/ 下的 ID（经清单 shortcodes 节数据
-# 判定，引擎零 ID 硬编码）：豁免内容比对但机制列必须显式标注外定义标记词（清单
-# mechanism 标记词，检查 16 同源），未标注算漏行。索引行格式：| ID | 一句话内容 | 机制 |
-# （内容列禁竖线，机制列语法见检查 16）。
+# 检查 15：生成索引与包内规则块全集全等且零漂移（安装面收敛适配）。唯一对象＝
+# references/rules-index.md（generate-docs-index.sh 独占写；模板 §16 手写索引已退役）。
+# 两项断言：
+#   ①全集全等——索引表行 ID 集 = 包内全部 *.md/*.tmpl 的规则块 ID 集（排除索引自身），
+#     双向缺/多即 FAIL 指名；
+#   ②零漂移——generate-docs-index.sh --check exit 0（渲染结果与磁盘逐字比对，generated_at
+#     行规范化）；exit 1 附 diff 指名差异行，其它退出码视为环境或形态错误一并 FAIL。
+# 生成器或索引缺失即 FAIL（不静默过）；本项只读，--check 零写入。
 problems=''
-: > "$pm_idxmech"
-while IFS= read -r t; do
-  idx_site="$templates_dir/$t"
-  [ -f "$idx_site" ] || continue  # 缺件由检查 5 指名，本项不重复报
-  grep -q '^## 16\. 规则索引' "$idx_site" 2>/dev/null || continue
-  LC_ALL=C awk '
-    /^## 16\. 规则索引/ { insec = 1; next }
-    insec && /^## / { exit }
-    insec && /^\| R-[A-Z][A-Z]-[0-9][0-9][0-9]/ {
-      n = split($0, c, "|")
-      if (c[n] == "") n--
-      if (n != 4) { printf "MALFORMED\t%s\n", $0; next }
-      id = c[2]; gsub(/[ \t]/, "", id)
-      if (id !~ /^R-[A-Z][A-Z]-[0-9][0-9][0-9]$/) { printf "MALFORMED\t%s\n", $0; next }
-      mech = c[4]
-      sub(/^[ \t]+/, "", mech); sub(/[ \t]+$/, "", mech)
-      print id "\t" mech
+gen_docs="$pkg_root/$scripts_dir/generate-docs-index.sh"
+idx_file="$pkg_root/references/rules-index.md"
+n_idx=0
+n_union=0
+if [ ! -f "$gen_docs" ]; then
+  add_problem "  - 规则索引生成器不存在: ${scripts_dir}/generate-docs-index.sh"
+fi
+if [ ! -f "$idx_file" ]; then
+  add_problem '  - 生成索引不存在: references/rules-index.md（先运行 generate-docs-index.sh 落盘）'
+else
+  idx_ids=$(LC_ALL=C awk -F'|' '
+    /^\| R-[A-Z][A-Z]-[0-9][0-9][0-9] /{
+      id = $2; gsub(/[ \t]/, "", id); print id
     }
-  ' "$idx_site" >> "$pm_idxmech" || true
-done < "$pm_templates"
-grep -v '^MALFORMED' "$pm_idxmech" 2>/dev/null | LC_ALL=C cut -f1 > "$pm_idxids"
-malformed=$(LC_ALL=C awk -F'\t' '$1 == "MALFORMED" { print $2 }' "$pm_idxmech")
-n_idx=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_idxids")
-union_ids=''
-if [ -d "$templates_dir" ]; then
+  ' "$idx_file" | LC_ALL=C sort -u)
+  n_idx=$(printf '%s\n' "$idx_ids" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+  union_ids=''
   OLDIFS=$IFS
   IFS='
 '
-  while IFS= read -r t; do
-    # 索引宿主文件（含「## 16. 规则索引」锚点者，可多件）先排除表行自身（行首「| R-」）
-    # 再提取 ID：索引表在 grep 扫描面内，表行加什么 ID 全集就含什么 ID，不排除则检查 15
-    # 的「多出全集外 ID」方向退化失效。
-    if [ -f "$templates_dir/$t" ] && grep -q '^## 16\. 规则索引' "$templates_dir/$t" 2>/dev/null; then
-      hits=$(grep -v '^| R-' "$templates_dir/$t" 2>/dev/null | LC_ALL=C grep -ohE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' || true)
-    else
-      hits=$(LC_ALL=C grep -ohE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' "$templates_dir/$t" 2>/dev/null || true)
-    fi
+  for t in $file_list; do
+    IFS=$OLDIFS
+    [ "$t" = "$idx_file" ] && continue
+    hits=$(grep -hoE '^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]' "$t" 2>/dev/null | sed 's/^#### //' || true)
     if [ -n "$hits" ]; then
       union_ids="$union_ids$hits
 "
     fi
-  done < "$pm_templates"
+  done
   IFS=$OLDIFS
-fi
-union_ids=$(printf '%s' "$union_ids" | LC_ALL=C sort -u)
-n_union=$(printf '%s\n' "$union_ids" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
-if [ "$n_idx" -eq 0 ]; then
-  add_problem '  - 索引节无表行（无模板命中锚点「## 16. 规则索引」或宿主零索引行）'
-fi
-if [ -n "$malformed" ]; then
+  union_ids=$(printf '%s' "$union_ids" | LC_ALL=C sort -u)
+  n_union=$(printf '%s\n' "$union_ids" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+  if [ "$n_idx" -eq 0 ]; then
+    add_problem '  - 索引表零行（生成索引无规则块表行）'
+  fi
+  extra=''; sep2=''
   OLDIFS=$IFS
   IFS='
 '
-  for m in $malformed; do
+  for id in $idx_ids; do
     IFS=$OLDIFS
-    add_problem "  - 索引行格式不合预期（须三列表行，内容列禁竖线）: $m"
+    if ! printf '%s\n' "$union_ids" | grep -qxF "$id"; then
+      extra="$extra$sep2$id"
+      sep2='、'
+    fi
   done
   IFS=$OLDIFS
-fi
-dup_ids=$(LC_ALL=C awk -F'\t' '$1 != "" && $1 != "MALFORMED" { c[$1]++ } END { for (i in c) if (c[i] > 1) print i }' "$pm_idxmech" | LC_ALL=C sort)
-if [ -n "$dup_ids" ]; then
-  OLDIFS=$IFS
-  IFS='
-'
-  for d in $dup_ids; do
-    IFS=$OLDIFS
-    add_problem "  - 索引 ID 跨行重复: $d"
+  missing=''; sep2=''
+  for id in $union_ids; do
+    if ! printf '%s\n' "$idx_ids" | grep -qxF "$id"; then
+      missing="$missing$sep2$id"
+      sep2='、'
+    fi
   done
-  IFS=$OLDIFS
-fi
-extra=''; sep2=''
-OLDIFS=$IFS
-IFS='
-'
-while IFS= read -r id; do
-  if ! printf '%s\n' "$union_ids" | grep -qxF "$id"; then
-    extra="$extra$sep2$id"
-    sep2='、'
+  if [ -n "$extra" ]; then
+    add_problem "  - 索引多出全集外 ID: $extra"
   fi
-done < "$pm_idxids"
-IFS=$OLDIFS
-missing=''; sep2=''
-OLDIFS=$IFS
-IFS='
-'
-for id in $union_ids; do
-  IFS=$OLDIFS
-  if ! grep -qxF "$id" "$pm_idxids"; then
-    missing="$missing$sep2$id"
-    sep2='、'
+  if [ -n "$missing" ]; then
+    add_problem "  - 规则块缺索引行: $missing"
   fi
-done
-IFS=$OLDIFS
-mechmark=$(cat "$pm_mechmark")
-unmarked=''; sep2=''
-OLDIFS=$IFS
-IFS='
-'
-while IFS= read -r id; do
-  sc=$(printf '%s' "$id" | cut -c3-4)
-  # 一码多件（流程权威拆三：DP 一短码对应 rules 三件模板）时取首行 owner——同码多行
-  # owner 的登记形态下内外判定取首行即可定侧。
-  owner=$(LC_ALL=C awk -F'\t' -v c="$sc" '$1 == c { print $2; exit }' "$pm_codes")
-  mech=$(LC_ALL=C awk -F'\t' -v i="$id" '$1 == i { print $2; exit }' "$pm_idxmech")
-  if [ -z "$owner" ]; then
-    unmarked="$unmarked$sep2${id}（短码未登记）"
-  elif [ -z "$mech" ]; then
-    unmarked="$unmarked$sep2${id}（无机制列）"
-  else
-    case $owner in
-      references/templates/*) : ;;
-      *)
-        case $mech in
-          *"$mechmark"*) : ;;
-          *) unmarked="$unmarked$sep2${id}（定义于 ${owner}）" ;;
-        esac
-        ;;
-    esac
-  fi
-done < "$pm_idxids"
-IFS=$OLDIFS
-if [ -n "$extra" ]; then
-  add_problem "  - 索引多出全集外 ID: $extra"
 fi
-if [ -n "$missing" ]; then
-  add_problem "  - 全集 ID 缺索引行: $missing"
-fi
-if [ -n "$unmarked" ]; then
-  add_problem "  - 外定义 ID 行未标注标记词「${mechmark}」（豁免须显式，未标注算漏行）: $unmarked"
+if [ -f "$gen_docs" ] && [ -f "$idx_file" ]; then
+  gen_rc=0
+  gen_out=$(sh "$gen_docs" --check "$pkg_root" 2>&1) || gen_rc=$?
+  case $gen_rc in
+    0) : ;;
+    1) add_problem "  - 生成索引与规则块不一致（stale，--check exit 1）：$(printf '%s\n' "$gen_out" | head -n 12)" ;;
+    *) add_problem "  - 生成器 --check 非预期退出（exit ${gen_rc}）：$(printf '%s\n' "$gen_out" | head -n 6)" ;;
+  esac
 fi
 if [ -n "$problems" ]; then
-  fail 15 "模板规则索引与规则块全集全等（三件索引并集 ${n_idx} 行，全集 ${n_union} ID）" "$problems"
+  fail 15 "生成索引与规则块全集全等且零漂移（索引 ${n_idx} 行，全集 ${n_union} ID）" "$problems"
 else
-  pass 15 "模板规则索引与规则块全集全等（三件索引并集 ${n_idx} 行，全集 ${n_union} ID）"
+  pass 15 "生成索引与规则块全集全等且零漂移（索引 ${n_idx} 行，全集 ${n_union} ID）"
 fi
 
-# 检查 16：索引机制列值 ⊆ 受控词表（票 60 新增）。词表＝清单 mechanism-vocab 节（受控
-# 三值）＋外定义标记词（恰一行），引擎零词表零标记词硬编码。机制列语法：受控值开头，
-# 可跟全角括注「（…）」（出处/说明，括注内容不做词表核验、禁嵌套与全角分号），可跟
-# 「；外定义（…）」附加段（首段须为机制受控值，附加段须为词表值）。BSD awk 的 index/
-# substr 对多字节字符的字节/字符位语义混合不可靠，故先经 sed 把全角括号/分号规范化为
-# ASCII 再解析（字面替换为字节级，可靠）；剥离后残留括号判括号不配对（fail-closed）。
+# 检查 16：索引机制列值 ⊆ 受控词表。对象＝生成索引 references/rules-index.md 机制列
+# （五列表第 5 列）；词表＝清单 mechanism-vocab 节（受控三值，引擎零词表硬编码）。机制列
+# 语法：受控值开头，可跟全角括注「（…）」（出处/说明，括注内容不做词表核验、禁嵌套与
+# 全角分号），可跟「；」分段（每段须为词表值）。BSD awk 的 index/substr 对多字节字符
+# 语义混合不可靠，故先经 sed 把全角括号/分号规范化为 ASCII 再解析（字面替换为字节级，
+# 可靠）；剥离后残留括号判括号不配对（fail-closed）。
 problems=''
+idx_mech=$(mktemp "${t_dir%/}/idxmech.XXXXXX")
+: > "$idx_mech"
+if [ -f "$idx_file" ]; then
+  LC_ALL=C awk -F'|' '
+    /^\| R-[A-Z][A-Z]-[0-9][0-9][0-9] /{
+      id = $2; gsub(/[ \t]/, "", id)
+      cell = $6
+      sub(/^[ \t]+/, "", cell); sub(/[ \t]+$/, "", cell)
+      if (cell == "") next
+      print id "\t" cell
+    }
+  ' "$idx_file" >> "$idx_mech"
+fi
 mechs=$(cat "$pm_mechs")
 n_mechs=$(printf '%s\n' "$mechs" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
-n_mark=0
-if [ -n "$mechmark" ]; then
-  n_mark=1
-fi
-if [ "$n_idx" -eq 0 ]; then
+n_row16=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$idx_mech")
+if [ "$n_row16" -eq 0 ]; then
   add_problem '  - 索引表零行，机制列无从核对'
 else
   awk_rc=0
-  hits16=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' "$pm_idxmech" | LC_ALL=C VOCAB="$mechs
-$mechmark" MECHS="$mechs" awk -F'\t' '
+  hits16=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' "$idx_mech" | LC_ALL=C VOCAB="$mechs" awk -F'\t' '
     BEGIN {
       nv = split(ENVIRON["VOCAB"], V, "\n")
       for (k = 1; k <= nv; k++) if (V[k] != "") voc[V[k]] = 1
-      nm = split(ENVIRON["MECHS"], M, "\n")
-      for (k = 1; k <= nm; k++) if (M[k] != "") mechv[M[k]] = 1
     }
     NF {
       id = $1
@@ -2153,11 +2081,7 @@ $mechmark" MECHS="$mechs" awk -F'\t' '
       n = split(t, T, ";")
       for (k = 1; k <= n; k++) {
         if (T[k] == "") { printf "%s\t机制列含空段\n", id; continue }
-        if (k == 1) {
-          if (!(T[k] in mechv)) printf "%s\t机制值不在受控词表: %s\n", id, T[k]
-        } else {
-          if (!(T[k] in voc)) printf "%s\t机制列附加段不在受控词表: %s\n", id, T[k]
-        }
+        if (!(T[k] in voc)) printf "%s\t机制值不在受控词表: %s\n", id, T[k]
       }
     }
   ') || awk_rc=$?
@@ -2179,25 +2103,25 @@ $mechmark" MECHS="$mechs" awk -F'\t' '
   fi
 fi
 if [ -n "$problems" ]; then
-  fail 16 "索引机制列受控词表（机制 ${n_mechs} 值＋标记 ${n_mark} 词）" "$problems"
+  fail 16 "索引机制列受控词表（机制 ${n_mechs} 值）" "$problems"
 else
-  pass 16 "索引机制列受控词表（机制 ${n_mechs} 值＋标记 ${n_mark} 词）"
+  pass 16 "索引机制列受控词表（机制 ${n_mechs} 值）"
 fi
 
-# 检查 17：机械行点名出处存在（票 60 新增）。机械行（机制列首段＝受控值「机械」——该值
+# 检查 17：机械行点名出处存在。机械行（机制列首段＝受控值「机械」——该值
 # 为引擎语义锚点，词表成员资格仍以清单为权威）须在括注内点名出处：脚本名（*.sh）必须
-# 真实存在于包 $scripts_dir 且在清单 scripts 节登记；检查项号（「检查 N」）必须 ≤ 当前检查
-# 总数（引擎自述 n_total_checks，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
-# 存在性核对）；零脚本零检查项的机械行判缺点名。
+# 真实存在于包 $scripts_dir 且在清单 scripts 节登记；检查项号（「检查 N」）必须落在
+# 1..36（引擎自述上限，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
+# 存在性核对）；零脚本零检查项的机械行判缺点名。对象＝生成索引机制列（检查 16 同源）。
 problems=''
 n_total_checks=36
 n_mrow=0
 mech_m='机械'
-if [ "$n_idx" -eq 0 ]; then
+if [ "$n_row16" -eq 0 ]; then
   add_problem '  - 索引表零行，机械行无从核对'
 else
   awk_rc=0
-  cand17=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' -e 's/检查/CHK/g' "$pm_idxmech" | LC_ALL=C MECH_M="$mech_m" awk -F'\t' '
+  cand17=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' -e 's/检查/CHK/g' "$idx_mech" | LC_ALL=C MECH_M="$mech_m" awk -F'\t' '
     function paren_span(s,   i, j) {
       i = index(s, "(")
       if (i == 0) return ""
@@ -2796,66 +2720,6 @@ else
   pass 22 "规则块九字段格式（块 ${n_blocks} 个，字段 7 项，级 4 值）"
 fi
 
-# 检查 23：索引节序言短指针（票 195 新增；三份 §16 长序言收敛配套）。唯一权威＝
-# references/protocol/governance-format.md §2.7 R-GF-011 定稿短指针原句（引擎经「」
-# 引号窄锚点现场提取，零句子硬编码）。核对面＝清单 templates 节含「## 16. 规则索引」
-# 锚点的宿主（检查 15 同款宿主判定）：节首（锚点行后至「| ID |」表头行前）非空序言
-# 须恰一行且逐字等于权威定稿原句；缺序言、与原句不一致（含指向第二权威）或指针外
-# 多行散文即 FAIL 指名模板与原文。权威文件缺失报缺点名（检查 14 同款）；锚点失效或
-# 提取空句 exit 2 fail-closed（不产生部分结论）。
-problems=''
-n_hosts=0
-fmt_auth='references/protocol/governance-format.md'
-if [ ! -f "$pkg_root/$fmt_auth" ]; then
-  add_problem "  - 格式权威文件不存在: $fmt_auth"
-else
-  canon=$(LC_ALL=C awk '/索引节首序言只写一句短指针/ { print; exit }' "$pkg_root/$fmt_auth" \
-    | LC_ALL=C sed -e 's/（/(/g' -e 's/）/)/g' -e 's/「/(/g' -e 's/」/)/g' \
-    | LC_ALL=C awk '{
-        i = index($0, "(")
-        if (i > 0) {
-          rest = substr($0, i + 1)
-          j = index(rest, ")")
-          if (j > 1) { print substr(rest, 1, j - 1) }
-        }
-      }')
-  if [ -z "$canon" ] || ! printf '%s' "$canon" | grep -q 'governance-format\.md'; then
-    printf 'check-package: 错误：检查 23 权威原句提取失效（窄锚点未命中或句形不合预期，fail-closed）: %s\n' "$fmt_auth" >&2
-    exit 2
-  fi
-  while IFS= read -r t; do
-    idx_site="$templates_dir/$t"
-    [ -f "$idx_site" ] || continue  # 缺件由检查 5 指名，本项不重复报
-    grep -q '^## 16\. 规则索引' "$idx_site" 2>/dev/null || continue
-    n_hosts=$((n_hosts + 1))
-    pre=$(LC_ALL=C awk '
-      /^## 16\. 规则索引/ { insec = 1; next }
-      insec && (/^## / || /^\| ID \|/) { exit }
-      insec && NF { print }
-    ' "$idx_site")
-    if [ -z "$pre" ]; then
-      add_problem "  - $t §16 序言缺短指针（锚点行与索引表之间无非空序言行）"
-    else
-      pre_first=$(printf '%s\n' "$pre" | head -n 1)
-      pre_rest=$(printf '%s\n' "$pre" | tail -n +2)
-      if [ -n "$pre_rest" ]; then
-        # 花括号不可省略：全角字符相邻时防止变量名吞并（先例检查 5/12/17）
-        add_problem "  - $t §16 序言多行（短指针外不得另立散文）: $(printf '%s' "$pre_rest" | head -n 1)"
-      elif [ "$pre_first" != "$canon" ]; then
-        add_problem "  - $t §16 序言与唯一权威短指针不一致（须逐字等于 governance-format.md §2.7 定稿原句）: $pre_first"
-      fi
-    fi
-  done < "$pm_templates"
-  if [ "$n_hosts" -eq 0 ]; then
-    add_problem '  - 索引宿主零件（无模板命中锚点「## 16. 规则索引」），序言无从核对'
-  fi
-fi
-if [ -n "$problems" ]; then
-  fail 23 "索引节序言短指针（宿主 ${n_hosts} 件，权威定稿原句逐字核对）" "$problems"
-else
-  pass 23 "索引节序言短指针（宿主 ${n_hosts} 件，权威定稿原句逐字核对）"
-fi
-
 # 检查 24：布局引用分类与失效检测（modern/legacy/compatibility 三分类）。扫描面＝清单
 # layout-face 节登记面：目录行递归取 *.md/*.tmpl（排除 README.md 叙事面，检查 12 同款
 # 口径），单文件行整件入面。分类口径：
@@ -3009,7 +2873,7 @@ fi
 # 规则块内不得出现【待定】来源标记（未核验面在规则块内用状态词表标注：pending/
 # unsupported/local-observation；本地实验记录移出 MUST 正文降为注记形态）。
 # 扫描面＝references/adapters/ 全部 *.md（宿主映射手册是适配证据的规范承载面；引擎
-# 硬编码该域路径，先例检查 21 的 references/ 与检查 23 的 governance-format.md 域常量；
+# 硬编码该域路径，先例检查 21 的 references/ 与检查 24 的 governance-format.md 域常量；
 # 写入指引面豁免见下）。窗口＝#### R-<短码>-NNN 标题 Level 为 MUST/MUST NOT 的规则块
 #（标题行起至下一标题行止，检查 22 同款窗口口径）：
 #   ①块内行含【待定】即 FAIL 指名文件:行号；

@@ -43,13 +43,14 @@ inst_build_pkg() {
 }
 
 inst_build_seed() {
-  # $1=目标根：按模板生成 Seed 治理面（七件套＋四份角色合同＋tickets 目录），不安装脚本。
+  # $1=目标根：按模板生成 Seed 治理面（八件套＋四份角色合同＋tickets 目录），不安装脚本。
   # 供票 244 AC3/AC4 夹具；check-artifacts 的登记与实际文件一一对应由模板决定。
   SD=$1
   rm -rf "$SD"
   mkdir -p "$SD/rules/implementation/roles" "$SD/facts/project" "$SD/facts/requirements/tickets"
   INST_TPL="$SCRIPT_DIR/../references/templates"
   cp "$INST_TPL/AGENTS.md.tmpl" "$SD/AGENTS.md"
+  cp "$INST_TPL/core.md.tmpl" "$SD/rules/core.md"
   cp "$INST_TPL/assessment.md.tmpl" "$SD/rules/assessment.md"
   cp "$INST_TPL/discipline.md.tmpl" "$SD/rules/implementation/discipline.md"
   cp "$INST_TPL/project.md.tmpl" "$SD/rules/project.md"

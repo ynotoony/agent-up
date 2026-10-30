@@ -55,12 +55,9 @@
 #           token（现行值：verified＝适配面官方登记取阅核验在册（行内未核验子面按
 #           R-AT-001 状态词表在适配文件内标注），pending＝官方指针未核验或面未全量
 #           核验；语义同 R-AT-001 状态词表 pending））；
-#         pm_mechanism <值>（规则索引执行机制受控值：rules 三件模板
-#           assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl §16 机制列取值 ⊆ 本节
-#           值集，检查 16；受控三值＝机械/门禁/约定，语义唯一权威见
+#         pm_mechanism <值>（规则索引执行机制受控值：生成索引 references/rules-index.md
+#           机制列取值 ⊆ 本节值集，检查 16；受控三值＝机械/门禁/约定，语义唯一权威见
 #           references/protocol/governance-format.md §2.7）；
-#         pm_mechanism_marker <标记词>（外定义标记词，恰一行：模板 §16 中定义于模板外
-#           手册的规则块行须在机制列显式标注本标记词，未标注算漏行，检查 15/16）；
 #         pm_retired_token <token> <说明>（退役能力 token，检查 29：令牌在活动面出现须同行
 #           带 legacy 标注词）；pm_retired_face <pkg-rel-path>（活动创建路径面，目录行递归取
 #           *.md/*.tmpl）；pm_legacy_marker <标注词>（legacy 显式标注词表）；
@@ -78,7 +75,7 @@
 #      fail-closed）。清单变更先改本表再改实物（数据先行）；本表与 scripts/README.md
 #      成员表、references/ 各目录 README 登记面为「数据＝机器真相、表＝人读投影」关系，
 #      一致性由 check-package.sh 检查 5/9 机械核对。短码登记以各目录 README 登记面为
-#      同源（templates：AG/DP/RI/RR/RC/RT；protocol：GF/RP/CP，grep 实测全集）；
+#      同源（templates：CO 与历史引用码 AG/DP/RI/RR/RC/RT；protocol：GF/RP/CP，grep 实测全集）；
 #      adapters 五宿主短码（ZC/CL/CX/PI/DS）自适配器注册表单源化起以 adapter-registry
 #      节为单源
 #      （shortcodes 节行与两 README 投影由检查 26 对注册表闭合，不另立登记事实）；
@@ -90,7 +87,7 @@
 #      部分结论）：字段数（pm_entry 恰 1、pm_script 恰 3、pm_template 恰 1、
 #      pm_shortcode 恰 2、pm_platform 恰 1、pm_vague_word 恰 1、pm_vague_exempt 恰 3、
 #      pm_mirror 恰 2、pm_capability 恰 1、pm_capability_authority 恰 1、
-#      pm_capability_target 恰 3、pm_mechanism 恰 1、pm_mechanism_marker 恰 1、
+#      pm_capability_target 恰 3、pm_mechanism 恰 1、
 #      pm_enforcement_level 恰 1、pm_enforcement_target 恰 2、
 #      pm_layout_face 恰 1、pm_layout_universe 恰 2、pm_layout_legacy_file 恰 2、
 #      pm_layout_compat_exempt 恰 3、pm_retired_token 恰 2、pm_retired_face 恰 1、
@@ -113,7 +110,7 @@
 #      references/adapters/<platform>.md 同名单段名、coverage 逐名 ⊆ pm_capability
 #      名单、role_mapping/evidence_status 须小写 token；
 #      pm_mechanism 值须非空且不含空白并跨行唯一；
-#      pm_mechanism_marker 跨行恰一行；pm_layout_universe 锚点须受限字符集单 token 且
+#      pm_layout_universe 锚点须受限字符集单 token 且
 #      登记模板跨行唯一；pm_layout_legacy_file 理由非空且路径跨行唯一；
 #      pm_layout_compat_exempt 行号须正整数、理由非空、路径+行号跨行唯一；
 #      pm_retired_token 非空单 token 且跨行唯一；pm_retired_face 路径形态同入口面且跨行唯一；
@@ -172,6 +169,9 @@ pm_entry references/schemas/ledger-row.schema.json
 pm_entry references/workflows/README.md
 pm_entry references/workflows/triage.yaml
 pm_entry references/workflows/implementation.yaml
+pm_entry references/rules-index.md
+pm_entry references/why/README.md
+pm_entry references/why/decisions.md
 
 # ==== scripts：脚本必需件（检查 8；成员表一致性检查 9）====
 # kind 口径差定谳：test-record-layer.sh 定为必需件，kind 标 test-harness。
@@ -183,6 +183,7 @@ pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/wa
 pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_load_rules 唯一实现＋DP_PARSER_VERSION 单一版本来源；四消费件同目录 source，缺件与版本漂移 fail-closed；文法说明 references/delivery-rules.md）'
 pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
+pm_script scripts/generate-docs-index.sh script '规则索引生成器（扫描包内规则块→references/rules-index.md；--check 零漂移核对，零写入）'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/generate-adapter-diffs.sh script '适配器宿主差异段生成器与生成漂移核对器（数据表四节机器数据行→Markdown 差异段；check-package 检查 28 经其 --check 指名宿主与段）'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理）'
@@ -200,7 +201,7 @@ pm_script scripts/module-map.rules rules '模块地图语言规则表（generate
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/project-dashboard.html rules '本地项目仪表盘（单文件只读 HTML：Chrome/Edge 目录授权后读 module-map.json、票索引与全部卡片，页面打开期间轮询刷新；零网络零写入；kind=rules 意为非可执行数据件）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
-pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋25 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
+pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋27 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
 pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAML workflow 定义驱动的流程执行器：条件跳过、工具调用、checkpoint 落盘、中断续传）'
@@ -220,6 +221,7 @@ pm_template agents-review.md.tmpl
 pm_template agents-triage.md.tmpl
 pm_template artifacts-yaml.tmpl
 pm_template assessment.md.tmpl
+pm_template core.md.tmpl
 pm_template delivery-rules.tmpl
 pm_template discipline.md.tmpl
 pm_template dir-README.md.tmpl
@@ -230,7 +232,13 @@ pm_template scripts-README.md.tmpl
 pm_template specs-README.md.tmpl
 
 # ==== shortcodes：规则块短码登记（检查 10：使用⊆登记）====
+# 注册口径＝扫描面内 R-<短码>-NNN 字面出现（含正文引用，不限于规则块定义）。安装面已
+# 收敛为单一核心件 core.md.tmpl（短码 CO，十条核心规则）；AG/DP/RI/RR/RC/RT 六码在安装
+# 面零规则块，但包内受保护的历史登记（templates/README.md 取舍与过渡登记）、SKILL.md 与
+# 保留的 protocol/adapters 手册正文仍以 R-<码>-NNN 形式引用旧条款，故登记行保留——删登记
+# 会让检查 10 失去对这些引用的覆盖（不得为瘦身放宽检查）。新增码先登记再使用。
 
+pm_shortcode CO references/templates/core.md.tmpl
 pm_shortcode AG references/templates/AGENTS.md.tmpl
 pm_shortcode DP references/templates/assessment.md.tmpl
 pm_shortcode DP references/templates/discipline.md.tmpl
@@ -313,6 +321,9 @@ pm_mirror check-payload-boundary.sh mirror
 # 派发合同渲染器：包侧新建即两侧同步落位（仓侧 rules/implementation/scripts/
 # 补镜像件，byte 纪律同族）。
 pm_mirror contract-build.sh mirror
+# 规则索引生成器：包侧专用（目标项目无 references/ 树，索引不随安装落位），
+# package-only＝包侧唯一维护权威，不 cmp。
+pm_mirror generate-docs-index.sh package-only
 # 三阶段编排入口：包侧新建即两侧同步落位（仓侧 rules/implementation/scripts/ 补镜像件）。
 pm_mirror ticket-run.sh mirror
 # -- package-only：包侧唯一维护权威（仓侧同名实例待升级流程同步的过渡态） --
@@ -397,19 +408,15 @@ pm_adapter zcode ZC references/adapters/zcode.md 'inspect,search,read,edit,write
 # 词表节可空（区别于其余九节非空下限）。
 
 # ==== mechanism-vocab：规则索引执行机制受控词表（检查 15/16/17）====
-# 模板 rules 三件（assessment.md.tmpl／discipline.md.tmpl／project.md.tmpl）§16 规则索引
-# 机制列取值 ⊆ 本节词表（受控三值＋外定义标记词）；引擎零词表零标记词硬编码。三值语义
-# 唯一权威＝references/protocol/governance-format.md §2.7（机械＝点名脚本/
-# 检查项现役断言在管；门禁＝阶段检查点卡；约定＝无机械无门禁）。外定义标记词＝定义于
-# 模板外手册（protocol/adapters）的规则块行在机制列的显式标注，未标注算漏行（检查 15）；
-# 拆分产生的跨件规则块（定义于 rules/ 三件中另一件）在机制列标注外定义
-# （定义于 rules/<件名>）互指形态；模板 §16 节首序言＝指向该权威的短指针原句（检查 23）。
-# 词表增删＝先改本节再改模板索引（数据先行），并同步 harness 夹具（红灯不隔票）。
+# 对象＝生成索引 references/rules-index.md 的机制列（generate-docs-index.sh 输出；机制登记
+# 表随脚本承载，值是唯一事实）。受控三值＝机械／门禁／约定；机械类括注须点名包内真实
+# 脚本或检查项号（检查 17 核验）。三值语义唯一权威＝references/protocol/governance-format.md
+# §2.7。词表增删＝先改本节再改生成器登记表（数据先行），并同步 harness 夹具（红灯不隔票）。
+# 外定义标记词随模板 §16 索引退役：整包索引不再区分「模板内/模板外」定义，标记无对象。
 
 pm_mechanism 机械
 pm_mechanism 门禁
 pm_mechanism 约定
-pm_mechanism_marker 外定义
 
 # ==== layout-face：布局引用分类扫描面（检查 24）====
 # 目录行＝递归取 *.md/*.tmpl（排除 README.md 叙事面，检查 12 同款口径）；单文件行＝
@@ -460,23 +467,23 @@ pm_layout_compat_exempt references/adapters/pi.md 19 '事实来源考证行：�
 pm_layout_compat_exempt references/adapters/pi.md 73 '宿主映射双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
 pm_layout_compat_exempt references/adapters/zcode.md 73 '宿主映射双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
 pm_layout_compat_exempt references/adapters/adapter-template.md 29 '结构基线双布局契约语义本体：旧项目兼容模式等价角色合同目录（role-contract-dir 变量展开）路径并陈，非失效引用'
-pm_layout_compat_exempt references/README.md 19 'adapters 目录行宿主映射双布局契约语义：新布局缺省与旧项目兼容目录路径并陈（变量展开语义本体），非失效引用'
+pm_layout_compat_exempt references/README.md 21 'adapters 目录行宿主映射双布局契约语义：新布局缺省与旧项目兼容目录路径并陈（变量展开语义本体），非失效引用'
 pm_layout_compat_exempt references/schemas/README.md 16 'issue-index 登记行与 schema 正文 description 机器真相同款落位（schema 不在本票清理面）：改写将致 README 与 schema 单边漂移，存量读法注记保留'
 pm_layout_compat_exempt references/schemas/README.md 17 'ticket-record 登记行与 schema 正文 description 机器真相同款落位（schema 不在本票清理面）：改写将致 README 与 schema 单边漂移，存量读法注记保留'
 pm_layout_compat_exempt references/schemas/README.md 22 'request-index 退役 schema 存量读法语义本体（仅存量项目旧登记读法校验保留，冻结只读）：docs/requests 路径为该读法语义本体，非失效引用'
-pm_layout_compat_exempt references/templates/README.md 65 '取舍与过渡登记 I-04 历史条目（记录保护不改写）：历史记录曾以旧布局路径为 Emits 落位的当时事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 67 '取舍与过渡登记条件性模板收窄执行条目（2026-09-03，记录保护）：当时生成物规则权威命名历史事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 68 '取舍与过渡登记 artifacts-yaml 契约头条目（2026-09-03，记录保护）：当时生成物落位路径历史事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 70 '取舍与过渡登记触发矩阵补 C2/C3 条目（2026-09-03，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 71 '取舍与过渡登记治理生成收敛增补条目（2026-09-04，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 72 '取舍与过渡登记分级交付道增补条目（2026-09-16，记录保护）：拆三前单件模板文件名与旧布局路径历史事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 73 '取舍与过渡登记两层协作回灌条目（2026-09-17，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 74 '取舍与过渡登记道脚本安装路径条目（2026-09-18，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 75 '取舍与过渡登记状态索引 schema 定稿条目（2026-09-18，记录保护）：旧落位与 specs 镜像当时事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 76 '取舍与过渡登记 progress/changes 退役删除条目（2026-09-18，记录保护）：条目自带按记录不改写纪律，旧布局路径为当时 seed 事实'
-pm_layout_compat_exempt references/templates/README.md 78 '取舍与过渡登记票/REQ schema 定稿条目（2026-09-18，记录保护）：旧落位当时事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 79 '取舍与过渡登记回灌核对义务条目（2026-09-20，记录保护）：源仓镜像拆三前文件名与节号当时事实，非现行指引'
-pm_layout_compat_exempt references/templates/README.md 80 '取舍与过渡登记流程权威拆三条目（2026-10-01，记录保护）：拆三前单件模板文件名为条目主题历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 62 '取舍与过渡登记 I-04 历史条目（记录保护不改写）：历史记录曾以旧布局路径为 Emits 落位的当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 64 '取舍与过渡登记条件性模板收窄执行条目（2026-09-03，记录保护）：当时生成物规则权威命名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 65 '取舍与过渡登记 artifacts-yaml 契约头条目（2026-09-03，记录保护）：当时生成物落位路径历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 67 '取舍与过渡登记触发矩阵补 C2/C3 条目（2026-09-03，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 68 '取舍与过渡登记治理生成收敛增补条目（2026-09-04，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 69 '取舍与过渡登记分级交付道增补条目（2026-09-16，记录保护）：拆三前单件模板文件名与旧布局路径历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 70 '取舍与过渡登记两层协作回灌条目（2026-09-17，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 71 '取舍与过渡登记道脚本安装路径条目（2026-09-18，记录保护）：拆三前单件模板文件名历史事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 72 '取舍与过渡登记状态索引 schema 定稿条目（2026-09-18，记录保护）：旧落位与 specs 镜像当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 73 '取舍与过渡登记 progress/changes 退役删除条目（2026-09-18，记录保护）：条目自带按记录不改写纪律，旧布局路径为当时 seed 事实'
+pm_layout_compat_exempt references/templates/README.md 75 '取舍与过渡登记票/REQ schema 定稿条目（2026-09-18，记录保护）：旧落位当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 76 '取舍与过渡登记回灌核对义务条目（2026-09-20，记录保护）：源仓镜像拆三前文件名与节号当时事实，非现行指引'
+pm_layout_compat_exempt references/templates/README.md 77 '取舍与过渡登记流程权威拆三条目（2026-10-01，记录保护）：拆三前单件模板文件名为条目主题历史事实，非现行指引'
 pm_mirror json-validator.py mirror
 
 # ==== retired-path：退役能力与活动创建路径（检查 29）====

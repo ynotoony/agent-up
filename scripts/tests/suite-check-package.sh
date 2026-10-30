@@ -93,6 +93,13 @@ fi
 # executable（非生产标记词／入口名／声称词）；四处金样各补八行、汇总 28→36、N16 注入项号
 # 28+1→36+1、检查 17 自述总数 28→36；补正例 P29～P36 与负例 N64～N71（各单点注入，断言
 # FAIL 行逐字指名文件/条目、规则与冲突类型）；套件断言 89→105。
+# 安装面收敛随票修（本次）：模板规则块 80→10（核心规则 R-CO-001～010），三份 §16 手写索引
+# 退役、由 scripts/generate-docs-index.sh 生成 references/rules-index.md；检查 15 改「生成索引↔
+# 包内规则块全集全等＋--check 零漂移」、检查 16/17 对象改生成索引、检查 23 退役（无宿主）；
+# 金样四块按实际输出独立重建（检查 1 计数 41、检查 5 计数 17、检查 8/19 计数 34、检查 20 一级
+# 37、检查 21 成员 53、检查 22 块 36、检查 24 面 32/legacy 13/compatibility 45/链接 4、检查 35
+# 短码节 19）；N12～N16 注入目标改生成索引、N34～N36 改 core.md.tmpl，N17/N37～N40 与 P2 随
+# 检查 23 退役删除；N23 计数 33→34、N29 计数 38→41、P3 链接 10→5、P4 面 31→32。
 # ============================================================
 
 suite_check_package() {
@@ -132,15 +139,15 @@ suite_check_package() {
   fi
   if [ "$_cp_in_wt" -eq 1 ]; then
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（38 个文件）
+PASS: 1 必需入口存在（41 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 16 个且全部登记
+PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（33 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（34 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
@@ -148,16 +155,15 @@ PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 13 镜像脚本与仓根同名件一致（比对 18 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
-PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
-PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
+PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
+PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（33 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 34 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
-PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
-PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
+PASS: 19 scripts 节 mode 断言（34 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 35 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
+PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
@@ -168,36 +174,35 @@ PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票�
 PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
 PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
 check-package: PASS
 EOF
   else
   cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（38 个文件）
+PASS: 1 必需入口存在（41 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 16 个且全部登记
+PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（33 个文件）
+PASS: 8 脚本必需件存在（34 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 13 镜像脚本与仓根同名件一致（比对 18 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
-PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
-PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
+PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
+PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（33 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
-PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
-PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
+PASS: 19 scripts 节 mode 断言（34 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 37 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
+PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
@@ -208,7 +213,7 @@ PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票�
 PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
 PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
 check-package: PASS
 EOF
@@ -220,33 +225,32 @@ EOF
   else
     bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
   fi
-  assert_eq '正例输出逐行逐一相等（三十六项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、23 序言短指针、25 待定规范声明检测、28 生成漂移与 29～36 包级语义一致性八项）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（三十六项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、25 待定规范声明检测、28 生成漂移与 29～36 包级语义一致性八项）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
   cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（38 个文件）
+PASS: 1 必需入口存在（41 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 16 个且全部登记
+PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（33 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（34 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
-PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
-PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
-FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-DP-004 机械行点名脚本不存在: generate-progress.sh
+PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
+PASS: 16 索引机制列受控词表（机制 3 值）
+FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-CO-007 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 35 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
-PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
-PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
+PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
@@ -257,7 +261,7 @@ PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票�
 PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
 PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
 check-package: FAIL（3 项未通过，共 36 项）
 EOF
@@ -277,28 +281,27 @@ EOF
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
   cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（38 个文件）
+PASS: 1 必需入口存在（41 个文件）
 PASS: 2 SKILL.md frontmatter 为 name: agent-up
 PASS: 3 包内无旧标识残留
 PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 16 个且全部登记
+PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（33 个文件）
+PASS: 8 脚本必需件存在（34 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
-PASS: 15 模板规则索引与规则块全集全等（三件索引并集 56 行，全集 56 ID）
-PASS: 16 索引机制列受控词表（机制 3 值＋标记 1 词）
+PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
+PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 51 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 80 个，字段 7 项，级 4 值）
-PASS: 23 索引节序言短指针（宿主 3 件，权威定稿原句逐字核对）
-PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 9 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 37 项，symlink 0 个）
+PASS: 21 references 树成员闭合与导航（成员 55 件，链接 2 个）
+PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
+PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
 PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
 PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
 PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
@@ -309,7 +312,7 @@ PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票�
 PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
 PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）
+PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
 check-package: FAIL（1 项未通过，共 36 项）
 EOF
@@ -515,54 +518,52 @@ EOF
     bad '负例 N47 对照表删 readonly-execute 行 → exit 2 解析失效无结论（无 FAIL 行与汇总）' "exit=$rc"
   fi
 
-  # 票 60 检查 15 负例 N12：索引删一行（删 R-DP-037 行）→ exit 1 且 FAIL: 15 指名缺行。
-  # 票 113 波④：流程权威拆三后索引宿主为三件模板，R-DP-037 索引行在 assessment.md.tmpl。
+  # 检查 15 负例 N12：生成索引删一行（删 R-CO-001 行）→ exit 1 且 FAIL: 15 指名缺行。
+  # 索引对象＝生成投影 references/rules-index.md（模板 §16 手写索引已退役）。
   cp -R "$PKG_ROOT" "$D/pkgcopy9"
-  grep -v '^| R-DP-037 ' "$D/pkgcopy9/references/templates/assessment.md.tmpl" > "$D/tmpl9.tmp" \
-    && mv "$D/tmpl9.tmp" "$D/pkgcopy9/references/templates/assessment.md.tmpl"
+  grep -v '^| R-CO-001 ' "$D/pkgcopy9/references/rules-index.md" > "$D/tmpl9.tmp" \
+    && mv "$D/tmpl9.tmp" "$D/pkgcopy9/references/rules-index.md"
   sh "$D/pkgcopy9/scripts/check-package.sh" "$D/pkgcopy9" >"$D/act.n12" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 15 模板规则索引与规则块全集全等' "$D/act.n12" && grep -q '全集 ID 缺索引行: R-DP-037' "$D/act.n12"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 15 生成索引与规则块全集全等且零漂移' "$D/act.n12" && grep -q '规则块缺索引行: R-CO-001' "$D/act.n12"; then
     ok '负例 N12 索引删一行 → exit 1 且 FAIL: 15 指名缺行（索引变更先改表再动规则块的拦截面）'
   else
     bad '负例 N12 索引删一行 → exit 1 且 FAIL: 15 指名缺行（索引变更先改表再动规则块的拦截面）' "exit=$rc"
   fi
 
-  # 票 60 检查 15 负例 N13：索引表尾加全集外 ID 行（R-DP-999，短码 DP 已登记、序号不存在）
+  # 检查 15 负例 N13：生成索引表尾加全集外 ID 行（R-CO-999，短码 CO 已登记、序号不存在）
   # → exit 1 且 FAIL: 15 指名多行（检查 10 不误伤：短码在册）。
-  # 票 113 波④：注入目标为索引宿主 project.md.tmpl（DP 短码三件之一，锚点在件）。
   cp -R "$PKG_ROOT" "$D/pkgcopy10"
-  printf '| R-DP-999 | harness fixture 全集外 ID 负例 | 约定 |\n' >> "$D/pkgcopy10/references/templates/project.md.tmpl"
+  printf '| R-CO-999 | harness fixture 全集外 ID 负例 | references/templates/core.md.tmpl | MUST | 约定 |\n' >> "$D/pkgcopy10/references/rules-index.md"
   sh "$D/pkgcopy10/scripts/check-package.sh" "$D/pkgcopy10" >"$D/act.n13" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 15 模板规则索引与规则块全集全等' "$D/act.n13" && grep -q '索引多出全集外 ID: R-DP-999' "$D/act.n13"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 15 生成索引与规则块全集全等且零漂移' "$D/act.n13" && grep -q '索引多出全集外 ID: R-CO-999' "$D/act.n13"; then
     ok '负例 N13 索引加全集外 ID → exit 1 且 FAIL: 15 指名多行'
   else
     bad '负例 N13 索引加全集外 ID → exit 1 且 FAIL: 15 指名多行' "exit=$rc"
   fi
 
-  # 票 60 检查 16 负例 N14：机制列写未登记值（R-DP-001 约定→自动）→ exit 1 且 FAIL: 16
-  # 指名 ID 与值（受控词表外置 manifest，harness 零词面字面量——注入值「自动」为场景
-  # 固定负例字面量，非词表成员）。票 113 波④：R-DP-001 索引行在 project.md.tmpl。
+  # 检查 16 负例 N14：机制列写未登记值（R-CO-001 门禁→自动）→ exit 1 且 FAIL: 16 指名
+  # ID 与值（受控词表外置 manifest；注入值「自动」为场景固定负例字面量，非词表成员）。
   cp -R "$PKG_ROOT" "$D/pkgcopy11"
-  sed '/^| R-DP-001 /s/| 约定 |$/| 自动 |/' "$D/pkgcopy11/references/templates/project.md.tmpl" > "$D/tmpl11.tmp" \
-    && mv "$D/tmpl11.tmp" "$D/pkgcopy11/references/templates/project.md.tmpl"
+  sed '/^| R-CO-001 /s/| 门禁 |$/| 自动 |/' "$D/pkgcopy11/references/rules-index.md" > "$D/tmpl11.tmp" \
+    && mv "$D/tmpl11.tmp" "$D/pkgcopy11/references/rules-index.md"
   sh "$D/pkgcopy11/scripts/check-package.sh" "$D/pkgcopy11" >"$D/act.n14" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 16 索引机制列受控词表' "$D/act.n14" && grep -q 'R-DP-001 机制值不在受控词表: 自动' "$D/act.n14"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 16 索引机制列受控词表' "$D/act.n14" && grep -q 'R-CO-001 机制值不在受控词表: 自动' "$D/act.n14"; then
     ok '负例 N14 机制列写未登记值 → exit 1 且 FAIL: 16 指名 ID 与值'
   else
     bad '负例 N14 机制列写未登记值 → exit 1 且 FAIL: 16 指名 ID 与值' "exit=$rc"
   fi
 
-  # 票 60 检查 17 负例 N15：机械行点名不存在脚本（R-RC-003 出处改 harness-fixture.sh）
-  # → exit 1 且 FAIL: 17 指名 ID 与脚本。票 113 波④：R-RC-003 索引行在 discipline.md.tmpl。
+  # 检查 17 负例 N15：机械行点名不存在脚本（R-CO-004 出处改 harness-fixture.sh）
+  # → exit 1 且 FAIL: 17 指名 ID 与脚本。
   cp -R "$PKG_ROOT" "$D/pkgcopy12"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（harness-fixture.sh） |/' "$D/pkgcopy12/references/templates/discipline.md.tmpl" > "$D/tmpl12.tmp" \
-    && mv "$D/tmpl12.tmp" "$D/pkgcopy12/references/templates/discipline.md.tmpl"
+  sed '/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |$/| 机械（harness-fixture.sh） |/' "$D/pkgcopy12/references/rules-index.md" > "$D/tmpl12.tmp" \
+    && mv "$D/tmpl12.tmp" "$D/pkgcopy12/references/rules-index.md"
   sh "$D/pkgcopy12/scripts/check-package.sh" "$D/pkgcopy12" >"$D/act.n15" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n15" && grep -q 'R-RC-003 机械行点名脚本不存在: harness-fixture.sh' "$D/act.n15"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n15" && grep -q 'R-CO-004 机械行点名脚本不存在: harness-fixture.sh' "$D/act.n15"; then
     ok '负例 N15 机械行点名不存在脚本 → exit 1 且 FAIL: 17 指名 ID 与脚本'
   else
     bad '负例 N15 机械行点名不存在脚本 → exit 1 且 FAIL: 17 指名 ID 与脚本' "exit=$rc"
@@ -591,33 +592,17 @@ EOF
   done
   rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
 
-  # 票 60 检查 17 负例 N16：机械行点名检查项号超界（R-RC-003 出处改 lane-commit.sh 检查 19）
-  # → exit 1 且 FAIL: 17 指名 ID 与项号（引擎自述总数随检查面增长，票 197 后为 24、
-  # 票 212 后为 25、票 215 后为 26、票 222 后为 27、票 223 后为 28、包级语义门禁入册后
-  # 为 36；注入检查 37＝超界一位，随总数同步）。
+  # 检查 17 负例 N16：机械行点名检查项号超界（R-CO-004 出处改「检查 37」）→ exit 1 且
+  # FAIL: 17 指名 ID 与项号（引擎自述上限 36；注入 37＝超界一位，随检查上限同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed 's/| 机械（lane-commit.sh） |/| 机械（lane-commit.sh 检查 37） |/' "$D/pkgcopy13/references/templates/discipline.md.tmpl" > "$D/tmpl13.tmp" \
-    && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/templates/discipline.md.tmpl"
+  sed '/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |$/| 机械（检查 37） |/' "$D/pkgcopy13/references/rules-index.md" > "$D/tmpl13.tmp" \
+    && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/rules-index.md"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-RC-003 机械行点名检查项号超界（当前共 36 项）: 检查 37' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-CO-004 机械行点名检查项号超界（当前共 36 项）: 检查 37' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
-  fi
-
-  # 票 60 检查 15 负例 N17：外定义行删标记词（R-CC-002 机制列「门禁；外定义（…）」改「门禁」）
-  # → exit 1 且 FAIL: 15 算漏行（外定义豁免须显式标注非静默）。票 113 波④：R-CC-002
-  # 索引行在 discipline.md.tmpl。
-  cp -R "$PKG_ROOT" "$D/pkgcopy14"
-  sed 's/| 门禁；外定义（定义于 references\/adapters\/capability-contract.md） |/| 门禁 |/' "$D/pkgcopy14/references/templates/discipline.md.tmpl" > "$D/tmpl14.tmp" \
-    && mv "$D/tmpl14.tmp" "$D/pkgcopy14/references/templates/discipline.md.tmpl"
-  sh "$D/pkgcopy14/scripts/check-package.sh" "$D/pkgcopy14" >"$D/act.n17" 2>&1
-  rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 15 模板规则索引与规则块全集全等' "$D/act.n17" && grep -q '外定义 ID 行未标注标记词「外定义」（豁免须显式，未标注算漏行）: R-CC-002（定义于 references/adapters/capability-contract.md）' "$D/act.n17"; then
-    ok '负例 N17 外定义行删标记词 → exit 1 且 FAIL: 15 算漏行（豁免显式非静默）'
-  else
-    bad '负例 N17 外定义行删标记词 → exit 1 且 FAIL: 15 算漏行（豁免显式非静默）' "exit=$rc"
   fi
 
   # 票 60 负例 N18：manifest mechanism-vocab 词表损坏（重复行）→ 引擎结构校验 exit 2
@@ -700,7 +685,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（33 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（34 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
@@ -774,7 +759,7 @@ EOF
   rm -f "$D/pkgcopy25/references/workflows/triage.yaml"
   sh "$D/pkgcopy25/scripts/check-package.sh" "$D/pkgcopy25" >"$D/act.n29" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（38 个文件）' "$D/act.n29" \
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（41 个文件）' "$D/act.n29" \
     && grep -q '  - references/workflows/triage.yaml' "$D/act.n29"; then
     ok '负例 N29 删除已登记 references 成员 → exit 1 且 FAIL: 1 指名缺件'
   else
@@ -868,141 +853,52 @@ EOF
     printf 'SKIP  [check-package] 仓侧 rules/implementation/scripts 不在场（消费项目语境）——检查 13 所有权三分类夹具组跳过，覆盖归源仓\n'
   fi
 
-  # 票 195 检查 22/23 组（规则块九字段格式＋§16 序言短指针；夹具全 mktemp，负例每组单点
-  # 缺陷，FAIL 指名字段或 ID 逐字断言）。
-  # 正例 P2：三索引宿主（锚点「## 16. 规则索引」检测，引擎同款零宿主名硬编码）§16 序言
-  # 各自逐字等于 governance-format.md R-GF-011 定稿短指针——权威原句经「」窄锚点独立
-  # 重建，harness 零句子硬编码。
-  canon=$(LC_ALL=C awk '/索引节首序言只写一句短指针/ { print; exit }' "$PKG_ROOT/references/protocol/governance-format.md" \
-    | LC_ALL=C sed -e 's/「/(/g' -e 's/」/)/g' \
-    | LC_ALL=C awk '{ i = index($0, "("); if (i > 0) { rest = substr($0, i + 1); j = index(rest, ")"); if (j > 1) { print substr(rest, 1, j - 1); exit } } }')
-  if [ -n "$canon" ] && printf '%s' "$canon" | grep -q 'governance-format\.md'; then
-    for idx_tmpl in $(find "$PKG_ROOT/references/templates" -name '*.tmpl' | LC_ALL=C sort); do
-      grep -q '^## 16\. 规则索引' "$idx_tmpl" 2>/dev/null || continue
-      idx_name=$(basename "$idx_tmpl")
-      idx_pre=$(LC_ALL=C awk '
-        /^## 16\. 规则索引/ { insec = 1; next }
-        insec && (/^## / || /^\| ID \|/) { exit }
-        insec && NF { print }
-      ' "$idx_tmpl")
-      if [ -n "$idx_pre" ] && [ "$idx_pre" = "$canon" ]; then
-        ok "正例 P2 $idx_name §16 序言＝唯一权威短指针（逐字相等，三宿主各自断言）"
-      else
-        bad "正例 P2 $idx_name §16 序言＝唯一权威短指针（逐字相等，三宿主各自断言）" '序言与权威原句不一致或缺序言'
-      fi
-    done
-  else
-    bad '正例 P2 权威短指针原句独立重建' 'governance-format.md R-GF-011「」锚点未命中'
-  fi
-
-  # 负例 N34：缺九字段——assessment.md.tmpl R-DP-037 块体删 Forbidden 行 → exit 1 且
-  # FAIL: 22 指名 ID 与缺失字段名（目标块无既有豁免联动，其余 93 块照旧）。
+  # 检查 22 组（规则块九字段格式；夹具全 mktemp，负例每组单点缺陷，FAIL 指名字段或 ID
+  # 逐字断言）。检查 23（索引节序言短指针）已随模板 §16 退役，无宿主即无断言面。
+  # 负例 N34：缺九字段——core.md.tmpl R-CO-001 块体删 Forbidden 行 → exit 1 且
+  # FAIL: 22 指名 ID 与缺失字段名（目标块无既有豁免联动，其余 35 块照旧）。
   cp -R "$PKG_ROOT" "$D/pkgrb1"
-  grep -v '^\- \*\*Forbidden\*\*：治理变更走任务票' "$D/pkgrb1/references/templates/assessment.md.tmpl" > "$D/rb1.tmp" \
-    && mv "$D/rb1.tmp" "$D/pkgrb1/references/templates/assessment.md.tmpl"
+  grep -v '^\- \*\*Forbidden\*\*：未经确认写文件' "$D/pkgrb1/references/templates/core.md.tmpl" > "$D/rb1.tmp" \
+    && mv "$D/rb1.tmp" "$D/pkgrb1/references/templates/core.md.tmpl"
   sh "$D/pkgrb1/scripts/check-package.sh" "$D/pkgrb1" >"$D/act.n34" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && grep -q '^FAIL: 22 规则块九字段格式' "$D/act.n34" \
-    && grep -q 'R-DP-037 块体缺字段（references/templates/assessment.md.tmpl:[0-9][0-9]* 起）: Forbidden' "$D/act.n34"; then
+    && grep -q 'R-CO-001 块体缺字段（references/templates/core.md.tmpl:[0-9][0-9]* 起）: Forbidden' "$D/act.n34"; then
     ok '负例 N34 规则块删一字段（Forbidden）→ exit 1 且 FAIL: 22 指名 ID 与缺失字段'
   else
     bad '负例 N34 规则块删一字段（Forbidden）→ exit 1 且 FAIL: 22 指名 ID 与缺失字段' "exit=$rc"
   fi
 
-  # 负例 N35：非法 Level——R-DP-037 标题 Level 改自造值 SHALL → exit 1 且 FAIL: 22 指名
+  # 负例 N35：非法 Level——R-CO-001 标题 Level 改自造值 SHALL → exit 1 且 FAIL: 22 指名
   # ID 与标题原文（受控四值 MUST/MUST NOT/SHOULD/MAY 外零容忍）。
   cp -R "$PKG_ROOT" "$D/pkgrb2"
   # shellcheck disable=SC2016  # sed 程序刻意字面（反引号为文本字面量，wiki 长尾误报）
-  sed 's/^#### R-DP-037 拆票内容边界 `MUST`$/#### R-DP-037 拆票内容边界 `SHALL`/' "$D/pkgrb2/references/templates/assessment.md.tmpl" > "$D/rb2.tmp" \
-    && mv "$D/rb2.tmp" "$D/pkgrb2/references/templates/assessment.md.tmpl"
+  sed 's/^#### R-CO-001 授权先于写入（G1） `MUST`$/#### R-CO-001 授权先于写入（G1） `SHALL`/' "$D/pkgrb2/references/templates/core.md.tmpl" > "$D/rb2.tmp" \
+    && mv "$D/rb2.tmp" "$D/pkgrb2/references/templates/core.md.tmpl"
   sh "$D/pkgrb2/scripts/check-package.sh" "$D/pkgrb2" >"$D/act.n35" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && grep -q '^FAIL: 22 规则块九字段格式' "$D/act.n35" \
-    && grep -q 'R-DP-037 标题行 Level 缺失或非法（须 MUST/MUST NOT/SHOULD/MAY，标题：#### R-DP-037 拆票内容边界 SHALL）' "$D/act.n35"; then
+    && grep -q 'R-CO-001 标题行 Level 缺失或非法（须 MUST/MUST NOT/SHOULD/MAY，标题：#### R-CO-001 授权先于写入（G1） SHALL）' "$D/act.n35"; then
     ok '负例 N35 规则块 Level 改自造值（SHALL）→ exit 1 且 FAIL: 22 指名 ID 与标题'
   else
     bad '负例 N35 规则块 Level 改自造值（SHALL）→ exit 1 且 FAIL: 22 指名 ID 与标题' "exit=$rc"
   fi
 
-  # 负例 N36：重复 ID——assessment.md.tmpl 整块复制 R-DP-033（标题＋七字段体，双块均
-  # 合法，单点只触发 ID 唯一性）→ exit 1 且 FAIL: 22 指名 ID 与两处文件:行号。
+  # 负例 N36：重复 ID——core.md.tmpl 整块复制 R-CO-001（标题＋七字段体，双块均合法，
+  # 单点只触发 ID 唯一性）→ exit 1 且 FAIL: 22 指名 ID 与两处文件:行号。
   cp -R "$PKG_ROOT" "$D/pkgrb3"
-  awk '{ print } /^#### R-DP-033 / { inblk = 1; buf = $0 "\n"; next } inblk { buf = buf $0 "\n" } inblk && /^- \*\*Authority\*\*：/ { printf "%s", buf; inblk = 0 }' \
-    "$D/pkgrb3/references/templates/assessment.md.tmpl" > "$D/rb3.tmp" \
-    && mv "$D/rb3.tmp" "$D/pkgrb3/references/templates/assessment.md.tmpl"
+  awk '{ print } /^#### R-CO-001 / { inblk = 1; buf = $0 "\n"; next } inblk { buf = buf $0 "\n" } inblk && /^- \*\*Authority\*\*：/ { printf "%s", buf; inblk = 0 }' \
+    "$D/pkgrb3/references/templates/core.md.tmpl" > "$D/rb3.tmp" \
+    && mv "$D/rb3.tmp" "$D/pkgrb3/references/templates/core.md.tmpl"
   sh "$D/pkgrb3/scripts/check-package.sh" "$D/pkgrb3" >"$D/act.n36" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && grep -q '^FAIL: 22 规则块九字段格式' "$D/act.n36" \
-    && grep -q '规则块 ID 重复（全局唯一，不得复用）: R-DP-033（references/templates/assessment.md.tmpl:[0-9][0-9]* references/templates/assessment.md.tmpl:[0-9][0-9]*）' "$D/act.n36"; then
+    && grep -q '规则块 ID 重复（全局唯一，不得复用）: R-CO-001（references/templates/core.md.tmpl:[0-9][0-9]* references/templates/core.md.tmpl:[0-9][0-9]*）' "$D/act.n36"; then
     ok '负例 N36 整块复制重复 ID → exit 1 且 FAIL: 22 指名 ID 与两处行号'
   else
     bad '负例 N36 整块复制重复 ID → exit 1 且 FAIL: 22 指名 ID 与两处行号' "exit=$rc"
   fi
 
-  # 负例 N37：§16 序言短指针外多写格式散文（discipline.md.tmpl 序言后追加机制定义行）
-  # → exit 1 且 FAIL: 23 指名模板与多出散文行（AC2「多写了格式散文」负例）。
-  cp -R "$PKG_ROOT" "$D/pkgrb4"
-  awk '{ print } /^本节为规则块导航投影/ { print "规则索引机制受控三值定义：机械＝点名脚本；门禁＝检查点卡；约定＝自觉。" }' \
-    "$D/pkgrb4/references/templates/discipline.md.tmpl" > "$D/rb4.tmp" \
-    && mv "$D/rb4.tmp" "$D/pkgrb4/references/templates/discipline.md.tmpl"
-  sh "$D/pkgrb4/scripts/check-package.sh" "$D/pkgrb4" >"$D/act.n37" 2>&1
-  rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 23 索引节序言短指针' "$D/act.n37" \
-    && grep -q 'discipline.md.tmpl §16 序言多行（短指针外不得另立散文）: 规则索引机制受控三值定义' "$D/act.n37"; then
-    ok '负例 N37 序言短指针外多写格式散文 → exit 1 且 FAIL: 23 指名模板与散文行'
-  else
-    bad '负例 N37 序言短指针外多写格式散文 → exit 1 且 FAIL: 23 指名模板与散文行' "exit=$rc"
-  fi
-
-  # 负例 N38：§16 序言换第二权威指针（project.md.tmpl 短指针改指 rules/project.md §16，
-  # 即收敛前旧形态）→ exit 1 且 FAIL: 23 指名模板与不一致原文。
-  cp -R "$PKG_ROOT" "$D/pkgrb5"
-  # shellcheck disable=SC2016  # sed 程序刻意字面（反引号为文本字面量，wiki 长尾误报）
-  sed 's|^本节为规则块导航投影，表行语义以各规则块正文为准；规则块格式与执行机制语义的唯一权威见 `references/protocol/governance-format.md`。$|本节序言语义统一见 `rules/project.md` §16。|' \
-    "$D/pkgrb5/references/templates/project.md.tmpl" > "$D/rb5.tmp" \
-    && mv "$D/rb5.tmp" "$D/pkgrb5/references/templates/project.md.tmpl"
-  sh "$D/pkgrb5/scripts/check-package.sh" "$D/pkgrb5" >"$D/act.n38" 2>&1
-  rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 23 索引节序言短指针' "$D/act.n38" \
-    && grep -q 'project.md.tmpl §16 序言与唯一权威短指针不一致（须逐字等于 governance-format.md §2.7 定稿原句）: 本节序言语义统一见' "$D/act.n38"; then
-    ok '负例 N38 序言换第二权威指针（收敛前旧形态）→ exit 1 且 FAIL: 23 指名模板与原文'
-  else
-    bad '负例 N38 序言换第二权威指针（收敛前旧形态）→ exit 1 且 FAIL: 23 指名模板与原文' "exit=$rc"
-  fi
-
-  # 负例 N39：§16 序言短指针整行删除（assessment.md.tmpl）→ exit 1 且 FAIL: 23 缺短指针
-  # （三负例 N37/N38/N39 分别打多行散文、第二权威、缺指针独立方向）。
-  cp -R "$PKG_ROOT" "$D/pkgrb6"
-  grep -v '^本节为规则块导航投影' "$D/pkgrb6/references/templates/assessment.md.tmpl" > "$D/rb6.tmp" \
-    && mv "$D/rb6.tmp" "$D/pkgrb6/references/templates/assessment.md.tmpl"
-  sh "$D/pkgrb6/scripts/check-package.sh" "$D/pkgrb6" >"$D/act.n39" 2>&1
-  rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 23 索引节序言短指针' "$D/act.n39" \
-    && grep -q 'assessment.md.tmpl §16 序言缺短指针（锚点行与索引表之间无非空序言行）' "$D/act.n39"; then
-    ok '负例 N39 序言短指针整行删除 → exit 1 且 FAIL: 23 缺短指针'
-  else
-    bad '负例 N39 序言短指针整行删除 → exit 1 且 FAIL: 23 缺短指针' "exit=$rc"
-  fi
-
-  # 负例 N40（返工轮回归钉死）：格式权威文件缺失（governance-format.md 移出包外）→
-  # exit 1 且 FAIL: 23 指名缺失件＋结尾汇总行出现＋零 unbound variable——修复前该分支
-  # 未初始化 n_hosts，set -u 展开崩溃且 EXIT trap 吞状态 exit 0 假绿（损坏包整体放行，
-  # 违反「任一失败 exit 1」契约），本负例钉死该回归。
-  cp -R "$PKG_ROOT" "$D/pkgrb7"
-  mv "$D/pkgrb7/references/protocol/governance-format.md" "$D/gf.hidden"
-  sh "$D/pkgrb7/scripts/check-package.sh" "$D/pkgrb7" >"$D/act.n40" 2>&1
-  rc=$?
-  if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 23 索引节序言短指针（宿主 0 件，权威定稿原句逐字核对）' "$D/act.n40" \
-    && grep -q '  - 格式权威文件不存在: references/protocol/governance-format.md' "$D/act.n40" \
-    && grep -q '^check-package: FAIL（' "$D/act.n40" \
-    && ! grep -q 'unbound variable' "$D/act.n40"; then
-    ok '负例 N40 权威文件缺失 → exit 1 且 FAIL: 23 指名缺失件＋汇总行出现（unbound variable 假绿回归钉死）'
-  else
-    bad '负例 N40 权威文件缺失 → exit 1 且 FAIL: 23 指名缺失件＋汇总行出现（unbound variable 假绿回归钉死）' "exit=$rc"
-  fi
-
-  # 票 197 检查 24 布局引用分类与失效检测夹具组（modern/legacy/compatibility 三分类）。
   # 正例 P3：modern 相对链接正例——AGENTS.md.tmpl 注入生成布局全集内目标（rules/project.md
   # ∈ artifacts-yaml.tmpl path 行）→ exit 0 且 PASS: 24、modern 链接计数 9→10。
   cp -R "$PKG_ROOT" "$D/pkgl1"
@@ -1010,7 +906,7 @@ EOF
   sh "$D/pkgl1/scripts/check-package.sh" "$D/pkgl1" >"$D/act.p3" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '^PASS: 24 布局引用分类与失效检测' "$D/act.p3" \
-    && grep -q 'modern 链接 10 个' "$D/act.p3"; then
+    && grep -q 'modern 链接 5 个' "$D/act.p3"; then
     ok '正例 P3 modern 相对链接（全集内目标）注入 → exit 0 且 PASS: 24 链接计数随动'
   else
     bad '正例 P3 modern 相对链接（全集内目标）注入 → exit 0 且 PASS: 24 链接计数随动' "exit=$rc"
@@ -1048,7 +944,7 @@ EOF
   printf '\nharness fixture legacy 注入行 docs/development-process.md\n' >> "$D/pkgl4/references/old-project.md"
   sh "$D/pkgl4/scripts/check-package.sh" "$D/pkgl4" >"$D/act.p4" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && grep -q '^PASS: 24 布局引用分类与失效检测（面 31 件，modern 失效 0 处，legacy 14 处' "$D/act.p4"; then
+  if [ "$rc" -eq 0 ] && grep -q '^PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 14 处' "$D/act.p4"; then
     ok '正例 P4 legacy 件（old-project.md）注入旧布局引用 → exit 0 且 legacy 计数 13→14'
   else
     bad '正例 P4 legacy 件（old-project.md）注入旧布局引用 → exit 0 且 legacy 计数 13→14' "exit=$rc"
@@ -1539,7 +1435,7 @@ EOF
   else
     bad '正例 P34 检查 34 README 非唯一执行契约 → PASS 行逐字在场（指针 1 条命中 1 行）' "$(grep -m1 '^..: 34' "$D/act.positive")"
   fi
-  if grep -qxF 'PASS: 35 平台短码注册表闭合（注册 5 行，短码节 18 行，平台短码 5 个）' "$D/act.positive"; then
+  if grep -qxF 'PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）' "$D/act.positive"; then
     ok '正例 P35 检查 35 平台短码注册表闭合 → PASS 行逐字在场（注册 5 行，平台短码 5 个）'
   else
     bad '正例 P35 检查 35 平台短码注册表闭合 → PASS 行逐字在场（注册 5 行，平台短码 5 个）' "$(grep -m1 '^..: 35' "$D/act.positive")"

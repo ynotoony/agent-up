@@ -12,6 +12,8 @@
 | --- | --- | --- |
 | `README.md` | 目录索引 | 说明本目录用途并登记直接成员。 |
 | `old-project.md` | 旧项目手册 | 指导已有代码或部分治理项目的盘点、补缺与交付。 |
+| `rules-index.md` | 规则索引投影（Derived） | 包内全部规则块的生成索引（ID｜标题｜所属文件｜Level｜机制），由 `../scripts/generate-docs-index.sh` 独占写，`--check` 零漂移核对；检查 15/16/17 的比对对象。 |
+| `why/` | 决策背景目录 | 承载瘦身中被删条款的事故背景与兜底归属（每条：原条 ID／为什么删／靠哪条核心规则或脚本兜住），成员见 `why/README.md`。 |
 | `upgrade.md` | 升级手册 | 指导已初始化项目同步包新版的升级主链（模式判定第四态；盘点落地面→逐件三态对比→差异清单确认→reconcile 更新→验证收尾）。 |
 | `delivery-rules.md` | delivery.rules 文法与版本说明 | 仓根 `delivery.rules` 四节文法、指令全集、fail-closed 六规则与解析版本单源的权威说明（共享解析库 `../scripts/dp-load-rules.sh` 的文法对齐面）。 |
 | `templates/` | 模板目录 | 保存新建治理文件和阶段角色合同的模板（manifest 见 `templates/README.md`）。 |

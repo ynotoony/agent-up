@@ -83,6 +83,19 @@ artifacts:
     generated_from: agent-up/references/templates/issues-README.md.tmpl
     platform: neutral
     update_policy: 按目录事实更新成员登记
+  - id: core
+    path: rules/core.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：核心规则）
+    owner: 协调记录 owner（变更经用户确认）
+    lifecycle: Seed
+    trigger: always
+    read_when: 执行任何任务、判断门禁、权威冲突或角色边界时
+    sync_on: 契约、行为（授权、验证、审查、提交、权威、恢复、状态、写者、记录、角色语义变化）
+    depends_on: [artifacts-yaml]
+    generated_from: agent-up/references/templates/core.md.tmpl
+    platform: neutral
+    update_policy: 语义变化经用户确认后修改；正文为规范本体
   - id: assessment
     path: rules/assessment.md
     kind: governance

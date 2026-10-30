@@ -56,7 +56,7 @@ depends_on: agent-up/SKILL.md（主流程与差异清单规则）；生成物模
 | 快道脚本（装哪几件、每件的复制来源见公开包 `scripts/install-policy.rules`） | 你确认启用分级快道时才补缺：经 agent-up 公开包 `scripts/install.sh`（`--target <目标项目根> --fast-lane`）复制到目标项目 `rules/implementation/scripts/`（安装政策决定集合；缺目录由脚本创建，README 生成归执行体），逐件登记 `facts/project/artifacts.yaml`；旧项目已有 `scripts/` 副本只登记保留，不自动搬迁；不启用不装，快道脚本不可用的停止条件按规则兜底。 |
 | 票务运维脚本（装哪几件同上数据源） | 目标项目采用任务票体系时补缺（记录层标配，与快道启用互不相干）：经 agent-up 公开包 `scripts/install.sh`（`--target <目标项目根> --ticket-ops`）复制到目标项目 `rules/implementation/scripts/`，逐件登记 `facts/project/artifacts.yaml`；旧项目已有 `scripts/` 副本保留并单独核对，不覆盖。 |
 | `generate-module-map.sh` | 项目地图触发条件命中时才装；安装到 `rules/implementation/scripts/`，运行生成 `facts/project/architecture/module-map.json`（Derived 检索索引，不是 Scope 权威），并登记 `facts/project/artifacts.yaml`；旧项目已有 `scripts/` 与 `docs/architecture/module-map.json` 只登记保留，不自动迁移。 |
-| 一次性批量变换（改动面可逐条列全的活——目录搬家、批量路径替换等是示例非穷举，判据见 R-DP-038 两问闸） | 按生成的 `rules/implementation/discipline.md` R-DP-038 过两问闸定通道：两问全过默认亲写用完即弃脚本执行；需执行体判断力时按变换合同派发（逐条改动清单＋标出需要人判断的点）；不默认派探索式执行体逐文件手搬；差异清单给执行方式与预估（见 `SKILL.md` 主流程步骤 4）。 |
+| 一次性批量变换（改动面可逐条列全的活——目录搬家、批量路径替换等是示例非穷举，判据见生成物的「复杂度两问」表） | 按生成的 `rules/assessment.md` 复杂度两问定通道：两问全过默认亲写用完即弃脚本执行；需执行体判断力时按变换合同派发（逐条改动清单＋标出需要人判断的点）；不默认派探索式执行体逐文件手搬；差异清单给执行方式与预估（见 `SKILL.md` 主流程步骤 4）。 |
 | `dp-load-rules.sh` 共享解析库升级（四消费件 `check-artifacts.sh`／`check-stale-claims.sh`／`export-payload.sh`／`worktree-add.sh` 同目录 source；落地拷贝报「解析破坏」「共享解析器缺失」「共享解析器版本漂移」时的修复路径） | ①解析唯一实现＝包内 `scripts/dp-load-rules.sh`（版本唯一来源＝其 `DP_PARSER_VERSION`；消费件头部 `# dp-parser: N` 为各自最低要求版注记），文法与版本权威说明见 `delivery-rules.md`；②旧版落地拷贝（消费件内嵌解析器副本的形态）按整件替换对齐包新基线——四消费件与 `dp-load-rules.sh` 同批更新，勿手改单点 hunk；③替换后 `sh -n` 核对，并以未知锚点/指令、缺解析器、版本漂移夹具复跑验证定向报错；同步仅对齐解析表与报错文案，不改解析六规则与 fail-closed 语义。 |
 
 ## 4. 差异清单先行

@@ -8,28 +8,24 @@
 
 ## 规则块短码登记表
 
-模板内规则块 ID 前缀为 `R-<模板短码>-<三位序号>`，全局唯一；新增短码先登记再使用：
+模板内规则块 ID 前缀为 `R-<模板短码>-<三位序号>`，全局唯一；新增短码先登记再使用。安装面收敛后本表只登记承载规则块的模板短码；历史引用码（`AG`/`DP`/`RI`/`RR`/`RC`/`RT`）仍留在清单 shortcodes 节，用途是覆盖 SKILL.md、协议/适配手册与本 README 历史登记中的 `R-<码>-NNN` 字面引用（模板本体已零对应块）：
 
 | 短码 | 模板（生成产物） |
 | --- | --- |
-| `AG` | `AGENTS.md.tmpl`（→ `AGENTS.md`） |
-| `DP` | `assessment.md.tmpl`（→ `rules/assessment.md`）、`discipline.md.tmpl`（→ `rules/implementation/discipline.md`）、`project.md.tmpl`（→ `rules/project.md`） |
-| `RI` | `agents-implementation.md.tmpl`（→ `rules/implementation/roles/implementation.md`） |
-| `RR` | `agents-review.md.tmpl`（→ `rules/implementation/roles/review.md`） |
-| `RC` | `agents-commit.md.tmpl`（→ `rules/implementation/roles/commit.md`） |
-| `RT` | `agents-triage.md.tmpl`（→ `rules/implementation/roles/triage.md`） |
+| `CO` | `core.md.tmpl`（→ `rules/core.md`，十条核心规则 R-CO-001～010） |
 
 公开包 `../protocol/` 手册短码（`GF`、`RP`）见 `../protocol/governance-format.md`；`../adapters/` 手册短码（`CC`、`ZC`）见 `../adapters/capability-contract.md`，与模板短码互不重叠。
 
-## seed 七件套映射
+## seed 八件套映射
 
-新项目初始化默认生成且仅生成七件 seed（其余产物按触发矩阵与 Artifact Plan 处理；需求登记册已退役——存量项目旧登记冻结只读，新需求走卡片，见票目录 README「卡片」节）：
+新项目初始化默认生成且仅生成八件 seed（含核心规则 `rules/core.md`）（其余产物按触发矩阵与 Artifact Plan 处理；需求登记册已退役——存量项目旧登记冻结只读，新需求走卡片，见票目录 README「卡片」节）：
 
 | seed 件（Emits） | 模板 | 生命周期 | 创建触发条件 |
 | --- | --- | --- | --- |
 | `AGENTS.md` | `AGENTS.md.tmpl` | Seed | always |
 | `rules/README.md` | `dir-README.md.tmpl` | Seed | always |
 | `facts/README.md` | `dir-README.md.tmpl` | Seed | always |
+| `rules/core.md` | `core.md.tmpl` | Seed | always |
 | `rules/assessment.md` | `assessment.md.tmpl` | Seed | always |
 | `rules/implementation/discipline.md` | `discipline.md.tmpl` | Seed | always |
 | `rules/project.md` | `project.md.tmpl` | Seed | always |
@@ -40,10 +36,10 @@
 | 名字 | 类别 | Emits 目标路径 | 创建触发条件 | 规则块短码 | 功能 |
 | --- | --- | --- | --- | --- | --- |
 | `README.md` | 目录索引 | 本 README | 目录创建 | 无 | 模板 manifest 与短码登记。 |
-| `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：先读什么、快速规则、工作类型路由、停止条件与三层定位层模型声明。 |
-| `assessment.md.tmpl` | Seed | `rules/assessment.md` | always | `DP` | 生成评估规则（流程权威拆三·评估面）：需求大小判定（C0~C3）与工作分类接手、分级交付道三车道准入、拆票与方案调研前置、开票类别声明槽位（R-DP-039 类别保留面）。 |
-| `discipline.md.tmpl` | Seed | `rules/implementation/discipline.md` | always | `DP` | 生成实现纪律（流程权威拆三·执行纪律面）：两层协作与三道门禁、委派合同固定模板、上下文与 token 卫生、检查点纪律、开发节点、Git/worktree 纪律、实现纪律与编程思想五问、验证与记录。 |
-| `project.md.tmpl` | Seed | `rules/project.md` | always | `DP` | 生成项目规则（流程权威拆三·项目协议面）：读取阶梯与权威层级、仓库与目录边界、产物生命周期协议（五类、触发矩阵、登记、同步门槛、状态机、Artifact Plan、历史票权威剥离 R-DP-039——类别保留/读取面纪律/替代标记/收口搬运/清洗五面）、会话恢复协议（三套状态机、八步恢复顺序、run record、写入所有权矩阵、故障处理、破坏性恢复禁令、六条不变量）、治理生成收敛模式（Discovery Record、precedence/trust、profile/capability manifest、生成件登记并入 artifacts.yaml 单本账 + reconcile、checkpoint 管线、证据链登记）、状态陈述与输出瘦身纪律、项目自有条款槽位（随生长追加）。 |
+| `AGENTS.md.tmpl` | Seed | `AGENTS.md` | always | `AG` | 生成根 Agent 路由入口：核心规则索引（C1–C10）、先读什么、工作类型路由与最小仓库边界；不内嵌可执行条款。 |
+| `assessment.md.tmpl` | Seed | `rules/assessment.md` | always | `DP` | 生成评估规则（决策表）：工作分类与接手、需求工作三道、分级交付道三车道准入判据、C0–C3 定级判据、复杂度两问与拆票判据；条款以 C1–C10 引用。 |
+| `discipline.md.tmpl` | Seed | `rules/implementation/discipline.md` | always | `DP` | 生成实现纪律：两层协作与阶段门禁、委派合同 16 字段、验证命令要求、冲突/中断/恢复处置指针；条款以 C1–C10 引用。 |
+| `project.md.tmpl` | Seed | `rules/project.md` | always | `DP` | 生成项目规则骨架（目标项目自有条款与三张表）：读取阶梯与权威层级、目录边界、产物生命周期（五类/触发矩阵/登记）、同步门槛、状态机、会话恢复顺序、写入所有权矩阵与项目自有条款槽位。 |
 | `artifacts-yaml.tmpl` | Seed | `facts/project/artifacts.yaml` | always | 无 | 生成产物机器索引：十三字段说明与 seed 七件初始登记。 |
 | `dir-README.md.tmpl` | Seed（兼条件性） | `<目录>/README.md` | rules/ 与 facts/ 目录：always；其他受 Git 管理目录：新建目录时 | 无 | 生成目录 README 与直接成员登记。 |
 | `CONTEXT.md.tmpl` | Conditional | `facts/project/CONTEXT.md` | 确认了项目特有术语、角色或状态 | 无 | 生成结构化词条 + 自然语言定义的领域上下文。 |
@@ -52,10 +48,11 @@
 | `research-README.md.tmpl` | Conditional | `facts/requirements/research/README.md` | 需要外部调研、方案对比或 spike | 无 | 生成调研目录归档规则与报告模板。 |
 | `scripts-README.md.tmpl` | Conditional | `rules/implementation/scripts/README.md` | 可重复验证需要沉淀为共享 harness；采用任务票体系（随 ticket-ops/generate-progress 落位） | 无 | 生成新布局共享验证 harness 目录索引与登记约定；旧项目已有 `scripts/README.md` 作为兼容面保留并登记，不自动搬迁。 |
 | `delivery-rules.tmpl` | Conditional | `delivery.rules` | 用户确认启用分级交付道快道（--fast-lane 语境；生成到目标项目仓库根） | 无 | 生成仓根 delivery 配置骨架：四节锚点（与包内共享解析器 `scripts/dp-load-rules.sh` 锚点表 `an[1..4]` 逐字一致——锚点逐字匹配，写错即解析失败；文法与版本见 `../delivery-rules.md`）＋每节 dp_ 指令注释形态示例与占位说明；main-only 节裸锚点＋注释条目＝空排除清单（栅栏已声明，`worktree-add.sh` 不再因缺失/未声明拒跑），用户取消注释前排除为空属预期；头部 `#` 形态契约头（解析器跳 `#` 行，check-package 检查 6 按此豁免）。 |
-| `agents-implementation.md.tmpl` | Roles | `rules/implementation/roles/implementation.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RI` | 生成 Implementation 阶段平台无关角色合同（七节 + required_capabilities 能力基元声明 + 规则块 R-RI-001～003）。 |
-| `agents-review.md.tmpl` | Roles | `rules/implementation/roles/review.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RR` | 生成 Review 阶段平台无关角色合同（七节 + 只读能力声明 + 降级记录规则块 R-RR-001～003）。 |
-| `agents-commit.md.tmpl` | Roles | `rules/implementation/roles/commit.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RC` | 生成 Commit 阶段平台无关角色合同（七节 + 版本库能力声明 + 规则块 R-RC-001～003；Review pass 证据含车道两类形态：Independent Review Checkpoint / User Review Checkpoint 或机械门禁输出）。 |
-| `agents-triage.md.tmpl` | Roles | `rules/implementation/roles/triage.md` | 所有项目初始化生成路由层角色合同（两层协作为固定规则，与编码层三阶段合同一并生成） | `RT` | 生成 Triage 路由层平台无关角色合同（七节 + 只读能力声明 + 派发边界规则块 R-RT-001～002；权威与写入边界引用 `../protocol/read-policy.md` §2.3.1 权威矩阵 AW-01/AW-02/AW-03/AW-06）。 |
+| `core.md.tmpl` | Seed | `rules/core.md` | always | `CO` | 生成十条核心规则（C1–C10）：授权先于写入、无验证证据不算完成、独立审查才可提交、只提交白名单、冲突即停、不删不盖不重置、状态落盘可接续、单一写者、记录只追加、角色不越界；每章一个七字段规则块，是安装面唯一可执行条款正文。 |
+| `agents-implementation.md.tmpl` | Roles | `rules/implementation/roles/implementation.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RI` | 生成 Implementation 阶段平台无关角色合同（四节：职责／读什么／写什么／输出与停止 + required_capabilities 能力基元声明，条款以 C1–C10 引用）。 |
+| `agents-review.md.tmpl` | Roles | `rules/implementation/roles/review.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RR` | 生成 Review 阶段平台无关角色合同（四节 + 只读能力声明与 `readonly_enforcement` 降级记录，条款以 C1–C10 引用）。 |
+| `agents-commit.md.tmpl` | Roles | `rules/implementation/roles/commit.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RC` | 生成 Commit 阶段平台无关角色合同（四节 + 版本库能力声明；Review pass 证据含车道两类形态：Independent Review Checkpoint / User Review Checkpoint 或机械门禁输出，条款以 C1–C10 引用）。 |
+| `agents-triage.md.tmpl` | Roles | `rules/implementation/roles/triage.md` | 所有项目初始化生成路由层角色合同（两层协作为固定规则，与编码层三阶段合同一并生成） | `RT` | 生成 Triage 路由层平台无关角色合同（四节 + 只读能力声明与派发边界，条款以 C1–C10 引用；权威与写入边界见 `../protocol/read-policy.md` §2.3.1）。 |
 
 ## 取舍与过渡登记
 
