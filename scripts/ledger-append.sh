@@ -4,7 +4,8 @@
 #        ② 微账本行族（票 229）：--micro ＋ --date <YYYY-MM-DD>、--whitelist <逗号分隔>、
 #           --verify <重跑验证条数>、--commit <产品提交 ID>、可选 --actual <净工时文本>
 #           （逐字段传入，行由本件按固定键序生成）；
-#        --check（只校验零写入，写前预检模式）对两模式同样适用。
+#        --check（只校验零写入，写前预检模式）对两模式同样适用；--break-stale-lock
+#        （或 RECORD_LOCK_BREAK_STALE=1）仅在写模式遇陈旧锁时显式夺锁。
 # Output: facts/project/changes.jsonl 追加一行（键序 date,kind,scope,decision,evidence_ref
 #         五键必备＋按 kind 条件键：lesson 必带第六键 promoted_to、replan 必带
 #         replan_original/replan_replacement/replan_undone；lesson 可选三分数键——带分数
@@ -15,7 +16,9 @@
 #         微账本亦归本件写入面（--micro 模式：行型合同同 schema 的 micro_seven_key /
 #         micro_six_key_legacy 行族，键序 date,lane,whitelist,gates,verify,commit,actual；
 #         懒创建仅限账本文件本体与 facts/project/ 父目录；原有六键行只追加不改写，道脚本
-#         lane-commit.sh 零微账本写入面）。
+#         lane-commit.sh 零微账本写入面）。票 246 起写模式独立调用时自取记录层写锁
+#         （共享库 record_lock_*），被 ticket-ops 嵌套调用时按继承标记跳过取锁与释放；
+#         --check 模式不取锁。
 # Pos: 记录层账本单写方脚本（changes.jsonl 与 micro.jsonl 两账本）。行型合同＝agent-up
 #      公开包 references/schemas/ledger-row.schema.json 的 changes_* 与 micro_* 行族（文档级
 #      单源，不运行时读取，安装闭包不含此件）；行族形状校验链（键集/键序/条件键/值域，逐条
@@ -24,7 +27,8 @@
 #      python3 或引擎即 fail-closed 指名，零写入）。懒创建仅限账本文件本体（父目录随
 #      mkdir -p）；校验先于写入，零外部依赖（JSON 解析门另用 python3 标准库与引擎件）。
 #      微账本行族由 shell 层校验字段并生成固定键序行（不新增解释器依赖，保持 lane-commit
-#      微任务道原有运行面）。
+#      微任务道原有运行面）。写互斥经共享库记录层写锁原语承载（票 246：本件不复制锁代码，
+#      独立调用自取锁、嵌套调用识别继承、写前令牌归属校验）。
 
 # 用法、行型合同与退出码见同目录 README.md。
 # ledger-rowtype-version: 3（五键/lesson 六键九键/replan 八键；机制版本注记，票 133 行型）
@@ -77,9 +81,18 @@ usage() {
                    --actual <text>           净工时文本（可选，缺省空串；JSON 转义写行）
   --check        只校验零写入：行族形状校验（--micro 另含字段校验）全过即 exit 0，不触
                  账本文件（ticket-ops 票务面写前预检与道脚本收尾预检经此模式承载）。
+  --break-stale-lock  仅写模式生效：遇到陈旧锁时显式夺锁（等价 RECORD_LOCK_BREAK_STALE=1）；
+                 缺省只诊断不夺锁，等待超时即 exit 1。可出现在任意选项位置。
   -h / --help    打印本用法。
+环境变量: TICKET_OPS_LOCK_TIMEOUT  写锁等待上限秒数（缺省 20）
+          TICKET_OPS_LOCK_STALE    写锁陈旧判据秒数（缺省 600；仅用于 pid 缺失时的锁龄判定）
+          RECORD_LOCK_BREAK_STALE  设为 1 时对陈旧锁显式夺锁
+          RECORD_LOCK_TEST_HOLD_MS 仅测试用：持锁后延迟返回的毫秒数（未设或 0＝零开销）
+互斥边界: 写锁目录由仓库根的 Git 公共目录推导（经 rev-parse 取公共目录并归一为绝对物理
+          路径），主检与全部 worktree 争用同一把锁；非 Git 语境回退 $TMPDIR 并按仓库根
+          物理路径派生。跨主机/跨用户不互斥。锁目录不进入版本控制跟踪面。
 退出码: 0 校验通过（--check）或落行完成；1 fail-closed（行形/字段/解析/写入不过，零写入或
-        已写部分如实报告）；2 用法或环境错误。
+        已写部分如实报告；写锁等待超时或归属失效＝并发冲突，零写入）；2 用法或环境错误。
 USAGE
 }
 
@@ -103,6 +116,7 @@ while [ $# -gt 0 ]; do
     --commit) [ $# -ge 2 ] || die2 '--commit 缺值'; micro_commit=$2; shift 2 ;;
     --actual) [ $# -ge 2 ] || die2 '--actual 缺值'; micro_actual=$2; shift 2 ;;
     --check) check_mode=1; shift ;;
+    --break-stale-lock) RECORD_LOCK_BREAK_STALE=1; export RECORD_LOCK_BREAK_STALE; shift ;;
     --*) die2 "未知参数: $1" ;;
     *) if [ -n "${repo_root}" ]; then die2 "多余参数: $1（只接受一个仓库根）"; fi; repo_root=$1; shift ;;
   esac
@@ -119,6 +133,19 @@ repo_root=$_rr
 [ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
 
 _self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+# ---- 记录层写锁（票 246：独立调用自取锁；嵌套调用识别继承标记，跳过取锁与释放） ----
+lock_for_write() {
+  if [ "${check_mode}" -eq 1 ]; then
+    return 0
+  fi
+  if record_lock_inherit; then
+    return 0
+  fi
+  record_lock_init "${repo_root}"
+  trap 'record_lock_release' EXIT HUP INT TERM
+  record_lock_acquire
+}
 
 # ---- 微账本行模式（票 229：facts/project/micro.jsonl 归本件写入面）----
 # 逐字段校验后按固定键序生成行；--check 只校验零写入。与 changes 行族互斥：两模式
@@ -154,6 +181,8 @@ if [ "${micro_mode}" -eq 1 ]; then
     printf 'ledger-append: CHECK: PASS — 微账本行字段与行形校验通过（零写入）\n'
     exit 0
   fi
+  lock_for_write
+  record_lock_assert
   micro_ledger_file="${repo_root}/${micro_ledger_rel}"
   if [ ! -f "${micro_ledger_file}" ]; then
     mkdir -p "${repo_root}/$(dirname "${micro_ledger_rel}")"
@@ -161,6 +190,7 @@ if [ "${micro_mode}" -eq 1 ]; then
   fi
   [ -w "${micro_ledger_file}" ] || die1 "微账本不可写: ${micro_ledger_file}"
   micro_lineno=$(( $(wc -l < "${micro_ledger_file}" | tr -d ' ') + 1 ))
+  record_lock_assert
   printf '%s\n' "${micro_line}" >> "${micro_ledger_file}" || die1 "微账本落行失败: ${micro_ledger_file}"
   printf "ledger-append: 微账本落行: ${micro_ledger_rel}（第 %d 行）\n" "${micro_lineno}"
   exit 0
@@ -251,6 +281,8 @@ if [ "${check_mode}" -eq 1 ]; then
   exit 0
 fi
 
+lock_for_write
+record_lock_assert
 ledger_file="${repo_root}/${changes_ledger_rel}"
 if [ ! -f "${ledger_file}" ]; then
   mkdir -p "${repo_root}/$(dirname "${changes_ledger_rel}")"
@@ -258,5 +290,6 @@ if [ ! -f "${ledger_file}" ]; then
 fi
 [ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}"
 ledger_lineno=$(( $(wc -l < "${ledger_file}" | tr -d ' ') + 1 ))
+record_lock_assert
 printf '%s\n' "${ledger_line}" >> "${ledger_file}" || die1 "账本落行失败: ${ledger_file}"
 printf "ledger-append: 账本落行: ${changes_ledger_rel}（第 %d 行）\n" "${ledger_lineno}"

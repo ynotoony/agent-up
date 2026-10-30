@@ -53,11 +53,14 @@
 #      再生调用 generate-progress.sh 不在此限）。
 
 # 用法、数据契约与退出码见同目录 README.md。
-# 单写路径（票 243）：索引为唯一可变状态真相源；状态写入先取写锁（mkdir 原子语义，
-# 锁目录按 repo 根落 $TMPDIR，pid 存活与锁龄双陈旧回收，等待超时即 exit 1 并发冲突），
-# 锁区间覆盖预检读取到投影收尾；每个写点先生成同目录临时件再 mv 原子替换（崩溃只留
-# 完整旧版或完整新版）；索引已达目标状态时走幂等重放（补齐 README/账本/投影后 exit 0，
-# 不重复落账本行），故崩溃后重跑同一命令即可收敛，无需手工编辑任何状态文件。
+# 单写路径（票 246 承接票 243）：索引为唯一可变状态真相源；状态写入先经共享库
+# record_lock_acquire 取记录层写锁（mkdir 原子语义，锁目录由仓库根的 Git 公共目录推导，
+# 主检与全部 worktree 共享；陈旧锁只诊断，显式 --break-stale-lock 才夺；等待超时即
+# exit 1 并发冲突），锁区间覆盖预检读取到投影收尾；四个写点前经 record_lock_assert 核对
+# 令牌归属（被夺锁即拒绝写入）；每个写点先生成同目录临时件再 mv 原子替换（崩溃只留
+# 完整旧版或完整新版）；嵌套调用 ledger-append.sh 时传继承标记，不重复取锁；索引已达
+# 目标状态时走幂等重放（补齐 README/账本/投影后 exit 0，不重复落账本行），故崩溃后
+# 重跑同一命令即可收敛，无需手工编辑任何状态文件。
 # 故障注入契约（崩溃恢复测试）：TICKET_OPS_FAULT=<after-index-write|
 # after-ledger-write|after-projection-write>，该写点完整落盘后 exit 70 并打印
 # 「ticket-ops: FAULT injected: <point>」；未知值 exit 2 零写入。
@@ -95,6 +98,8 @@ usage() {
 用法: sh rules/implementation/scripts/ticket-ops.sh [repo-root] <command> [options]
 参数:
   repo-root      仓库根目录；缺省取脚本所在目录的上一级。
+  --break-stale-lock  仅在遇到陈旧锁时显式夺锁（等价 RECORD_LOCK_BREAK_STALE=1）；
+                      缺省只诊断不夺锁，等待超时即 exit 1。可出现在任意选项位置。
 命令:
   open           开票：先过新票本体校验（facts/requirements/tickets/<id>.json 须已落位并过
                  ticket-record.schema.json 全量校验——type/pattern/enum/oneOf/
@@ -159,13 +164,16 @@ usage() {
         拒绝）；2 用法或环境错误（含未知 TICKET_OPS_FAULT 注入点）；
         70 故障注入点命中（TICKET_OPS_FAULT，崩溃恢复测试用；该写点已完整落盘）。
 环境变量: TICKET_OPS_LOCK_TIMEOUT  写锁等待上限秒数（缺省 20）
-          TICKET_OPS_LOCK_STALE    写锁过期秒数（缺省 600；另按持有者 pid 存活回收）
+          TICKET_OPS_LOCK_STALE    写锁陈旧判据秒数（缺省 600；仅用于 pid 缺失时的锁龄判定，
+                                   不单独授权夺锁）
+          RECORD_LOCK_BREAK_STALE  设为 1 时对陈旧锁显式夺锁（等价 --break-stale-lock；
+                                   未设＝只诊断不夺锁）
+          RECORD_LOCK_TEST_HOLD_MS 仅测试用：持锁后延迟返回的毫秒数（未设或 0＝零开销）
           TICKET_OPS_FAULT         崩溃注入点 after-index-write|after-ledger-write|
                                    after-projection-write（未设＝正常路径）
-互斥边界: 写锁目录落 $TMPDIR 且按 repo 根命名——只在同一用户、同一 TMPDIR 内互斥；
-          不同用户或不同 TMPDIR 不共享锁（需要跨用户互斥时须让双方 TMPDIR 指向同一共享路径）。
-          TICKET_OPS_TEST_LOCK_DELAY_MS=<0-999> 仅测试用：在「判定陈旧 → 原子认领」之间
-          插入毫秒级延迟以放大竞态窗口；未设或 0＝零开销，正常路径不受影响。
+互斥边界: 写锁目录由仓库根的 Git 公共目录推导（经 rev-parse 取公共目录并归一为绝对物理
+          路径），主检与全部 worktree 争用同一把锁；非 Git 语境回退 $TMPDIR 并按仓库根
+          物理路径派生。跨主机/跨用户不互斥。锁目录不进入版本控制跟踪面。
 USAGE
 }
 
@@ -174,10 +182,7 @@ tmp_readme=''
 cleanup() {
   if [ -n "${tmp_idx}" ]; then rm -f "${tmp_idx}"; tmp_idx=''; fi
   if [ -n "${tmp_readme}" ]; then rm -f "${tmp_readme}"; tmp_readme=''; fi
-  if [ "${lock_held:-0}" -eq 1 ]; then
-    rm -rf "${lock_dir}"
-    lock_held=0
-  fi
+  record_lock_release
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -211,6 +216,7 @@ repo_root=$_rr
 [ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+record_lock_init "${repo_root}"
 
 # ---- 选项解析 ----
 
@@ -231,6 +237,11 @@ while [ $# -gt 0 ]; do
     --blocked-by) [ $# -ge 2 ] || die2 '--blocked-by 缺值'; blocked_by=$2; shift 2 ;;
     --status) [ $# -ge 2 ] || die2 '--status 缺值'; status=$2; shift 2 ;;
     --updated-at) [ $# -ge 2 ] || die2 '--updated-at 缺值'; updated_at=$2; shift 2 ;;
+    --break-stale-lock)
+      RECORD_LOCK_BREAK_STALE=1
+      export RECORD_LOCK_BREAK_STALE
+      shift
+      ;;
     *) die2 "未知参数: $1" ;;
   esac
 done
@@ -418,129 +429,9 @@ fault_point() {
   exit 70
 }
 
-# ---- 状态写锁（票 243：单写路径并发串行化）----
-# mkdir 原子创建语义（POSIX，macOS/BSD 无 flock 亦可用）；锁目录落 $TMPDIR（不污染
-# 被治理仓库，check-artifacts 面零影响），按 repo 根 cksum 命名实现按仓互斥。
-# 互斥边界（如实声明）：只在「同一用户、同一 TMPDIR」内互斥——锁目录位于 $TMPDIR 且
-# 按 repo 根命名，不同用户或不同 TMPDIR 的进程不共享锁，不构成跨用户/跨机全局互斥；
-# 需要跨用户互斥时须让双方 TMPDIR 指向同一共享路径。
-# 等待上限 TICKET_OPS_LOCK_TIMEOUT 秒（缺省 20），超时即 exit 1「并发冲突」（失败方
-# 可见、零写入）。回收判据（不得放宽）：只有「持有者 pid 确认不存活」或「pid 字段缺失/
-# 不可解析且锁龄超 TICKET_OPS_LOCK_STALE 秒」才允许回收；持有者存活或无法证明死亡时
-# 一律不搬锁，只等待（锁龄仅作诊断信息，不单独授权回收）。回收采用原子认领：只有把
-# 陈旧锁目录 mv 到唯一旁路名成功的一方获得删除权（mv 失败＝他人已认领或锁已换新 →
-# 继续等待，绝不直接删原锁），认领后二次核验对象仍是判定时那一份；不符则放回——放回
-# 前先确认目标不存在（目标已被重建则删除自己的认领目录并放弃，避免 mv 嵌套）。
-# 所有等待路径（含回收尝试）每轮累计等待时间并统一判超时。持锁范围从状态预检读到投影收尾。
-lock_dir="${TMPDIR:-/tmp}/agent-up-ticket-ops-$(printf '%s' "${repo_root}" | cksum | awk '{print $1}').lock"
-lock_held=0
-lock_release() {
-  [ "${lock_held}" -eq 1 ] || return 0
-  rm -rf "${lock_dir}"
-  lock_held=0
-}
-
-lock_test_window() {
-  # 测试挂钩（仅并发回收用例使用）：放大「判定陈旧 → 原子认领」窗口；未设＝零开销
-  case ${TICKET_OPS_TEST_LOCK_DELAY_MS:-} in
-    ''|*[!0-9]*) return 0 ;;
-    0) return 0 ;;
-  esac
-  sleep "0.$(printf '%03d' "${TICKET_OPS_TEST_LOCK_DELAY_MS}")"
-}
-
-lock_restore_claim() {
-  # 认领后核验不符时放回：目标已被他人重建则绝不 mv（macOS 会把目录嵌进目标内），
-  # 直接删除本次认领目录并放弃回收。恒返回 1（未回收）。
-  if [ -e "${lock_dir}" ] || [ -L "${lock_dir}" ]; then
-    rm -rf "${lock_claim}"
-    return 1
-  fi
-  if ! mv "${lock_claim}" "${lock_dir}" 2>/dev/null; then
-    rm -rf "${lock_claim}"
-  fi
-  return 1
-}
-
-lock_reclaim() {
-  # $1=判据报文 $2=判定时读到的持有者 pid（可空）
-  # 调用方保证：持有者已确认不存活，或 pid 缺失且锁龄超阈值（存活者永不搬锁）。
-  # 0＝本进程认领并删除成功；1＝未认领（他人先到或锁已换新），调用方继续等待
-  lock_claim_pid=$2
-  lock_claim="${lock_dir}.reclaim.$$"
-  rm -rf "${lock_claim}"
-  mv "${lock_dir}" "${lock_claim}" 2>/dev/null || return 1
-  lock_claim_holder=$(sed -n '1p' "${lock_claim}/pid" 2>/dev/null) || lock_claim_holder=''
-  case ${lock_claim_holder} in
-    ''|*[!0-9]*) lock_claim_holder='' ;;
-  esac
-  if [ -n "${lock_claim_pid}" ] && [ "${lock_claim_holder}" != "${lock_claim_pid}" ]; then
-    lock_restore_claim
-    return 1
-  fi
-  if [ -n "${lock_claim_holder}" ] && kill -0 "${lock_claim_holder}" 2>/dev/null; then
-    lock_restore_claim
-    return 1
-  fi
-  warn "回收陈旧状态写锁（$1）: ${lock_dir}"
-  rm -rf "${lock_claim}"
-  return 0
-}
-
-lock_acquire() {
-  lock_timeout=${TICKET_OPS_LOCK_TIMEOUT:-20}
-  lock_stale=${TICKET_OPS_LOCK_STALE:-600}
-  case ${lock_timeout} in ''|*[!0-9]*) lock_timeout=20 ;; esac
-  case ${lock_stale} in ''|*[!0-9]*) lock_stale=600 ;; esac
-  lock_stale_min=$((lock_stale / 60))
-  [ "${lock_stale_min}" -ge 1 ] || lock_stale_min=1
-  lock_waited_cs=0
-  lock_refused_warned=0
-  while :; do
-    if mkdir "${lock_dir}" 2>/dev/null; then
-      printf '%s\n' "$$" > "${lock_dir}/pid" 2>/dev/null || true
-      lock_held=1
-      return 0
-    fi
-    lock_holder=$(sed -n '1p' "${lock_dir}/pid" 2>/dev/null) || lock_holder=''
-    case ${lock_holder} in
-      ''|*[!0-9]*) lock_holder='' ;;
-    esac
-    lock_age_stale=0
-    if [ -n "$(find "${lock_dir}" -prune -mmin +"${lock_stale_min}" 2>/dev/null)" ]; then
-      lock_age_stale=1
-    fi
-    lock_reason=''
-    if [ -n "${lock_holder}" ]; then
-      if ! kill -0 "${lock_holder}" 2>/dev/null; then
-        lock_reason="持有者 pid ${lock_holder} 已不存在"
-      elif [ "${lock_age_stale}" -eq 1 ] && [ "${lock_refused_warned}" -eq 0 ]; then
-        # 锁龄超阈值但持有者存活：仅诊断一次，绝不搬锁（锁龄不单独授权回收）
-        warn "状态写锁锁龄超过 ${lock_stale}s 但持有者 pid ${lock_holder} 仍存活——拒绝回收，继续等待锁释放"
-        lock_refused_warned=1
-      fi
-    elif [ "${lock_age_stale}" -eq 1 ]; then
-      lock_reason="pid 字段缺失且锁龄超过 ${lock_stale}s"
-    fi
-    if [ -n "${lock_reason}" ]; then
-      # 原子认领回收：成功即立刻重试建锁（推进，不计入等待）；失败落入统一等待路径
-      # （lock_reclaim 返回 1 属预期分支，用 if 兜住以免 set -e 中止）
-      lock_test_window
-      if lock_reclaim "${lock_reason}" "${lock_holder}"; then
-        continue
-      fi
-    fi
-    # 所有等待路径统一累计等待时间并判定超时（含回收尝试后未果的轮次）
-    if [ "${lock_waited_cs}" -ge $((lock_timeout * 100)) ]; then
-      if [ -n "${lock_holder}" ] && kill -0 "${lock_holder}" 2>/dev/null; then
-        die1 "并发冲突：等待锁释放超时 ${lock_timeout}s（持有者 pid ${lock_holder} 仍存活，拒绝回收）——索引零写入，重跑同一命令即按幂等路径收敛"
-      fi
-      die1 "并发冲突：等待锁释放超时 ${lock_timeout}s（持有者 pid ${lock_holder:-未知}）——索引零写入，重跑同一命令即按幂等路径收敛"
-    fi
-    sleep 0.05
-    lock_waited_cs=$((lock_waited_cs + 5))
-  done
-}
+# ---- 状态写锁（票 246：原语下沉 common-helpers.sh，本脚本只调用不复制）----
+# 锁目录由仓库根的 Git 公共目录推导（跨主检与 worktree 共享），陈旧锁只诊断、显式参数
+# 才夺；取锁/令牌校验/释放细节见共享库 record_lock_* 与同目录 README.md。
 
 # ---- 状态读取辅助（票 243：幂等判定共用；只读，写入前判定） ----
 
@@ -848,9 +739,9 @@ else
   fi
 fi
 
-# ---- 状态预检（锁内：票 243 单写路径——预检读取与写入同锁区间，防读-改-写丢更新）----
+# ---- 状态预检（锁内：票 246 单写路径——预检读取与写入同锁区间，防读-改-写丢更新）----
 
-lock_acquire
+record_lock_acquire
 
 replay=0
 if [ "${cmd}" = 'open' ]; then
@@ -973,6 +864,7 @@ if [ "${cmd}" = 'open' ] && [ "${replay}" -eq 0 ]; then
       die1 "空索引首开插入未通过校验: ${issues_index_rel}——未产生任何写入"
     }
   fi
+  record_lock_assert
   mv "${tmp_idx}" "${index_file}"
   tmp_idx=''
   printf "ticket-ops: 索引新增条目: ${issues_index_rel}（%s → ready，updated_at %s）\n" "${id}" "${now_ua}"
@@ -1021,6 +913,7 @@ elif [ "${cmd}" != 'open' ] && [ "${cmd}" != 'ledger' ] && [ "${replay}" -eq 0 ]
     rm -f "${tmp_idx}"; tmp_idx=''
     die1 "索引单写未通过校验: ${issues_index_rel}（${id}）——未产生任何写入"
   }
+  record_lock_assert
   mv "${tmp_idx}" "${index_file}"
   tmp_idx=''
   printf "ticket-ops: 索引单写: ${issues_index_rel}（%s → %s，updated_at %s）\n" "${id}" "${status}" "${idx_ua}"
@@ -1050,6 +943,7 @@ if [ "${cmd}" = 'open' ]; then
         rm -f "${tmp_readme}"; tmp_readme=''
         die1 "issues-README 行插入未通过校验——索引已写入（${id}），README 未写入；重跑同一命令即收敛"
       }
+      record_lock_assert
       mv "${tmp_readme}" "${readme_file}"
       tmp_readme=''
       printf "ticket-ops: README 追加目录清单行: ${issues_readme_rel}（任务票 %s；\`ready\`）\n" "${nn}"
@@ -1094,6 +988,7 @@ elif [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ]; then
     rm -f "${tmp_readme}"; tmp_readme=''
     die1 "README 状态 token 替换未通过校验——索引已单写（${id} → ${status}），README 未写入；重跑同一命令即收敛"
   }
+  record_lock_assert
   mv "${tmp_readme}" "${readme_file}"
   tmp_readme=''
   printf "ticket-ops: README 状态列替换: ${issues_readme_rel}（任务票 %s → \`%s\`，行内其余文本不动）\n" "${nn}" "${status}"
@@ -1107,12 +1002,16 @@ if [ "${cmd}" = 'open' ] || [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ]; then
   if ledger_row_exists; then
     printf 'ticket-ops: 账本行已在场（幂等跳过追加）: %s\n' "${ledger_rel}"
   else
-    sh "${ledger_cmd}" "${repo_root}" --ledger-line "${ledger_line}" || \
+    record_lock_assert
+    RECORD_LOCK_INHERITED=1 RECORD_LOCK_DIR="${RECORD_LOCK_DIR}" RECORD_LOCK_TOKEN="${RECORD_LOCK_TOKEN}" \
+      sh "${ledger_cmd}" "${repo_root}" --ledger-line "${ledger_line}" || \
       die1 "账本落行未过（唯一写入方 ledger-append.sh fail-closed，详见上方输出）——已写部分如实报告；重跑同一命令即收敛"
   fi
   fault_point after-ledger-write
 elif [ "${cmd}" = 'ledger' ]; then
-  sh "${ledger_cmd}" "${repo_root}" --ledger-line "${ledger_line}" || \
+  record_lock_assert
+  RECORD_LOCK_INHERITED=1 RECORD_LOCK_DIR="${RECORD_LOCK_DIR}" RECORD_LOCK_TOKEN="${RECORD_LOCK_TOKEN}" \
+    sh "${ledger_cmd}" "${repo_root}" --ledger-line "${ledger_line}" || \
     die1 "账本落行未过（唯一写入方 ledger-append.sh fail-closed，详见上方输出）——未产生任何写入"
   fault_point after-ledger-write
 fi
@@ -1123,8 +1022,9 @@ if [ "${cmd}" = 'ledger' ]; then
   exit 0
 fi
 
-# ---- 投影再生＋核对（唯一派生面；票 243 失败即非零退出，重跑幂等收敛） ----
+# ---- 投影再生＋核对（唯一派生面；票 246 失败即非零退出，重跑幂等收敛） ----
 
+record_lock_assert
 sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本均已写入、投影未刷新；按生成器报因处理后重跑同一命令即收敛"
 fault_point after-projection-write
 sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引、README、账本与投影均已写入；投影与索引不一致，重跑同一命令即收敛"

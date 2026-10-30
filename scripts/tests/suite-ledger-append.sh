@@ -13,7 +13,8 @@ fi
 # 追加／--check 零写入预检／lesson 六键九键／replan 八键／账本懒创建／紧凑 JSON／
 # 缺省根两布局推导；负例零写入——缺 --ledger-line、裸换行制表符、未知键、lesson 缺
 # promoted_to、promoted_to 越枚举、replan 非布尔、残缺 JSON（唯一引擎解析门）、未知
-# 参数 exit 2、仓根不存在 exit 2）
+# 参数 exit 2、仓根不存在 exit 2；锁断言——独立调用遇存活持有者超时零写入、pid 缺失
+# 且锁龄超阈值默认只诊断不夺锁）
 # ============================================================
 
 la_build_fixture() {
@@ -33,6 +34,20 @@ la_state() {
   else
     printf 'no-ledger\n'
   fi
+}
+
+la_lock_dir() {
+  # $1=夹具根：经共享库只读探针解析锁目录（与产品实现同一推导，测试不按实现猜路径）
+  la_probe="$D/.la-lock-probe.sh"
+  cat > "$la_probe" <<'PROBE'
+#!/bin/sh
+set -eu
+. "$1/rules/implementation/scripts/common-helpers.sh"
+record_lock_init "$1"
+printf '%s\n' "$RECORD_LOCK_DIR"
+PROBE
+  sh "$la_probe" "$1"
+  rm -f "$la_probe"
 }
 
 suite_ledger_append() {
@@ -239,6 +254,123 @@ suite_ledger_append() {
   else
     bad '负例 N9 仓根不存在 → exit 2（fail-closed 指名）' "exit=$rc $(tail -n 1 "$D/n9.log")"
   fi
+
+  # ---- 票 246 AC1：20 进程并行独立调用 ledger-append（不经 ticket-ops）零丢行 ----
+  la_build_fixture "$D/c1"
+  FC1="$D/c1"
+  SFC1="$FC1/rules/implementation/scripts/ledger-append.sh"
+  : > "$D/c1.expected"
+  la_i=1
+  while [ "$la_i" -le 20 ]; do
+    printf '%s\n' "{\"date\": \"2026-10-30\", \"kind\": \"change\", \"scope\": \"facts/project\", \"decision\": \"并发行 $la_i\", \"evidence_ref\": \"c1-$la_i\"}" >> "$D/c1.expected"
+    la_i=$((la_i + 1))
+  done
+  la_pids=''
+  la_i=1
+  while [ "$la_i" -le 20 ]; do
+    ( sh "$SFC1" "$FC1" --ledger-line "{\"date\": \"2026-10-30\", \"kind\": \"change\", \"scope\": \"facts/project\", \"decision\": \"并发行 $la_i\", \"evidence_ref\": \"c1-$la_i\"}" >"$D/c1-$la_i.log" 2>&1 ) &
+    la_pids="$la_pids $!"
+    la_i=$((la_i + 1))
+  done
+  la_fail=0
+  for la_p in $la_pids; do
+    wait "$la_p" || la_fail=$((la_fail + 1))
+  done
+  la_lines=$(wc -l < "$FC1/facts/project/changes.jsonl" | tr -d ' ')
+  tail -n +2 "$FC1/facts/project/changes.jsonl" | LC_ALL=C sort > "$D/c1.actual"
+  LC_ALL=C sort "$D/c1.expected" > "$D/c1.expected.sorted"
+  if [ "$la_fail" -eq 0 ] && [ "$la_lines" = '21' ] && cmp -s "$D/c1.actual" "$D/c1.expected.sorted"; then
+    ok 'AC1 20 进程并行独立调用 ledger-append → 相对起点恰增 20 行、每行与输入逐字对应、无丢失'
+  else
+    bad 'AC1 20 进程并行独立调用 ledger-append → 相对起点恰增 20 行、每行与输入逐字对应、无丢失' "失败进程=${la_fail}/20 总行数=${la_lines}（期望 21） diff=$(diff "$D/c1.expected.sorted" "$D/c1.actual" 2>/dev/null | head -n 4 | tr '\n' '|')"
+  fi
+
+  # ---- 票 246 AC7：并发后历史行逐字不变、仅尾部增长；check-append-only 通过 ----
+  la_build_fixture "$D/c7"
+  FC7="$D/c7"
+  SFC7="$FC7/rules/implementation/scripts/ledger-append.sh"
+  git -C "$FC7" init -q
+  git -C "$FC7" add -A
+  git -C "$FC7" -c user.email=fixture@example.com -c user.name=fixture commit -q -m seed
+  cp "$FC7/facts/project/changes.jsonl" "$D/c7.seed"
+  la_pids=''
+  la_i=1
+  while [ "$la_i" -le 10 ]; do
+    ( sh "$SFC7" "$FC7" --ledger-line "{\"date\": \"2026-10-30\", \"kind\": \"change\", \"scope\": \"facts/project\", \"decision\": \"历史行不变 $la_i\", \"evidence_ref\": \"c7-$la_i\"}" >"$D/c7-$la_i.log" 2>&1 ) &
+    la_pids="$la_pids $!"
+    la_i=$((la_i + 1))
+  done
+  la_fail=0
+  for la_p in $la_pids; do
+    wait "$la_p" || la_fail=$((la_fail + 1))
+  done
+  head -n "$(wc -l < "$D/c7.seed" | tr -d ' ')" "$FC7/facts/project/changes.jsonl" > "$D/c7.head"
+  sh "$SCRIPT_DIR/check-append-only.sh" "$FC7" >"$D/c7.guard.log" 2>&1
+  la_guard=$?
+  if [ "$la_fail" -eq 0 ] && cmp -s "$D/c7.head" "$D/c7.seed" && [ "$la_guard" -eq 0 ] && \
+     [ "$(wc -l < "$FC7/facts/project/changes.jsonl" | tr -d ' ')" = '11' ]; then
+    ok 'AC7 并发追加后历史行逐字不变、仅尾部增长，check-append-only 通过'
+  else
+    bad 'AC7 并发追加后历史行逐字不变、仅尾部增长，check-append-only 通过' "失败进程=${la_fail}/10 行数=$(wc -l < "$FC7/facts/project/changes.jsonl" | tr -d ' ') guard_exit=$la_guard $(tail -n 2 "$D/c7.guard.log" | tr '\n' '|')"
+  fi
+
+  # ---- AC5（锁）：独立调用 ledger-append（非 --check）遇存活持有者的锁 → 有界等待超时零写入 ----
+  # 预置存活 pid 的锁目录（锁龄刻意造旧也不得夺）；TICKET_OPS_LOCK_TIMEOUT=1 下必须 exit 1、
+  # 账本 cksum 不变、报文含锁目录路径与持有者 pid，锁目录与令牌原样。
+  la_build_fixture "$D/locklive"
+  FPL=$D/locklive
+  git -C "$FPL" init -q
+  SPL="$FPL/rules/implementation/scripts/ledger-append.sh"
+  la_lockdir_live=$(la_lock_dir "$FPL")
+  rm -rf "${la_lockdir_live}"
+  mkdir -p "${la_lockdir_live}"
+  la_live_pid=$$
+  printf '%s\n' "${la_live_pid}" > "${la_lockdir_live}/pid"
+  printf '%s\n' "${la_live_pid}:0:live" > "${la_lockdir_live}/token"
+  la_live_before=$(la_state "$FPL")
+  TICKET_OPS_LOCK_TIMEOUT=1 sh "$SPL" "$FPL" --ledger-line '{"date": "2026-10-30", "kind": "change", "scope": "facts/project", "decision": "锁存活持有者超时", "evidence_ref": "lock-live"}' >"$D/locklive.log" 2>&1
+  la_live_rc=$?
+  la_live_after=$(la_state "$FPL")
+  if [ "${la_live_rc}" -eq 1 ] && [ "${la_live_before}" = "${la_live_after}" ] && \
+     grep -q '并发冲突' "$D/locklive.log" && \
+     grep -qF "${la_lockdir_live}" "$D/locklive.log" && \
+     grep -qF "持有者 pid ${la_live_pid}" "$D/locklive.log" && \
+     [ -d "${la_lockdir_live}" ] && \
+     [ "$(sed -n '1p' "${la_lockdir_live}/token" 2>/dev/null)" = "${la_live_pid}:0:live" ]; then
+    ok 'AC5 独立调用 ledger-append 遇存活持有者的锁 → 有界等待超时 exit 1、账本零写入、报文含锁路径与持有者 pid'
+  else
+    bad 'AC5 独立调用 ledger-append 遇存活持有者的锁 → 有界等待超时 exit 1、账本零写入、报文含锁路径与持有者 pid' "exit=${la_live_rc} 账本变=$( [ "${la_live_before}" = "${la_live_after}" ] && echo no || echo yes ) 锁在=$( [ -d "${la_lockdir_live}" ] && echo yes || echo no ) 令牌=$(sed -n '1p' "${la_lockdir_live}/token" 2>/dev/null) $(head -n 2 "$D/locklive.log" | tr '\n' '|' | cut -c 1-200)"
+  fi
+  rm -rf "${la_lockdir_live}"
+
+  # ---- AC4 补（锁）：pid 缺失＋锁龄超阈值 → 默认只诊断不夺锁，超时零写入 ----
+  # 锁目录只写 token 不写 pid，mtime 造到 2020；TICKET_OPS_LOCK_STALE=60 ＋ TIMEOUT=1 下
+  # 必须 exit 1、账本不变、报文含锁路径与「陈旧写锁…仅诊断」，锁目录与令牌原样（未被夺）。
+  la_build_fixture "$D/lockstale"
+  FPS=$D/lockstale
+  git -C "$FPS" init -q
+  SPS="$FPS/rules/implementation/scripts/ledger-append.sh"
+  la_lockdir_stale=$(la_lock_dir "$FPS")
+  rm -rf "${la_lockdir_stale}"
+  mkdir -p "${la_lockdir_stale}"
+  printf '%s\n' '0:0:stale' > "${la_lockdir_stale}/token"
+  touch -t 202001010000 "${la_lockdir_stale}" "${la_lockdir_stale}/token"
+  la_stale_before=$(la_state "$FPS")
+  TICKET_OPS_LOCK_STALE=60 TICKET_OPS_LOCK_TIMEOUT=1 sh "$SPS" "$FPS" --ledger-line '{"date": "2026-10-30", "kind": "change", "scope": "facts/project", "decision": "陈旧锁只诊断", "evidence_ref": "lock-stale"}' >"$D/lockstale.log" 2>&1
+  la_stale_rc=$?
+  la_stale_after=$(la_state "$FPS")
+  la_stale_sidecar=$(find "$(dirname -- "${la_lockdir_stale}")" -maxdepth 1 -name "$(basename -- "${la_lockdir_stale}").steal.*" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${la_stale_rc}" -eq 1 ] && [ "${la_stale_before}" = "${la_stale_after}" ] && \
+     grep -q '陈旧写锁' "$D/lockstale.log" && \
+     grep -q '仅诊断' "$D/lockstale.log" && \
+     grep -qF "${la_lockdir_stale}" "$D/lockstale.log" && \
+     [ -d "${la_lockdir_stale}" ] && [ "${la_stale_sidecar}" = '0' ] && \
+     [ "$(sed -n '1p' "${la_lockdir_stale}/token" 2>/dev/null)" = '0:0:stale' ]; then
+    ok 'AC4 补 pid 缺失＋锁龄超阈值 → 默认只诊断不夺锁，超时 exit 1、账本零写入、锁原样'
+  else
+    bad 'AC4 补 pid 缺失＋锁龄超阈值 → 默认只诊断不夺锁，超时 exit 1、账本零写入、锁原样' "exit=${la_stale_rc} 账本变=$( [ "${la_stale_before}" = "${la_stale_after}" ] && echo no || echo yes ) 锁在=$( [ -d "${la_lockdir_stale}" ] && echo yes || echo no ) 旁路=${la_stale_sidecar} 令牌=$(sed -n '1p' "${la_lockdir_stale}/token" 2>/dev/null) $(head -n 4 "$D/lockstale.log" | tr '\n' '|' | cut -c 1-200)"
+  fi
+  rm -rf "${la_lockdir_stale}"
 
   suite_summary 'ledger-append'
 }

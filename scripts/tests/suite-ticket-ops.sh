@@ -302,6 +302,20 @@ tix243_reason() {
   printf '%s' "$tix243_line"
 }
 
+tix246_lock_dir() {
+  # $1=夹具根：经共享库解析锁目录（只读探针；产品脚本不复制锁实现，测试也不按实现猜路径）
+  tix246_probe="$D/.probe-lock.sh"
+  cat > "$tix246_probe" <<'PROBE'
+#!/bin/sh
+set -eu
+. "$1/rules/implementation/scripts/common-helpers.sh"
+record_lock_init "$1"
+printf '%s\n' "$RECORD_LOCK_DIR"
+PROBE
+  sh "$tix246_probe" "$1"
+  rm -f "$tix246_probe"
+}
+
 tix243_converged() {
   # $1=夹具根：收敛判定（输出空串＝收敛；否则输出未收敛面清单，AC3 重跑断言用）
   tix243_cv=''
@@ -1670,83 +1684,261 @@ PYTHON
     bad 'AC2 失败方报文含冲突标记（或双方均成功且未被吞掉）' "静默失败轮数=$tix243_no_conflict/$TIX243_CONC_ROUNDS"
   fi
 
-  # ---- AC2b：陈旧锁并发回收（评审 B1：mv 原子认领，不得删他人刚建的新锁）----
-  # 构造陈旧锁（pid 不存在）后双进程并发 open，用 TICKET_OPS_TEST_LOCK_DELAY_MS 放大
-  # 「判定陈旧 → 认领」窗口；断言两票都落索引（＝任意时刻至多一方在临界区，无丢更新），
-  # 且无 reclaim 旁路目录残留。
-  F243S=$D/fix243stale
-  tix_build_fixture "$F243S"
-  tix_body "$F243S/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
-  tix_body "$F243S/facts/requirements/tickets/40-delta-fourth.json" 40-delta-fourth
-  tix243_phys=$(CDPATH='' cd -- "$F243S" && pwd -P)
-  tix243_lockdir="${TMPDIR:-/tmp}/agent-up-ticket-ops-$(printf '%s' "${tix243_phys}" | cksum | awk '{print $1}').lock"
-  rm -rf "${tix243_lockdir}"
-  mkdir -p "${tix243_lockdir}"
-  printf '%s\n' 999999 > "${tix243_lockdir}/pid"
-  S243S="$F243S/rules/implementation/scripts/ticket-ops.sh"
-  ( TICKET_OPS_TEST_LOCK_DELAY_MS=300 sh "$S243S" "$F243S" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2b-a.log" 2>&1 ) &
-  tix243_sp1=$!
-  ( TICKET_OPS_TEST_LOCK_DELAY_MS=300 sh "$S243S" "$F243S" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2b-b.log" 2>&1 ) &
-  tix243_sp2=$!
-  wait "$tix243_sp1"
-  tix243_sr1=$?
-  wait "$tix243_sp2"
-  tix243_sr2=$?
-  tix243_sn30=$(tix243_count "$F243S/facts/requirements/tickets/index.json" '"id": "30-gamma-third"')
-  tix243_sn40=$(tix243_count "$F243S/facts/requirements/tickets/index.json" '"id": "40-delta-fourth"')
-  # 认领互斥的直接观测：同一陈旧锁只允许一个进程认领成功 → 回收 WARNING 合计恰 1；
-  # 旧实现（判定即 rm -rf）会两进程各删一次、各得一把锁（合计 2），临界区失去互斥。
-  tix243_reclaim_warns=$(( $(grep -c '回收陈旧状态写锁' "$D/ac2b-a.log" 2>/dev/null || true) + $(grep -c '回收陈旧状态写锁' "$D/ac2b-b.log" 2>/dev/null || true) ))
-  if [ "$tix243_sn30" = '1' ] && [ "$tix243_sn40" = '1' ] && [ "$tix243_reclaim_warns" -eq 1 ] && tix243_json_ok "$F243S/facts/requirements/tickets/index.json"; then
-    ok "AC2b 陈旧锁并发回收零丢更新且仅一方认领（rc=${tix243_sr1}/${tix243_sr2}，回收 WARNING 合计=1）"
+  # ---- AC2take（票 246 AC2）：两进程并行 take 两张不同票 → 双方 exit 0、两条目均为
+  #      in_progress、各自持有 updated_at、索引仍为合法 JSON（锁覆盖读-改-写，无覆盖写） ----
+  F246TK=$D/fix246take
+  tix_build_fixture "$F246TK"
+  tix_body "$F246TK/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  tix_body "$F246TK/facts/requirements/tickets/40-delta-fourth.json" 40-delta-fourth
+  SK246TK="$F246TK/rules/implementation/scripts/ticket-ops.sh"
+  sh "$SK246TK" "$F246TK" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line '{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 并行 take 前置开票 30", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}' >"$D/ac2take-open30.log" 2>&1
+  sh "$SK246TK" "$F246TK" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line '{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 并行 take 前置开票 40", "evidence_ref": "facts/requirements/tickets/40-delta-fourth.json"}' >"$D/ac2take-open40.log" 2>&1
+  ( sh "$SK246TK" "$F246TK" take --id 30-gamma-third --status in_progress --ledger-line '{"date": "2026-09-21", "kind": "change", "scope": "facts/requirements/tickets", "decision": "票246 并行 take 30", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}' >"$D/ac2take-a.log" 2>&1 ) &
+  tix246_tk_p1=$!
+  ( sh "$SK246TK" "$F246TK" take --id 40-delta-fourth --status in_progress --ledger-line '{"date": "2026-09-21", "kind": "change", "scope": "facts/requirements/tickets", "decision": "票246 并行 take 40", "evidence_ref": "facts/requirements/tickets/40-delta-fourth.json"}' >"$D/ac2take-b.log" 2>&1 ) &
+  tix246_tk_p2=$!
+  wait "$tix246_tk_p1"
+  tix246_tk_r1=$?
+  wait "$tix246_tk_p2"
+  tix246_tk_r2=$?
+  IDX246TK="$F246TK/facts/requirements/tickets/index.json"
+  if [ "$tix246_tk_r1" -eq 0 ] && [ "$tix246_tk_r2" -eq 0 ] && \
+     tix243_json_ok "$IDX246TK" && \
+     grep -q '"id": "30-gamma-third", "status": "in_progress"' "$IDX246TK" && \
+     grep -q '"id": "40-delta-fourth", "status": "in_progress"' "$IDX246TK"; then
+    ok 'AC2 两进程并行 take 两张不同票 → 双方 exit 0、两条目均 in_progress、索引合法 JSON'
   else
-    bad "AC2b 陈旧锁并发回收零丢更新且仅一方认领（rc=${tix243_sr1}/${tix243_sr2}，回收 WARNING 合计=1）" "索引30=${tix243_sn30} 索引40=${tix243_sn40} 回收WARNING合计=${tix243_reclaim_warns} A=$(tix243_reason "$D/ac2b-a.log" | cut -c 1-90) B=$(tix243_reason "$D/ac2b-b.log" | cut -c 1-90)"
+    bad 'AC2 两进程并行 take 两张不同票 → 双方 exit 0、两条目均 in_progress、索引合法 JSON' "rc=$tix246_tk_r1/$tix246_tk_r2 索引=$(tr '\n' '|' < "$IDX246TK" 2>/dev/null | cut -c 1-160) A=$(tix243_reason "$D/ac2take-a.log") B=$(tix243_reason "$D/ac2take-b.log")"
   fi
-  tix243_reclaim_left=$(find "$(dirname -- "${tix243_lockdir}")" -maxdepth 1 -name "$(basename -- "${tix243_lockdir}").reclaim.*" 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$tix243_reclaim_left" = '0' ] && [ ! -d "${tix243_lockdir}" ]; then
-    ok 'AC2b 回收后无 reclaim 旁路目录与锁目录残留'
+  tix246_tk_u30=$(grep '"id": "30-gamma-third"' "$IDX246TK" 2>/dev/null | grep -o '"updated_at": "[^"]*"' | head -n 1)
+  tix246_tk_u40=$(grep '"id": "40-delta-fourth"' "$IDX246TK" 2>/dev/null | grep -o '"updated_at": "[^"]*"' | head -n 1)
+  if [ -n "$tix246_tk_u30" ] && [ -n "$tix246_tk_u40" ]; then
+    ok "AC2 并行 take 后两条目各自持有 updated_at（30=${tix246_tk_u30} 40=${tix246_tk_u40}）"
   else
-    bad 'AC2b 回收后无 reclaim 旁路目录与锁目录残留' "旁路=${tix243_reclaim_left} 锁目录残留=$([ -d "${tix243_lockdir}" ] && echo yes || echo no)"
+    bad 'AC2 并行 take 后两条目各自持有 updated_at' "30=${tix246_tk_u30:-缺失} 40=${tix246_tk_u40:-缺失}"
   fi
 
-  # ---- AC2c：锁龄超阈值但持有者存活 → 拒绝回收并按时超时（评审 B1' 自旋修复）----
-  # 构造 mtime 极旧（2020）的锁目录、pid 指向真实存活的 sleep 进程；TICKET_OPS_LOCK_STALE=60
-  # ＋ TICKET_OPS_LOCK_TIMEOUT=1：必须数秒内 exit 1、报文含「并发冲突」与 WARNING「拒绝回收」，
-  # 零写入；锁不得被搬走（无嵌套 .lock、无 reclaim 旁路残留）。
-  F243W=$D/fix243livelock
-  tix_build_fixture "$F243W"
-  tix_body "$F243W/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
-  tix243_phys_w=$(CDPATH='' cd -- "$F243W" && pwd -P)
-  tix243_lockw="${TMPDIR:-/tmp}/agent-up-ticket-ops-$(printf '%s' "${tix243_phys_w}" | cksum | awk '{print $1}').lock"
-  rm -rf "${tix243_lockw}"
-  mkdir -p "${tix243_lockw}"
+  # ---- AC2b：陈旧锁默认只诊断不夺锁；显式参数才夺锁（票 246 AC4）----
+  # 构造陈旧锁（pid 999999 不存在）后：
+  #   ① 默认 TICKET_OPS_LOCK_TIMEOUT=1 → exit 1，报文含锁路径/持有者 pid/「仅诊断」WARNING，
+  #      四载体零写入，锁目录原样保留（未被自动夺）；
+  #   ② RECORD_LOCK_BREAK_STALE=1 重跑 → exit 0，索引落条目；
+  #   ③ 再造陈旧锁，--break-stale-lock CLI 形态开另一票 → exit 0。
+  F246S=$D/fix246stale
+  tix243_fresh_fixture "$F246S"
+  tix_body "$F246S/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  tix_body "$F246S/facts/requirements/tickets/40-delta-fourth.json" 40-delta-fourth
+  S246S="$F246S/rules/implementation/scripts/ticket-ops.sh"
+  LED246S30='{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 陈旧锁显式夺锁 30", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
+  LED246S40='{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 陈旧锁显式夺锁 40", "evidence_ref": "facts/requirements/tickets/40-delta-fourth.json"}'
+  tix246_lockdir_s=$(tix246_lock_dir "$F246S")
+  rm -rf "${tix246_lockdir_s}"
+  mkdir -p "${tix246_lockdir_s}"
+  printf '%s\n' 999999 > "${tix246_lockdir_s}/pid"
+  printf '%s\n' '999999:0:stale' > "${tix246_lockdir_s}/token"
+  tix246_before=$(tix_state "$F246S")
+  TICKET_OPS_LOCK_TIMEOUT=1 sh "$S246S" "$F246S" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED246S30" >"$D/ac2b-default.log" 2>&1
+  tix246_rc=$?
+  tix246_after=$(tix_state "$F246S")
+  if [ "$tix246_rc" -eq 1 ] && [ "$tix246_before" = "$tix246_after" ] && \
+     grep -q '并发冲突' "$D/ac2b-default.log" && \
+     grep -qF "${tix246_lockdir_s}" "$D/ac2b-default.log" && \
+     grep -qF 'pid 999999' "$D/ac2b-default.log" && \
+     grep -q '仅诊断' "$D/ac2b-default.log" && \
+     [ -d "${tix246_lockdir_s}" ] && \
+     [ "$(sed -n '1p' "${tix246_lockdir_s}/token" 2>/dev/null)" = '999999:0:stale' ]; then
+    ok 'AC4 陈旧锁默认只诊断不夺：超时 exit 1 且报文含锁路径/持有者 pid/仅诊断 WARNING，四载体零写入、锁原样'
+  else
+    bad 'AC4 陈旧锁默认只诊断不夺：超时 exit 1 且报文含锁路径/持有者 pid/仅诊断 WARNING，四载体零写入、锁原样' "exit=$tix246_rc 锁在=$([ -d "${tix246_lockdir_s}" ] && echo yes || echo no) $(tix243_reason "$D/ac2b-default.log" | cut -c 1-160)"
+  fi
+  TICKET_OPS_LOCK_TIMEOUT=1 RECORD_LOCK_BREAK_STALE=1 sh "$S246S" "$F246S" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED246S30" >"$D/ac2b-break.log" 2>&1
+  tix246_rc=$?
+  if [ "$tix246_rc" -eq 0 ] && grep -q '显式夺锁' "$D/ac2b-break.log" && \
+     [ "$(tix243_count "$F246S/facts/requirements/tickets/index.json" '"id": "30-gamma-third"')" = '1' ] && \
+     [ ! -d "${tix246_lockdir_s}" ]; then
+    ok 'AC4 RECORD_LOCK_BREAK_STALE=1 显式夺锁后恢复：exit 0 且索引落条目、锁目录释放'
+  else
+    bad 'AC4 RECORD_LOCK_BREAK_STALE=1 显式夺锁后恢复：exit 0 且索引落条目、锁目录释放' "exit=$tix246_rc 索引30=$(tix243_count "$F246S/facts/requirements/tickets/index.json" '"id": "30-gamma-third"') 锁在=$([ -d "${tix246_lockdir_s}" ] && echo yes || echo no) $(tix243_reason "$D/ac2b-break.log" | cut -c 1-160)"
+  fi
+  mkdir -p "${tix246_lockdir_s}"
+  printf '%s\n' 999999 > "${tix246_lockdir_s}/pid"
+  printf '%s\n' '999999:0:stale2' > "${tix246_lockdir_s}/token"
+  TICKET_OPS_LOCK_TIMEOUT=1 sh "$S246S" "$F246S" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line "$LED246S40" --break-stale-lock >"$D/ac2b-cli.log" 2>&1
+  tix246_rc=$?
+  if [ "$tix246_rc" -eq 0 ] && grep -q '显式夺锁' "$D/ac2b-cli.log" && \
+     [ "$(tix243_count "$F246S/facts/requirements/tickets/index.json" '"id": "40-delta-fourth"')" = '1' ] && \
+     [ ! -d "${tix246_lockdir_s}" ]; then
+    ok 'AC4 --break-stale-lock CLI 等价显式夺锁：exit 0 且索引落条目、锁目录释放'
+  else
+    bad 'AC4 --break-stale-lock CLI 等价显式夺锁：exit 0 且索引落条目、锁目录释放' "exit=$tix246_rc 索引40=$(tix243_count "$F246S/facts/requirements/tickets/index.json" '"id": "40-delta-fourth"') 锁在=$([ -d "${tix246_lockdir_s}" ] && echo yes || echo no) $(tix243_reason "$D/ac2b-cli.log" | cut -c 1-160)"
+  fi
+
+  # ---- AC2c＋AC3(246)：锁被存活持有者占用（锁龄再老）→ 拒绝夺锁、有界等待后超时 ----
+  # pid 指向真实存活的 sleep 进程、mtime 极旧（2020）；TICKET_OPS_LOCK_STALE=60 ＋
+  # TICKET_OPS_LOCK_TIMEOUT=1：必须数秒内 exit 1，报文含「并发冲突」、锁目录路径与持有者 pid；
+  # 四载体零写入；锁不得被搬走（无嵌套 .lock、无 steal 旁路残留），令牌原样。
+  F246W=$D/fix246livelock
+  tix243_fresh_fixture "$F246W"
+  tix_body "$F246W/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  LED246W='{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 存活持有者超时", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
+  tix246_lockdir_w=$(tix246_lock_dir "$F246W")
+  rm -rf "${tix246_lockdir_w}"
+  mkdir -p "${tix246_lockdir_w}"
   sleep 30 &
-  tix243_sleeper=$!
-  printf '%s\n' "${tix243_sleeper}" > "${tix243_lockw}/pid"
-  touch -t 202001010000 "${tix243_lockw}" "${tix243_lockw}/pid"
-  S243W="$F243W/rules/implementation/scripts/ticket-ops.sh"
-  tix243_w_before=$(tix_state "$F243W")
-  tix243_w_start=$(date +%s)
-  TICKET_OPS_LOCK_STALE=60 TICKET_OPS_LOCK_TIMEOUT=1 sh "$S243W" "$F243W" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED_OPEN" >"$D/ac2c.log" 2>&1
-  tix243_w_rc=$?
-  tix243_w_elapsed=$(( $(date +%s) - tix243_w_start ))
-  kill "${tix243_sleeper}" 2>/dev/null || true
-  wait "${tix243_sleeper}" 2>/dev/null || true
-  if [ "$tix243_w_rc" -eq 1 ] && [ "$tix243_w_elapsed" -le 5 ] && \
-     [ "$tix243_w_before" = "$(tix_state "$F243W")" ] && \
-     grep -q '并发冲突' "$D/ac2c.log" && grep -q 'WARNING: .*拒绝回收' "$D/ac2c.log"; then
-    ok "AC2c 锁龄超阈值但持有者存活 → ${tix243_w_elapsed}s 内 exit 1（并发冲突·WARNING 拒绝回收）且零写入"
+  tix246_sleeper=$!
+  printf '%s\n' "${tix246_sleeper}" > "${tix246_lockdir_w}/pid"
+  printf '%s\n' "${tix246_sleeper}:0:live" > "${tix246_lockdir_w}/token"
+  touch -t 202001010000 "${tix246_lockdir_w}" "${tix246_lockdir_w}/pid" "${tix246_lockdir_w}/token"
+  S246W="$F246W/rules/implementation/scripts/ticket-ops.sh"
+  tix246_w_before=$(tix_state "$F246W")
+  tix246_w_start=$(date +%s)
+  TICKET_OPS_LOCK_STALE=60 TICKET_OPS_LOCK_TIMEOUT=1 sh "$S246W" "$F246W" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED246W" >"$D/ac2c.log" 2>&1
+  tix246_w_rc=$?
+  tix246_w_elapsed=$(( $(date +%s) - tix246_w_start ))
+  if [ "$tix246_w_rc" -eq 1 ] && [ "$tix246_w_elapsed" -le 5 ] && \
+     [ "$tix246_w_before" = "$(tix_state "$F246W")" ] && \
+     grep -q '并发冲突' "$D/ac2c.log" && \
+     grep -qF "${tix246_lockdir_w}" "$D/ac2c.log" && \
+     grep -qF "pid ${tix246_sleeper}" "$D/ac2c.log"; then
+    ok "AC2c/AC3 锁被占用有界等待 ${tix246_w_elapsed}s 超时 exit 1：报文含锁路径与持有者 pid，四载体零写入"
   else
-    bad "AC2c 锁龄超阈值但持有者存活 → ${tix243_w_elapsed}s 内 exit 1（并发冲突·WARNING 拒绝回收）且零写入" "exit=$tix243_w_rc 耗时=${tix243_w_elapsed}s $(tix243_reason "$D/ac2c.log" | cut -c 1-120)"
+    bad "AC2c/AC3 锁被占用有界等待超时 exit 1：报文含锁路径与持有者 pid，四载体零写入" "exit=$tix246_w_rc 耗时=${tix246_w_elapsed}s pid=${tix246_sleeper} $(tix243_reason "$D/ac2c.log" | cut -c 1-160)"
   fi
-  tix243_w_nested=$(find "${tix243_lockw}" -mindepth 1 -maxdepth 1 -name '*.lock' 2>/dev/null | wc -l | tr -d ' ')
-  tix243_w_sidecar=$(find "$(dirname -- "${tix243_lockw}")" -maxdepth 1 -name "$(basename -- "${tix243_lockw}").reclaim.*" 2>/dev/null | wc -l | tr -d ' ')
-  if [ -d "${tix243_lockw}" ] && [ "$tix243_w_nested" = '0' ] && [ "$tix243_w_sidecar" = '0' ]; then
-    ok 'AC2c 存活持有者的锁未被搬走（无嵌套 .lock 目录、无 reclaim 旁路残留）'
+  kill "${tix246_sleeper}" 2>/dev/null || true
+  wait "${tix246_sleeper}" 2>/dev/null || true
+  tix246_w_nested=$(find "${tix246_lockdir_w}" -mindepth 1 -maxdepth 1 -name '*.lock' 2>/dev/null | wc -l | tr -d ' ')
+  tix246_w_sidecar=$(find "$(dirname -- "${tix246_lockdir_w}")" -maxdepth 1 -name "$(basename -- "${tix246_lockdir_w}").steal.*" 2>/dev/null | wc -l | tr -d ' ')
+  if [ -d "${tix246_lockdir_w}" ] && [ "$tix246_w_nested" = '0' ] && [ "$tix246_w_sidecar" = '0' ] && \
+     [ "$(sed -n '1p' "${tix246_lockdir_w}/token" 2>/dev/null)" = "${tix246_sleeper}:0:live" ]; then
+    ok 'AC2c 存活持有者的锁未被搬走（令牌原样、无嵌套 .lock、无 steal 旁路残留）'
   else
-    bad 'AC2c 存活持有者的锁未被搬走（无嵌套 .lock 目录、无 reclaim 旁路残留）' "lock目录=$([ -d "${tix243_lockw}" ] && echo yes || echo no) 嵌套=${tix243_w_nested} 旁路=${tix243_w_sidecar}"
+    bad 'AC2c 存活持有者的锁未被搬走（令牌原样、无嵌套 .lock、无 steal 旁路残留）' "lock目录=$([ -d "${tix246_lockdir_w}" ] && echo yes || echo no) 嵌套=${tix246_w_nested} 旁路=${tix246_w_sidecar} 令牌=$(sed -n '1p' "${tix246_lockdir_w}/token" 2>/dev/null)"
   fi
-  rm -rf "${tix243_lockw}"
+  rm -rf "${tix246_lockdir_w}"
+
+  # ---- AC4：夺锁后原持有者的下一次写入被令牌拦下（票 246 AC4 后半）----
+  # 首进程持锁（RECORD_LOCK_TEST_HOLD_MS 放大窗口），测试把锁内 pid 改写为 999999 模拟
+  # 持有者已死；第二进程 --break-stale-lock 夺锁并落 40；首进程恢复后写点断言令牌不符，
+  # 必须 exit 1 且四载体零写入（索引/README/账本均无 30）。
+  F246T=$D/fix246token
+  tix243_fresh_fixture "$F246T"
+  tix_body "$F246T/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  tix_body "$F246T/facts/requirements/tickets/40-delta-fourth.json" 40-delta-fourth
+  S246T="$F246T/rules/implementation/scripts/ticket-ops.sh"
+  LED246T30='{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 令牌拦写 30", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
+  LED246T40='{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 令牌拦写 40", "evidence_ref": "facts/requirements/tickets/40-delta-fourth.json"}'
+  tix246_lockdir_t=$(tix246_lock_dir "$F246T")
+  RECORD_LOCK_TEST_HOLD_MS=2000 sh "$S246T" "$F246T" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED246T30" >"$D/ac4-hold.log" 2>&1 &
+  tix246_hp=$!
+  tix246_i=0
+  while [ ! -s "${tix246_lockdir_t}/token" ] && [ "$tix246_i" -lt 100 ]; do
+    sleep 0.05
+    tix246_i=$((tix246_i + 1))
+  done
+  printf '%s\n' 999999 > "${tix246_lockdir_t}/pid"
+  TICKET_OPS_LOCK_TIMEOUT=5 RECORD_LOCK_BREAK_STALE=1 sh "$S246T" "$F246T" open --id 40-delta-fourth --complexity C0 --title 'Delta fixture ticket' --ledger-line "$LED246T40" >"$D/ac4-steal.log" 2>&1
+  tix246_rs=$?
+  wait "$tix246_hp"
+  tix246_rh=$?
+  tix246_ledger_lines=$(wc -l < "$F246T/facts/project/changes.jsonl" | tr -d ' ')
+  if [ "$tix246_rs" -eq 0 ] && [ "$tix246_rh" -eq 1 ] && \
+     grep -q '写锁归属已失效' "$D/ac4-hold.log" && \
+     [ "$(tix243_count "$F246T/facts/requirements/tickets/index.json" '"id": "30-gamma-third"')" = '0' ] && \
+     [ "$(tix243_count "$F246T/facts/requirements/tickets/index.json" '"id": "40-delta-fourth"')" = '1' ] && \
+     [ "$(tix243_count "$F246T/facts/requirements/tickets/README.md" '30-gamma-third.json')" = '0' ] && \
+     [ "$(tix243_count "$F246T/facts/requirements/tickets/README.md" '40-delta-fourth.json')" = '1' ] && \
+     [ "$tix246_ledger_lines" = '1' ] && \
+     [ "$(tix243_count "$F246T/facts/project/changes.jsonl" '票246 令牌拦写 30')" = '0' ]; then
+    ok 'AC4 夺锁后原持有者写点被令牌拦下（exit 1、报文指名归属失效、索引/README/账本零写入 30）'
+  else
+    bad 'AC4 夺锁后原持有者写点被令牌拦下（exit 1、报文指名归属失效、索引/README/账本零写入 30）' "夺锁方rc=$tix246_rs 原持有者rc=$tix246_rh 索引30=$(tix243_count "$F246T/facts/requirements/tickets/index.json" '"id": "30-gamma-third"') 账本行数=$tix246_ledger_lines $(tix243_reason "$D/ac4-hold.log" | cut -c 1-140)"
+  fi
+
+  # ---- AC5：ticket-ops 持锁嵌套调用 ledger-append 不重复取锁（继承标记）----
+  # TICKET_OPS_LOCK_TIMEOUT=1：若嵌套调用自行取锁会等 1s 后失败；exit 0 即证继承生效。
+  F246N=$D/fix246nested
+  tix243_fresh_fixture "$F246N"
+  tix_body "$F246N/facts/requirements/tickets/30-gamma-third.json" 30-gamma-third
+  LED246N='{"date": "2026-09-21", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "票246 嵌套继承落行", "evidence_ref": "facts/requirements/tickets/30-gamma-third.json"}'
+  S246N="$F246N/rules/implementation/scripts/ticket-ops.sh"
+  tix246_lockdir_n=$(tix246_lock_dir "$F246N")
+  TICKET_OPS_LOCK_TIMEOUT=1 RECORD_LOCK_TEST_HOLD_MS=300 sh "$S246N" "$F246N" open --id 30-gamma-third --complexity C1 --title 'Gamma fixture ticket' --ledger-line "$LED246N" >"$D/ac5-nested.log" 2>&1
+  tix246_rn=$?
+  F246N2=$D/fix246nested-solo
+  rm -rf "$F246N2"
+  mkdir -p "$F246N2"
+  sh "$SCRIPT_DIR/ledger-append.sh" "$F246N2" --ledger-line "$LED246N" >"$D/ac5-solo.log" 2>&1
+  tix246_rn2=$?
+  tix246_n_lines=$(wc -l < "$F246N/facts/project/changes.jsonl" 2>/dev/null | tr -d ' ')
+  if [ "$tix246_rn" -eq 0 ] && [ "$tix246_rn2" -eq 0 ] && [ "$tix246_n_lines" = '1' ] && \
+     cmp -s "$F246N/facts/project/changes.jsonl" "$F246N2/facts/project/changes.jsonl" && \
+     [ ! -d "${tix246_lockdir_n}" ] && \
+     [ "$(find "$(dirname -- "${tix246_lockdir_n}")" -maxdepth 1 -name "$(basename -- "${tix246_lockdir_n}").steal.*" 2>/dev/null | wc -l | tr -d ' ')" = '0' ]; then
+    ok 'AC5 嵌套调用继承锁：open exit 0、账本恰 1 行且与独立 ledger-append 落行逐字节相等、锁已释放'
+  else
+    bad 'AC5 嵌套调用继承锁：open exit 0、账本恰 1 行且与独立 ledger-append 落行逐字节相等、锁已释放' "open rc=$tix246_rn solo rc=$tix246_rn2 账本行数=${tix246_n_lines:-none} 锁在=$([ -d "${tix246_lockdir_n}" ] && echo yes || echo no) $(tix243_reason "$D/ac5-nested.log" | cut -c 1-140)"
+  fi
+
+  # ---- AC6：主检与 worktree 解析同一锁目录；持锁不污染 git status ----
+  # 探针 source 共享库（不经产品脚本猜路径），分别在主检与 linked worktree 取锁并打印锁目录，
+  # 两者 cd -P 归一后字符串相等；持锁期间 git status --short 为空（锁在 .git 内，不入跟踪面）。
+  F246G=$D/fix246git
+  F246G_WT=$D/fix246git-wt
+  rm -rf "$F246G" "$F246G_WT"
+  mkdir -p "$F246G"
+  git -C "$F246G" init -q
+  git -C "$F246G" -c user.email=fixture@example.com -c user.name=fixture commit -q --allow-empty -m init
+  git -C "$F246G" worktree add -q --detach "$F246G_WT" HEAD
+  cat > "$D/probe-lock-git.sh" <<'PROBE'
+#!/bin/sh
+set -eu
+. "$1"
+record_lock_init "$2"
+record_lock_acquire
+trap 'record_lock_release' EXIT
+printf '%s\n' "$RECORD_LOCK_DIR"
+git -C "$2" status --short > "$3"
+PROBE
+  tix246_g_main=$(sh "$D/probe-lock-git.sh" "$SCRIPT_DIR/common-helpers.sh" "$F246G" "$D/ac6-status-main.txt")
+  tix246_g_wt=$(sh "$D/probe-lock-git.sh" "$SCRIPT_DIR/common-helpers.sh" "$F246G_WT" "$D/ac6-status-wt.txt")
+  if [ -n "$tix246_g_main" ] && [ "$tix246_g_main" = "$tix246_g_wt" ]; then
+    ok "AC6 主检与 worktree 锁目录同一物理路径（${tix246_g_main}）"
+  else
+    bad 'AC6 主检与 worktree 锁目录同一物理路径' "main=${tix246_g_main:-空} wt=${tix246_g_wt:-空}"
+  fi
+  if [ -z "$(cat "$D/ac6-status-main.txt" 2>/dev/null)" ] && [ -z "$(cat "$D/ac6-status-wt.txt" 2>/dev/null)" ]; then
+    ok 'AC6 持锁期间主检与 worktree 的 git status --short 均为空（锁不污染白名单门禁）'
+  else
+    bad 'AC6 持锁期间主检与 worktree 的 git status --short 均为空（锁不污染白名单门禁）' "main=$(tr '\n' '|' < "$D/ac6-status-main.txt" 2>/dev/null) wt=$(tr '\n' '|' < "$D/ac6-status-wt.txt" 2>/dev/null)"
+  fi
+
+  # ---- AC8：锁原语单点实现（两脚本无锁实现字样）＋三镜像件逐字节一致 ----
+  tix246_impl=''
+  for tix246_tok in 'agent-up-record' '.steal.' 'mkdir "${RECORD_LOCK_DIR}"' 'record_lock_new_token' 'rev-parse --git-common-dir'; do
+    if grep -qF -- "$tix246_tok" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh"; then
+      tix246_impl="$tix246_impl [$tix246_tok]"
+    fi
+  done
+  if grep -qE '^record_lock_[a-z_]+\(\)' "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh"; then
+    tix246_impl="$tix246_impl [重复定义 record_lock_*]"
+  fi
+  if [ "$(grep -c '^record_lock_acquire() {' "$SCRIPT_DIR/common-helpers.sh")" = '1' ] && [ -z "$tix246_impl" ]; then
+    ok 'AC8 锁原语唯一定义在 common-helpers.sh，ticket-ops/ledger-append 无锁目录拼接、取锁、陈旧判定与夺锁实现'
+  else
+    bad 'AC8 锁原语唯一定义在 common-helpers.sh，ticket-ops/ledger-append 无锁目录拼接、取锁、陈旧判定与夺锁实现' "命中=${tix246_impl:-无} acquire定义数=$(grep -c '^record_lock_acquire() {' "$SCRIPT_DIR/common-helpers.sh")"
+  fi
+  tix246_mirror_dir="$SCRIPT_DIR/../../rules/implementation/scripts"
+  if [ -f "$tix246_mirror_dir/common-helpers.sh" ]; then
+    if cmp -s "$SCRIPT_DIR/common-helpers.sh" "$tix246_mirror_dir/common-helpers.sh" && \
+       cmp -s "$SCRIPT_DIR/ticket-ops.sh" "$tix246_mirror_dir/ticket-ops.sh" && \
+       cmp -s "$SCRIPT_DIR/ledger-append.sh" "$tix246_mirror_dir/ledger-append.sh"; then
+      ok 'AC8 rules/implementation/scripts/ 三镜像件与源件逐字节一致'
+    else
+      bad 'AC8 rules/implementation/scripts/ 三镜像件与源件逐字节一致' 'cmp 不一致（先同步镜像件）'
+    fi
+  else
+    ok 'AC8 非源布局（镜像目录不在场）——镜像一致性由包检检查 13 承载'
+  fi
 
   # ---- AC3：索引写后／账本写后／投影写后分别注入失败，重跑同一命令收敛 ----
   # 注入优先走实现契约 TICKET_OPS_FAULT（探针：expect exit 70 ＋ FAULT injected 报文）；
