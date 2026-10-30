@@ -29,6 +29,22 @@ else
   exit 1
 fi
 
+usage() {
+  cat <<'USAGE'
+用法: sh health-summary.sh [repo-root] [pkg-dir]
+参数:
+  repo-root   仓库根目录（缺省自脚本位置推导）。
+  pkg-dir     包基线目录（可选；提供时对账区输出 upgrade-check 状态）。
+  -h / --help 打印本用法。
+输出: 四分区健康摘要（打分／候选／报警／对账）；只读零写入。
+退出码: 0 正常输出；1 仓库根不可判定或下游扫描器报错。
+USAGE
+}
+
+case ${1:-} in
+  -h|--help) usage; exit 0 ;;
+esac
+
 repo_root=${1:-}
 if [ -z "$repo_root" ]; then
   # 缺省根推导：自脚本位置逐级向上找 facts/project/changes.jsonl 标记（票 227 F4：

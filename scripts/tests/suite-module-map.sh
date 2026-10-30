@@ -270,14 +270,20 @@ suite_module_map() {
     bad '负例 N1 规则表损坏 → exit 2 且零地图写入' "exit=$rc"
   fi
 
-  # 负例 N2：无已登记源码 → exit 1 且不写地图
+  # 正例 P7：无已登记源码（纯文档仓）→ exit 0 且生成空 nodes/edges 的合法地图
+  # （票 244 AC5：派发前置不因无源码阻断；地图存在且结构合法）
   mkdir -p "$D/empty"; git -C "$D/empty" init >/dev/null 2>&1
+  printf '# doc\n' > "$D/empty/README.md"
+  git -C "$D/empty" add -A >/dev/null 2>&1
+  git -C "$D/empty" -c user.email=fixture@t -c user.name=fixture commit -qm init >/dev/null 2>&1
   sh "$MM" "$D/empty" >/dev/null 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && [ ! -f "$D/empty/facts/project/architecture/module-map.json" ]; then
-    ok '负例 N2 无源码 → exit 1 且零地图写入（fail-closed）'
+  if [ "$rc" -eq 0 ] \
+    && grep -qF '"nodes": [],' "$D/empty/facts/project/architecture/module-map.json" \
+    && grep -qF '"edges": []' "$D/empty/facts/project/architecture/module-map.json"; then
+    ok '正例 P7 无源码纯文档仓 → exit 0 且 nodes/edges 空数组（合法空地图）'
   else
-    bad '负例 N2 无源码 → exit 1 且零地图写入（fail-closed）' "exit=$rc"
+    bad '正例 P7 无源码纯文档仓 → exit 0 且 nodes/edges 空数组（合法空地图）' "exit=$rc"
   fi
 
   # 负例 N3：非 Git 目录 → exit 2

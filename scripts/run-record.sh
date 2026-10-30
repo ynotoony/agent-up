@@ -153,7 +153,8 @@ if [ "$cmd" = stats ]; then
   [ -d "$repo_root/$RUNS_DIR_REL" ] || \
     die1 "$RUNS_DIR_REL/ 不存在——无卡可聚合（fail-closed）"
 
-  validator_script="$repo_root/agent-up/scripts/json-validator.py"
+  validator_script="$(dirname "$0")/json-validator.py"
+  [ -f "$validator_script" ] || validator_script="$repo_root/agent-up/scripts/json-validator.py"
   [ -f "$validator_script" ] || die2 "json-validator.py 不存在: $validator_script"
 
   python3 "$validator_script" run stats "$repo_root/$RUNS_DIR_REL"
@@ -407,7 +408,8 @@ check_path_safety "$mf_rel" 'modified_files'
 mf_abs=$(printf '%s\n' "$mf_rel" | absolutize)
 
 # 票 160：使用独立 Python 模块 json-validator.py（run seal 模式）
-validator_script="$repo_root/agent-up/scripts/json-validator.py"
+validator_script="$(dirname "$0")/json-validator.py"
+[ -f "$validator_script" ] || validator_script="$repo_root/agent-up/scripts/json-validator.py"
 [ -f "$validator_script" ] || die2 "json-validator.py 不存在: $validator_script"
 
 RR_UPDATED_AT=$now_ua RR_VCS_REF=$vcs_ref RR_FP=$fingerprint RR_MF=$mf_abs \

@@ -235,5 +235,39 @@ suite_upgrade_check() {
     bad '负例 N6 快道专属脚本已装但缺 delivery.rules → 落后 exit 1' "exit=$rc $(tail -n 2 "$D/n6.out" | tr '\n' '|')"
   fi
 
+  # 票 244：install-policy 的 ip_data 数据件行——结构解析与落位核对三态
+  # （同步／落后／漂移；旧实现遇 ip_data 直接判「结构无效」exit 2）
+  uc_build_fixture "$D/d1"; uc_build_modern_repo "$D/d1/repo" "$D/d1"
+  mkdir -p "$D/d1/pkg/references/schemas" "$D/d1/repo/rules/implementation/scripts" \
+    "$D/d1/repo/rules/implementation/references/schemas"
+  printf '{"fixture": 1}\n' > "$D/d1/pkg/references/schemas/fixture.json"
+  printf "ip_data agent-up/references/schemas/fixture.json rules/implementation/references/schemas/fixture.json Conditional fast-lane 'fixture data'\n" >> "$D/d1/pkg/scripts/install-policy.rules"
+  cp "$D/d1/pkg/scripts/upgrade-check.sh" "$D/d1/pkg/scripts/generate-progress.sh" "$D/d1/repo/rules/implementation/scripts/"
+  printf '# scripts README\n' > "$D/d1/repo/rules/implementation/scripts/README.md"
+  cp "$D/d1/pkg/references/templates/delivery-rules.tmpl" "$D/d1/repo/delivery.rules"
+  cp "$D/d1/pkg/references/schemas/fixture.json" "$D/d1/repo/rules/implementation/references/schemas/fixture.json"
+  sh "$UC" "$D/d1/pkg" "$D/d1/repo" > "$D/d1.out" 2>&1; rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '同步  rules/implementation/references/schemas/fixture.json' "$D/d1.out"; then
+    ok '正例 P7 ip_data 数据件同步 → exit 0 且报同步（解析器不再判结构无效）'
+  else
+    bad '正例 P7 ip_data 数据件同步 → exit 0 且报同步（解析器不再判结构无效）' "exit=$rc $(tail -n 2 "$D/d1.out" | tr '\n' '|')"
+  fi
+
+  rm -f "$D/d1/repo/rules/implementation/references/schemas/fixture.json"
+  sh "$UC" "$D/d1/pkg" "$D/d1/repo" > "$D/d1b.out" 2>&1; rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '落后  rules/implementation/references/schemas/fixture.json 缺失' "$D/d1b.out"; then
+    ok '负例 N7 ip_data 数据件缺失 → 落后 exit 1（门控启用即核对）'
+  else
+    bad '负例 N7 ip_data 数据件缺失 → 落后 exit 1（门控启用即核对）' "exit=$rc $(tail -n 2 "$D/d1b.out" | tr '\n' '|')"
+  fi
+
+  printf '{"fixture": 2}\n' > "$D/d1/repo/rules/implementation/references/schemas/fixture.json"
+  sh "$UC" "$D/d1/pkg" "$D/d1/repo" > "$D/d1c.out" 2>&1; rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '漂移  rules/implementation/references/schemas/fixture.json' "$D/d1c.out"; then
+    ok '负例 N8 ip_data 数据件内容不同 → 漂移 exit 1（cmp 逐字节对比）'
+  else
+    bad '负例 N8 ip_data 数据件内容不同 → 漂移 exit 1（cmp 逐字节对比）' "exit=$rc $(tail -n 2 "$D/d1c.out" | tr '\n' '|')"
+  fi
+
   suite_summary 'upgrade-check'
 }

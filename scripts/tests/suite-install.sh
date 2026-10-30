@@ -42,6 +42,26 @@ inst_build_pkg() {
   done
 }
 
+inst_build_seed() {
+  # $1=目标根：按模板生成 Seed 治理面（七件套＋四份角色合同＋tickets 目录），不安装脚本。
+  # 供票 244 AC3/AC4 夹具；check-artifacts 的登记与实际文件一一对应由模板决定。
+  SD=$1
+  rm -rf "$SD"
+  mkdir -p "$SD/rules/implementation/roles" "$SD/facts/project" "$SD/facts/requirements/tickets"
+  INST_TPL="$SCRIPT_DIR/../references/templates"
+  cp "$INST_TPL/AGENTS.md.tmpl" "$SD/AGENTS.md"
+  cp "$INST_TPL/assessment.md.tmpl" "$SD/rules/assessment.md"
+  cp "$INST_TPL/discipline.md.tmpl" "$SD/rules/implementation/discipline.md"
+  cp "$INST_TPL/project.md.tmpl" "$SD/rules/project.md"
+  for _sr in implementation review commit triage; do
+    cp "$INST_TPL/agents-$_sr.md.tmpl" "$SD/rules/implementation/roles/$_sr.md"
+  done
+  cp "$INST_TPL/artifacts-yaml.tmpl" "$SD/facts/project/artifacts.yaml"
+  : > "$SD/rules/README.md"
+  : > "$SD/facts/README.md"
+  printf '# 任务票索引（fixture）\n' > "$SD/facts/requirements/tickets/README.md"
+}
+
 inst_build_target_tree() {
   # $1=目标项目根：minimal 治理树三载体（open 公共段预检与投影再生的落地面；
   # 形态与 ticket-ops 套件夹具同构，预期值独立重建）
@@ -115,6 +135,20 @@ suite_install() {
     ok '正例 P1 合法表双门控安装 → exit 0 复制 25 件（脚本 19＋数据 6）落位'
   else
     bad '正例 P1 合法表双门控安装 → exit 0 复制 25 件（脚本 19＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
+  fi
+
+  # 正例 P1b（票 244 AC1）：安装后每个可执行脚本 --help 冒烟运行 exit 0
+  # 共享库两件（common-helpers/dp-load-rules）不是可执行入口，按设计无 --help。
+  p1b_bad=''
+  for _hf in $(LC_ALL=C find "$D/proj1/rules/implementation/scripts" -name '*.sh' | LC_ALL=C sort); do
+    _hb=${_hf##*/}
+    case $_hb in common-helpers.sh|dp-load-rules.sh) continue ;; esac
+    sh "$_hf" --help >/dev/null 2>&1 || p1b_bad="$p1b_bad $_hb"
+  done
+  if [ -z "$p1b_bad" ]; then
+    ok '正例 P1b 安装后全部可执行脚本 --help 冒烟 exit 0（票 244 AC1）'
+  else
+    bad '正例 P1b 安装后全部可执行脚本 --help 冒烟 exit 0（票 244 AC1）' "未过:$p1b_bad"
   fi
 
   # 正例 P2：幂等重跑 → 逐件 SKIP exit 0 零新写入（文件集与首跑逐一相等）
@@ -379,6 +413,56 @@ EOF
     bad '闭包正例 R6 已安装 worktree-add 合法四节 rules → 栅栏化创建 exit 0 且 main-only 路径物理不在场（安装布局解析链全链生效）' "exit=$rc $(tail -n 2 "$D/r6.out" | LC_ALL=C tr '\n' '|')"
   fi
   rm -f "$dp_wt_rules_tmp"
+
+  # ---- 票 244 安装后运行时完整性：AC4（Seed 对账）／AC3（升级对账）／AC2（安装布局 seal） ----
+  inst_build_seed "$D/seed4"
+  sh "$SCRIPT_DIR/check-artifacts.sh" "$D/seed4" >"$D/r7.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'check-artifacts: PASS' "$D/r7.out"; then
+    ok '闭包正例 R7 全新 Seed 治理面 → check-artifacts PASS（登记与实际一一对应，票 244 AC4）'
+  else
+    bad '闭包正例 R7 全新 Seed 治理面 → check-artifacts PASS（登记与实际一一对应，票 244 AC4）' "exit=$rc $(tail -n 1 "$D/r7.out")"
+  fi
+
+  ( cd "$D" && sh "$INST" --target "$D/seed4" --ticket-ops ) >"$D/r8inst.out" 2>&1
+  : > "$D/seed4/rules/implementation/scripts/README.md"
+  sh "$SCRIPT_DIR/upgrade-check.sh" "$SCRIPT_DIR/.." "$D/seed4" >"$D/r8.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '自动检查面无差距' "$D/r8.out"; then
+    ok '闭包正例 R8 安装 ticket-ops 的 Seed 项目 → upgrade-check exit 0（ip_data 数据件与规则块全集同步，票 244 AC3）'
+  else
+    bad '闭包正例 R8 安装 ticket-ops 的 Seed 项目 → upgrade-check exit 0（ip_data 数据件与规则块全集同步，票 244 AC3）' "exit=$rc $(grep -E '落后|漂移|冲突|结构无效' "$D/r8.out" | head -n 2 | tr '\n' '|')"
+  fi
+
+  printf '{"issues": [{"id": "10-alpha-seed", "status": "in_progress", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-30T10:00"}]}\n' > "$D/seed4/facts/requirements/tickets/index.json"
+  rm -rf "$D/seed4/.git"
+  git -C "$D/seed4" init -q
+  git -C "$D/seed4" -c user.email=fixture@t -c user.name=fixture add -A
+  git -C "$D/seed4" -c user.email=fixture@t -c user.name=fixture commit -qm init
+  sh "$D/seed4/rules/implementation/scripts/run-record.sh" "$D/seed4" new --ticket 10-alpha-seed >"$D/r9.out" 2>&1
+  rc=$?
+  r9_file=$(LC_ALL=C find "$D/seed4/facts/requirements/runs" -name '*.json' 2>/dev/null | head -n 1)
+  if [ "$rc" -eq 0 ] && [ -n "$r9_file" ]; then
+    python3 - "$r9_file" <<'PYS'
+import json, sys
+p = sys.argv[1]
+with open(p, encoding='utf-8') as f:
+    d = json.load(f)
+d['scope'] = ['fixture-scope']
+d['last_verified'] = {'command': 'sh run-record.sh seal', 'result': 'pass', 'at': '2026-10-30'}
+d['next_step'] = 'seal fixture'
+d['usage'] = {'tokens_total': 1, 'requests': 1, 'duration_seconds': 1, 'source': 'executor', 'at': d['updated_at']}
+with open(p, 'w', encoding='utf-8') as f:
+    json.dump(d, f, ensure_ascii=False, indent=2)
+PYS
+    sh "$D/seed4/rules/implementation/scripts/run-record.sh" "$D/seed4" seal --file "$r9_file" >"$D/r9seal.out" 2>&1
+    rc=$?
+  fi
+  if [ "$rc" -eq 0 ] && grep -q 'seal 通过' "$D/r9seal.out" 2>/dev/null; then
+    ok '闭包正例 R9 安装布局 run-record new＋seal → exit 0（引擎同目录定位，不依赖 agent-up/，票 244 AC2）'
+  else
+    bad '闭包正例 R9 安装布局 run-record new＋seal → exit 0（引擎同目录定位，不依赖 agent-up/，票 244 AC2）' "exit=$rc $(tail -n 1 "$D/r9seal.out" 2>/dev/null)"
+  fi
 
   suite_summary 'install'
 }

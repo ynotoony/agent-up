@@ -70,6 +70,19 @@ artifacts:
     generated_from: agent-up/references/templates/dir-README.md.tmpl
     platform: neutral
     update_policy: 按目录事实更新成员登记
+  - id: tickets-readme
+    path: facts/requirements/tickets/README.md
+    kind: governance
+    authority: 权威层级第 6 级（导航索引：从目录成员事实更新）
+    owner: Implementation 执行体（目录成员变化时）
+    lifecycle: Conditional
+    trigger: 任务票体系启用（tickets/ 目录创建；≥2 张票或存在 Blocked by 依赖或跨会话交接时生成）
+    read_when: 查找票面或核对成员时
+    sync_on: 拓扑（本目录文件增删）
+    depends_on: [artifacts-yaml]
+    generated_from: agent-up/references/templates/issues-README.md.tmpl
+    platform: neutral
+    update_policy: 按目录事实更新成员登记
   - id: assessment
     path: rules/assessment.md
     kind: governance
@@ -109,6 +122,58 @@ artifacts:
     generated_from: agent-up/references/templates/project.md.tmpl
     platform: neutral
     update_policy: 语义变化经用户确认后修改；正文为规范本体
+  - id: role-implementation
+    path: rules/implementation/roles/implementation.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：Implementation 阶段角色合同事实源）
+    owner: Implementation 执行体（维护限合同允许范围，变更经 Review 门禁）
+    lifecycle: Seed
+    trigger: always
+    read_when: Implementation 阶段派发或执行时；主 agent 核对委派合同完整性时
+    sync_on: 契约、行为（七节合同、required_capabilities 或阶段出口语义变化）
+    depends_on: [project]
+    generated_from: agent-up/references/templates/agents-implementation.md.tmpl
+    platform: neutral
+    update_policy: 七节结构与 required_capabilities 为定稿基线；语义变化经 Review 门禁并同步 project
+  - id: role-review
+    path: rules/implementation/roles/review.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：Review 阶段角色合同事实源）
+    owner: Review 执行体（维护限合同允许范围，变更经 Review 门禁）
+    lifecycle: Seed
+    trigger: always
+    read_when: Implementation 交付后派发独立审查时；核对降级路径与 independent_review 记录时
+    sync_on: 契约、行为（七节合同、required_capabilities 或降级记录语义变化）
+    depends_on: [project]
+    generated_from: agent-up/references/templates/agents-review.md.tmpl
+    platform: neutral
+    update_policy: 七节结构与 required_capabilities 为定稿基线；语义变化经 Review 门禁并同步 project
+  - id: role-commit
+    path: rules/implementation/roles/commit.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：Commit 阶段角色合同事实源）
+    owner: Commit 执行体（维护限合同允许范围，变更经 Review 门禁）
+    lifecycle: Seed
+    trigger: always
+    read_when: Review pass 后派发收尾提交时；核对提交白名单与版本库状态时
+    sync_on: 契约、行为（七节合同、required_capabilities 或提交边界语义变化）
+    depends_on: [project]
+    generated_from: agent-up/references/templates/agents-commit.md.tmpl
+    platform: neutral
+    update_policy: 七节结构与 required_capabilities 为定稿基线；语义变化经 Review 门禁并同步 project
+  - id: role-triage
+    path: rules/implementation/roles/triage.md
+    kind: governance
+    authority: 权威层级第 4 级（流程规则：Triage 路由层角色合同事实源）
+    owner: 主 agent（路由层）（维护限合同允许范围，变更经 Review 门禁）
+    lifecycle: Seed
+    trigger: always
+    read_when: 主会话开工前确认自身角色边界时；核对主 agent 派发是否越界时
+    sync_on: 契约、行为（七节合同、required_capabilities 或派发原则语义变化）
+    depends_on: [project]
+    generated_from: agent-up/references/templates/agents-triage.md.tmpl
+    platform: neutral
+    update_policy: 七节结构与 required_capabilities 为定稿基线；语义变化经 Review 门禁并同步 project
   - id: artifacts-yaml
     path: facts/project/artifacts.yaml
     kind: index

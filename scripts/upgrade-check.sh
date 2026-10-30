@@ -27,7 +27,7 @@ usage() {
   repo-root  已由用户选择升级模式的目标项目根目录。
 对账口径（全程只读）:
   以完整信号组合识别现代、旧式或混合治理布局；部分/歧义布局 fail-closed。
-  install-policy.rules 中已启用脚本分别检查 rules/implementation/scripts/ 与 scripts/；
+  install-policy.rules 中已启用脚本与数据件分别检查 rules/implementation/scripts/ 与 scripts/；
   双落位逐份 cmp 并报告冲突，不静默选择一份。未启用门控显示 N/A。
   delivery.rules 仅在快道有证据时要求（证据＝delivery.rules 在场，或快道专属脚本已装；
   多门控共享脚本不构成快道证据）；规则块只核 ID 集；README、artifacts 与 Derived
@@ -69,20 +69,26 @@ do
 done
 
 tmp_files=$(mktemp "${TMPDIR:-/tmp}/upchk-files.XXXXXX")
+tmp_data=$(mktemp "${TMPDIR:-/tmp}/upchk-data.XXXXXX")
 tmp_anchors=$(mktemp "${TMPDIR:-/tmp}/upchk-anchors.XXXXXX")
 tmp_readmes=$(mktemp "${TMPDIR:-/tmp}/upchk-readmes.XXXXXX")
 # shellcheck disable=SC2329  # shellcheck 0.11.0 伪影：cleanup 经 trap 引用真实生效（运行期逐字节等价），末行无条件 exit 0 与 trap 组合触发误报——最小复现：trap f EXIT 后接无条件 exit 0
-cleanup() { rm -f "$tmp_files" "$tmp_anchors" "$tmp_readmes"; }
+cleanup() { rm -f "$tmp_files" "$tmp_data" "$tmp_anchors" "$tmp_readmes"; }
 trap cleanup 0 HUP INT TERM
 
 # Keep policy data as data and fail closed on malformed rows relevant to this checker.
-LC_ALL=C awk '
+LC_ALL=C awk -v data="$tmp_data" '
   /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
   $1 == "ip_file" {
     if (NF < 5 || $2 !~ /^agent-up\/scripts\/[A-Za-z0-9][A-Za-z0-9._-]*$/ || $4 !~ /^[a-z][a-z0-9-]*$/) { bad = 1; next }
     p = $2; sub(/^agent-up\/scripts\//, "", p)
     if (!(p in seen)) { order[++n] = p; seen[p] = 1 }
     gates[p] = gates[p] " " $4
+    next
+  }
+  $1 == "ip_data" {
+    if (NF < 5 || $2 !~ "^agent-up/[A-Za-z0-9][A-Za-z0-9._/-]*$" || $3 !~ "^[A-Za-z0-9][A-Za-z0-9._/-]*$" || $4 !~ /^[A-Za-z][A-Za-z-]*$/ || $5 !~ /^[a-z][a-z0-9-]*$/) { bad = 1; next }
+    print $2 "\t" $3 "\t" $4 "\t" $5 > data
     next
   }
   $1 == "ip_gate" { next }
@@ -217,6 +223,33 @@ while IFS="$tab" read -r _f _gates; do
     fi
   fi
 done < "$tmp_files"
+
+printf '%s: 落位数据件（install-policy.rules 中已启用门控逐份核对）:\n' "$prog"
+if [ -s "$tmp_data" ]; then
+  while IFS="$tab" read -r _dsrc _ddst _dlife _dgate; do
+    _dact=0
+    case " $_dgate " in *" fast-lane "*) [ "$fast_enabled" -eq 1 ] && _dact=1 ;; esac
+    case " $_dgate " in *" ticket-ops "*) [ "$ticket_enabled" -eq 1 ] && _dact=1 ;; esac
+    if [ "$_dact" -eq 0 ]; then
+      printf '%s:   N/A  %s（门控未启用/无安装证据）\n' "$prog" "$_ddst"
+      continue
+    fi
+    _dpkg="$pkg_dir/${_dsrc#agent-up/}"
+    [ -f "$_dpkg" ] || die2 "install-policy 登记数据件不在包基线: $_dpkg"
+    if [ ! -f "$repo_root/$_ddst" ]; then
+      printf '%s:   落后  %s 缺失（门控已启用）\n' "$prog" "$_ddst"
+      uc_behind=$((uc_behind + 1))
+    elif cmp -s "$_dpkg" "$repo_root/$_ddst"; then
+      printf '%s:   同步  %s（与包基线 cmp 一致）\n' "$prog" "$_ddst"
+      uc_sync=$((uc_sync + 1))
+    else
+      printf '%s:   漂移  %s（与包基线不同）\n' "$prog" "$_ddst"
+      uc_drift=$((uc_drift + 1))
+    fi
+  done < "$tmp_data"
+else
+  printf '%s:   N/A  install-policy.rules 未登记数据件\n' "$prog"
+fi
 
 if [ "$fast_enabled" -eq 0 ]; then
   printf '%s: 配置面: N/A delivery.rules（未启用快道）\n' "$prog"

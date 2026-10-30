@@ -45,7 +45,7 @@ usage() {
 输出: <root>/facts/project/architecture/module-map.json（Derived 四标注＋nodes＋edges＋fp-v1 指纹内嵌）。
 语言: 提取规则外置于脚本同目录的 module-map.rules（每语言一行，加语言＝加规则行、零引擎改动）；
       规则表缺失或不合预期即退出码 2（fail-closed）。
-退出码: 0 生成成功；1 生成条件不满足（无已登记源码、路径含控制字符、写入失败等；
+退出码: 0 生成成功（无源码项目生成 nodes/edges 空数组的合法地图）；1 生成条件不满足（路径含控制字符、写入失败等；
         fail-closed，不写地图）；2 用法或环境错误（非 Git 仓库、仓库根不存在、
         SHA-256/stat 工具缺失、语言规则表缺失或不合预期）。
 USAGE
@@ -314,7 +314,7 @@ src_list=$(cd "$repo_root" && LC_ALL=C find . \
   -type f "$@" \
   | sed 's|^\./||' | LC_ALL=C sort)
 
-[ -n "$src_list" ] || die1 '未发现规则表登记扩展名的源码文件——无可生成的模块地图（fail-closed，不写输出）'
+# 无源码项目（纯文档/治理仓）不阻断：空清单下 nodes/edges 落空数组，仍生成合法地图（票 244 AC5）
 
 if printf '%s\n' "$src_list" | grep -Eq '[[:cntrl:]]'; then
   die1 '源码文件清单含制表符或其他控制字符（无法安全承载于提取层）——fail-closed'
@@ -561,19 +561,26 @@ fingerprint="fp-v1:${fp_hex}"
 if [ -s "$tmp_edges" ]; then
   LC_ALL=C sort -u -o "$tmp_edges" "$tmp_edges"
 fi
-nodes_count=$(printf '%s\n' "$src_list" | wc -l | tr -d ' ')
+if [ -n "$src_list" ]; then
+  nodes_count=$(printf '%s\n' "$src_list" | wc -l | tr -d ' ')
+else
+  nodes_count=0
+fi
 if [ -s "$tmp_edges" ]; then
   edges_count=$(wc -l < "$tmp_edges" | tr -d ' ')
 else
   edges_count=0
 fi
 
-nodes_body=$(printf '%s\n' "$src_list" | LC_ALL=C awk '{
-  s = $0
-  gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s)
-  if (NR > 1) printf ",\n"
-  printf "    \"%s\"", s
-} END { if (NR > 0) printf "\n" }')
+nodes_body=''
+if [ -n "$src_list" ]; then
+  nodes_body=$(printf '%s\n' "$src_list" | LC_ALL=C awk '{
+    s = $0
+    gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s)
+    if (NR > 1) printf ",\n"
+    printf "    \"%s\"", s
+  } END { if (NR > 0) printf "\n" }')
+fi
 
 edges_body=''
 if [ -s "$tmp_edges" ]; then
