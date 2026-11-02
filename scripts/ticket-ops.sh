@@ -587,21 +587,25 @@ audit_gate() {
     return 0
   fi
   [ -n "${audit_cmd}" ] || die1 "证据审计引擎 ticket-audit.sh 不可用（同目录与 PATH 均未找到）——${_ag_entry} 至 done 预检停止：done 只认 ticket-audit --operation merge 的 conformant 判定（票 237），将 ticket-audit.sh 落位后重跑；未产生任何写入"
-  # 显式允许集（票 237 裁决）：done 面的合法后置写面＝记录载体（索引与投影）＋票面
-  # 声明的 Review Checkpoint；仅逐条显式传入，默认仍只认证据文件，不整体放开 facts 面。
+  # 显式允许集（票 237 裁决）：done 面的合法后置写面＝记录载体（索引与投影＋本票票体
+  # 的 checkpoint.commit）＋票面声明的 Review Checkpoint；仅逐条显式传入，默认仍只认
+  # 证据文件，不整体放开 facts 面。
   # 形态约束（不得放宽）由 common-helpers 的 review_checkpoint_allow_after 唯一承载：
   # 只认本票规范路径 facts/requirements/tickets/<票 id>-review-checkpoint.md。
   _ag_cp=$(review_checkpoint_allow_after "${id}" "${_engine}" "${ticket_file}")
+  _ag_ticket_rel="${issues_dir_rel}/${id}.json"
   _ag_rc=0
   if [ -n "${_ag_cp}" ]; then
     sh "${audit_cmd}" "${nn}" --repo "${repo_root}" --operation merge \
       --allow-after "${issues_index_rel}" \
       --allow-after "${progress_current_rel}" \
+      --allow-after "${_ag_ticket_rel}" \
       --allow-after "${_ag_cp}" || _ag_rc=$?
   else
     sh "${audit_cmd}" "${nn}" --repo "${repo_root}" --operation merge \
       --allow-after "${issues_index_rel}" \
-      --allow-after "${progress_current_rel}" || _ag_rc=$?
+      --allow-after "${progress_current_rel}" \
+      --allow-after "${_ag_ticket_rel}" || _ag_rc=$?
   fi
   case ${_ag_rc} in
     0)

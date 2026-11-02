@@ -21,11 +21,12 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 
 - 运行时能力基元九个固定：inspect / search / read / edit / write / execute / readonly-execute / vcs-read / vcs-write。
 - `create-spec` / `create-task` 是治理写入许可，不是宿主运行时能力；历史治理写入许可 `create-request` 已退役（2026-10-23）：新需求一律走任务票（卡片），不再创建 request（REQ），存量 REQ 冻结只读。
-- 两层协作→能力表固定两层底线（路由层 Triage＋编码层三阶段；历史 Intake 行随 `create-request` 退役 2026-10-23 移除，见 §2.2 legacy 注记）：路由层 Triage（inspect、search；create-spec、create-task）、编码层 Implementation（inspect、search、edit、write、execute）、Review（inspect、search、readonly-execute）、Commit（inspect、vcs-read、vcs-write）。
+- 两层协作→能力表固定两层底线（路由层 Triage＋编码层三阶段；历史 Intake 行随 `create-request` 退役 2026-10-23 移除，见 §2.2 legacy 注记）：路由层 Triage（inspect、search、execute（仅登记编排命令）；create-spec、create-task）、编码层 Implementation（inspect、search、edit、write、execute）、Review（inspect、search、readonly-execute）、Commit（inspect、execute（仅 ticket-run commit 编排入口））。
 - 能力表未列 read：edit/write/inspect 组合已蕴含所需读取面；平台无关角色合同把 read 显式列入 `required_capabilities` 是显式化，不是扩权。
 - `required_capabilities` 取值限于 §2.1 清单；核心协议与角色合同不得写死平台工具名或 frontmatter 方言。
 - 无独立 subagent 执行体时依序走降级路径 a/b/c，记录 `independent_review: unavailable`；同一执行体自检不得标 pass；三条路径均不可用停在 review_ready。
 - readonly-execute 的只读约束按宿主声明的 `readonly_enforcement` 等级承载（host-enforced / runner-enforced / policy-only / unavailable，未核验标 pending）：仅 host/runner 级可作宿主保证的正式 Review 能力；policy-only 必须记录降级，unavailable 只能走独立 session、不同执行身份或用户 Review，pending 按 policy-only 从紧处理。
+- execute 的 git 写子面按宿主声明的 `git_write_enforcement` 等级承载（独立于 readonly_enforcement，同词表）：仅 host/runner 级为宿主强制拒绝；policy-only/pending/unavailable 为软约束，Implementation 交付报告必须记录该值与降级原因。
 - 分级交付道快道（C0，rules/assessment.md §6 R-DP-031）：用户即 Review 车道内降级路径 (c) 升格为合法审查方式；微任务道能力束 = Implementation 束 + vcs-write（经道脚本行使），pass 证据 = 机械门禁输出。
 - capability profile 分 `minimum` / `full` 两档：minimum 为读取阶梯 L0-L2 最小集（定稿清单见 `read-policy.md` §2.4），full 按任务型范围执行并按需加载至 L4。
 - 档位只描述治理资源加载范围，不是宿主性能、可靠性或功能承诺。
@@ -55,12 +56,16 @@ depends_on: SPEC-05（能力协议上游）；protocol-read-policy（档位加�
 
 | 层 | 角色／阶段 | required_capabilities（运行时） | 治理写入许可 |
 | --- | --- | --- | --- |
-| 路由层 | Triage（主 agent） | inspect、search | create-spec、create-task |
+| 路由层 | Triage（主 agent） | inspect、search、execute（仅登记编排命令） | create-spec、create-task |
 | 编码层 | Implementation | inspect、search、edit、write、execute | 任务 Scope 内文件 + Implementation Checkpoint |
-| 编码层 | Review | inspect、search、readonly-execute | 审查记录 |
-| 编码层 | Commit | inspect、vcs-read、vcs-write | 暂存/提交 |
+| 编码层 | Review | inspect、search、readonly-execute | 审查证据（Independent Review Checkpoint） |
+| 编码层 | Commit | inspect、execute（仅编排器 `ticket-run.sh <NN> commit`） | 编排器产出 + 提交合同明列的记录翻转 |
 
 注：本表未列 read——edit/write/inspect 组合已蕴含所需读取面（SPEC-05 §7）；平台无关角色合同可把 read 显式列入 `required_capabilities`，属显式化而非扩权，能力表基线不变。Review 行 readonly-execute 的正式保证力随宿主 `readonly_enforcement` 等级而定（§2.3 等级表）：仅 host/runner 级为宿主保证，policy-only/unavailable/pending 按降级记录处理。
+
+Triage 的 execute 只用于登记过的编排命令（ticket-run、ticket-ops、check-dispatch-contract、worktree-add、lane-commit、check-package、generate-progress），不得直接编辑产品或治理状态。Commit 不持有 vcs-read/vcs-write：版本库读取经 inspect 的只读命令，提交与记录翻转一律经编排器；vcs-write 仍保留给编排器与微任务道脚本行使（见下方能力束注记）。
+
+git_write_enforcement 等级（独立于 readonly_enforcement，同四级＋pending 词表）：宿主 execute 行的 git 写子面按本等级登记——host-enforced/runner-enforced 表示宿主或执行器在命令层拒绝 git 写，须注明实施机制；policy-only/pending/unavailable 不构成宿主保证，Implementation 交付报告必须记 `git_write_enforcement: <值>` 与降级原因，不得声称已强制撤权。当前五宿主登记值均为 policy-only/pending（无默认 deny 配置）；需硬隔离时以独立系统用户或只读挂载运行实现会话，或按宿主机制登记 deny 规则后复核升级等级。
 
 legacy 注记（单列，不混入当前流程）：历史 Intake 阶段（required_capabilities：inspect、search；治理写入许可：create-request）随 `create-request` 退役（2026-10-23）移出本表。Triage 是路由层角色，不是编码层三阶段之一：新需求一律走任务票（卡片，由路由层 Triage 开 task 票），不再创建 request（REQ）；存量 REQ 冻结只读。
 
@@ -69,10 +74,10 @@ legacy 注记（单列，不混入当前流程）：历史 Intake 阶段（requi
 #### R-CC-001 能力声明 `MUST`
 
 - **When**：编写核心协议、角色合同或评估宿主兼容性时。
-- **Action**：以 `required_capabilities` 声明所需能力，取值限于 §2.1 能力清单与治理写入许可；平台无关角色合同在"所需能力"节承载该声明。
-- **Forbidden**：在核心协议与角色合同中写死任何平台工具名、frontmatter 方言或专有字段；声明 §2.1 之外的"能力"。
-- **Stop if**：某阶段所需能力在目标宿主无法满足 → 走 §2.3 降级路径或明确阻塞，不降低阶段门禁。
-- **Evidence**：协议与合同文本可按 §2.1/§2.2 逐项核对；核心协议与角色合同的平台专名扫描零命中。
+- **Action**：以 `required_capabilities` 声明所需能力，取值限于 §2.1 能力清单与治理写入许可；平台无关角色合同在"所需能力"节承载该声明。IF 宿主映射的 execute 行 THEN 按 §2.2 声明 `git_write_enforcement: <等级>`（host-enforced / runner-enforced / policy-only / unavailable / pending）：host/runner 级须注明实施机制，policy-only/pending/unavailable 须在 Implementation 合同保留交付报告记录该值与降级原因的义务。
+- **Forbidden**：在核心协议与角色合同中写死任何平台工具名、frontmatter 方言或专有字段；声明 §2.1 之外的"能力"；把 policy-only/pending/unavailable 的 execute 行说成已强制拒绝 git 写，或省略降级记录义务。
+- **Stop if**：某阶段所需能力在目标宿主无法满足 → 走 §2.3 降级路径或明确阻塞，不降低阶段门禁；宿主 execute 行缺 `git_write_enforcement` 等级或越出词表 → 补齐后复核，不按默认强制处理。
+- **Evidence**：协议与合同文本可按 §2.1/§2.2 逐项核对；核心协议与角色合同的平台专名扫描零命中；各适配器 execute 行含 `git_write_enforcement` 等级（host/runner 级含机制 token），Implementation 合同含该值与降级原因的记录义务。
 - **Owner**：Implementation 执行体（经用户确认的方案）。
 - **Authority**：SPEC-05 §2/§3（R-05-001）。
 

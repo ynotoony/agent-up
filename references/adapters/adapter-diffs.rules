@@ -6,7 +6,8 @@
 # Output: 适配差异数据表（四节机器数据行；check-package.sh 检查 27 启动时非执行式解析
 #         本表，与五宿主 Markdown 对应段做一致性核对，漂移即 FAIL 指名宿主与段）：
 #         pm_adapter_cap <platform> <primitive> <tool> <constraint>——九基元↔宿主工具
-#           映射行（含 readonly-execute 行内嵌 readonly_enforcement: 等级声明）；
+#           映射行（含 readonly-execute 行内嵌 readonly_enforcement: 等级声明与 execute
+#           行内嵌 git_write_enforcement: 等级声明）；
 #         pm_adapter_role <platform> <role> <capabilities> <tools>——三阶段角色映射行；
 #         pm_adapter_exec <platform> <status> <anchor>——独立执行体状态行（status 为
 #           受控 token、语义单源＝本节登记；anchor＝宿主文件声明句原文锚语）；
@@ -42,7 +43,7 @@ pm_adapter_cap zcode search 'Grep、Glob' '文件名与内容检索'
 pm_adapter_cap zcode read 'Read' '读取文件内容'
 pm_adapter_cap zcode edit 'Edit' '修改既有文件'
 pm_adapter_cap zcode write 'Write' '创建新文件'
-pm_adapter_cap zcode execute 'Bash' '可变更工作区状态的命令'
+pm_adapter_cap zcode execute 'Bash' '可变更工作区状态的命令；git_write_enforcement: policy-only（无默认 git 写 deny 配置，Git 写禁令由角色合同自律；实现会话交付报告须记该值与降级原因）'
 pm_adapter_cap zcode readonly-execute 'Bash' '仅只读命令；readonly_enforcement: policy-only（只读性由调用方约束；宿主默认沙箱行为未核验，观察状态标 local-observation——本地观察记录见 §3 注记，不作本行等级依据）'
 pm_adapter_cap zcode vcs-read 'Bash' 'git status/log/diff 等只读命令'
 pm_adapter_cap zcode vcs-write 'Bash' 'git add/commit 等写命令'
@@ -51,7 +52,7 @@ pm_adapter_cap claude-code search 'Grep、Glob' '文件名与内容检索'
 pm_adapter_cap claude-code read 'Read' '读取文件内容'
 pm_adapter_cap claude-code edit 'Edit' '修改既有文件'
 pm_adapter_cap claude-code write 'Write' '创建新文件'
-pm_adapter_cap claude-code execute 'Bash' '可变更工作区状态的命令；受 `permissions` 规则约束'
+pm_adapter_cap claude-code execute 'Bash' '可变更工作区状态的命令；受 `permissions` 规则约束；git_write_enforcement: policy-only（`permissions` 与 hooks 为配置面闸门，登记面无默认 git 写 deny；实现会话交付报告须记该值与降级原因）'
 pm_adapter_cap claude-code readonly-execute 'Bash' '仅只读命令；readonly_enforcement: policy-only（permissions.allow/ask/deny 与 hooks 为调用面闸门与配置面护栏，官方 settings/hooks 文档取阅 2026-09-06；登记面无默认只读隔离，sandbox 类隔离能力未核验（状态 pending，不据此声明宿主强制隔离）；只读性由调用方约束）'
 pm_adapter_cap claude-code vcs-read 'Bash' 'git status/log/diff 等只读命令'
 pm_adapter_cap claude-code vcs-write 'Bash' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
@@ -60,7 +61,7 @@ pm_adapter_cap codex search 'shell' '检索命令（grep 等）'
 pm_adapter_cap codex read 'shell' '文件读取命令；Codex 无专用只读文件工具登记'
 pm_adapter_cap codex edit 'apply_patch' '补丁式修改既有文件'
 pm_adapter_cap codex write 'apply_patch' '补丁式创建文件'
-pm_adapter_cap codex execute 'shell' '可变更工作区状态的命令；受 `sandbox_mode` 与 `approval_policy` 约束'
+pm_adapter_cap codex execute 'shell' '可变更工作区状态的命令；受 `sandbox_mode` 与 `approval_policy` 约束；git_write_enforcement: policy-only（read-only 档位使实现不可行，workspace-write 不拒绝 .git 写，登记面无默认 deny；实现会话交付报告须记该值与降级原因）'
 pm_adapter_cap codex readonly-execute 'shell' '仅只读命令；readonly_enforcement: runner-enforced（`sandbox_mode = "read-only"` 运行器沙箱口径，越界写被执行器拒绝；官方 security/config 文档登记，取阅 2026-09-06）'
 pm_adapter_cap codex vcs-read 'shell' 'git status/log/diff 等只读命令'
 pm_adapter_cap codex vcs-write 'shell' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
@@ -69,7 +70,7 @@ pm_adapter_cap pi search 'grep、find' '文件名与内容检索'
 pm_adapter_cap pi read 'read' '读取文件内容'
 pm_adapter_cap pi edit 'edit' '修改既有文件'
 pm_adapter_cap pi write 'write' '创建新文件'
-pm_adapter_cap pi execute 'bash' '可变更工作区状态的命令（Windows 对应为 powershell）；无内置 sandbox，隔离责任在宿主环境'
+pm_adapter_cap pi execute 'bash' '可变更工作区状态的命令（Windows 对应为 powershell）；无内置 sandbox，隔离责任在宿主环境；git_write_enforcement: policy-only（无内置 sandbox、无默认 git 写 deny，隔离责任在宿主环境；实现会话交付报告须记该值与降级原因）'
 pm_adapter_cap pi readonly-execute 'bash' '仅只读命令；readonly_enforcement: policy-only（官方 security 文档登记：无内置 sandbox、以启动用户账户权限运行、project trust 不是安全边界，取阅 2026-09-06；只读性由调用方约束，宿主不强制）'
 pm_adapter_cap pi vcs-read 'bash' 'git status/log/diff 等只读命令'
 pm_adapter_cap pi vcs-write 'bash' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
@@ -78,7 +79,7 @@ pm_adapter_cap dsh search 'bash' '检索命令（grep 等）（全量 roster 未
 pm_adapter_cap dsh read 'bash' '文件读取命令（全量 roster 未核验，pending）'
 pm_adapter_cap dsh edit 'str_replace_editor' '补丁式修改（sdk-minimal 口径核验）'
 pm_adapter_cap dsh write 'str_replace_editor' '补丁式创建（sdk-minimal 口径核验）'
-pm_adapter_cap dsh execute 'bash' '持久 shell（Linux/macOS；Windows 为 pwsh），300 秒超时、单 owner 终端；受 approval/policy seam 约束（profile 依赖）'
+pm_adapter_cap dsh execute 'bash' '持久 shell（Linux/macOS；Windows 为 pwsh），300 秒超时、单 owner 终端；受 approval/policy seam 约束（profile 依赖）；git_write_enforcement: pending（approval/sandbox seam 为 profile 依赖配置面，全量口径未核验，落定前按 policy-only 从紧处理；实现会话交付报告须记该值与降级原因）'
 pm_adapter_cap dsh readonly-execute 'bash' '仅只读命令；readonly_enforcement: pending（只读性由调用方约束；approval/sandbox seam 为 profile 依赖配置面，dsh-base 与 sdk-minimal 档位口径未全量核验（pending：全量 roster），核验后落定四级之一，落定前按 policy-only 从紧处理）'
 pm_adapter_cap dsh vcs-read 'bash' 'git status/log/diff 等只读命令'
 pm_adapter_cap dsh vcs-write 'bash' 'git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力）'
@@ -87,19 +88,19 @@ pm_adapter_cap dsh vcs-write 'bash' 'git add/commit 等写命令；未经用户�
 
 pm_adapter_role zcode implementation 'inspect, search, read, edit, write, execute' '[Read, Grep, Glob, Edit, Write, Bash]'
 pm_adapter_role zcode review 'inspect, search, read, readonly-execute' '[Read, Grep, Glob, Bash]'
-pm_adapter_role zcode commit 'inspect, vcs-read, vcs-write' '[Read, Grep, Glob, Bash]'
+pm_adapter_role zcode commit 'inspect, execute' '[Read, Grep, Glob, Bash（仅 ticket-run.sh <NN> commit 编排入口）]'
 pm_adapter_role claude-code implementation 'inspect, search, read, edit, write, execute' '[Read, Grep, Glob, Edit, Write, Bash]'
 pm_adapter_role claude-code review 'inspect, search, read, readonly-execute' '[Read, Grep, Glob, Bash]'
-pm_adapter_role claude-code commit 'inspect, vcs-read, vcs-write' '[Read, Grep, Glob, Bash]'
+pm_adapter_role claude-code commit 'inspect, execute' '[Read, Grep, Glob, Bash（仅 ticket-run.sh <NN> commit 编排入口）]'
 pm_adapter_role codex implementation 'inspect, search, read, edit, write, execute' 'shell + apply_patch'
 pm_adapter_role codex review 'inspect, search, read, readonly-execute' 'shell（只读命令；sandbox read-only 口径）'
-pm_adapter_role codex commit 'inspect, vcs-read, vcs-write' 'shell（git 命令）'
+pm_adapter_role codex commit 'inspect, execute' 'shell（仅 ticket-run.sh <NN> commit 编排入口）'
 pm_adapter_role pi implementation 'inspect, search, read, edit, write, execute' 'find/read、grep/find、read、edit、write、bash'
 pm_adapter_role pi review 'inspect, search, read, readonly-execute' 'find/read、grep/find、read、bash（只读命令）'
-pm_adapter_role pi commit 'inspect, vcs-read, vcs-write' 'find/read、bash（git 命令）'
+pm_adapter_role pi commit 'inspect, execute' 'find/read、bash（仅 ticket-run.sh <NN> commit 编排入口）'
 pm_adapter_role dsh implementation 'inspect, search, read, edit, write, execute' 'bash + str_replace_editor'
 pm_adapter_role dsh review 'inspect, search, read, readonly-execute' 'bash（只读命令）'
-pm_adapter_role dsh commit 'inspect, vcs-read, vcs-write' 'bash（git 命令）'
+pm_adapter_role dsh commit 'inspect, execute' 'bash（仅 ticket-run.sh <NN> commit 编排入口）'
 
 # ==== executor-status：独立执行体状态（检查 27；每平台恰一行）====
 # status 受控 token（语义单源＝本节登记）：supported＝宿主官方登记独立执行体支持；

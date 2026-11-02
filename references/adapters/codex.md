@@ -35,6 +35,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 - 公共规则（映射免责/事实源、能力声明、能力映射同步义务、readonly 等级、无 subagent 降级路径与记录义务、档位、platform 扩展）唯一权威＝`capability-contract.md`；本文件只承载宿主差异面，不复述其正文。
 - 能力基元与阶段表：`capability-contract.md` §2.1/§2.2（规则块 R-CC-001）。
 - 只读约束等级与降级路径：`capability-contract.md` §2.3（规则块 R-CC-002）；扩展登记：§2.5（R-CC-005）。
+- Git 写强制等级与 fallback：`capability-contract.md` §2.2（规则块 R-CC-001）。
 
 ### 2.2 能力→宿主工具对照
 
@@ -47,7 +48,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | read | shell | 文件读取命令；Codex 无专用只读文件工具登记 |
 | edit | apply_patch | 补丁式修改既有文件 |
 | write | apply_patch | 补丁式创建文件 |
-| execute | shell | 可变更工作区状态的命令；受 `sandbox_mode` 与 `approval_policy` 约束 |
+| execute | shell | 可变更工作区状态的命令；受 `sandbox_mode` 与 `approval_policy` 约束；git_write_enforcement: policy-only（read-only 档位使实现不可行，workspace-write 不拒绝 .git 写，登记面无默认 deny；实现会话交付报告须记该值与降级原因） |
 | readonly-execute | shell | 仅只读命令；readonly_enforcement: runner-enforced（`sandbox_mode = "read-only"` 运行器沙箱口径，越界写被执行器拒绝；官方 security/config 文档登记，取阅 2026-09-06） |
 | vcs-read | shell | git status/log/diff 等只读命令 |
 | vcs-write | shell | git add/commit 等写命令；未经用户明确要求不执行（角色合同禁令优先于宿主能力） |
@@ -60,7 +61,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | --- | --- | --- |
 | <role-contract-dir>/implementation.md | inspect, search, read, edit, write, execute | shell + apply_patch |
 | <role-contract-dir>/review.md | inspect, search, read, readonly-execute | shell（只读命令；sandbox read-only 口径） |
-| <role-contract-dir>/commit.md | inspect, vcs-read, vcs-write | shell（git 命令） |
+| <role-contract-dir>/commit.md | inspect, execute | shell（仅 ticket-run.sh <NN> commit 编排入口） |
 
 ### 2.4 独立执行体声明与降级路径
 

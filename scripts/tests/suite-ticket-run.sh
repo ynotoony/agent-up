@@ -282,6 +282,19 @@ suite_ticket_run() {
     bad 'P3 commit 经 Review pass＋check-gates 自动完成产品/记录两段提交与索引投影' "exit=$rc $(tail -n 5 "$D/commit.err" | tr '\n' '|')"
   fi
 
+  commit_cp_commit=$(python3 "$MAIN/rules/implementation/scripts/json-validator.py" json get \
+    "$WT/facts/requirements/tickets/90-run-fixture.json" checkpoint.commit.commit 2>/dev/null || true)
+  commit_cp_at=$(python3 "$MAIN/rules/implementation/scripts/json-validator.py" json get \
+    "$WT/facts/requirements/tickets/90-run-fixture.json" checkpoint.commit.committed_at 2>/dev/null || true)
+  product_head=$(git -C "$WT" rev-parse HEAD~1)
+  if [ -n "$commit_cp_commit" ] && [ "$commit_cp_commit" = "$product_head" ] && [ -n "$commit_cp_at" ] \
+    && git -C "$WT" show --name-only --format= HEAD | grep -qx 'facts/requirements/tickets/90-run-fixture.json'; then
+    ok 'P3b commit 收尾在票本体写入 checkpoint.commit（键在位、非空、绑定产品提交并随记录提交入库）'
+  else
+    bad 'P3b commit 收尾在票本体写入 checkpoint.commit（键在位、非空、绑定产品提交并随记录提交入库）' \
+      "commit=${commit_cp_commit:-<空>} committed_at=${commit_cp_at:-<空>} product=${product_head}"
+  fi
+
   if [ "$(git -C "$WT" log -1 --format=%s HEAD~1)" = 'test: ticket-run fixture' ] \
     && [ "$(git -C "$WT" show --name-only --format= HEAD~1 | grep -c '90-run-fixture-review-checkpoint.md')" -eq 1 ] \
     && ! grep -q 'User Review Checkpoint' "$WT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md"; then

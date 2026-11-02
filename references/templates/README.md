@@ -49,10 +49,10 @@
 | `scripts-README.md.tmpl` | Conditional | `rules/implementation/scripts/README.md` | 可重复验证需要沉淀为共享 harness；采用任务票体系（随 ticket-ops/generate-progress 落位） | 无 | 生成新布局共享验证 harness 目录索引与登记约定；旧项目已有 `scripts/README.md` 作为兼容面保留并登记，不自动搬迁。 |
 | `delivery-rules.tmpl` | Conditional | `delivery.rules` | 用户确认启用分级交付道快道（--fast-lane 语境；生成到目标项目仓库根） | 无 | 生成仓根 delivery 配置骨架：四节锚点（与包内共享解析器 `scripts/dp-load-rules.sh` 锚点表 `an[1..4]` 逐字一致——锚点逐字匹配，写错即解析失败；文法与版本见 `../delivery-rules.md`）＋每节 dp_ 指令注释形态示例与占位说明；main-only 节裸锚点＋注释条目＝空排除清单（栅栏已声明，`worktree-add.sh` 不再因缺失/未声明拒跑），用户取消注释前排除为空属预期；头部 `#` 形态契约头（解析器跳 `#` 行，check-package 检查 6 按此豁免）。 |
 | `core.md.tmpl` | Seed | `rules/core.md` | always | `CO` | 生成十条核心规则（C1–C10）：授权先于写入、无验证证据不算完成、独立审查才可提交、只提交白名单、冲突即停、不删不盖不重置、状态落盘可接续、单一写者、记录只追加、角色不越界；每章一个七字段规则块，是安装面唯一可执行条款正文。 |
-| `agents-implementation.md.tmpl` | Roles | `rules/implementation/roles/implementation.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RI` | 生成 Implementation 阶段平台无关角色合同（四节：职责／读什么／写什么／输出与停止 + required_capabilities 能力基元声明，条款以 C1–C10 引用）。 |
-| `agents-review.md.tmpl` | Roles | `rules/implementation/roles/review.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RR` | 生成 Review 阶段平台无关角色合同（四节 + 只读能力声明与 `readonly_enforcement` 降级记录，条款以 C1–C10 引用）。 |
-| `agents-commit.md.tmpl` | Roles | `rules/implementation/roles/commit.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RC` | 生成 Commit 阶段平台无关角色合同（四节 + 版本库能力声明；Review pass 证据含车道两类形态：Independent Review Checkpoint / User Review Checkpoint 或机械门禁输出，条款以 C1–C10 引用）。 |
-| `agents-triage.md.tmpl` | Roles | `rules/implementation/roles/triage.md` | 所有项目初始化生成路由层角色合同（两层协作为固定规则，与编码层三阶段合同一并生成） | `RT` | 生成 Triage 路由层平台无关角色合同（四节 + 只读能力声明与派发边界，条款以 C1–C10 引用；权威与写入边界见 `../protocol/read-policy.md` §2.3.1）。 |
+| `agents-implementation.md.tmpl` | Roles | `rules/implementation/roles/implementation.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RI` | 生成 Implementation 阶段平台无关角色合同（四节：职责／读什么／写什么／输出与停止 + required_capabilities 能力基元声明与 `git_write_enforcement` 降级记录义务，条款以 C1–C10 引用）。 |
+| `agents-review.md.tmpl` | Roles | `rules/implementation/roles/review.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RR` | 生成 Review 阶段平台无关角色合同（四节 + 只读能力声明与 `readonly_enforcement` 降级记录；写入面仅追加审查证据 checkpoint，条款以 C1–C10 引用）。 |
+| `agents-commit.md.tmpl` | Roles | `rules/implementation/roles/commit.md` | 所有项目初始化生成编码层三阶段角色合同（与路由层 Triage 合同一并生成） | `RC` | 生成 Commit 阶段平台无关角色合同（四节 + 编排入口能力声明（inspect/execute，仅 `ticket-run.sh <NN> commit`，不持有 vcs-read/vcs-write）；`checkpoint.commit` 由编排器在收尾时写入票本体、角色不直接写票；Review pass 证据含车道两类形态：Independent Review Checkpoint / User Review Checkpoint 或机械门禁输出，条款以 C1–C10 引用）。 |
+| `agents-triage.md.tmpl` | Roles | `rules/implementation/roles/triage.md` | 所有项目初始化生成路由层角色合同（两层协作为固定规则，与编码层三阶段合同一并生成） | `RT` | 生成 Triage 路由层平台无关角色合同（四节 + 能力声明（inspect/search/read＋仅登记编排命令的 execute）与派发边界（`--check-dispatch` 核对 linked worktree 与 in_progress），条款以 C1–C10 引用；权威与写入边界见 `../protocol/read-policy.md` §2.3.1）。 |
 
 ## 取舍与过渡登记
 

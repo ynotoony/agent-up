@@ -25,7 +25,7 @@ depends_on: adapter-capability-contract（能力契约与 R-CC-005 扩展登记�
 - 公共规则（映射免责、能力声明与映射同步义务、readonly 等级、降级路径、记录义务、档位、platform 扩展）只在适配文件保留一个权威指针段，唯一权威＝`capability-contract.md`。
 - 事实准入：能力映射、方言与执行体声明只登记官方文档可核验事实并注明来源与取阅日期；未核验面用状态词表标注（pending/unsupported/local-observation），【待定】标记只用于结构规则块外注记面。
 - 差异面数据驱动：九行能力表、三角色映射表、执行体声明锚语与方言签名以 `adapter-diffs.rules` 为数据输入，由生成器单向渲染，手改正文即被漂移检查拦截；适配文件不设 `R-<短码>-` 规则块，结构约束由本模板 R-AT-001 执行，短码只作导航登记。
-- 能力对照表 readonly-execute 行必须声明 `readonly_enforcement: <等级>`（四级＋pending；等级语义唯一权威见 `capability-contract.md` §2.3，本模板不复述）。
+- 能力对照表 readonly-execute 行必须声明 `readonly_enforcement: <等级>`（四级＋pending；等级语义唯一权威见 `capability-contract.md` §2.3，本模板不复述）；execute 行必须声明 `git_write_enforcement: <等级>`（同词表；等级语义与降级记录义务唯一权威见 `capability-contract.md` §2.2）。
 - 角色合同根以 `<role-contract-dir>` 表示；新项目默认 `rules/implementation/roles/`，旧项目兼容模式从登记面读取既有等价路径（通常为 `docs/agent/roles/`），生成宿主配置时必须展开变量。
 - 收益声明禁止：无实验数据不得写 token 节省、速度或可靠性提升（唯一权威见 `capability-contract.md` R-CC-004）。
 - 平台文档与方言随版本变化；适配文件触发条件声明方言变化时同步。
@@ -38,7 +38,7 @@ depends_on: adapter-capability-contract（能力契约与 R-CC-005 扩展登记�
 #### R-AT-001 宿主差异面齐备 `MUST`
 
 - **When**：新建或修改任何 `adapters/<host>.md` 时。
-- **Action**：按 §2.2 骨架产出：frontmatter 九字段＋契约头三行（Input/Output/Pos）＋§1 宿主事实摘要＋§2 可执行规则（§2.1 公共规则唯一权威指针、§2.2 能力→宿主工具对照表、§2.3 三角色能力映射表、§2.4 独立执行体声明、§2.5 方言承载模板）＋§3 解释与例外；不设规则块；能力对照表 readonly-execute 行声明 `readonly_enforcement: <等级>`。
+- **Action**：按 §2.2 骨架产出：frontmatter 九字段＋契约头三行（Input/Output/Pos）＋§1 宿主事实摘要＋§2 可执行规则（§2.1 公共规则唯一权威指针、§2.2 能力→宿主工具对照表、§2.3 三角色能力映射表、§2.4 独立执行体声明、§2.5 方言承载模板）＋§3 解释与例外；不设规则块；能力对照表 readonly-execute 行声明 `readonly_enforcement: <等级>`，execute 行声明 `git_write_enforcement: <等级>`。
 - **Forbidden**：缺段落之一；在适配文件复述公共规则正文或另立第二权威；引用未核验的第三方观察作为分类依据；写平台无关角色合同中禁止的平台专名。
 - **Stop if**：平台官方文档不可达或身份存疑 → 停止登记，写【待定】并报告，不虚构事实。<!-- pending-decl-exempt: 写入指引面——本行是【待定】标记机制的指令本体（R-AT-001 事实准入），非未核验规范事实 -->
 - **Evidence**：适配文件可对照 §2.2 骨架逐段核对；三要素各有对应小节，公共规则段只有指针。
@@ -78,7 +78,8 @@ depends_on: adapter-capability-contract
 
 ### 2.2 能力→宿主工具对照
 <!-- 「| 能力基元 |」九行表（数据驱动，行文与 adapter-diffs.rules 逐字节一致）；
-     每行注明官方文档依据与取阅日期；readonly-execute 行须含 readonly_enforcement: <等级>。 -->
+     每行注明官方文档依据与取阅日期；readonly-execute 行须含 readonly_enforcement: <等级>，
+     execute 行须含 git_write_enforcement: <等级>。 -->
 
 ### 2.3 三角色能力映射
 <!-- 「| <role-contract-dir>/<role>.md |」三行表（数据驱动，行文与数据表逐字节一致）。 -->

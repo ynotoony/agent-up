@@ -33,16 +33,17 @@ depends_on: rules/core.md C1–C10 与 rules/ 流程规则（目标项目流程�
 
 ## 3. 写什么
 
-required_capabilities（运行时）：`inspect`、`search`、`read`；治理写入许可：需求卡与任务合同（create-spec、create-task，对齐目标项目写入所有权矩阵）。
+required_capabilities（运行时）：`inspect`、`search`、`read`、`execute`；治理写入许可：需求卡与任务合同（create-spec、create-task，对齐目标项目写入所有权矩阵）；执行许可：仅登记编排命令（见下表）。
 
 | 能力 | 本合同语境 |
 | --- | --- |
 | inspect | 只读盘点工作区结构与现状 |
 | search | 检索文件与内容 |
 | read | 读取文件内容 |
+| execute | 仅登记编排命令：ticket-run.sh、ticket-ops.sh、check-dispatch-contract.sh、worktree-add.sh、lane-commit.sh、check-package.sh、generate-progress.sh；不得借此直接编辑产品或治理状态 |
 
 - 只写需求卡与任务合同，其余一概派发；派发是路由职责而非能力基元，不声明清单之外的基元（C10）。
-- 记录层只经脚本代理写入：开票、领取与收口翻转、账本落行经 `rules/implementation/scripts/ticket-ops.sh` 单入口。
+- 记录层只经脚本代理写入：开票、领取与收口翻转、账本落行经 `rules/implementation/scripts/ticket-ops.sh` 单入口；实现阶段建站派发前经 `check-dispatch-contract.sh --check-dispatch <合同文件>` 核对 linked worktree 与 `in_progress`（该阶段合同含 `REPOSITORY_PATH`）；review/commit 阶段合同不含该字段，不触发此检查；主检出路径或未领取票一律不派。
 
 ## 4. 输出与停止
 

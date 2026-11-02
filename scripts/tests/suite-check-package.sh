@@ -156,8 +156,7 @@ PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 20 对）
-PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
+PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
@@ -196,7 +195,7 @@ PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
 PASS: 13 镜像脚本与仓根同名件一致（比对 20 对）
-PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
+PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
@@ -245,7 +244,7 @@ FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
+PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-CO-007 机械行点名脚本不存在: generate-progress.sh
@@ -278,7 +277,7 @@ EOF
   assert_eq '负例输出逐一相等（fail-closed 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动＋检查 18 同步，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
 
   # 票 57 协调层改判随票修：检查 11 逐处全等——§2.5 单处删 pi（frontmatter 完整）
-  # 必须单独 FAIL 指名 :133（旧并集口径此场景漏检，回归钉死；行号随 capability-contract
+  # 必须单独 FAIL 指名 :138（旧并集口径此场景漏检，回归钉死；行号随 capability-contract
   # readonly_enforcement 扩写独立重建）。
   cp -R "$PKG_ROOT" "$D/pkgcopy2"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
@@ -294,9 +293,9 @@ PASS: 7 根治理文件不在包内
 PASS: 8 脚本必需件存在（38 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
-FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
+FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :138 登记与数据不一致：缺少 pi
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
+PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
@@ -326,7 +325,7 @@ EOF
   else
     bad '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' "exit=$rc"
   fi
-  assert_eq '负例输出逐一相等（检查 11 逐处全等，FAIL 行按行号指名 :119 缺少 pi）' "$D/act.cc" "$D/exp.cc"
+  assert_eq '负例输出逐一相等（检查 11 逐处全等，FAIL 行按行号指名 :138 缺少 pi）' "$D/act.cc" "$D/exp.cc"
 
   # 票 58 检查 12 负例 N4：词表首词（自夹具包 manifest 词表节提取，harness 零词面字面量）
   # 注入 governance-format.md 首个规则块 Authority 字段之后 → FAIL: 12 指名文件:行号；
@@ -1343,7 +1342,7 @@ EOF
   # 正例 G8（强调记号逐字节）：数据表保留行内代码反引号，渲染行须与宿主原文逐字节相等
   # （claude-code execute 行；夹具期望串为该行原文，非剥反引号形态）。
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
-  printf '| execute | Bash | 可变更工作区状态的命令；受 `permissions` 规则约束 |\n' > "$D/exp.g8"
+  printf '| execute | Bash | 可变更工作区状态的命令；受 `permissions` 规则约束；git_write_enforcement: policy-only（`permissions` 与 hooks 为配置面闸门，登记面无默认 git 写 deny；实现会话交付报告须记该值与降级原因） |\n' > "$D/exp.g8"
   sh "$SCRIPT_DIR/generate-adapter-diffs.sh" --section cap --platform claude-code >"$D/act.g8" 2>&1
   sed -n '6p' "$D/act.g8" >"$D/act.g8.row"
   assert_eq '正例 G8 强调记号行渲染结果与宿主原文逐字节相等（不剥反引号）' "$D/act.g8.row" "$D/exp.g8"

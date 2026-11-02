@@ -24,7 +24,9 @@
 #         verify-dispatch  重渲染票面 dispatch.<stage> 并与给定合同文件逐字比对；
 #                   缺阶段对象/缺键/空白值、合同文件缺失、合同漂移三类拒绝。
 #         legacy implementation|review  渲染合同；implementation 缺站时经 worktree-add
-#                   合同入口创建（旧语义原样保留）。legacy commit 行为不变。
+#                   合同入口创建（旧语义原样保留）。legacy commit 在授权记录翻转时，于
+#                   产品提交后把 checkpoint.commit（committed_at＋product commit）原子写入
+#                   站内票本体，并与索引/投影一起收编进纯记录提交。
 # Pos: 主 agent 唯一编排入口（可恢复协调器）；只组合 contract-build/worktree-add/
 #      ticket-ops 原子层，不读取或改写票状态逻辑，不直接写 index/README/账本/投影；
 #      状态写入唯一经 ticket-ops（票 243 核心）。intent 日志只落 Git 公共目录，不进
@@ -1000,7 +1002,33 @@ if [ -n "$record_flips" ]; then
     sh "$ticket_ops" "$worktree" flip-index --id "$flip_id" --status "$flip_status" --updated-at "$flip_updated" || \
       die1 "索引翻转代理失败——产品提交 ${product_commit} 已创建、记录提交未创建"
   done
-  git -C "$worktree" add -- facts/requirements/tickets/index.json facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
+  checkpoint_ticket="${worktree}/facts/requirements/tickets/$(basename "$ticket_file")"
+  [ -f "$checkpoint_ticket" ] || die1 "站内票文件不存在，无法写入 checkpoint.commit: ${checkpoint_ticket}"
+  committed_at=$(date -u +%Y-%m-%d)
+  python3 - "$checkpoint_ticket" "$product_commit" "$committed_at" <<'PY' || die1 "checkpoint.commit 写入失败——产品提交 ${product_commit} 已创建、记录提交未创建"
+import json, os, sys, tempfile
+path, commit_id, committed_at = sys.argv[1:4]
+with open(path, encoding='utf-8') as handle:
+    data = json.load(handle)
+checkpoint = data.get('checkpoint')
+if not isinstance(checkpoint, dict):
+    checkpoint = {}
+checkpoint['commit'] = {'committed_at': committed_at, 'commit': commit_id}
+data['checkpoint'] = checkpoint
+mode = os.stat(path).st_mode & 0o777
+fd, tmp = tempfile.mkstemp(prefix='.ticket-checkpoint.', dir=os.path.dirname(path))
+try:
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+        handle.write('\n')
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+except BaseException:
+    os.unlink(tmp)
+    raise
+PY
+  printf 'ticket-run: checkpoint.commit: %s\n' "$product_commit"
+  git -C "$worktree" add -- facts/requirements/tickets/$(basename "$ticket_file") facts/requirements/tickets/index.json facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
   git -C "$worktree" commit -m "chore(ticket): 记录翻转 — ${commit_message}" || die1 '纯记录提交创建失败'
   record_commit=$(git -C "$worktree" rev-parse HEAD)
   printf 'ticket-run: 记录提交: %s\n' "$record_commit"
