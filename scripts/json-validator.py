@@ -5,7 +5,7 @@ Entry points:
 - ticket: Validate ticket JSON against schema
 - grade: Grade ticket complexity
 - run: Validate/seal run records and compute stats
-- json: Generic JSON operations (get/fields/len/pick/count-key) for the shell
+- json: Generic JSON operations (get/type/fields/len/pick/count-key) for the shell
   script layer — the single JSON engine replacing embedded python heredocs and
   awk JSON parsing
 - workflow: workflow-executor.sh JSON operations (steps/state-machine parsing,
@@ -664,6 +664,34 @@ def json_len(args):
         print(f'json-validator: FAIL: 路径不存在或不可取长度: {path}', file=sys.stderr)
         return 3
     print(len(value))
+    return 0
+
+
+def json_type(args):
+    """json type <src|-> <path>
+    Print the JSON type of the value at a dotted path (null/boolean/number/
+    string/array/object). Missing path exits 3."""
+    if len(args) != 2:
+        print('用法: json-validator.py json type <src|-> <path>', file=sys.stderr)
+        sys.exit(2)
+    src, path = args[0], args[1]
+    data = _load_json(src)
+    value = _navigate(data, path)
+    if value is _MISSING:
+        print(f'json-validator: FAIL: 路径不存在: {path}', file=sys.stderr)
+        return 3
+    if value is None:
+        print('null')
+    elif isinstance(value, bool):
+        print('boolean')
+    elif isinstance(value, (int, float)):
+        print('number')
+    elif isinstance(value, str):
+        print('string')
+    elif isinstance(value, list):
+        print('array')
+    else:
+        print('object')
     return 0
 
 
@@ -1581,9 +1609,9 @@ def print_usage():
       汇总运行记录统计
       退出码: 0=完成
 
-  json get <src|-> <path> [default] | json fields <src|-> <field>... |
-  json len <src|-> <path> [default] | json pick <src|-> <array_path> <k> <v> [...] [field] |
-  json count-key <src|-> <key>
+  json get <src|-> <path> [default] | json type <src|-> <path> |
+  json fields <src|-> <field>... | json len <src|-> <path> [default] |
+  json pick <src|-> <array_path> <k> <v> [...] [field] | json count-key <src|-> <key>
       通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin）
       退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
 
@@ -1682,11 +1710,13 @@ def main():
 
     elif mode == 'json':
         if len(sys.argv) < 3:
-            print("用法: python3 json-validator.py json <get|fields|len|pick|count-key> [args]", file=sys.stderr)
+            print("用法: python3 json-validator.py json <get|type|fields|len|pick|count-key> [args]", file=sys.stderr)
             sys.exit(2)
         op = sys.argv[2]
         if op == 'get':
             sys.exit(json_get(sys.argv[3:]))
+        elif op == 'type':
+            sys.exit(json_type(sys.argv[3:]))
         elif op == 'fields':
             sys.exit(json_fields(sys.argv[3:]))
         elif op == 'len':
