@@ -12,7 +12,8 @@
 #                   的索引前置（start 只接受 ready|in_progress），前置不满足即
 #                   decision-required 并给出登记清除路径 next --clear-intent，不得提示
 #                   重跑一条会被前置拒绝的命令；decision-required 时 exit 1（与「有下
-#                   一步」的 exit 0 可凭退出码区分）。
+#                   一步」的 exit 0 可凭退出码区分）。next --clear-intent 只清已判不可
+#                   收敛的残留：删除前打印原内容；残留仍可收敛时拒绝并 exit 1。
 #         start     建站（worktree-add，两参旧接口）→ 领取（ticket-ops take）；站已在位
 #                   且分支正确即跳过建站，索引已是 in_progress 即走 ticket-ops 幂等重放；
 #                   输出站路径、票状态与下一步。
@@ -27,9 +28,10 @@
 # Pos: 主 agent 唯一编排入口（可恢复协调器）；只组合 contract-build/worktree-add/
 #      ticket-ops 原子层，不读取或改写票状态逻辑，不直接写 index/README/账本/投影；
 #      状态写入唯一经 ticket-ops（票 243 核心）。intent 日志只落 Git 公共目录，不进
-#      版本控制面；next --clear-intent 是残留 intent 的唯一登记清除路径（只删该日志，
-#      不碰任何状态载体）。POSIX sh；JSON 读取仅经 json-validator.py。commit 不生成
-#      User Review Checkpoint，不伪造用户裁决；record 只搬已产出的收据，不生成 verdict。
+#      版本控制面；next --clear-intent 是残留 intent 的唯一登记清除路径（只清已判不可
+#      收敛的残留，删除前打印原内容；仍可收敛时拒绝；不碰任何状态载体）。POSIX sh；
+#      JSON 读取仅经 json-validator.py。commit 不生成 User Review Checkpoint，不伪造
+#      用户裁决；record 只搬已产出的收据，不生成 verdict。
 
 set -eu
 set -f
@@ -62,8 +64,9 @@ usage() {
                               contract implementation|contract review|commit|record|done|
                               decision-required。恢复提示先核该命令的索引前置（start 只
                               接受 ready|in_progress），前置不满足即 decision-required 并
-                              打印登记清除路径。--clear-intent 显式清除残留 intent 操作
-                              记录（核对索引后使用；只删该日志，不碰任何状态载体）。
+                              打印登记清除路径。--clear-intent 仅清除已判不可收敛的残留：
+                              先打印将被删除的原内容再删日志；残留仍可收敛时拒绝清除并
+                              exit 1，指名须重跑的子命令（只删该日志，不碰状态载体）。
   start                       建站（worktree-add 两参接口）→ 领取（ticket-ops take）。
                               站已在位且分支为 ticket/<id> 时跳过建站；索引已 in_progress
                               时经 ticket-ops 幂等重放补齐 README/账本/投影。
@@ -388,20 +391,12 @@ compute_next() {
   esac
 }
 
-# ---- next：只读推导下一步（零写入，不落 intent；--clear-intent 只删 intent 日志）----
+# ---- next：推导下一步（不落 intent；--clear-intent 仅清已判不可收敛的残留日志）----
 
 conveyor_next() {
-  if [ "$clear_intent" -eq 1 ]; then
-    intent_ensure
-    if [ -f "$intent_file" ]; then
-      rm -f "$intent_file" || die1 "intent 清除失败: ${intent_file}"
-      printf 'ticket-run: intent: 已清除残留操作记录 %s\n' "$intent_file"
-    else
-      printf 'ticket-run: intent: 无残留操作记录（%s）\n' "$intent_file"
-    fi
-  fi
   compute_next
   _pending=$(pending_intent_step 2>/dev/null) || _pending=''
+  _pending_nonconvergent=0
   if [ -n "$_pending" ]; then
     # 恢复提示须先对照该命令的状态前置：start 只接受 ready|in_progress。前置不满足时
     # 提示重跑会立刻被拒且 intent 永不清除（永不收敛），故归 decision-required 并给
@@ -418,6 +413,7 @@ conveyor_next() {
           *)
             NEXT_STEP='decision-required'
             NEXT_REASON="上次 ${_pending} 步骤未完成，但索引状态 ${_status:-未知} 不满足 start 前置（只接受 ready|in_progress）——须人工裁决，清除路径见下行"
+            _pending_nonconvergent=1
             ;;
         esac
         ;;
@@ -430,10 +426,35 @@ conveyor_next() {
         else
           NEXT_STEP='decision-required'
           NEXT_REASON="上次 record 步骤未完成但站缺失（record 要求站已存在）——须人工裁决，清除路径见下行"
+          _pending_nonconvergent=1
         fi
         ;;
     esac
   fi
+
+  if [ "$clear_intent" -eq 1 ]; then
+    # 清除只对「已判不可收敛」的残留开放：仍可收敛的残留是唯一恢复信号，删掉会掩盖
+    # start/record 本应做的幂等补齐（如索引已 in_progress 但账本缺 take 行）。
+    intent_ensure
+    if [ -z "$_pending" ]; then
+      printf 'ticket-run: intent: 无残留操作记录（%s）\n' "$intent_file"
+    elif [ "$_pending_nonconvergent" -eq 0 ]; then
+      case $_pending in
+        worktree|take) _retry='start' ;;
+        record) _retry='record' ;;
+        *) _retry=$_pending ;;
+      esac
+      die1 "残留 intent 仍可收敛，拒绝清除——请重跑 ${_retry}（intent 保留: ${intent_file}）"
+    else
+      printf 'ticket-run: intent: 将清除 %s，原内容：\n' "$intent_file"
+      sed 's/^/ticket-run: intent:   /' "$intent_file"
+      rm -f "$intent_file" || die1 "intent 清除失败: ${intent_file}"
+      printf 'ticket-run: intent: 已清除残留操作记录\n'
+      compute_next
+      _pending=''
+    fi
+  fi
+
   printf 'ticket-run: 下一步: %s\n' "$NEXT_STEP"
   printf 'ticket-run: 原因: %s\n' "$NEXT_REASON"
   if [ -n "$_pending" ]; then

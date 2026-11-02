@@ -880,11 +880,12 @@ PY
   tr_run_in "$D6A" 90 next > "$D/d6a-after.out" 2> "$D/d6a-after.err"
   rc2=$?
   if [ "$rc" -eq 0 ] && [ ! -e "$D6A/.git/ticket-run/90.intent" ] \
+    && grep -q '将清除' "$D/d6a-clear.out" && grep -q 'take' "$D/d6a-clear.out" \
     && [ "$rc2" -eq 0 ] && grep -q '^ticket-run: 下一步: done$' "$D/d6a-after.out" \
     && ! grep -q '^ticket-run: 恢复:' "$D/d6a-after.out"; then
-    ok 'D6b next --clear-intent 清残留后收敛：intent 已删且下一步回到 done'
+    ok 'D6b next --clear-intent 先打印原内容再清残留：intent 已删且下一步回到 done'
   else
-    bad 'D6b next --clear-intent 清残留后收敛：intent 已删且下一步回到 done' "exit=$rc/$rc2 $(cat "$D/d6a-clear.out" "$D/d6a-after.out" | tr '\n' '|')"
+    bad 'D6b next --clear-intent 先打印原内容再清残留：intent 已删且下一步回到 done' "exit=$rc/$rc2 $(cat "$D/d6a-clear.out" "$D/d6a-after.out" | tr '\n' '|')"
   fi
 
   D6C=$D/d6c
@@ -899,6 +900,28 @@ PY
     ok 'D6c 残留 take intent＋索引 review_pass（站已就位）→ next 判 decision-required（不提示 start/commit）'
   else
     bad 'D6c 残留 take intent＋索引 review_pass（站已就位）→ next 判 decision-required（不提示 start/commit）' "exit=$rc $(cat "$D/d6c-next.out" | tr '\n' '|')"
+  fi
+
+  # D6d/D6e：残留仍可收敛的正例侧（索引 ready）——next 必须给出 start；
+  # --clear-intent 必须拒绝并保留 intent（不得删掉唯一恢复信号）。
+  D6D=$D/d6d
+  tr_build_fixture "$D6D" ready
+  tr_pending_take "$D6D"
+  tr_run_in "$D6D" 90 next > "$D/d6d-next.out" 2> "$D/d6d-next.err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^ticket-run: 下一步: start$' "$D/d6d-next.out"; then
+    ok 'D6d 残留 take intent＋索引 ready（可领取）→ next 给出 start（正例侧）'
+  else
+    bad 'D6d 残留 take intent＋索引 ready（可领取）→ next 给出 start（正例侧）' "exit=$rc $(cat "$D/d6d-next.out" | tr '\n' '|')"
+  fi
+
+  tr_run_in "$D6D" 90 next --clear-intent > "$D/d6d-clear.out" 2> "$D/d6d-clear.err"
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ -f "$D6D/.git/ticket-run/90.intent" ] \
+    && grep -q '仍可收敛' "$D/d6d-clear.err" && grep -q '重跑 start' "$D/d6d-clear.err"; then
+    ok 'D6e 残留仍可收敛时 --clear-intent → exit 1、指名重跑 start 且 intent 仍在'
+  else
+    bad 'D6e 残留仍可收敛时 --clear-intent → exit 1、指名重跑 start 且 intent 仍在' "exit=$rc kept=$([ -f "$D6D/.git/ticket-run/90.intent" ] && echo yes || echo no) $(cat "$D/d6d-clear.err" | tr '\n' '|')"
   fi
 
   # D3：本地日期与 UTC 日期跨日时重跑 start——账本日期须与 ticket-ops 的 updated_at 同源
