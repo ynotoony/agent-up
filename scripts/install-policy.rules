@@ -55,7 +55,7 @@ ip_file agent-up/scripts/common-helpers.sh Conditional ticket-ops '共享错误�
 ip_file agent-up/scripts/json-validator.py Conditional fast-lane '唯一 JSON 引擎：generate-progress 投影再生与 worktree-add 合同入口运行依赖（同目录定位，安装闭包）'
 ip_file agent-up/scripts/json-validator.py Conditional ticket-ops '唯一 JSON 引擎：ticket-grade 判据计算与 ticket-ops open/take/flip 各 JSON 门运行依赖（同目录定位，安装闭包）'
 ip_file agent-up/scripts/contract-build.sh Conditional ticket-ops '派发合同渲染器：票 dispatch 节→stdout 派发合同（ticket-run 编排入口消费；同目录定位，安装闭包）'
-ip_file agent-up/scripts/ticket-run.sh Conditional ticket-ops '主 agent 三阶段编排入口：implementation/review 产出站路径＋合同文件，commit 自动两段提交（同目录原子层闭包）'
+ip_file agent-up/scripts/ticket-run.sh Conditional ticket-ops '主 agent 编排入口（可恢复协调器）：next/start/contract/record/verify-dispatch 五子命令＋legacy implementation/review/commit；next 只读、start 建站＋领取幂等收敛、contract 产出站路径＋合同文件、record 幂等落位收据、verify-dispatch 三类拒绝；commit 自动两段提交（同目录原子层闭包）'
 ip_file agent-up/scripts/worktree-add.sh Conditional ticket-ops '回退依赖：ticket-run implementation 建站原子层（主检出栅栏与站路径派生，同目录定位，安装闭包）'
 ip_file agent-up/scripts/dp-load-rules.sh Conditional ticket-ops '回退依赖：ticket-run 建站链 worktree-add 的 delivery.rules 共享解析器（同目录定位，安装闭包）'
 ip_file agent-up/scripts/check-gates.sh Conditional ticket-ops '回退依赖：ticket-run commit 的范围与白名单门禁（含验证前后工作区快照；同目录定位，安装闭包）'

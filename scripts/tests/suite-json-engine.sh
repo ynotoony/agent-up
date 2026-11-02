@@ -83,6 +83,27 @@ suite_json_engine() {
     bad 'json get 缺路径无 default exit 3' "expected=3 actual=$rc"
   fi
 
+  # ---- json type（收据字段类型校验承载）----
+  result=''
+  for _type_path in s n b z a o; do
+    _type_value=$(printf '%s\n' '{"s": "x", "n": 1, "b": true, "z": null, "a": [], "o": {}}' | \
+      python3 "$ENGINE" json type - "$_type_path")
+    result="$result${result:+ }$_type_value"
+  done
+  if [ "$result" = 'string number boolean null array object' ]; then
+    ok 'json type 六类取值'
+  else
+    bad 'json type 六类取值' "expected=string number boolean null array object actual=$result"
+  fi
+
+  python3 "$ENGINE" json type "$D/entry.json" nope >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 3 ]; then
+    ok 'json type 缺路径 exit 3'
+  else
+    bad 'json type 缺路径 exit 3' "expected=3 actual=$rc"
+  fi
+
   # ---- json len / count-key ----
   result=$(printf '%s\n' '{"transitions": [1,2,3]}' | python3 "$ENGINE" json len - transitions 0)
   if [ "$result" = "3" ]; then
