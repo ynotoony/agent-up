@@ -186,12 +186,27 @@ contract_build="${script_dir}/contract-build.sh"
 
 issues_dir="${repo_root}/facts/requirements/tickets"
 [ -d "$issues_dir" ] || die1 "票目录不存在: ${issues_dir}"
+# 票本体口径：<NN>-<slug>.json，slug 仅 [a-z0-9-]（与 ticket-record.schema.json 的 id
+# 口径同源），故票本体文件名不含点号；派生件（独立审查收据 <id>.review-evidence.json、
+# runs 侧派生同名件）文件名带点号，不参与定位。原实现按 <NN>-*.json 直接计数，同目录
+# 共存派生件即被算作第二件票，使已产出收据的票一律「定位命中 2 件」。此处先按 id 口径
+# 筛出票本体再计数：0 件与多件仍 fail-closed 报明。
 set +f
-set -- "${issues_dir}/${nn}"-*.json
-[ $# -eq 1 ] || die1 "票号段 ${nn} 定位命中 $# 件，须恰一命中"
-ticket_file=$1
+hit_count=0
+ticket_file=''
+for _cand in "${issues_dir}/${nn}"-*.json; do
+  [ -f "$_cand" ] || continue
+  _cand_id=$(basename "$_cand" .json)
+  printf '%s' "$_cand_id" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || continue
+  hit_count=$((hit_count + 1))
+  ticket_file=$_cand
+done
 set -f
-[ -f "$ticket_file" ] || die1 "票号段 ${nn} 无命中: ${issues_dir}/${nn}-*.json"
+if [ "$hit_count" -eq 0 ]; then
+  die1 "票号段 ${nn} 无命中（<NN>-<slug>.json 零匹配，派生件不计票本体）: ${issues_dir}/${nn}-*.json"
+elif [ "$hit_count" -gt 1 ]; then
+  die1 "票号段 ${nn} 定位命中 ${hit_count} 件票本体，须恰一命中"
+fi
 ticket_id=$(basename "$ticket_file" .json)
 
 repo_parent=$(CDPATH='' cd -- "$repo_root/.." && pwd -P) || die2 '仓库根父目录不可解析'
@@ -1028,7 +1043,8 @@ except BaseException:
     raise
 PY
   printf 'ticket-run: checkpoint.commit: %s\n' "$product_commit"
-  git -C "$worktree" add -- facts/requirements/tickets/$(basename "$ticket_file") facts/requirements/tickets/index.json facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
+  _commit_ticket_rel="facts/requirements/tickets/$(basename "$ticket_file")"
+  git -C "$worktree" add -- "$_commit_ticket_rel" facts/requirements/tickets/index.json facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
   git -C "$worktree" commit -m "chore(ticket): 记录翻转 — ${commit_message}" || die1 '纯记录提交创建失败'
   record_commit=$(git -C "$worktree" rev-parse HEAD)
   printf 'ticket-run: 记录提交: %s\n' "$record_commit"

@@ -1009,6 +1009,50 @@ PY
     bad 'D3 本地/UTC 跨日重跑 start：账本仍一行且日期与索引 updated_at 同源' "TZ=$_tz_skew local=$_local_date utc=$_utc_date ledger=$_ledger_date index=$_index_ua rows=$(wc -l < "$D3/facts/project/changes.jsonl" | tr -d ' ') exit=$rc/$rc2"
   fi
 
+  # D7：票定位器须按票本体 id 口径（<NN>-<slug>，slug 仅 [a-z0-9-]，文件名无点号）筛出
+  #     票本体，不被同目录派生件（独立审查收据 <id>.review-evidence.json 等）算成第二件票。
+  D7=$D/d7
+  tr_build_fixture "$D7" in_progress
+  printf '{"schema_version":1,"receipt_kind":"review","ticket_id":"90-run-fixture"}\n' \
+    > "$D7/facts/requirements/tickets/90-run-fixture.review-evidence.json"
+  tr_run_in "$D7" 90 next > "$D/d7-next.out" 2> "$D/d7-next.err"
+  rc=$?
+  # 定位到本体才会取到索引条目（ready/in_progress）→ start；若误取收据，ticket_id 变成
+  # 90-run-fixture.review-evidence，索引无条目只会给 open。
+  if [ "$rc" -eq 0 ] && ! grep -q '须恰一命中' "$D/d7-next.err" \
+    && grep -q '^ticket-run: 下一步: start$' "$D/d7-next.out"; then
+    ok 'D7a 票本体旁有 <id>.review-evidence.json 时 next 仍定位票本体（不因多命中 FAIL）'
+  else
+    bad 'D7a 票本体旁有 <id>.review-evidence.json 时 next 仍定位票本体（不因多命中 FAIL）' "exit=$rc $(cat "$D/d7-next.out" "$D/d7-next.err" | tr '\n' '|')"
+  fi
+
+  D7B=$D/d7b
+  tr_build_fixture "$D7B" in_progress
+  printf '{"schema_version":1,"receipt_kind":"review","ticket_id":"91-orphan"}\n' \
+    > "$D7B/facts/requirements/tickets/91-orphan.review-evidence.json"
+  tr_run_in "$D7B" 77 next > "$D/d7b-none.out" 2> "$D/d7b-none.err"
+  rc=$?
+  tr_run_in "$D7B" 91 next > "$D/d7b-orphan.out" 2> "$D/d7b-orphan.err"
+  rc2=$?
+  if [ "$rc" -eq 1 ] && grep -q '票号段 77 无命中' "$D/d7b-none.err" \
+    && [ "$rc2" -eq 1 ] && grep -q '票号段 91 无命中' "$D/d7b-orphan.err" \
+    && [ ! -s "$D/d7b-none.out" ] && [ ! -s "$D/d7b-orphan.out" ]; then
+    ok 'D7b 负例：NN 零命中与「仅有审查收据无票本体」均非零退出并报无命中'
+  else
+    bad 'D7b 负例：NN 零命中与「仅有审查收据无票本体」均非零退出并报无命中' "exit=$rc/$rc2 $(cat "$D/d7b-none.err" "$D/d7b-orphan.err" | tr '\n' '|')"
+  fi
+
+  cp "$D7B/facts/requirements/tickets/90-run-fixture.json" \
+    "$D7B/facts/requirements/tickets/90-second-slug.json"
+  tr_run_in "$D7B" 90 next > "$D/d7b-two.out" 2> "$D/d7b-two.err"
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '票号段 90 定位命中 2 件票本体，须恰一命中' "$D/d7b-two.err" \
+    && [ ! -s "$D/d7b-two.out" ]; then
+    ok 'D7c 负例：同 NN 两件真实票本体仍 fail-closed 指名「命中 2 件」'
+  else
+    bad 'D7c 负例：同 NN 两件真实票本体仍 fail-closed 指名「命中 2 件」' "exit=$rc $(cat "$D/d7b-two.err" | tr '\n' '|')"
+  fi
+
   (cd "$CONV" && sh "$CONV/rules/implementation/scripts/ticket-run.sh" -h) > "$D/c-help.out" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q 'next ' "$D/c-help.out" && grep -q 'start ' "$D/c-help.out" \
