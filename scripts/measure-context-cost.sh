@@ -3,7 +3,7 @@
 #        下全部 `wire.jsonl` 的 `usage.record` 记录与 assistant/tool 消息；治理模式
 #        （`--governance`）＝安装模板目录（`--templates <dir>`，缺省本脚本上一级
 #        `references/templates`）。可选 `--baseline <json>` 基线、`--min-samples <n>`
-#        样本阈值（缺省 100）。
+#        样本阈值（缺省 100，合法下界 1：0 会放过 0 条样本的差值表，按用法错误 exit 2）。
 # Output: 只读指标表——会话模式：raw／cache_read／input_added／output／context_per_call／
 #        tool_calls_per_step／tool_results_over_20000／agents_over_250_steps 八项当前值，
 #        给基线时逐项输出差值（基线−当前，正数＝下降＝收益）与变化率，另附样本计数、
@@ -35,7 +35,7 @@ usage() {
 用法: sh measure-context-cost.sh [选项]
   --sessions <dir>   会话根目录（缺省 $HOME/.kimi-code/sessions）
   --baseline <json>  基线 JSON（键＝指标名，值＝数字；缺省只输出当前值）
-  --min-samples <n>  最小 usage.record 样本数（缺省 100；低于阈值 exit 1）
+  --min-samples <n>  最小 usage.record 样本数（缺省 100；须 ≥1，0 会放过 0 条样本的差值表；低于阈值 exit 1）
   --governance       治理体积模式（安装件字符数／规则块数／每阶段读取集字符数）
   --templates <dir>  治理模式模板目录（缺省本脚本上一级 references/templates）
   -h / --help        打印本用法
@@ -63,8 +63,12 @@ while [ $# -gt 0 ]; do
 done
 
 case $min_samples in
-  ''|*[!0-9]*) printf '%s: --min-samples 须为非负整数: %s\n' "$prog" "$min_samples" >&2; exit 2 ;;
+  ''|*[!0-9]*) printf '%s: --min-samples 须为整数且 ≥1（合法下界 1）: %s\n' "$prog" "$min_samples" >&2; exit 2 ;;
 esac
+if [ "$min_samples" -lt 1 ]; then
+  printf '%s: --min-samples 须为整数且 ≥1（合法下界 1；0 会放过 0 条样本的差值表）: %s\n' "$prog" "$min_samples" >&2
+  exit 2
+fi
 
 command -v python3 >/dev/null 2>&1 || die2 'python3 不可用——指标聚合与基线读取依赖'
 

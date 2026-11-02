@@ -1057,7 +1057,7 @@ sh scripts/measure-context-cost.sh --governance [--templates <dir>] [--baseline 
 
 - `--sessions <dir>`：会话根目录，缺省 `$HOME/.kimi-code/sessions`。
 - `--baseline <json>`：基线 JSON（键＝指标名，值＝数字）；给定时逐项输出差值与变化率，缺省只输出当前值。
-- `--min-samples <n>`：最小 `usage.record` 样本数，缺省 100；低于阈值 exit 1 并指名缺失项。
+- `--min-samples <n>`：最小 `usage.record` 样本数，缺省 100，合法下界 1（0 会放过 0 条样本的差值表，按用法错误 exit 2 并指名参数与下界）；低于阈值 exit 1 并指名缺失项。
 - `--governance`：治理体积模式；`--templates <dir>` 缺省本脚本上一级的 `references/templates`。
 - `-h` / `--help`：打印用法，exit 0。
 
@@ -1088,6 +1088,8 @@ sh scripts/measure-context-cost.sh --governance [--templates <dir>] [--baseline 
 | `stage_implementation_chars` | AGENTS／core／discipline／project／agents-implementation |
 | `stage_review_chars` | AGENTS／core／discipline／project／agents-review |
 | `stage_commit_chars` | AGENTS／core／project／agents-commit |
+
+基线口径只算安装九件：瘦身前安装面为 54 块，`references/protocol/`、`references/adapters/` 的 26 块不在安装闭包、不计入（两者合计 80 条旧块，处置另见 `references/why/decisions.md`）。
 
 差值列＝基线−当前，变化率列＝(基线−当前)/基线；正数即下降即收益，负数即增长即代价。基线缺任一同名键即 exit 1 指名缺失键。
 
@@ -1164,7 +1166,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `check-gates` |  | check-gates.sh 验证执行边界正负例：合法只读验证 exit 0 且既有 PASS/汇总行格式保持；五类越界写——新建未跟踪文件（exit 1 指名文件、保持现场、同批后续 verify 输出 SKIP 且不执行）、删除跟踪文件、修改索引（git add）、创建符号链接、改写已修改文件（git status 行不变仍经内容哈希检出）；allow-output 目录内产出 exit 0 且工作区只留白名单改动与允许输出、既有产物复跑按允许输出放行；allow-output 含跟踪文件或路径含 .. → exit 2；record-only + verify N/A 语义不变 | 11 |
 | （仅 all）注入自检 |  | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 | `ticket-audit` |  | 证据审计引擎十一谓词正负例：正例 analyze/read/merge 三面 conformant 且十一谓词逐行 PASS、证据位置 `路径@提交:blob` 与 `git log`／`rev-parse` 逐一相等；负例按谓词分离——P01 证据缺失／非 review 收据／票号不匹配（P01 短路），P02 提交后又改动／未提交（HEAD 未跟踪），P04 证据之后混入产品改动（指名路径）与 head 非祖先，P05 diff 指纹篡改（按行号指名）／base==head 零实现 diff／base≠head 但两提交树相同（空 diff），P09 旧 PASS 与 reviewed_at 越界，P10 自由文本 verdict／FAIL verdict／PASS 含未知验收，P08 自签与策略实现者名单命中；未知分支——P07 身份不可佐证（author 不一致／不在可信名单）与 P11 策略缺失／非法 effective_from／不适用／发布基线标签缺失（analyze exit 0 且 merge/push 拒绝）；用法与环境错误 exit 2；一次审计零写入（文件 cksum 与 HEAD 前后一致）；P04 允许集三例——显式允许记录载体 exit 0、未传入时同改动 exit 1 指名 index.json、产品文件与允许集外 facts 文件仍 FAIL 指名路径 | 41 |
-| `context-cost` |  | 成本度量复测器正负例（mktemp 夹具）：会话模式合成 `wire.jsonl` 夹具逐项相等（raw／cache_read／input_added／output／context_per_call／每步工具调用数／超 2 万字符结果数／超 250 步 agent 数／calls）＋给基线 JSON 逐项差值与变化率＋未知字段容忍、坏行跳过、缓存字段缺失按 0＋负例（样本低于阈值、会话路径不存在、目录无 `wire.jsonl`、基线文件缺失、基线缺指标——均 exit 非 0 且零 stdout，不输出半套指标）＋治理模式九件夹具逐项相等（install_chars／install_blocks／四阶段读取集）＋治理基线差值与缺键负例＋`--help` 与非法 `--min-samples` 用法负例＋只读复核（会话与模板夹具 cksum 前后一致） | 49 |
+| `context-cost` |  | 成本度量复测器正负例（mktemp 夹具）：会话模式合成 `wire.jsonl` 夹具逐项相等（raw／cache_read／input_added／output／context_per_call／每步工具调用数／超 2 万字符结果数／超 250 步 agent 数／calls）＋给基线 JSON 逐项差值与变化率＋未知字段容忍、坏行跳过、缓存字段缺失按 0＋负例（样本低于阈值、0 条 `usage.record`（默认阈值）、会话路径不存在、目录无 `wire.jsonl`、基线文件缺失、基线缺指标——均 exit 非 0 且零 stdout，不输出半套指标）＋治理模式九件夹具逐项相等（install_chars／install_blocks／四阶段读取集）＋治理基线差值与缺键负例＋`--help`、非法 `--min-samples` 与 `--min-samples 0`（用法错误 exit 2）用法负例＋只读复核（会话与模板夹具 cksum 前后一致） | 51 |
 
 断言计数随维护增减（suite 汇总行按实际计数输出；stale-claims/ticket-ops/append-only 行计数删格——数字以 `--suite` 实跑输出为唯一真相源）。
 

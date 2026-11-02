@@ -3,7 +3,7 @@
 #        json-validator.py；夹具参数：合成 wire.jsonl 会话树、fixture 基线 JSON、治理体积
 #        模板夹（九件）——全部构建于 mktemp 临时目录，trap 清理。
 # Output: 逐项 PASS/FAIL 断言与套件汇总：AC1 四项基数逐项相等、AC2 基线差值／样本阈值／
-#        缺失项 fail-closed（exit 非零且零 stdout）、AC5 治理三项与每阶段读取集差值、
+#        缺失项 fail-closed（exit 非零且零 stdout）、阈值 0／空样本同样拒绝、AC5 治理三项与每阶段读取集差值、
 #        未知字段容忍与只读零写入复核。
 # Pos: context-cost 套件（成本治理度量面回归）；直接运行 sh tests/suite-context-cost.sh
 #      即跑本套件；派发表／suite 覆盖表见同目录 README.md 与 test-runner.sh。
@@ -213,6 +213,15 @@ suite_context_cost() {
     bad 'AC2 目录无 wire.jsonl → exit 非 0、零 stdout、指名缺失项' "exit=$rc $(head -c 120 "$D/err")"
   fi
 
+  mkdir -p "$D/zero-records"
+  printf '%s\n' '{"type":"session.meta","agentId":"main"}' > "$D/zero-records/wire.jsonl"
+  cc_run --sessions "$D/zero-records" --baseline "$D/session-baseline.json"
+  if [ "$rc" -ne 0 ] && [ ! -s "$D/out" ] && grep -q '样本不足' "$D/err" && grep -q 'calls' "$D/err"; then
+    ok 'AC2 0 条 usage.record＋基线＋默认阈值 → exit 非 0、零 stdout、指名 calls'
+  else
+    bad 'AC2 0 条 usage.record＋基线＋默认阈值 → exit 非 0、零 stdout、指名 calls' "exit=$rc stdout=$(wc -c < "$D/out") $(head -c 120 "$D/err")"
+  fi
+
   cc_run --sessions "$D/s1/sessions" --baseline "$D/no-such-baseline.json" --min-samples 3
   if [ "$rc" -ne 0 ] && [ ! -s "$D/out" ] && grep -q "$D/no-such-baseline.json" "$D/err"; then
     ok 'AC2 基线路径不存在 → exit 非 0、零 stdout、指名路径'
@@ -312,6 +321,12 @@ EOF
     ok '非法 --min-samples → exit 2、零 stdout'
   else
     bad '非法 --min-samples → exit 2、零 stdout' "exit=$rc"
+  fi
+  cc_run --sessions "$D/zero-records" --baseline "$D/session-baseline.json" --min-samples 0
+  if [ "$rc" -eq 2 ] && [ ! -s "$D/out" ] && grep -q 'min-samples' "$D/err" && grep -q '下界 1' "$D/err"; then
+    ok '--min-samples 0 → exit 2、零 stdout、指名参数与合法下界'
+  else
+    bad '--min-samples 0 → exit 2、零 stdout、指名参数与合法下界' "exit=$rc stdout=$(wc -c < "$D/out") $(head -c 120 "$D/err")"
   fi
 
   suite_summary 'context-cost'
