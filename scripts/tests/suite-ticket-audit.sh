@@ -243,6 +243,36 @@ suite_ticket_audit() {
   ta_expect '负例 N3 diff 指纹篡改 → exit 1 且 P05 按行号指名' "$rc" 1 "$D/n3.out" \
     "FAIL P05 diff-sha-bound: ${TA_EVIDENCE_REL}:${_dline} —"
 
+  # ---- 负例 N3b：base_sha == head_sha（零实现 diff）→ P05 明拒，不得判 conformant ----
+  ta_make_fixture "$D/n3b"
+  _n3b_head=$(cat "$D/n3b.head")
+  _n3b_empty=$(printf '' | git -C "$D/n3b" hash-object --stdin)
+  ta_set_path "$D/n3b/$TA_EVIDENCE_REL" base_sha "\"${_n3b_head}\""
+  ta_set_path "$D/n3b/$TA_EVIDENCE_REL" diff_sha "\"${_n3b_empty}\""
+  ta_commit_all "$D/n3b" reviewer@example.com '2026-10-03T00:00:00Z' 'zero diff receipt'
+  ta_run "$D/n3b" "$D/n3b.out" --operation merge
+  rc=$?
+  ta_expect '负例 N3b base_sha==head_sha（空 diff 旁路）→ exit 1 且 P05 指名' "$rc" 1 "$D/n3b.out" \
+    'PASS P03 base-sha-present:' 'FAIL P05 diff-sha-bound:' 'base_sha 与 head_sha 相同' 'ticket-audit: 判定: nonconformant'
+
+  # ---- 负例 N3c：base≠head 但两提交树相同（空 diff）→ P05 明拒 ----
+  ta_make_fixture "$D/n3c"
+  _n3c_base=$(git -C "$D/n3c" rev-parse HEAD)
+  GIT_AUTHOR_NAME=fixture GIT_AUTHOR_EMAIL=impl@example.com \
+    GIT_AUTHOR_DATE='2026-10-02T00:00:00Z' GIT_COMMITTER_NAME=fixture \
+    GIT_COMMITTER_EMAIL=impl@example.com GIT_COMMITTER_DATE='2026-10-02T00:00:00Z' \
+    git -C "$D/n3c" -c commit.gpgsign=false commit -q --allow-empty -m 'tree unchanged'
+  _n3c_head=$(git -C "$D/n3c" rev-parse HEAD)
+  _n3c_empty=$(printf '' | git -C "$D/n3c" hash-object --stdin)
+  ta_set_path "$D/n3c/$TA_EVIDENCE_REL" base_sha "\"${_n3c_base}\""
+  ta_set_path "$D/n3c/$TA_EVIDENCE_REL" head_sha "\"${_n3c_head}\""
+  ta_set_path "$D/n3c/$TA_EVIDENCE_REL" diff_sha "\"${_n3c_empty}\""
+  ta_commit_all "$D/n3c" reviewer@example.com '2026-10-03T00:00:00Z' 'empty diff receipt'
+  ta_run "$D/n3c" "$D/n3c.out" --operation merge
+  rc=$?
+  ta_expect '负例 N3c base..head 树相同（空 diff）→ exit 1 且 P05 指名' "$rc" 1 "$D/n3c.out" \
+    'PASS P02 evidence-committed:' 'PASS P04 review-boundary-clean:' 'FAIL P05 diff-sha-bound:' 'base..head 无差异'
+
   # ---- 负例 N4：自由文本 verdict → P10 ----
 
   ta_make_fixture "$D/n4"
@@ -394,6 +424,46 @@ suite_ticket_audit() {
   rc=$?
   ta_expect '负例 N19 旧 PASS（早于策略生效日）→ exit 1 且 P09' "$rc" 1 "$D/n19.out" \
     'FAIL P09 reviewed-at-valid:' '旧 PASS'
+
+  # ---- 票 237：P04 显式允许集（默认仅证据；逐条传入，禁止整体放开 facts 面） ----
+
+  # 正例：head 之后只有证据＋显式允许的记录载体 → conformant。
+  ta_make_fixture "$D/p04a"
+  mkdir -p "$D/p04a/facts/requirements/tickets"
+  printf '{"issues": []}\n' > "$D/p04a/facts/requirements/tickets/index.json"
+  ta_commit_all "$D/p04a" reviewer@example.com '2026-10-04T00:00:00Z' 'record carrier update'
+  ta_run "$D/p04a" "$D/p04a.out" --operation merge \
+    --allow-after facts/requirements/tickets/index.json
+  rc=$?
+  ta_expect '正例 P04a 显式允许记录载体 → exit 0 且 P04 放行' "$rc" 0 "$D/p04a.out" \
+    'PASS P04 review-boundary-clean:' 'ticket-audit: 判定: conformant'
+  ta_run "$D/p04a" "$D/p04a.strict.out" --operation merge
+  rc=$?
+  ta_expect '负例 P04b 同一改动未传入允许集 → exit 1 且 P04 指名 index.json' "$rc" 1 "$D/p04a.strict.out" \
+    'FAIL P04 review-boundary-clean: facts/requirements/tickets/index.json:1'
+
+  # 负例：产品文件即使传入记录载体允许集仍 FAIL，指名该产品路径。
+  ta_make_fixture "$D/p04c"
+  mkdir -p "$D/p04c/agent-up/scripts"
+  printf 'product note\n' > "$D/p04c/agent-up/scripts/README.md"
+  ta_commit_all "$D/p04c" reviewer@example.com '2026-10-04T00:00:00Z' 'product after evidence'
+  ta_run "$D/p04c" "$D/p04c.out" --operation merge \
+    --allow-after facts/requirements/tickets/index.json \
+    --allow-after facts/requirements/tickets/progress-current.md
+  rc=$?
+  ta_expect '负例 P04c 允许集下产品文件仍被拒 → exit 1 指名 agent-up/scripts/README.md' "$rc" 1 "$D/p04c.out" \
+    'FAIL P04 review-boundary-clean: agent-up/scripts/README.md:1'
+
+  # 负例：允许集之外的其他 facts 文件仍 FAIL（证明非整体放开 facts 面）。
+  ta_make_fixture "$D/p04d"
+  printf '{}\n' > "$D/p04d/facts/requirements/tickets/08-other.json"
+  ta_commit_all "$D/p04d" reviewer@example.com '2026-10-04T00:00:00Z' 'other facts after evidence'
+  ta_run "$D/p04d" "$D/p04d.out" --operation merge \
+    --allow-after facts/requirements/tickets/index.json \
+    --allow-after facts/requirements/tickets/progress-current.md
+  rc=$?
+  ta_expect '负例 P04d 允许集之外 facts 文件仍被拒 → exit 1 指名 08-other.json' "$rc" 1 "$D/p04d.out" \
+    'FAIL P04 review-boundary-clean: facts/requirements/tickets/08-other.json:1'
 
   # ---- 负例 N20：一次审计零写入（文件 cksum 与 HEAD 前后一致） ----
 

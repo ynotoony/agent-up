@@ -38,7 +38,7 @@ lc_build_fixture() {
   R=$1
   rm -rf "$R"
   mkdir -p "$R/rules/implementation/scripts" "$R/facts/project"
-  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/checkpoint-write.sh" "$SCRIPT_DIR/ledger-append.sh" "$R/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/checkpoint-write.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/ticket-audit.sh" "$R/rules/implementation/scripts/"
   printf '{"date": "2026-09-28", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' > "$R/facts/project/micro.jsonl"
   printf 'seed\n' > "$R/a.txt"
   git -C "$R" init -q
@@ -61,8 +61,10 @@ lc_contract() {
 
 lc_json_docs() {
   # $1=夹具仓根：.json 票全链三载体（最小 JSON 票体＋索引一条目一行＋issues-README 状态行；
-  # 票 108）——checkpoint 承载形态断言的命名先例＝facts/requirements/tickets/<id>-review-checkpoint.md
+  # 票 108）＋票 237 证据门夹具（task actual_time＋审计策略——策略 baseline 取当前 seed
+  # 提交，供 done 证据门在 lane-commit 全链正例中判 conformant）
   mkdir -p "$1/facts/requirements/tickets"
+  _lcd_seed=$(git -C "$1" rev-parse HEAD)
   cat > "$1/facts/requirements/tickets/index.json" <<'EOF'
 {
   "issues": [
@@ -75,9 +77,12 @@ EOF
   "id": "33-lc-ticket",
   "kind": "task",
   "title": "fixture json ticket",
-  "created_at": "2026-09-29"
+  "created_at": "2026-09-29",
+  "actual_time": "1h（fixture 净工时占位）"
 }
 EOF
+  printf '{"schema_version":1,"policy_id":"lane-fixture","effective_from":"2026-01-01","baseline_sha":"%s","release_baseline":"none","trusted_reviewers":["reviewer@example.com"],"implementation_identities":["fixture@example.com"]}\n' \
+    "$_lcd_seed" > "$1/facts/requirements/audit-policy.json"
   cat > "$1/facts/requirements/tickets/README.md" <<'EOF'
 # 票据索引（fixture）
 
@@ -85,6 +90,53 @@ EOF
 | --- | --- | --- |
 | `33-lc-ticket.json` | 任务票 33；`in_progress`（2026-09-29 开票） | LC json fixture |
 EOF
+}
+
+lc_audit_receipt() {
+  # $1=夹具根 $2=base $3=head：按重算 diff 指纹写审查收据（33-lc-ticket，作者身份由
+  # 后续提交固定为 reviewer@example.com）
+  python3 - "$1/facts/requirements/tickets/33-lc-ticket.review-evidence.json" "$2" "$3" "$1" <<'PY'
+import json, subprocess, sys, datetime
+path, base, head, repo = sys.argv[1:5]
+diff = subprocess.run(
+    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
+     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
+diff_sha = subprocess.run(
+    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
+    stdout=subprocess.PIPE).stdout.decode().strip()
+now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+receipt = {
+    'schema_version': 1,
+    'receipt_kind': 'review',
+    'ticket_id': '33-lc-ticket',
+    'created_at': now,
+    'actor': 'reviewer',
+    'base_sha': base,
+    'head_sha': head,
+    'diff_sha': diff_sha,
+    'reviewer_identity': 'reviewer@example.com',
+    'reviewed_at': now,
+    'verdict': 'PASS',
+    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'a.txt:1'}],
+}
+with open(path, 'w') as fh:
+    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+
+tix_lc_status() {
+  # $1=夹具根：33-lc-ticket 索引状态提取（一条目一行）
+  sed -n 's/.*"id": "33-lc-ticket", "status": "\([a-z_]*\)".*/\1/p' "$1/facts/requirements/tickets/index.json"
+}
+
+lc_impl_commit() {
+  # $1=夹具根 $2=提交信息：以实现者身份提交工作树（产品提交，供审查证据绑定 head）
+  git -C "$1" add -A
+  GIT_AUTHOR_NAME=fixture GIT_AUTHOR_EMAIL=fixture@example.com \
+    GIT_AUTHOR_DATE="$(date -u +%Y-%m-%dT00:00:00Z)" \
+    GIT_COMMITTER_NAME=fixture GIT_COMMITTER_EMAIL=fixture@example.com \
+    GIT_COMMITTER_DATE="$(date -u +%Y-%m-%dT00:00:00Z)" \
+    git -C "$1" -c commit.gpgsign=false commit -qm "$2"
 }
 
 suite_lane_commit() {
@@ -616,13 +668,19 @@ PYTHON
   lc_build_fixture "$D/pj"
   lc_json_docs "$D/pj"
   lc_git_commit "$D/pj"
+  pj_base=$(git -C "$D/pj" rev-parse HEAD)
   printf 'change-json\n' > "$D/pj/a.txt"
+  lc_impl_commit "$D/pj" 'fixture json implementation change'
+  pj_impl=$(git -C "$D/pj" rev-parse HEAD)
+  lc_audit_receipt "$D/pj" "$pj_base" "$pj_impl"
+  git -C "$D/pj" config user.email reviewer@example.com
+  git -C "$D/pj" config user.name reviewer
   pj_ck0=$(cksum "$D/pj/facts/requirements/tickets/33-lc-ticket.json")
   pj_n0=$(git -C "$D/pj" rev-list --count HEAD)
   {
     printf 'lane: user-review\n'
     printf 'ticket: facts/requirements/tickets/33-lc-ticket.json\n'
-    printf 'whitelist: a.txt\n'
+    printf 'whitelist: facts/requirements/tickets/33-lc-ticket.review-evidence.json\n'
     printf 'message: fixture json ur commit\n'
     printf 'verify: true\n'
     printf 'verdict_quote: OK（fixture json 全链裁决）\n'
@@ -639,11 +697,12 @@ PYTHON
     && grep -q '任务票 33；`done`' "$D/pj/facts/requirements/tickets/README.md" \
     && grep -q '| 33-lc-ticket | done |' "$D/pj/facts/requirements/tickets/progress-current.md" \
     && grep -q '索引翻转已代理' "$D/pj.out" \
+    && grep -q 'ticket-ops: 证据门: flip-index 放行' "$D/pj.out" \
     && grep -q 'ticket-ops: PASS（flip-index 完成' "$D/pj.out" \
     && grep -q '跳过正文 Status 回写' "$D/pj.out"; then
-    ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋README 替换＋投影落行＋回写跳过说明行（票 108）'
+    ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋证据门 conformant＋README 替换＋投影落行＋回写跳过说明行（票 108/237）'
   else
-    bad '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋README 替换＋投影落行＋回写跳过说明行（票 108）' "exit=$rc $(tail -n 3 "$D/pj.out" | tr '\n' '|')"
+    bad '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋证据门 conformant＋README 替换＋投影落行＋回写跳过说明行（票 108/237）' "exit=$rc $(tail -n 3 "$D/pj.out" | tr '\n' '|')"
   fi
 
   if grep -q '^# 票 33-lc-ticket User Review Checkpoint（用户即 Review 道）$' "$D/pj/facts/requirements/tickets/33-lc-ticket-review-checkpoint.md" \
@@ -663,11 +722,16 @@ PYTHON
   fi
 
   # P-json 二次收口：checkpoint md 已存在 → 追加记录块（一级标题不重复），票体仍零追加。
+  pj_base2=$(git -C "$D/pj" rev-parse HEAD)
   printf 'change-json2\n' > "$D/pj/a.txt"
+  lc_impl_commit "$D/pj" 'fixture json implementation change 2'
+  pj_impl2=$(git -C "$D/pj" rev-parse HEAD)
+  lc_audit_receipt "$D/pj" "$pj_base2" "$pj_impl2"
+  pj2_n0=$(git -C "$D/pj" rev-list --count HEAD)
   {
     printf 'lane: user-review\n'
     printf 'ticket: facts/requirements/tickets/33-lc-ticket.json\n'
-    printf 'whitelist: a.txt\n'
+    printf 'whitelist: facts/requirements/tickets/33-lc-ticket.review-evidence.json\n'
     printf 'message: fixture json ur commit 2\n'
     printf 'verify: true\n'
     printf 'verdict_quote: OK（fixture json 二次裁决）\n'
@@ -680,10 +744,79 @@ PYTHON
     && [ "$(grep -c '^# 票 33-lc-ticket User Review Checkpoint' "$D/pj/facts/requirements/tickets/33-lc-ticket-review-checkpoint.md")" -eq 1 ] \
     && [ "$(grep -c '^## User Review Checkpoint' "$D/pj/facts/requirements/tickets/33-lc-ticket-review-checkpoint.md")" -eq 2 ] \
     && [ "$(cksum "$D/pj/facts/requirements/tickets/33-lc-ticket.json")" = "$pj_ck0" ] \
-    && [ "$(git -C "$D/pj" rev-list --count HEAD)" -eq "$((pj_n0 + 4))" ]; then
+    && [ "$(git -C "$D/pj" rev-list --count HEAD)" -eq "$((pj2_n0 + 2))" ]; then
     ok '正例 P-json 二次收口 checkpoint md 已存在 → 追加记录块（标题恰 1 个、记录块 2 个）且票体仍零追加（票 108）'
   else
     bad '正例 P-json 二次收口 checkpoint md 已存在 → 追加记录块（标题恰 1 个、记录块 2 个）且票体仍零追加（票 108）' "exit=$rc $(tail -n 3 "$D/pj2.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 237：lane-commit done 翻转前核审计结论（非 conformant 不得收尾）----
+  # 负例：证据缺失 → flip-index 证据门 P01 拒，产品提交已创建、记录提交未创建、索引未 done。
+  lc_build_fixture "$D/na1"
+  lc_json_docs "$D/na1"
+  lc_git_commit "$D/na1"
+  printf 'change-audit\n' > "$D/na1/a.txt"
+  lc_impl_commit "$D/na1" 'fixture audit negative change'
+  printf 'lane-product\n' >> "$D/na1/a.txt"
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: facts/requirements/tickets/33-lc-ticket.json\n'
+    printf 'whitelist: a.txt\n'
+    printf 'message: fixture audit missing evidence\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK（fixture audit 负例裁决）\n'
+    printf 'verdict_at: 2026-10-30T12:00\n'
+    printf 'flips: facts/requirements/tickets/index.json:index:33-lc-ticket:done:2026-10-30T12:00\n'
+  } > "$D/na1.contract"
+  na1_n0=$(git -C "$D/na1" rev-list --count HEAD)
+  sh "$LC" "$D/na1" "$D/na1.contract" >"$D/na1.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q 'decision-required' "$D/na1.out" \
+    && grep -q 'FAIL P01 receipt-parseable:' "$D/na1.out" \
+    && grep -q '记录提交未创建' "$D/na1.out" \
+    && [ "$(git -C "$D/na1" rev-list --count HEAD)" -eq "$((na1_n0 + 1))" ] \
+    && [ "$(tix_lc_status "$D/na1")" = 'in_progress' ]; then
+    ok '负例 N-237g lane-commit done 翻转缺证据 → exit 1 decision-required（产品提交已建、记录提交未建、索引未 done）'
+  else
+    bad '负例 N-237g lane-commit done 翻转缺证据 → exit 1 decision-required（产品提交已建、记录提交未建、索引未 done）' "exit=$rc $(tail -n 3 "$D/na1.out" | tr '\n' '|')"
+  fi
+
+  # 负例：有 conformant 证据但票本体缺 actual_time → actual_time 前置门先拒。
+  lc_build_fixture "$D/na3"
+  lc_json_docs "$D/na3"
+  python3 - "$D/na3/facts/requirements/tickets/33-lc-ticket.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+body = json.load(open(path, encoding='utf-8'))
+body.pop('actual_time', None)
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(body, f, ensure_ascii=False)
+PY
+  lc_git_commit "$D/na3"
+  na3_base=$(git -C "$D/na3" rev-parse HEAD)
+  printf 'change-audit3\n' > "$D/na3/a.txt"
+  lc_impl_commit "$D/na3" 'fixture audit no actual_time'
+  na3_impl=$(git -C "$D/na3" rev-parse HEAD)
+  lc_audit_receipt "$D/na3" "$na3_base" "$na3_impl"
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: facts/requirements/tickets/33-lc-ticket.json\n'
+    printf 'whitelist: facts/requirements/tickets/33-lc-ticket.review-evidence.json\n'
+    printf 'message: fixture audit no actual_time\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK（fixture audit actual_time 负例）\n'
+    printf 'verdict_at: 2026-10-30T12:00\n'
+    printf 'flips: facts/requirements/tickets/index.json:index:33-lc-ticket:done:2026-10-30T12:00\n'
+  } > "$D/na3.contract"
+  sh "$LC" "$D/na3" "$D/na3.contract" >"$D/na3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q 'actual_time' "$D/na3.out" \
+    && [ "$(tix_lc_status "$D/na3")" = 'in_progress' ]; then
+    ok '负例 N-237i lane-commit done 翻转缺 actual_time → exit 1（actual_time 前置门，票据未 done）'
+  else
+    bad '负例 N-237i lane-commit done 翻转缺 actual_time → exit 1（actual_time 前置门，票据未 done）' "exit=$rc $(tail -n 3 "$D/na3.out" | tr '\n' '|')"
   fi
 
   # 负例 N-json：flips id 与 .json 票文件不符 → exit 1 零提交零写入（id 校验语义对

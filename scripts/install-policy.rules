@@ -67,4 +67,6 @@ ip_data agent-up/references/prompts/implementation-prompt.md rules/implementatio
 ip_data agent-up/references/prompts/review-prompt.md rules/implementation/references/prompts/review-prompt.md Conditional ticket-ops 'review 派发合同模板：check-dispatch-contract require_inputs 依赖（校验器邻接 references/ 定位，安装闭包数据件）'
 ip_data agent-up/references/prompts/commit-prompt.md rules/implementation/references/prompts/commit-prompt.md Conditional ticket-ops 'commit 派发合同模板：check-dispatch-contract require_inputs 依赖（校验器邻接 references/ 定位，安装闭包数据件）'
 ip_file agent-up/scripts/project-dashboard.html Conditional ticket-ops '本地项目仪表盘（单文件只读 HTML：用户点击选择项目根后读 module-map.json、票索引与全部卡片并轮询刷新；零网络零写入）'
-ip_file agent-up/scripts/ticket-audit.sh Conditional ticket-ops '证据审计引擎：<NN> 票审查收据＋十一谓词只读审计（操作面 analyze/read 放行未知，merge/push/release 以 conformant 为门；同目录定位 common-helpers.sh 与 json-validator.py 安装闭包）'
+ip_file agent-up/scripts/ticket-audit.sh Conditional ticket-ops '证据审计引擎：<NN> 票审查收据＋十一谓词只读审计（操作面 analyze/read 放行未知，merge/push 以 conformant 为门，P04 允许集显式传入；同目录定位 common-helpers.sh 与 json-validator.py 安装闭包）'
+ip_file agent-up/scripts/merge-ticket.sh Conditional fast-lane '合并站脚本：票分支→main（ff→--no-ff→冲突 abort 停等，成功清 worktree/分支）；合并前证据门调同目录 ticket-audit --operation merge，缺 conformant 即拒绝（done/merge 证据门）'
+ip_file agent-up/scripts/ticket-audit.sh Conditional fast-lane '回退依赖：merge-ticket 合并前证据门与 lane-commit 索引翻转 done 双证的审计引擎（同目录定位 common-helpers.sh 与 json-validator.py 安装闭包）'

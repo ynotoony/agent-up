@@ -115,7 +115,10 @@ usage() {
                  （generate-progress.sh）并 --check 核对（收尾链全仓仅 ticket-ops 一处，票 228
                  F1/F2 写入方收敛；ticket-ops 同目录优先、PATH 回退，缺失＝预检停止
                  fail-closed）→ 机械回写 ticket 票正文 **Status:** 行（.json 票体无 Status 行，
-                 跳过回写，票 108；投影打印件 `value`）。
+                 跳过回写，票 108；投影打印件 `value`）。目标 status=done 时 flip-index 另过
+                 ticket-ops 的双证门（actual_time＋ticket-audit --operation merge conformant，
+                 票 237）：证据未提交/diff 失配/unknown 即收尾停止（产品提交已创建、记录提交
+                 未创建，decision-required），不采信自报 PASS。
                  记录写入委托（票 229，本脚本零 checkpoint/账本写入面）: user-review 道经
                  checkpoint-write.sh review-checkpoint 追加 User Review Checkpoint（stdout
                  末行 `checkpoint-write: 目标文件: <rel>` 为机器契约，目标登记进记录提交）；

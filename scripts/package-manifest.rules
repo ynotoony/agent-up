@@ -187,7 +187,7 @@ pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-docs-index.sh script '规则索引生成器（扫描包内规则块→references/rules-index.md；--check 零漂移核对，零写入）'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/generate-adapter-diffs.sh script '适配器宿主差异段生成器与生成漂移核对器（数据表四节机器数据行→Markdown 差异段；check-package 检查 28 经其 --check 指名宿主与段）'
-pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理；记录层写锁经共享库原语 record_lock_* 承载）'
+pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/close/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理；close/flip/flip-index 至 done 需 actual_time＋ticket-audit conformant 双证，缺证据 decision-required 零写入；记录层写锁经共享库原语 record_lock_* 承载）'
 pm_script scripts/ledger-append.sh script '账本唯一写入方（changes.jsonl 行族形状校验＋唯一 JSON 引擎解析门＋追加单点，ticket-ops 账本落行与写前预检经其承载；--micro 微账本行族 facts/project/micro.jsonl 写入，lane-commit 微道落行经其承载；写模式自取记录层写锁、嵌套调用按继承标记跳过）'
 pm_script scripts/checkpoint-write.sh script 'User Review Checkpoint 唯一写入方（review-checkpoint 子命令：.md 票追加票尾／.json 票落独立 checkpoint md；stdout 末行目标文件机器契约供 lane-commit 登记记录提交面）'
 pm_script scripts/run-record.sh script 'run record 生成器（new/seal/stats；本仓交付后存量清算入包采纳）'
@@ -211,7 +211,8 @@ pm_script scripts/verify-contract.sh script '结构化验收谓词执行器（ve
 pm_script scripts/check-dispatch-contract.sh script '双模式派发合同校验器（--check-template 模板零漂移核对＋--check 合同文件自查；schema 数据件在 references/schemas/）'
 pm_script scripts/contract-build.sh script '派发合同渲染器（<stage> <NN>：票 JSON dispatch 节→stdout 派发合同，纯函数零落盘；输出前自调 check-dispatch-contract.sh --check 自校验，不过零输出；安装闭包随 ticket-ops 门控）'
 pm_script scripts/ticket-run.sh script '主 agent 三阶段编排入口（implementation/review 产出站路径＋合同文件，commit 经 Review pass 与 check-gates 后自动两段提交；索引翻转委托 ticket-ops，脚本不 spawn 子 agent）'
-pm_script scripts/ticket-audit.sh script '证据审计引擎（<NN> 票审查收据＋十一谓词 P01～P11 只读审计出 PASS/FAIL/UNKNOWN，操作面窗口 analyze/read 放行未知、merge/push/release 以 conformant 为门；证据位置打印 路径@提交:blob；策略数据 facts/requirements/audit-policy.json，收据 schema 见 references/schemas/receipt.schema.json；全程零写入）'
+pm_script scripts/ticket-audit.sh script '证据审计引擎（<NN> 票审查收据＋十一谓词 P01～P11 只读审计出 PASS/FAIL/UNKNOWN，操作面窗口 analyze/read 放行未知、merge/push 以 conformant 为门；P04 允许集由调用方逐条 --allow-after 显式传入（缺省仅证据，禁止整体放开 facts 面）；证据位置打印 路径@提交:blob；策略数据 facts/requirements/audit-policy.json，收据 schema 见 references/schemas/receipt.schema.json；全程零写入）'
+pm_script scripts/merge-ticket.sh script '合并站脚本（票分支→main：ff 失败降级 --no-ff，冲突 abort 清现场 exit 3 停等，成功无条件清 worktree/分支；合并前在票分支绑定 worktree 上跑 ticket-audit --operation merge，缺 conformant 证据拒绝合并 decision-required；主仓不干净即拒绝）'
 pm_script scripts/test-checkpoint-recovery.sh test-harness 'Checkpoint 中断续传回归测试（workflow-executor.sh 中断续传机制自检）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
@@ -336,8 +337,10 @@ pm_mirror test-checkpoint-recovery.sh package-only
 pm_mirror verify-contract.sh package-only
 pm_mirror workflow-executor.sh package-only
 pm_mirror ticket-audit.sh package-only
+# 合并站能力入包（done/merge 证据门）：仓侧基线迁入包内后两侧同步落位，册 mirror（byte 纪律；
+# 合并前证据门随包件同款生效，仓侧旧件不再单独演化）。
+pm_mirror merge-ticket.sh mirror
 # -- repo-only：仅仓侧存在，包侧明确不收录 --
-pm_mirror merge-ticket.sh repo-only
 pm_mirror check-derived-freshness.sh repo-only
 pm_mirror check-role-permissions.sh repo-only
 

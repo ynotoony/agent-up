@@ -150,20 +150,20 @@ PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（36 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（37 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 19 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 20 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（36 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（37 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 40 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -190,19 +190,19 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（36 个文件）
+PASS: 8 脚本必需件存在（37 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 19 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 20 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（36 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 39 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（37 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 40 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -240,7 +240,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（36 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（37 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -250,7 +250,7 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-CO-007 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 38 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 39 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -291,7 +291,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（36 个文件）
+PASS: 8 脚本必需件存在（37 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
@@ -301,7 +301,7 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 39 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 40 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -688,7 +688,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（36 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（37 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
@@ -820,13 +820,13 @@ EOF
       bad '负例 N32 mirror 登记悬空（仓侧缺同名件）→ exit 1 且 FAIL: 13 指名悬空件' "exit=$rc"
     fi
 
-    # 负例 N33：repo-only 件被投放包内（merge-ticket.sh 复制入 scripts/）→ exit 1 且
+    # 负例 N33：repo-only 件被投放包内（check-derived-freshness.sh 复制入 scripts/）→ exit 1 且
     # FAIL: 13 指名（防未决策采纳；夹具继承 N32 仓侧缺件缺陷，指名断言逐字独立）。
     cp -R "$D/mrepo2" "$D/mrepo3"
-    cp "$REPO_SIDE/merge-ticket.sh" "$D/mrepo3/agent-up/scripts/merge-ticket.sh"
+    cp "$REPO_SIDE/check-derived-freshness.sh" "$D/mrepo3/agent-up/scripts/check-derived-freshness.sh"
     sh "$D/mrepo3/agent-up/scripts/check-package.sh" "$D/mrepo3/agent-up" >"$D/act.n33" 2>&1
     rc=$?
-    if [ "$rc" -eq 1 ] && grep -q 'scripts/merge-ticket.sh 登记 repo-only 但包内出现同名件' "$D/act.n33"; then
+    if [ "$rc" -eq 1 ] && grep -q 'scripts/check-derived-freshness.sh 登记 repo-only 但包内出现同名件' "$D/act.n33"; then
       ok '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）'
     else
       bad '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）' "exit=$rc"
@@ -846,7 +846,7 @@ EOF
     done
     sh "$D/porepo/agent-up/scripts/check-package.sh" "$D/porepo/agent-up" >"$D/act.p1" 2>&1
     rc=$?
-    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 19 对）' "$D/act.p1" \
+    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 20 对）' "$D/act.p1" \
       && grep -q '^PASS: 21 references 树成员闭合与导航' "$D/act.p1"; then
       ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 19 对'
     else

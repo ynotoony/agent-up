@@ -3,11 +3,13 @@
 #        仓库根；TICKET_OPS_LOCK_TIMEOUT／TICKET_OPS_LOCK_STALE／RECORD_LOCK_BREAK_STALE
 #        等运行开关。
 # Output: 错误与告警报文函数、仓库根推导，只追加前缀语义（账本清单、字节前缀判定、
-#         首个违规行号定位——check-append-only.sh 与记录提交前缀门共用），以及记录层
+#         首个违规行号定位——check-append-only.sh 与记录提交前缀门共用），记录层
 #         写锁原语（mkdir 原子取锁、有界等待、陈旧锁只诊断、显式夺锁、令牌归属校验、
-#         继承识别与释放）；本库不直接写业务载体。
-# Pos: agent-up 脚本共享库，锁原语（票 246）与前缀语义（票 247）全仓唯一实现点；
-#      ticket-ops.sh／ledger-append.sh／check-append-only.sh／lane-commit.sh 只调用不复制。
+#         继承识别与释放），以及证据门 Review Checkpoint 允许集的唯一形态判定；本库
+#         不直接写业务载体。
+# Pos: agent-up 脚本共享库，锁原语（票 246）、前缀语义（票 247）与 Review Checkpoint
+#      允许集判定（票 237）全仓唯一实现点；ticket-ops.sh／merge-ticket.sh／
+#      ledger-append.sh／check-append-only.sh／lane-commit.sh 只调用不复制。
 #      一旦我被更新，务必同步 rules/implementation/scripts/ 镜像件与同目录 README.md。
 
 # Extract script name from $0 for error messages
@@ -30,6 +32,26 @@ die2() {
 # Warning message (non-fatal)
 warn() {
   printf '%s: WARNING: %s\n' "$(_script_name)" "$1" >&2
+}
+
+# review_checkpoint_allow_after <票 id> <JSON 引擎> <票体来源>
+# 证据门允许集里 Review Checkpoint 路径的唯一判定实现：<票体来源> 为票体文件路径或
+# '-'（读 stdin）。票面 dispatch.commit.REVIEW_PASS_CHECKPOINT 恰为本票规范路径
+# facts/requirements/tickets/<id>-review-checkpoint.md 时打印该路径；未声明或形态
+# 不符打印空（形态不符附告警）。ticket-ops 证据门与 merge-ticket 合并门共用本函数，
+# 禁止各写一份——两处口径必须同源，否则 done 能过而 merge 恒拒。
+review_checkpoint_allow_after() {
+  _rca_id=$1
+  _rca_engine=$2
+  _rca_src=$3
+  [ -f "$_rca_engine" ] || return 0
+  _rca_val=$(python3 "$_rca_engine" json get "$_rca_src" 'dispatch.commit.REVIEW_PASS_CHECKPOINT' 2>/dev/null) || _rca_val=''
+  case $_rca_val in
+    '') ;;
+    "facts/requirements/tickets/${_rca_id}-review-checkpoint.md") printf '%s\n' "$_rca_val" ;;
+    *) printf '%s: 证据门: REVIEW_PASS_CHECKPOINT 形态不符，不纳入允许集: %s\n' "$(_script_name)" "$_rca_val" >&2 ;;
+  esac
+  return 0
 }
 
 # resolve_repo_root [--git|--marker|--layout] [override]
