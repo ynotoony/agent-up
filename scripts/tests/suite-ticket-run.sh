@@ -7,7 +7,8 @@ fi
 # shellcheck disable=SC2034  # 计数器由 sourced 的 test-helpers.sh 使用
 
 # suite: ticket-run——三阶段真实夹具、Review 结论位 fail-closed（含证据行不得翻案）、
-#        两段提交与编排器原子层边界。
+#        两段提交与编排器原子层边界；可恢复协调器五子命令、intent 重跑收敛、残留
+#        intent 的前置复核与 next 退出码（decision-required＝exit 1）。
 
 tr_git_commit() {
   git -C "$1" add -A
@@ -847,10 +848,57 @@ PY
 
   tr_run_in "$DEC" 90 next > "$D/c-dec-next.out" 2> "$D/c-dec-next.err"
   rc=$?
-  if [ "$rc" -eq 0 ] && grep -q '^ticket-run: 下一步: decision-required$' "$D/c-dec-next.out"; then
-    ok 'C11b next 对无法判定的站路径返回 decision-required'
+  if [ "$rc" -eq 1 ] && grep -q '^ticket-run: 下一步: decision-required$' "$D/c-dec-next.out"; then
+    ok 'C11b next 对无法判定的站路径返回 decision-required 且 exit 1'
   else
-    bad 'C11b next 对无法判定的站路径返回 decision-required' "exit=$rc $(cat "$D/c-dec-next.out" | tr '\n' '|')"
+    bad 'C11b next 对无法判定的站路径返回 decision-required 且 exit 1' "exit=$rc $(cat "$D/c-dec-next.out" | tr '\n' '|')"
+  fi
+
+  # D6：残留 take intent ＋ 索引已非可领取状态——恢复提示须先核 start 前置，
+  # 不得提示「重跑 start」（start 会因前置拒绝、intent 永不清除＝永不收敛）。
+  tr_pending_take() {
+    # $1=夹具根：写一条 take started 残留 intent（路径＝<root>/.git/ticket-run/90.intent）
+    mkdir -p "$1/.git/ticket-run" || return 1
+    printf 'take\tstarted\t2026-10-28T10:00:00Z\n' > "$1/.git/ticket-run/90.intent"
+  }
+  D6A=$D/d6a
+  tr_build_fixture "$D6A" done
+  tr_pending_take "$D6A"
+  tr_run_in "$D6A" 90 next > "$D/d6a-next.out" 2> "$D/d6a-next.err"
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '^ticket-run: 下一步: decision-required$' "$D/d6a-next.out" \
+    && ! grep -q '^ticket-run: 下一步: start$' "$D/d6a-next.out" \
+    && grep -q 'next --clear-intent' "$D/d6a-next.out"; then
+    ok 'D6a 残留 take intent＋索引 done → next 判 decision-required 并给登记清除路径'
+  else
+    bad 'D6a 残留 take intent＋索引 done → next 判 decision-required 并给登记清除路径' "exit=$rc $(cat "$D/d6a-next.out" | tr '\n' '|')"
+  fi
+
+  tr_run_in "$D6A" 90 next --clear-intent > "$D/d6a-clear.out" 2> "$D/d6a-clear.err"
+  rc=$?
+  tr_run_in "$D6A" 90 next > "$D/d6a-after.out" 2> "$D/d6a-after.err"
+  rc2=$?
+  if [ "$rc" -eq 0 ] && [ ! -e "$D6A/.git/ticket-run/90.intent" ] \
+    && [ "$rc2" -eq 0 ] && grep -q '^ticket-run: 下一步: done$' "$D/d6a-after.out" \
+    && ! grep -q '^ticket-run: 恢复:' "$D/d6a-after.out"; then
+    ok 'D6b next --clear-intent 清残留后收敛：intent 已删且下一步回到 done'
+  else
+    bad 'D6b next --clear-intent 清残留后收敛：intent 已删且下一步回到 done' "exit=$rc/$rc2 $(cat "$D/d6a-clear.out" "$D/d6a-after.out" | tr '\n' '|')"
+  fi
+
+  D6C=$D/d6c
+  tr_build_fixture "$D6C" review_pass
+  (cd "$D6C" && git worktree add -q -b ticket/90-run-fixture "$D/d6c-wt/wt90" HEAD)
+  tr_pending_take "$D6C"
+  tr_run_in "$D6C" 90 next > "$D/d6c-next.out" 2> "$D/d6c-next.err"
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '^ticket-run: 下一步: decision-required$' "$D/d6c-next.out" \
+    && ! grep -qE '^ticket-run: 下一步: (start|commit)$' "$D/d6c-next.out"; then
+    ok 'D6c 残留 take intent＋索引 review_pass（站已就位）→ next 判 decision-required（不提示 start/commit）'
+  else
+    bad 'D6c 残留 take intent＋索引 review_pass（站已就位）→ next 判 decision-required（不提示 start/commit）' "exit=$rc $(cat "$D/d6c-next.out" | tr '\n' '|')"
   fi
 
   # D3：本地日期与 UTC 日期跨日时重跑 start——账本日期须与 ticket-ops 的 updated_at 同源

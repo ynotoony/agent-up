@@ -3,12 +3,16 @@
 #        （可恢复协调器五子命令），或 legacy implementation|review|commit。NN 定位唯一
 #        任务票；repo-root 缺省按脚本落位推导。contract 收 implementation|review；
 #        record 收收据 JSON 文件；verify-dispatch 收 implementation|review|commit
-#        与可选合同文件。
+#        与可选合同文件；next 另收 --clear-intent（显式清除残留 intent）。
 # Output: 五子命令各自只做一步、只经已登记幂等工具产生副作用，并在有副作用动作前写
 #         intent（<git-common-dir>/ticket-run/<NN>.intent，逐步 started/done），故同一
 #         命令失败后重跑即收敛；无法判定的状态返回 decision-required 而非猜测：
 #         next      只读推导下一步，恰打印「ticket-run: 下一步: <token>」与原因行；
-#                   intent 显示上次未完成步骤时另打一行恢复提示。
+#                   intent 显示上次未完成步骤时另打一行恢复提示。恢复提示先对照该命令
+#                   的索引前置（start 只接受 ready|in_progress），前置不满足即
+#                   decision-required 并给出登记清除路径 next --clear-intent，不得提示
+#                   重跑一条会被前置拒绝的命令；decision-required 时 exit 1（与「有下
+#                   一步」的 exit 0 可凭退出码区分）。
 #         start     建站（worktree-add，两参旧接口）→ 领取（ticket-ops take）；站已在位
 #                   且分支正确即跳过建站，索引已是 in_progress 即走 ticket-ops 幂等重放；
 #                   输出站路径、票状态与下一步。
@@ -23,8 +27,9 @@
 # Pos: 主 agent 唯一编排入口（可恢复协调器）；只组合 contract-build/worktree-add/
 #      ticket-ops 原子层，不读取或改写票状态逻辑，不直接写 index/README/账本/投影；
 #      状态写入唯一经 ticket-ops（票 243 核心）。intent 日志只落 Git 公共目录，不进
-#      版本控制面。POSIX sh；JSON 读取仅经 json-validator.py。commit 不生成 User
-#      Review Checkpoint，不伪造用户裁决；record 只搬已产出的收据，不生成 verdict。
+#      版本控制面；next --clear-intent 是残留 intent 的唯一登记清除路径（只删该日志，
+#      不碰任何状态载体）。POSIX sh；JSON 读取仅经 json-validator.py。commit 不生成
+#      User Review Checkpoint，不伪造用户裁决；record 只搬已产出的收据，不生成 verdict。
 
 set -eu
 set -f
@@ -51,9 +56,14 @@ usage() {
   NN           票号段（^[0-9]{2,}$），定位 facts/requirements/tickets/<NN>-<slug>.json
   repo-root    主仓库根目录；缺省按脚本落位推导
 命令（可恢复协调器；每命令只做一步，失败后重跑同一命令收敛）:
-  next                        只读推导下一步，打印「ticket-run: 下一步: <token>」与原因；
-                              无副作用、零写入。token ∈ open|start|contract implementation|
-                              contract review|commit|record|done|decision-required。
+  next [--clear-intent]       只读推导下一步，打印「ticket-run: 下一步: <token>」与原因；
+                              无副作用、零写入；decision-required 时 exit 1，与「有下一步」
+                              的 exit 0 可凭退出码区分。token ∈ open|start|
+                              contract implementation|contract review|commit|record|done|
+                              decision-required。恢复提示先核该命令的索引前置（start 只
+                              接受 ready|in_progress），前置不满足即 decision-required 并
+                              打印登记清除路径。--clear-intent 显式清除残留 intent 操作
+                              记录（核对索引后使用；只删该日志，不碰任何状态载体）。
   start                       建站（worktree-add 两参接口）→ 领取（ticket-ops take）。
                               站已在位且分支为 ticket/<id> 时跳过建站；索引已 in_progress
                               时经 ticket-ops 幂等重放补齐 README/账本/投影。
@@ -72,8 +82,9 @@ usage() {
                               合同文件缺失、合同漂移。
   implementation|review       legacy 语义：渲染合同；implementation 缺站时自动建站（两行输出）。
   commit                      legacy 语义不变：Review 结论位＋check-gates 后产品/记录两段提交。
-退出码: 0 完成；1 fail-closed（含 decision-required、合同/Review/门禁/收据未过）；
-        2 用法或环境错误（参数、仓库根、原子层缺失）。
+退出码: 0 完成（next＝有下一步）；1 fail-closed（含 next 的 decision-required、
+        合同/Review/门禁/收据未过）；2 用法或环境错误（参数、仓库根、原子层缺失）。
+        逐子命令退出码表见同目录 README.md。
 -h / --help  打印本用法
 USAGE
 }
@@ -91,8 +102,21 @@ stage=''
 receipt_file=''
 contract_arg=''
 repo_root=''
+clear_intent=0
 case $cmd in
-  next|start)
+  next)
+    while [ $# -gt 0 ]; do
+      case $1 in
+        --clear-intent) clear_intent=1 ;;
+        *)
+          [ -z "$repo_root" ] || { usage >&2; die2 'next 至多接受一个 [repo-root]'; }
+          repo_root=$1
+          ;;
+      esac
+      shift
+    done
+    ;;
+  start)
     [ $# -le 1 ] || { usage >&2; die2 "${cmd} 至多接受 [repo-root]"; }
     repo_root=${1:-}
     ;;
@@ -364,20 +388,49 @@ compute_next() {
   esac
 }
 
-# ---- next：只读推导下一步（零写入，不落 intent）----
+# ---- next：只读推导下一步（零写入，不落 intent；--clear-intent 只删 intent 日志）----
 
 conveyor_next() {
+  if [ "$clear_intent" -eq 1 ]; then
+    intent_ensure
+    if [ -f "$intent_file" ]; then
+      rm -f "$intent_file" || die1 "intent 清除失败: ${intent_file}"
+      printf 'ticket-run: intent: 已清除残留操作记录 %s\n' "$intent_file"
+    else
+      printf 'ticket-run: intent: 无残留操作记录（%s）\n' "$intent_file"
+    fi
+  fi
   compute_next
   _pending=$(pending_intent_step 2>/dev/null) || _pending=''
-  if [ -n "$_pending" ] && [ "$NEXT_STEP" != 'decision-required' ]; then
+  if [ -n "$_pending" ]; then
+    # 恢复提示须先对照该命令的状态前置：start 只接受 ready|in_progress。前置不满足时
+    # 提示重跑会立刻被拒且 intent 永不清除（永不收敛），故归 decision-required 并给
+    # 登记清除路径；review_ready/review_pass/blocked 等非可领取状态同口径。
     case $_pending in
       worktree|take)
-        NEXT_STEP='start'
-        NEXT_REASON="上次 ${_pending} 步骤未完成：先重跑 start 收敛（幂等补齐）"
+        case ${_status:-} in
+          ready|in_progress)
+            if [ "$NEXT_STEP" != 'decision-required' ]; then
+              NEXT_STEP='start'
+              NEXT_REASON="上次 ${_pending} 步骤未完成：先重跑 start 收敛（幂等补齐）"
+            fi
+            ;;
+          *)
+            NEXT_STEP='decision-required'
+            NEXT_REASON="上次 ${_pending} 步骤未完成，但索引状态 ${_status:-未知} 不满足 start 前置（只接受 ready|in_progress）——须人工裁决，清除路径见下行"
+            ;;
+        esac
         ;;
       record)
-        NEXT_STEP='record'
-        NEXT_REASON='上次 record 步骤未完成：重跑 record 收敛（同内容不重写）'
+        if worktree_path_valid; then
+          if [ "$NEXT_STEP" != 'decision-required' ]; then
+            NEXT_STEP='record'
+            NEXT_REASON='上次 record 步骤未完成：重跑 record 收敛（同内容不重写）'
+          fi
+        else
+          NEXT_STEP='decision-required'
+          NEXT_REASON="上次 record 步骤未完成但站缺失（record 要求站已存在）——须人工裁决，清除路径见下行"
+        fi
         ;;
     esac
   fi
@@ -385,6 +438,12 @@ conveyor_next() {
   printf 'ticket-run: 原因: %s\n' "$NEXT_REASON"
   if [ -n "$_pending" ]; then
     printf 'ticket-run: 恢复: 上次 %s 步骤未完成，重跑收敛\n' "$_pending"
+    if [ "$NEXT_STEP" = 'decision-required' ]; then
+      printf 'ticket-run: 清除: 核对索引后执行 sh ticket-run.sh %s next --clear-intent（登记于用法与同目录 README.md）\n' "$nn"
+    fi
+  fi
+  if [ "$NEXT_STEP" = 'decision-required' ]; then
+    exit 1
   fi
   exit 0
 }
