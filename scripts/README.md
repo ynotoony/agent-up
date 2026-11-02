@@ -33,6 +33,7 @@
 | `ticket-grade.sh` | 定级建议器 | 票定级建议器（本仓交付后存量清算入包采纳）：读任务票 JSON 机械计算可数判据（承重验收条数、行为/契约件模块数、高风险面关键词、公共接口证据与微道承重可数面），输出各 C 级命中条件、C0-C3 建议、微道资格预审与逐票分歧账；建议不裁决（输出只写「建议/命中/预审」，不写「必须/定级为」，分歧以 Triage 为准）；python3 标准库内嵌、全程只读零写入、fail-closed。包内文件为本仓根同名件基线 cmp 零差异采纳（先包后仓，包为基准、仓侧为镜像），随 ticket-ops 门控复制（登记见 `install-policy.rules`）；用法/判据口径见脚本 `-h` 与头部注释。 |
 | `absorption-trigger.sh` | 吸收触发器 | R-DP-041 吸收面机械承载：读账本九键 lesson 行按 scope 聚合分数——同 scope 最近 3 连合同质量高分（≥80）出 PROMOTE 候选（固化为例句）、2 连低（≤40）出 FORBID 候选（进 Forbidden），提示不裁决（对齐 ticket-grade 先例）裁决归用户；数据不足 NOTE；阈值 80/40 为初值可调；POSIX sh、全程只读零写入、零外部依赖。详见下文专节。 |
 | `health-summary.sh` | 体系仪表盘 | 四分区只读汇总：打分趋势（lesson 九键行按 scope 最近分数）｜吸收候选（调用同目录 absorption-trigger.sh，口径单一承载）｜扫描报警（check-stale-claims gate STALE 计数含 S8）｜对账状态（提供包基线时出汇总行）；空源显示（无）不虚构；POSIX sh、全程只读零写入、零外部依赖。详见下文专节。 |
+| `measure-context-cost.sh` | 成本度量复测器 | 只读统计会话 `wire.jsonl` 的 `usage.record`：raw／缓存重放／新增输入／输出／每次调用上下文／每步工具调用数／超 2 万字符结果数／步数分布；`--governance` 统计安装件字符数、规则块数与每阶段读取集字符数；给定基线 JSON 逐项输出差值（基线−当前，正数＝下降＝收益）；样本不足、路径或指标缺失即 exit 非 0 且零 stdout（不输出半套指标）。详见下文专节。 |
 | `install.sh` | 安装脚本（包侧安装器） | 安装政策单源化的执行引擎：按启用门控自查同目录 `install-policy.rules` 得复制集合，脚本件逐件 cp 自包 `scripts/` 至 `<target>/rules/implementation/scripts/`，数据件逐件 cp 自包内源路径至 `<target>/<行内落位路径>`（安装后运行时依赖闭包——schema/profile 等数据件随消费脚本同门控落位，消费脚本按自身落位形态邻接定位），并逐件 cmp 核验字节一致；预检先于复制（脚本件与数据件同口径核验源存在，删任一已登记依赖即安装明确失败指名路径；目标漂移即停，零半套）；已存在且字节一致的同名件幂等跳过，不一致即停（reconcile 纪律不覆盖）；目标目录缺失时创建并输出提示行（scripts 目录 README 生成归执行体，数据目录无 README 义务）；末尾输出登记建议块（每复制件一行 artifacts.yaml 十三字段建议值，脚本件 kind: script、数据件 kind: spec，生成件登记随条目单本账承载），不代写目标治理文件；POSIX sh、零外部依赖、fail-closed；引擎零脚本名零门控专名（加门控＝加规则行零引擎改动）；包侧工具，不落本仓 `scripts/` 镜像。详见下文专节。 |
 | `export-payload.sh` | 公开载荷导出单命令 | delivery.rules 驱动的六步导出（命令面权威＝载荷导出设计 §3）：split→树比对（全新 mktemp 展开即用即删）→导出树 check-package→ff 断言（远端 target 头非新导出头祖先＝污染停手，报错文案照设计逐字）→push（裸 push）→ls-remote 复核；`--dry-run` 执行步骤 1～4 零远端写零本地分支写；永不 force（不内建任何改写远端历史的路径）；真跑前置主检出门禁（链接 worktree 内拒绝真跑——R-DP-036 main-only：未合并分支不得上公开仓，`--dry-run` 不受限）；导出形态（前缀/远端/分支）读仓根 `delivery.rules` payload 节，未声明即拒跑 exit 2；POSIX sh。详见下文专节。 |
 | `worktree-add.sh` | worktree 栅栏化创建单命令 | 一票一 worktree 的创建面栅栏（R-DP-036 配套；与 export-payload 真跑主检出门禁、install.sh worktree 自拒互为三闸）：主检出自拒（链接 worktree 内拒绝运行）→读仓根 `delivery.rules` main-only 节（锚点缺失或文件缺失＝栅栏未知拒跑 exit 2 fail-closed；锚点在场即已声明，含空清单）→合同入口（单参数传派发合同文件）自抽 TICKET_ID 派生分支名与站路径（旧接口双参数传路径与分支名，形态要求见脚本 `--help`）→`git worktree add --no-checkout` 创建（分支存在即检出、不存在即 `-b` 创建）→sparse-checkout 非锥形模式放行全部＋逐条排除 main-only 路径→`read-tree -mu HEAD` 物化→生效断言（首条排除路径在 worktree 内必须物理不在场，空清单跳过）；main-only 脚本自此在该 worktree 不可运行（文件不在场），排除清单持久于该 worktree `info/sparse-checkout` 随删除消失；POSIX sh、不 push、不删除既有 worktree。 |
@@ -47,7 +48,7 @@
 | `test-checkpoint-recovery.sh` | Checkpoint 中断续传回归测试 | workflow-executor.sh 中断续传机制回归测试：模拟工作流中断后从 checkpoint 恢复继续执行的场景，验证 checkpoint 文件格式、恢复逻辑正确性；POSIX sh、mktemp 夹具 trap 清理、零工作区写入。供开发/升级时自检 checkpoint 机制。 |
 | `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控显示 N/A；快道证据两源＝delivery.rules 在场或快道专属脚本已装，多门控共享脚本（如 generate-progress.sh）不构成快道证据——未启用快道时 delivery.rules 恒 N/A，快道脚本已装而缺配置才报落后；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
-| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋29 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
+| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋31 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
 
 旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
@@ -1043,6 +1044,73 @@ commit 只认「结论位」，取值仅三种：`PASS`、`PASS_WITH_NOTES`、`F
 
 策略缺失、不可解析或任一项不合格即 P11 UNKNOWN；引擎不以默认值兜底，也不据猜测放行写面。
 
+## measure-context-cost.sh（上下文成本与治理体积复测）
+
+只读复测工具：把改动前与改动后的会话成本、治理体积放到同一口径下，差值＝基线−当前，正数即下降即收益。两种模式互斥——缺省会话模式递归读取会话根下全部 `wire.jsonl` 的 `usage.record` 与消息体；`--governance` 读取安装模板九件。输出 ≤40 行；任一指标缺失、样本不足或基线缺键即 exit 非 0 且零 stdout（不输出半套指标）。会话日志与模板目录均零写入，仓库零写入；POSIX sh＋python3 流式聚合（逐行处理，不整仓载入内存）。
+
+### 用法
+
+```text
+sh scripts/measure-context-cost.sh [--sessions <dir>] [--baseline <json>] [--min-samples <n>]
+sh scripts/measure-context-cost.sh --governance [--templates <dir>] [--baseline <json>]
+```
+
+- `--sessions <dir>`：会话根目录，缺省 `$HOME/.kimi-code/sessions`。
+- `--baseline <json>`：基线 JSON（键＝指标名，值＝数字）；给定时逐项输出差值与变化率，缺省只输出当前值。
+- `--min-samples <n>`：最小 `usage.record` 样本数，缺省 100；低于阈值 exit 1 并指名缺失项。
+- `--governance`：治理体积模式；`--templates <dir>` 缺省本脚本上一级的 `references/templates`。
+- `-h` / `--help`：打印用法，exit 0。
+
+### 指标口径
+
+会话模式（样本＝全部 `usage.record`，calls＝样本数）：
+
+| 指标 | 口径 |
+| --- | --- |
+| `raw` | `inputOther + output + inputCacheRead + inputCacheCreation` 之和 |
+| `cache_read` | `inputCacheRead` 之和 |
+| `input_added` | `inputOther + inputCacheCreation` 之和（真正新增输入） |
+| `output` | `output` 之和 |
+| `context_per_call` | `(inputCacheRead + input_added) / calls`，整除 |
+| `tool_calls_per_step` | assistant 消息 `toolCalls` 数组元素总数 / calls，两位小数 |
+| `tool_results_over_20000` | `role=tool` 消息文本解码后长度 >20000 的条数 |
+| `agents_over_250_steps` | 单文件 `usage.record` 数 >250 的 agent 文件数 |
+
+表后附三行：样本计数（calls／阈值／基线 calls／agent 数／工具调用总数）、每步工具调用分布（0／1／2／3+）、每 agent 步数分布（<=10／11-50／51-150／151-250／>250）。未知字段容忍、坏行跳过；缓存字段缺失按 0 计。
+
+治理模式（安装模板九件＝`AGENTS.md.tmpl`、`core.md.tmpl`、`project.md.tmpl`、`assessment.md.tmpl`、`discipline.md.tmpl`、`agents-triage.md.tmpl`、`agents-implementation.md.tmpl`、`agents-review.md.tmpl`、`agents-commit.md.tmpl`）：
+
+| 指标 | 口径 |
+| --- | --- |
+| `install_chars` | 九件字符数之和，python3 `len(open(..., encoding="utf-8").read())` |
+| `install_blocks` | 九件内 `^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]` 规则块数 |
+| `stage_triage_chars` | AGENTS／core／assessment／project／agents-triage |
+| `stage_implementation_chars` | AGENTS／core／discipline／project／agents-implementation |
+| `stage_review_chars` | AGENTS／core／discipline／project／agents-review |
+| `stage_commit_chars` | AGENTS／core／project／agents-commit |
+
+差值列＝基线−当前，变化率列＝(基线−当前)/基线；正数即下降即收益，负数即增长即代价。基线缺任一同名键即 exit 1 指名缺失键。
+
+### 基线 JSON 形态
+
+键名与上表逐项同名同单位，值为数字；示例（数值仅示形态）：
+
+```json
+{"raw": 2254213027, "cache_read": 2198990527, "input_added": 43801527, "output": 11420973, "context_per_call": 143962, "tool_calls_per_step": 1.36, "tool_results_over_20000": 418, "agents_over_250_steps": 11}
+```
+
+治理模式以 `install_chars`、`install_blocks`、`stage_triage_chars`、`stage_implementation_chars`、`stage_review_chars`、`stage_commit_chars` 为键（整数）；会话模式可选 `calls` 键。
+
+### 退出码
+
+| 退出码 | 语义 |
+| --- | --- |
+| 0 | 全部指标就绪（给基线时逐项出差值）。 |
+| 1 | 路径不存在、会话无 `usage.record`、样本低于阈值、基线文件缺失或基线缺指标。 |
+| 2 | 用法或环境错误（未知参数、参数不合形态、模板缺件、共享库或 JSON 引擎缺失）。 |
+
+回归＝`tests/` 的 `context-cost` 套件（`sh tests/suite-context-cost.sh` 或 `sh tests/test-runner.sh --suite context-cost`），夹具内建、仓库零留样。
+
 ## test-record-layer.sh（记录层回归 harness）
 
 - 布局：`test-record-layer.sh` 为兼容入口（委托 `tests/test-runner.sh`，参数不变）；`tests/test-helpers.sh` 承载 ok/bad/assert_eq/suite_summary/cleanup 等共享函数；每个 suite 一个 `tests/suite-<name>.sh`（内含该套件私有夹具函数），文件头带独立入口（直接 `sh tests/suite-<name>.sh` 即跑该套件）。新增套件三处同步：runner 派发表、本节 suite 覆盖表、清单 scripts 节 dir 行描述。
@@ -1056,7 +1124,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 ```
 
 - 无参数：`--suite all`；被测脚本目录缺省＝本脚本所在目录，包根缺省＝被测脚本目录的上一级（check-package.sh 同款）。
-- `--suite module-map|ticket-ops|progress|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|ticket-audit|merge|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
+- `--suite module-map|ticket-ops|progress|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|ticket-audit|context-cost|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
 - `--script-dir <dir>`：被测脚本所在目录（须含被测成员全集，权威清单＝`tests/test-runner.sh` 启动核对，含 `generate-module-map.sh`＋`module-map.rules`、`ticket-ops.sh`＋`generate-progress.sh`、`check-package.sh`、`check-append-only.sh`、`check-artifacts.sh`、`check-stale-claims.sh`、`worktree-add.sh`、`dp-load-rules.sh`；main-only 栅栏件 install.sh/export-payload.sh 不在核对清单，相关套件自行 SKIP）；对复制落位副本或被测脚本修改副本复跑时使用。
 - `--pkg-root <dir>`：check-package 套件的包根，缺省＝script-dir 的上一级。
 - `-h` / `--help`：打印用法。
@@ -1096,6 +1164,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `check-gates` |  | check-gates.sh 验证执行边界正负例：合法只读验证 exit 0 且既有 PASS/汇总行格式保持；五类越界写——新建未跟踪文件（exit 1 指名文件、保持现场、同批后续 verify 输出 SKIP 且不执行）、删除跟踪文件、修改索引（git add）、创建符号链接、改写已修改文件（git status 行不变仍经内容哈希检出）；allow-output 目录内产出 exit 0 且工作区只留白名单改动与允许输出、既有产物复跑按允许输出放行；allow-output 含跟踪文件或路径含 .. → exit 2；record-only + verify N/A 语义不变 | 11 |
 | （仅 all）注入自检 |  | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
 | `ticket-audit` |  | 证据审计引擎十一谓词正负例：正例 analyze/read/merge 三面 conformant 且十一谓词逐行 PASS、证据位置 `路径@提交:blob` 与 `git log`／`rev-parse` 逐一相等；负例按谓词分离——P01 证据缺失／非 review 收据／票号不匹配（P01 短路），P02 提交后又改动／未提交（HEAD 未跟踪），P04 证据之后混入产品改动（指名路径）与 head 非祖先，P05 diff 指纹篡改（按行号指名）／base==head 零实现 diff／base≠head 但两提交树相同（空 diff），P09 旧 PASS 与 reviewed_at 越界，P10 自由文本 verdict／FAIL verdict／PASS 含未知验收，P08 自签与策略实现者名单命中；未知分支——P07 身份不可佐证（author 不一致／不在可信名单）与 P11 策略缺失／非法 effective_from／不适用／发布基线标签缺失（analyze exit 0 且 merge/push 拒绝）；用法与环境错误 exit 2；一次审计零写入（文件 cksum 与 HEAD 前后一致）；P04 允许集三例——显式允许记录载体 exit 0、未传入时同改动 exit 1 指名 index.json、产品文件与允许集外 facts 文件仍 FAIL 指名路径 | 41 |
+| `context-cost` |  | 成本度量复测器正负例（mktemp 夹具）：会话模式合成 `wire.jsonl` 夹具逐项相等（raw／cache_read／input_added／output／context_per_call／每步工具调用数／超 2 万字符结果数／超 250 步 agent 数／calls）＋给基线 JSON 逐项差值与变化率＋未知字段容忍、坏行跳过、缓存字段缺失按 0＋负例（样本低于阈值、会话路径不存在、目录无 `wire.jsonl`、基线文件缺失、基线缺指标——均 exit 非 0 且零 stdout，不输出半套指标）＋治理模式九件夹具逐项相等（install_chars／install_blocks／四阶段读取集）＋治理基线差值与缺键负例＋`--help` 与非法 `--min-samples` 用法负例＋只读复核（会话与模板夹具 cksum 前后一致） | 49 |
 
 断言计数随维护增减（suite 汇总行按实际计数输出；stale-claims/ticket-ops/append-only 行计数删格——数字以 `--suite` 实跑输出为唯一真相源）。
 

@@ -150,7 +150,7 @@ PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（37 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（38 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
@@ -162,8 +162,8 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（37 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 40 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（38 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 41 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -190,7 +190,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（37 个文件）
+PASS: 8 脚本必需件存在（38 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -201,8 +201,8 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（37 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 40 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（38 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 41 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -240,7 +240,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（37 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（38 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -250,7 +250,7 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-CO-007 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 39 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 40 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -291,7 +291,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（37 个文件）
+PASS: 8 脚本必需件存在（38 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
@@ -301,7 +301,7 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 40 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 41 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -688,7 +688,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（37 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（38 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \

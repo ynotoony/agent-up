@@ -76,8 +76,8 @@
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
 #      脚本（check-package.sh 同款路径惯例），--script-dir/--pkg-root 参数化支持复制落位
 #      语境；init suite 集合（module-map/ticket-ops/progress/check-package/append-only/
-#      check-artifacts/stale-claims 起步，历次随票扩；现行 29 个 suite）＋完整运行（--suite all）末尾注入自检；
-#      安装面收敛后新增 docs-generation（规则索引生成器回归）与 governance-size（安装面预算回归）；票 233 新增 project-dashboard 套件（本地项目仪表盘：Node 抽取运行页面核心逻辑，缺 node 即 exit 2；静态零写入/零网络面与安装闭包真跑）；票 234 新增 ticket-audit 套件（证据审计引擎十一谓词：正例三操作面 conformant 与证据位置可追溯，负例/未知分支逐谓词分离，零写入断言以 cksum 与 HEAD 前后比对承载）；POSIX sh 零外部
+#      check-artifacts/stale-claims 起步，历次随票扩；现行 31 个 suite）＋完整运行（--suite all）末尾注入自检；
+#      安装面收敛后新增 docs-generation（规则索引生成器回归）与 governance-size（安装面预算回归）；票 233 新增 project-dashboard 套件（本地项目仪表盘：Node 抽取运行页面核心逻辑，缺 node 即 exit 2；静态零写入/零网络面与安装闭包真跑）；票 234 新增 ticket-audit 套件（证据审计引擎十一谓词：正例三操作面 conformant 与证据位置可追溯，负例/未知分支逐谓词分离，零写入断言以 cksum 与 HEAD 前后比对承载）；新增 context-cost 套件（成本治理度量：合成 wire.jsonl 夹具、基线逐项差值、样本不足 fail-closed 零 stdout、治理体积与每阶段读取集差值）；POSIX sh 零外部
 #      依赖（夹具 git init/commit 依赖被测脚本自身声明的 Git）。用法、suite 覆盖表、退出码
 #      与维护规则见同目录 README.md 专节。
 
@@ -149,6 +149,8 @@ export TEST_RECORD_SOURCE_ONLY
 . "$TESTS_DIR/suite-ticket-audit.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，合并站证据门回归）
 . "$TESTS_DIR/suite-merge.sh"
+# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，成本度量回归）
+. "$TESTS_DIR/suite-context-cost.sh"
 
 
 SUITE='all'
@@ -160,6 +162,7 @@ usage() {
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
     --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | context-cost | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
@@ -179,6 +182,7 @@ while [ $# -gt 0 ]; do
 done
 case $SUITE in
   module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|merge|all) ;;
+  module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|context-cost|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -247,6 +251,7 @@ case $SUITE in
   governance-size) suite_governance_size ;;
   ticket-audit) suite_ticket_audit ;;
   merge) suite_merge ;;
+  context-cost) suite_context_cost ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -278,6 +283,7 @@ case $SUITE in
     suite_governance_size
     suite_ticket_audit
     suite_merge
+    suite_context_cost
     self_check_injection
     ;;
 esac
