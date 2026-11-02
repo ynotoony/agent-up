@@ -38,6 +38,13 @@ else
   exit 2
 fi
 
+# 清单单源自校验（票 247）：本地守卫常量须属共享只追加账本清单（common-helpers.sh），
+# 清单与守卫对象集合漂移即环境错误，不静默守卫另一集合。
+record_append_only_path "${FACTS_CHANGES}" || \
+  die2 "内部不一致：${FACTS_CHANGES} 不在共享只追加账本清单（common-helpers.sh RECORD_APPEND_ONLY_PATHS）"
+record_append_only_path "${FACTS_PROJECT_MICRO}" || \
+  die2 "内部不一致：${FACTS_PROJECT_MICRO} 不在共享只追加账本清单（common-helpers.sh RECORD_APPEND_ONLY_PATHS）"
+
 fail1() {
   printf 'check-append-only: FAIL: %s\n' "$1"
   violations=$((violations + 1))
@@ -80,19 +87,6 @@ trap cleanup EXIT HUP INT TERM
 
 violations=0
 
-# 首个违规行号定位：旧 blob 行与新文件行逐一相等比对，输出首个不等的新文件行号；
-# 新文件行数少于旧 blob（截断）时输出缺失位置；无行级差异时无输出（差异仅在尾行
-# 悬挂换行等字节级情形，由调用方字节计数表述）。恒 exit 0（行号经 stdout 传递，
-# 避免 set -e 下命令替换非零退出歧义）。
-first_bad_line() {
-  # $1=旧 blob 文件 $2=新文件
-  LC_ALL=C awk '
-    NR == FNR { old[FNR] = $0; on = FNR; next }
-    FNR <= on && $0 != old[FNR] { print FNR; found = 1; exit }
-    END { if (!found && FNR < on) print FNR + 1 }
-  ' "$1" "$2"
-}
-
 check_append_file() {
   # $1=仓库根相对路径（只追加账本语义）
   _f=$1
@@ -119,8 +113,14 @@ check_append_file() {
   _old_size=$(wc -c < "${tmp_old}" | tr -d ' ')
   _new_size=$(wc -c < "${tmp_new}" | tr -d ' ')
   _old_lines=$(wc -l < "${tmp_old}" | tr -d ' ')
+  # 前缀判定与前缀行号定位经共享原语（票 247：与记录提交前缀门同一实现，零副本）
+  if record_prefix_ok "${tmp_old}" "${tmp_new}"; then
+    _new_lines=$(wc -l < "${tmp_new}" | tr -d ' ')
+    printf 'check-append-only: OK: %s（尾部追加 %d 行，历史前缀核对通过）\n' "${_f}" "$((_new_lines - _old_lines))"
+    return 0
+  fi
   if [ "${_new_size}" -lt "${_old_size}" ]; then
-    _bad=$(first_bad_line "${tmp_old}" "${tmp_new}")
+    _bad=$(record_first_bad_line "${tmp_old}" "${tmp_new}")
     if [ -n "${_bad}" ]; then
       fail1 "${_f} 内容相对 HEAD 截断/改写（旧 blob ${_old_size} 字节 → 新 ${_new_size} 字节），首个违规行号 ${_bad}（新文件行号）"
     else
@@ -128,12 +128,7 @@ check_append_file() {
     fi
     return 0
   fi
-  if head -c "${_old_size}" "${tmp_new}" | cmp -s - "${tmp_old}"; then
-    _new_lines=$(wc -l < "${tmp_new}" | tr -d ' ')
-    printf 'check-append-only: OK: %s（尾部追加 %d 行，历史前缀核对通过）\n' "${_f}" "$((_new_lines - _old_lines))"
-    return 0
-  fi
-  _bad=$(first_bad_line "${tmp_old}" "${tmp_new}")
+  _bad=$(record_first_bad_line "${tmp_old}" "${tmp_new}")
   fail1 "${_f} 历史行被改写或中间插入（HEAD 旧 blob 非新内容前缀），首个违规行号 ${_bad:-?}（新文件行号）"
 }
 

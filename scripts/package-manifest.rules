@@ -178,9 +178,9 @@ pm_entry references/why/decisions.md
 # kind 口径差定谳：test-record-layer.sh 定为必需件，kind 标 test-harness。
 
 pm_script scripts/check-gates.sh script '道脚本：快道门禁核对器（白名单＋验证命令前后完整工作区快照；allow-output 缺省为空，白名单外变化一律失败）'
-pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾（白名单提交与合同预检；索引翻转经 ticket-ops flip-index、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append 三代理承载，本件零记录写入面）'
+pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾（白名单提交与合同预检；索引翻转经 ticket-ops flip-index、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append 三代理承载，本件零记录写入面；另提供记录提交单点入口 --record-commit：持同一把记录层写锁、只暂存记录路径、前缀断言与部分暂存/混提拒绝）'
 pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（票收口拦截＋会话启动警告）'
-pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/warn 函数，另提供记录层写锁原语 record_lock_*——ticket-ops 与 ledger-append 共用）'
+pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/warn 函数，另提供记录层写锁原语 record_lock_*——ticket-ops 与 ledger-append 及 lane-commit 记录提交门共用；只追加前缀语义原语 record_append_only_path/record_prefix_ok/record_first_bad_line 与账本清单——check-append-only 与记录提交门共用）'
 pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_load_rules 唯一实现＋DP_PARSER_VERSION 单一版本来源；四消费件同目录 source，缺件与版本漂移 fail-closed；文法说明 references/delivery-rules.md）'
 pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
@@ -193,7 +193,7 @@ pm_script scripts/checkpoint-write.sh script 'User Review Checkpoint 唯一写�
 pm_script scripts/run-record.sh script 'run record 生成器（new/seal/stats；本仓交付后存量清算入包采纳）'
 pm_script scripts/ticket-grade.sh script '票定级建议器（建议不裁决；本仓交付后存量清算入包采纳）'
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
-pm_script scripts/check-append-only.sh script 'Record 只追加守卫（补登记——检查 17 机械行点名脚本须在册）'
+pm_script scripts/check-append-only.sh script 'Record 只追加守卫（补登记——检查 17 机械行点名脚本须在册；前缀判定与违规行号定位经 common-helpers 共享原语，与 lane-commit 记录提交门同源）'
 pm_script scripts/check-artifacts.sh script '治理产物对账器（补登记——检查 17 机械行点名脚本须在册）'
 pm_script scripts/export-payload.sh script '公开载荷导出单命令（delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force；真跑主检出门禁）'
 pm_script scripts/worktree-add.sh script 'worktree 栅栏化创建单命令（delivery.rules main-only 节驱动 sparse-checkout 排除＋主检出自拒＋分支形态断言）'
