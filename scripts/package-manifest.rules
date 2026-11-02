@@ -197,6 +197,7 @@ pm_script scripts/check-append-only.sh script 'Record 只追加守卫（补登�
 pm_script scripts/check-artifacts.sh script '治理产物对账器（补登记——检查 17 机械行点名脚本须在册）'
 pm_script scripts/export-payload.sh script '公开载荷导出单命令（delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force；真跑主检出门禁）'
 pm_script scripts/worktree-add.sh script 'worktree 栅栏化创建单命令（delivery.rules main-only 节驱动 sparse-checkout 排除＋主检出自拒＋分支形态断言）'
+pm_script scripts/worktree-deps.sh script 'worktree 依赖准备单命令（符号链接 node_modules 拒绝＋安装前 workspace 清单断言零安装＋非 npm 仓库 skip exit 0＋克隆加速显式开关）'
 pm_script scripts/upgrade-check.sh script '落地面升级对账器（已治理仓对包新基线逐件三态 cmp：同步/落后/漂移；全程只读 fail-closed；升级流程入口 references/upgrade.md）'
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
@@ -306,6 +307,7 @@ pm_mirror upgrade-check.sh mirror
 pm_mirror dp-load-rules.sh mirror
 pm_mirror check-stale-claims.sh mirror
 pm_mirror worktree-add.sh mirror
+pm_mirror worktree-deps.sh mirror
 # die 兜底清零后仓侧脚本同目录加载 common-helpers.sh 为硬依赖：仓侧 rules/implementation/scripts/
 # 补落镜像件并册 mirror（byte 纪律同族；消费项目仓根无镜像落位目录时整项静默跳过）。
 pm_mirror common-helpers.sh mirror

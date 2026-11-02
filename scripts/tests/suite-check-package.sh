@@ -150,19 +150,19 @@ PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
 SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（35 个文件，worktree 跳过 main-only）
+PASS: 8 脚本必需件存在（36 个文件，worktree 跳过 main-only）
 SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 18 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 19 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（35 件，kind 数据驱动）
+PASS: 19 scripts 节 mode 断言（36 件，kind 数据驱动）
 PASS: 20 包闭合性与符号链接防护（scripts 一级 36 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
@@ -190,19 +190,19 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（35 个文件）
+PASS: 8 脚本必需件存在（36 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
 PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 18 对）
+PASS: 13 镜像脚本与仓根同名件一致（比对 19 对）
 PASS: 14 能力映射一致（基元 9 个，检查目标 8 个，enforcement 5 个）
 PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（35 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 38 项，symlink 0 个）
+PASS: 19 scripts 节 mode 断言（36 件，kind 数据驱动）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 39 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -240,7 +240,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（35 个文件） —   - scripts/generate-progress.sh
+FAIL: 8 脚本必需件存在（36 个文件） —   - scripts/generate-progress.sh
 FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
 PASS: 10 规则块短码使用均在登记内
 PASS: 11 platform 枚举登记与数据一致
@@ -250,7 +250,7 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-CO-007 机械行点名脚本不存在: generate-progress.sh
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 37 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 38 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -291,7 +291,7 @@ PASS: 4 无绝对路径与根治理引用
 PASS: 5 templates 下 .tmpl 为 17 个且全部登记
 PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
 PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（35 个文件）
+PASS: 8 脚本必需件存在（36 个文件）
 PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
 PASS: 10 规则块短码使用均在登记内
 FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :133 登记与数据不一致：缺少 pi
@@ -301,7 +301,7 @@ PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全�
 PASS: 16 索引机制列受控词表（机制 3 值）
 PASS: 17 机械行点名出处存在（机械 9 行）
 PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 38 项，symlink 0 个）
+PASS: 20 包闭合性与符号链接防护（scripts 一级 39 项，symlink 0 个）
 PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
 PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
 PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
@@ -383,7 +383,7 @@ EOF
   # 清单；check-payload-boundary 镜像预册、包侧落位前检查 13 不计数不查仓侧）。
   mkdir -p "$D/mrepo/scripts" "$D/mrepo/rules/implementation/scripts"
   cp -R "$PKG_ROOT" "$D/mrepo/agent-up"
-  for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh ticket-run.sh; do
+  for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh ticket-run.sh; do
     cp "$PKG_ROOT/scripts/$m" "$D/mrepo/scripts/$m"
   done
   if [ -d "$REPO_SIDE" ]; then
@@ -688,7 +688,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（35 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q '^FAIL: 19 scripts 节 mode 断言（36 件，kind 数据驱动）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
@@ -805,7 +805,7 @@ EOF
     # 类 12 对随动——check-payload-boundary 包侧缺件不计数不入清单）。
     mkdir -p "$D/mrepo2/scripts" "$D/mrepo2/rules/implementation/scripts"
     cp -R "$PKG_ROOT" "$D/mrepo2/agent-up"
-    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh contract-build.sh ticket-run.sh; do
+    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh contract-build.sh ticket-run.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/mrepo2/scripts/$m"
     done
     for m in merge-ticket.sh check-derived-freshness.sh check-payload-boundary.sh check-role-permissions.sh; do
@@ -832,13 +832,13 @@ EOF
       bad '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）' "exit=$rc"
     fi
 
-    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：12 对 mirror 全 cmp＋
+    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：mirror 全对（19 对）全 cmp＋
     # 4 件 package-only 不判差异＋3 件 repo-only 包侧缺席；票 203 后 check-payload-boundary
     # 为镜像预册——包侧落位前检查 13 包侧缺件分支跳过不计数）→ exit 0 且
-    # PASS: 13 比对 18 对（三分类登记与两侧实物全恰，含检查 21 同过）。
+    # PASS: 13 比对 19 对（三分类登记与两侧实物全恰，含检查 21 同过）。
     mkdir -p "$D/porepo/scripts" "$D/porepo/rules/implementation/scripts"
     cp -R "$PKG_ROOT" "$D/porepo/agent-up"
-    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh contract-build.sh ticket-run.sh; do
+    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh contract-build.sh ticket-run.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/porepo/scripts/$m"
     done
     for m in merge-ticket.sh check-derived-freshness.sh check-role-permissions.sh; do
@@ -846,11 +846,11 @@ EOF
     done
     sh "$D/porepo/agent-up/scripts/check-package.sh" "$D/porepo/agent-up" >"$D/act.p1" 2>&1
     rc=$?
-    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 18 对）' "$D/act.p1" \
+    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 19 对）' "$D/act.p1" \
       && grep -q '^PASS: 21 references 树成员闭合与导航' "$D/act.p1"; then
-      ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 18 对'
+      ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 19 对'
     else
-      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 18 对' "exit=$rc"
+      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 19 对' "exit=$rc"
     fi
   else
     printf 'SKIP  [check-package] 仓侧 rules/implementation/scripts 不在场（消费项目语境）——检查 13 所有权三分类夹具组跳过，覆盖归源仓\n'

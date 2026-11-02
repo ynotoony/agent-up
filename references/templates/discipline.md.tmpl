@@ -1,5 +1,5 @@
 <!-- Input: 目标项目实现纪律事实、三阶段执行体定义文件路径与共享验证 harness 现状。 -->
-<!-- Output: 两层协作与阶段门禁、委派合同固定字段、验证命令要求、冲突与恢复处置指针（条款引用 rules/core.md C1–C10）。 -->
+<!-- Output: 两层协作与阶段门禁、委派合同固定字段、验证命令要求、依赖按 worktree 隔离、冲突与恢复处置指针（条款引用 rules/core.md C1–C10）。 -->
 <!-- Pos: 实现纪律（rules/implementation/discipline.md，流程权威拆三之一）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
 # 实现纪律
@@ -76,6 +76,14 @@ Actual Time:
 ## 12.2 记录写入
 
 账本行型合同以本项目 `rules/implementation/scripts/ledger-append.sh` 的行族校验为生效面（未启用票务脚本时以本节键序为准）；变更账本五键序 `date,kind,scope,decision,evidence_ref`；微账本七键序 `date,lane,whitelist,gates,verify,commit,actual`。完整 schema 与条件键值域在 Agent Up 公开包内维护。追加语义按 C9（只追加、不截断不改写），写入方按 C8（单写）。
+
+## 9. 依赖按 worktree 隔离
+
+每个 worktree 使用自己的真实依赖目录：依赖装进该 worktree 的 `node_modules`，不软链、不共享到其他 worktree 或主检出。符号链接把「只读复用」与「安装先删后建」混在一起，任一 worktree 安装即清空他人依赖，并行会话的验证随之成片失败；因此依赖准备入口发现 `node_modules` 为符号链接即拒绝执行并指名绝对路径，移除链接后在该 worktree 独立安装。
+
+准备依赖运行 `rules/implementation/scripts/worktree-deps.sh <worktree-root>`：安装前逐项断言目标根与各 workspace 的 `package.json` 在位，缺失即停并指名缺失路径（fail-closed，零安装）；目标根无 `package.json` 的仓库视为非 npm 仓库，显式 skip 并以 0 退出，不制造假失败；全部断言通过后才安装，安装后断言 `node_modules` 为真实目录。克隆加速默认关闭，仅当单 worktree 安装的磁盘与时间成本确需压缩时，以 `--clone-accel --clone-from <dir>` 显式开启（文件系统不支持 clonefile 即回退普通复制）。
+
+创建 worktree 与准备依赖是两步：创建命令只建 worktree 并在完成行提示准备入口，不做自动安装。该入口随 Agent Up 包提供；消费项目是否落位以该项目的安装政策为准，未落位时按创建命令完成行提示在站内自行准备依赖。
 
 ## 13. Git 提交
 
