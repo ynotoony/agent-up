@@ -17,6 +17,10 @@ fi
 # dispatch 三阶段 required 集＝contract_fields 三阶段，两 schema 漂移即红）、
 # 三阶段渲染正例（票 dispatch 节全键→stdout {{KEY}} 行块，产物再过校验器＝自校验
 # 闭环）＋五负例（无节存量票／缺必备键／空白值／stage 非法／NN 零命中，均零 stdout）
+# 票 238 能力收窄——--check-dispatch 派发前置校验（linked worktree + in_progress
+# 放行；主检出／非 in_progress／未领取票 exit 1；非 Git 目录／相对路径／非树根／
+# 合同缺字段 exit 2）＋五宿主 execute 行 git_write_enforcement 登记面（受控词表、
+# host/runner 机制 token、policy/pending 实现模板降级义务；合成夹具证强制分支非空转）
 # ============================================================
 
 # 生成 implementation 型全 16 必备字段合同（占位符逐字段一行块，形态与合同实例一致）
@@ -135,6 +139,70 @@ dcon_build_drift_pkg() {
   elif [ "$_dir" = "template-only" ]; then
     printf '\nExtra:\n{{EXTRA_PLACEHOLDER}}\n' >> "$_dp/references/prompts/review-prompt.md"
   fi
+}
+
+# AC2 断言：单宿主 execute 行的 git_write_enforcement 登记面。返回 0 通过并打印
+# "<host>=<值>"；返回 1 失败并打印指名原因。判据：execute 行须含受控等级值
+# （host-enforced/runner-enforced/policy-only/unavailable/pending）；host/runner 级
+# 须带实施机制 token；policy-only/pending/unavailable 级须实现模板保留
+# git_write_enforcement 与降级原因的记录义务（软约束不得静默）。
+dcon_git_write_check() {
+  _gw_host="$1"
+  _gw_file="$2"
+  _gw_impl="$3"
+
+  _gw_line=$(LC_ALL=C awk -F'|' '
+    $0 ~ /^\| execute \|/ {
+      cell = $4
+      gsub(/^[ \t]+/, "", cell)
+      gsub(/[ \t]+$/, "", cell)
+      print cell
+      exit
+    }
+  ' "$_gw_file")
+
+  if [ -z "$_gw_line" ]; then
+    printf '%s 缺 execute 行\n' "$_gw_host"
+    return 1
+  fi
+
+  _gw_val=$(printf '%s\n' "$_gw_line" | sed -n 's/.*git_write_enforcement: \([a-z][a-z-]*\).*/\1/p')
+  if [ -z "$_gw_val" ]; then
+    printf '%s execute 行缺 git_write_enforcement 声明\n' "$_gw_host"
+    return 1
+  fi
+
+  case "$_gw_val" in
+    host-enforced|runner-enforced)
+      if ! printf '%s\n' "$_gw_line" | LC_ALL=C grep -qE 'permissions\.deny|hooks|sandbox_mode|seccomp|独立(系统)?用户|进程级'; then
+        printf '%s git_write_enforcement: %s 缺实施机制 token\n' "$_gw_host" "$_gw_val"
+        return 1
+      fi
+      ;;
+    policy-only|pending|unavailable)
+      if ! grep -q 'git_write_enforcement' "$_gw_impl"; then
+        printf '%s 为 %s，但实现模板缺 git_write_enforcement 降级记录义务\n' "$_gw_host" "$_gw_val"
+        return 1
+      fi
+      if ! grep -q '降级' "$_gw_impl"; then
+        printf '%s 为 %s，但实现模板缺降级原因记录义务\n' "$_gw_host" "$_gw_val"
+        return 1
+      fi
+      ;;
+    *)
+      printf '%s git_write_enforcement 值越词表: %s\n' "$_gw_host" "$_gw_val"
+      return 1
+      ;;
+  esac
+
+  printf '%s=%s' "$_gw_host" "$_gw_val"
+  return 0
+}
+
+# 派发前置校验合同夹具：{{REPOSITORY_PATH}} 与 {{TICKET_ID}} 各带实值行（合同形态
+# 与 contract-build.sh 渲染序一致：占位符行＋实值行，字段间空行分隔）。
+dcon_dispatch_contract() {
+  printf '{{REPOSITORY_PATH}}\n%s\n\n{{TICKET_ID}}\n%s\n' "$1" "$2"
 }
 
 suite_dispatch_contract() {
@@ -395,6 +463,150 @@ PYTHON
     ok '负例 NN 段零命中渲染 → exit 1 零 stdout（票定位 fail-closed）'
   else
     bad '负例 NN 段零命中渲染 → exit 1 零 stdout（票定位 fail-closed）' "exit=$rc"
+  fi
+
+  # ---- AC2：git 写强制等级登记面（五宿主 execute 行 + 实现模板降级义务）----
+  # 生产登记面：五宿主逐一过 dcon_git_write_check（受控词表；host/runner 须带机制，
+  # policy/pending/unavailable 须实现模板保留降级记录义务）。合成夹具另证 host-enforced
+  # 分支非空转：带机制 token 通过、无机制与越词表值指名失败。
+  GW_IMPL="$PKG_ROOT/references/templates/agents-implementation.md.tmpl"
+  _gw_n=0
+  _gw_fail=''
+  _gw_seen=''
+  for _gw_h in zcode claude-code codex pi dsh; do
+    if _gw_msg=$(dcon_git_write_check "$_gw_h" "$PKG_ROOT/references/adapters/$_gw_h.md" "$GW_IMPL"); then
+      _gw_n=$((_gw_n + 1))
+      _gw_seen="$_gw_seen $_gw_msg"
+    else
+      _gw_fail="$_gw_fail; $_gw_msg"
+    fi
+  done
+  if [ "$_gw_n" -eq 5 ] && [ -z "$_gw_fail" ]; then
+    ok "正例 AC2 五宿主 execute 行 git_write_enforcement 登记合规（${_gw_seen}）"
+  else
+    bad '正例 AC2 五宿主 execute 行 git_write_enforcement 登记合规' "通过=$_gw_n/5 失败=$_gw_fail"
+  fi
+  cat > "$D/gw-host-forced.md" <<'EOF'
+| 能力基元 | 宿主工具 | 约束 |
+| --- | --- | --- |
+| execute | shell | 可变更工作区状态的命令；git_write_enforcement: host-enforced（permissions.deny 拒绝 .git 写） |
+EOF
+  if _gw_msg=$(dcon_git_write_check synth-forced "$D/gw-host-forced.md" "$GW_IMPL"); then
+    ok '正例 AC2 合成 host-enforced 带机制 token → 扫描通过（强制分支非空转）'
+  else
+    bad '正例 AC2 合成 host-enforced 带机制 token → 扫描通过（强制分支非空转）' "$_gw_msg"
+  fi
+  printf '| execute | shell | 可变更工作区状态的命令；git_write_enforcement: host-enforced（自称强制） |\n' > "$D/gw-host-bare.md"
+  if _gw_msg=$(dcon_git_write_check synth-bare "$D/gw-host-bare.md" "$GW_IMPL"); then
+    bad '负例 AC2 合成 host-enforced 无机制 token → 指名失败' "意外通过：$_gw_msg"
+  else
+    case "$_gw_msg" in
+      *缺实施机制*) ok '负例 AC2 合成 host-enforced 无机制 token → 指名失败' ;;
+      *) bad '负例 AC2 合成 host-enforced 无机制 token → 指名失败' "$_gw_msg" ;;
+    esac
+  fi
+  printf '| execute | shell | 可变更工作区状态的命令；git_write_enforcement: sandboxed（越词表） |\n' > "$D/gw-host-vocab.md"
+  if _gw_msg=$(dcon_git_write_check synth-vocab "$D/gw-host-vocab.md" "$GW_IMPL"); then
+    bad '负例 AC2 合成越词表等级值 → 指名失败' "意外通过：$_gw_msg"
+  else
+    case "$_gw_msg" in
+      *越词表*) ok '负例 AC2 合成越词表等级值 → 指名失败' ;;
+      *) bad '负例 AC2 合成越词表等级值 → 指名失败' "$_gw_msg" ;;
+    esac
+  fi
+  mkdir -p "$D/gwimpl"
+  grep -v 'git_write_enforcement' "$GW_IMPL" > "$D/gwimpl/agents-implementation.md.tmpl"
+  if _gw_msg=$(dcon_git_write_check zcode "$PKG_ROOT/references/adapters/zcode.md" "$D/gwimpl/agents-implementation.md.tmpl"); then
+    bad '负例 AC2 实现模板删 git_write_enforcement → 指名失败' "意外通过：$_gw_msg"
+  else
+    case "$_gw_msg" in
+      *git_write_enforcement*) ok '负例 AC2 实现模板删 git_write_enforcement → 指名失败' ;;
+      *) bad '负例 AC2 实现模板删 git_write_enforcement → 指名失败' "$_gw_msg" ;;
+    esac
+  fi
+
+  # ---- AC4：--check-dispatch 派发前置校验（linked worktree + in_progress）----
+  # 夹具＝临时主仓＋linked worktree＋主仓索引两票（in_progress / ready）。正例放行；
+  # 主检出路径、非 in_progress、未领取票 exit 1；非 Git 目录、相对路径、非树根、
+  # 合同缺字段 exit 2。
+  GW="$D/gw"
+  mkdir -p "$GW/main/facts/requirements/tickets"
+  git -C "$GW/main" -c init.defaultBranch=main init -q
+  git -C "$GW/main" -c user.email=fixture@example.com -c user.name=fixture commit -q --allow-empty -m init
+  git -C "$GW/main" worktree add -q "$GW/wt" -b gw-branch
+  python3 - "$GW/main/facts/requirements/tickets/index.json" <<'PY'
+import json, sys
+issues = [
+    {"id": "80-gw-fixture", "status": "in_progress", "complexity": "C0", "blocked_by": [], "updated_at": "2026-11-02T00:00"},
+    {"id": "81-gw-ready", "status": "ready", "complexity": "C0", "blocked_by": [], "updated_at": "2026-11-02T00:00"},
+]
+json.dump({"issues": issues}, open(sys.argv[1], "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+PY
+  dcon_dispatch_contract "$GW/wt" "80-gw-fixture" > "$D/gwd-ok.txt"
+  sh "$DC" --check-dispatch "$D/gwd-ok.txt" > "$D/gwd-ok.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'PASS: 派发前置校验（linked worktree + in_progress: 80-gw-fixture）' "$D/gwd-ok.out"; then
+    ok '正例 AC4 linked worktree + in_progress 票 → exit 0'
+  else
+    bad '正例 AC4 linked worktree + in_progress 票 → exit 0' "exit=$rc $(tail -n 3 "$D/gwd-ok.out" | tr '\n' '|')"
+  fi
+  dcon_dispatch_contract "$GW/main" "80-gw-fixture" > "$D/gwd-main.txt"
+  sh "$DC" --check-dispatch "$D/gwd-main.txt" > "$D/gwd-main.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '主检出' "$D/gwd-main.out"; then
+    ok '负例 AC4 主检出路径 → exit 1 并指名主检出'
+  else
+    bad '负例 AC4 主检出路径 → exit 1 并指名主检出' "exit=$rc $(tail -n 2 "$D/gwd-main.out" | tr '\n' '|')"
+  fi
+  dcon_dispatch_contract "$GW/wt" "81-gw-ready" > "$D/gwd-ready.txt"
+  sh "$DC" --check-dispatch "$D/gwd-ready.txt" > "$D/gwd-ready.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'status=ready' "$D/gwd-ready.out" && grep -q 'in_progress' "$D/gwd-ready.out"; then
+    ok '负例 AC4 票 status=ready → exit 1 并指名状态与 in_progress 要求'
+  else
+    bad '负例 AC4 票 status=ready → exit 1 并指名状态与 in_progress 要求' "exit=$rc $(tail -n 2 "$D/gwd-ready.out" | tr '\n' '|')"
+  fi
+  dcon_dispatch_contract "$GW/wt" "89-gw-none" > "$D/gwd-none.txt"
+  sh "$DC" --check-dispatch "$D/gwd-none.txt" > "$D/gwd-none.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '未领取' "$D/gwd-none.out"; then
+    ok '负例 AC4 未领取票（索引无条目）→ exit 1 并指名未领取'
+  else
+    bad '负例 AC4 未领取票（索引无条目）→ exit 1 并指名未领取' "exit=$rc $(tail -n 2 "$D/gwd-none.out" | tr '\n' '|')"
+  fi
+  mkdir -p "$GW/plain"
+  dcon_dispatch_contract "$GW/plain" "80-gw-fixture" > "$D/gwd-nogit.txt"
+  sh "$DC" --check-dispatch "$D/gwd-nogit.txt" > "$D/gwd-nogit.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '不是 Git 工作树' "$D/gwd-nogit.out"; then
+    ok '负例 AC4 非 Git 目录 → exit 2 并指名不是 Git 工作树'
+  else
+    bad '负例 AC4 非 Git 目录 → exit 2 并指名不是 Git 工作树' "exit=$rc $(tail -n 2 "$D/gwd-nogit.out" | tr '\n' '|')"
+  fi
+  dcon_dispatch_contract "relative/wt" "80-gw-fixture" > "$D/gwd-rel.txt"
+  sh "$DC" --check-dispatch "$D/gwd-rel.txt" > "$D/gwd-rel.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '绝对路径' "$D/gwd-rel.out"; then
+    ok '负例 AC4 REPOSITORY_PATH 相对路径 → exit 2'
+  else
+    bad '负例 AC4 REPOSITORY_PATH 相对路径 → exit 2' "exit=$rc $(tail -n 2 "$D/gwd-rel.out" | tr '\n' '|')"
+  fi
+  mkdir -p "$GW/wt/sub"
+  dcon_dispatch_contract "$GW/wt/sub" "80-gw-fixture" > "$D/gwd-sub.txt"
+  sh "$DC" --check-dispatch "$D/gwd-sub.txt" > "$D/gwd-sub.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '工作树根' "$D/gwd-sub.out"; then
+    ok '负例 AC4 REPOSITORY_PATH 为工作树子目录 → exit 2'
+  else
+    bad '负例 AC4 REPOSITORY_PATH 为工作树子目录 → exit 2' "exit=$rc $(tail -n 2 "$D/gwd-sub.out" | tr '\n' '|')"
+  fi
+  dcon_commit_contract > "$D/gwd-missrepo.txt"
+  sh "$DC" --check-dispatch "$D/gwd-missrepo.txt" > "$D/gwd-missrepo.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q 'REPOSITORY_PATH' "$D/gwd-missrepo.out"; then
+    ok '负例 AC4 合同缺 REPOSITORY_PATH → exit 2'
+  else
+    bad '负例 AC4 合同缺 REPOSITORY_PATH → exit 2' "exit=$rc $(tail -n 2 "$D/gwd-missrepo.out" | tr '\n' '|')"
   fi
 
   suite_summary 'dispatch-contract'

@@ -3,50 +3,49 @@ id: role-commit
 kind: process
 authority: 权威层级第 4 级（流程规则：Commit 阶段角色合同）；阶段流程上游为目标项目 rules/ 流程规则，冲突以其为准
 lifecycle: Live
-read_when: Review pass 后派发收尾提交时；核对提交白名单与版本库状态时
+read_when: Review pass 后派发收尾提交时；核对提交白名单与编排器范围门禁结果时
 trigger: 四节合同、required_capabilities 或提交边界语义变化
 owner: Commit 执行体（初始化生成为 rules/implementation/roles/commit.md；维护限本合同允许范围，变更经 Review 门禁）
 update_policy: 四节结构与 required_capabilities 为定稿基线；提交边界对齐 C3/C4 与用户授权；平台工具映射不进本文件（由宿主适配层承载）
 depends_on: rules/core.md C1–C10 与 rules/ 流程规则（目标项目流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
-<!-- Input: 主 agent 的提交合同（文件白名单、提交信息与记录翻转授权）、Review pass 结论、版本库状态。 -->
-<!-- Output: 白名单核对结果、暂存与提交的提交 ID、实际提交文件清单，或停止条件报告。 -->
+<!-- Input: 主 agent 的提交合同（文件白名单、提交信息与记录翻转授权）、Review pass 结论、编排器范围门禁结果。 -->
+<!-- Output: 编排器范围核对结论（check-gates）、提交 ID、实际提交文件清单，或停止条件报告。 -->
 <!-- Pos: 平台无关角色合同模板，生成目标项目 rules/implementation/roles/commit.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
 
 # Commit 角色合同
 
-两层协作中的 Commit 阶段执行体，独立于 Implementation 和 Review：仅在 Review 明确 pass 后，按提交合同白名单执行范围检查、暂存并创建提交。每张任务收尾必派；没有合同里的 Review pass 结论，一律不提交（C3、C4）。
+两层协作中的 Commit 阶段执行体，独立于 Implementation 和 Review：仅在 Review 明确 pass 后，按提交合同白名单经编排入口完成范围门禁、提交与记录翻转。每张任务收尾必派；没有合同里的 Review pass 结论，一律不提交（C3、C4）。
 
 ## 1. 职责
 
-- 收到合同首步：先跑 `sh rules/implementation/scripts/check-dispatch-contract.sh --check <合同文件>` 自查完整性，通过后再读合同并执行提交。
+- 收到合同首步：核对提交合同字段与 Review pass 结论在位，再以 `sh rules/implementation/scripts/ticket-run.sh <NN> commit` 执行收尾；派发前置、范围门禁、`checkpoint.commit` 写入与记录提交均由该入口内部完成（Review 结论位 → check-gates 白名单与范围命令重跑 → 产品提交 → checkpoint.commit 与纯记录提交），角色只消费其退出码与输出。
 - 核对 Review pass 结论在位：全三阶段车道认 Independent Review Checkpoint；快道认 User Review Checkpoint 或道脚本机械门禁输出。
-- 只暂存白名单文件，单提交单恢复点；提交信息按 `<type>(<scope>): <结果>`。
-- 记录翻转经 `rules/implementation/scripts/ticket-ops.sh` 单入口执行，并另起一条纯记录提交。
+- 提交范围以合同白名单为准，单提交单恢复点；提交信息按 `<type>(<scope>): <结果>`。
+- 记录翻转与 `checkpoint.commit.*` 由编排器 `ticket-run.sh` 按提交合同明列项执行与写入，并另起纯记录提交；本角色不直接写票、索引或账本。
 - 提交授权、票状态与阶段 checkpoint 边界按 `rules/project.md` §12.5 写入所有权矩阵。
 
 ## 2. 读什么
 
 - 提交合同（文件白名单、提交信息、记录翻转授权）。
 - Review pass 结论（Checkpoint 或其指针）。
-- 版本库状态：`git status`、待提交 diff 与 HEAD。
+- 编排器回传的范围门禁结果：`check-gates` 输出的白名单逐项核对与 `SCOPE_CHECK_COMMAND` 重跑结论。
 - `rules/core.md`、`rules/implementation/discipline.md` 提交与验证纪律。
 
 ## 3. 写什么
 
-required_capabilities（运行时）：`inspect`、`vcs-read`、`vcs-write`；治理写入许可：暂存/提交 + 提交合同明列的记录翻转。
+required_capabilities（运行时）：`inspect`、`execute`；治理写入许可：编排器产出（含 `checkpoint.commit.*`）+ 提交合同明列的记录翻转；执行许可：仅 `rules/implementation/scripts/ticket-run.sh <NN> commit`。
 
 | 能力 | 本合同语境 |
 | --- | --- |
-| inspect | 只读盘点工作区结构与现状 |
-| vcs-read | 读取版本库状态与历史 |
-| vcs-write | 创建提交等版本库写操作 |
+| inspect | 只读读取提交合同、Review 结论与编排器范围门禁输出 |
+| execute | 仅调用 `ticket-run.sh <NN> commit` 编排入口；前置校验与范围核对由入口内 `check-gates` 完成，不直接执行 git 命令或其他脚本 |
 
-- 票文件只写 `checkpoint.commit.*`；提交合同明列记录翻转时，可经 `ticket-ops.sh` 翻转 `status` 与索引状态行（C8）。
-- 禁止 `git push`、`git reset --hard`、强制操作或回滚他人改动；不扩大暂存范围代做修复（C6）。
+- `checkpoint.commit.*`（产品提交 ID 与完成日期）由编排器在提交收尾时写入票本体；本角色不直接写票；提交合同明列记录翻转时由编排器翻转 `status` 与索引状态行（C8）。
+- 不持有 vcs-write：不直接执行 `git add`、`git commit`、`git push` 或任何版本库写；不扩大暂存范围、不代做修复、不回滚他人改动（C6）。
 
 ## 4. 输出与停止
 
-- 输出不超过 30 行：白名单逐项核对结果（在/不在 diff 中）｜范围检查命令与结果｜提交 ID 与信息｜实际提交文件清单。异常停止时指明触发了哪条停止条件。
-- 停止条件：白名单外存在改动｜Review 结论缺失或非 pass｜工作区状态与提交合同不符｜白名单文件不存在或为空。触发即报告，不创建提交。
+- 输出不超过 30 行：编排器范围核对结论摘要（白名单逐项在/不在、范围命令结果）｜提交 ID 与信息｜`checkpoint.commit` 指针｜实际提交文件清单。异常停止时指明触发了哪条停止条件。
+- 停止条件：编排器范围门禁报白名单外改动｜Review 结论缺失或非 pass｜工作区状态与提交合同不符｜白名单文件不存在或为空。触发即报告，不创建提交。
 - 阶段出口：核对与提交完成 → 回报提交 ID 与清单；否则报告停止条件，由主 agent 裁决后续。

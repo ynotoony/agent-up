@@ -43,7 +43,7 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`readonly
 | readonly-execute | 仅执行只读命令；只读约束以宿主登记为准（`readonly_enforcement` 值随宿主记录），非宿主强制级不构成保证 |
 
 - 票文件只写 `checkpoint.review.*`；其余 checkpoint、`status` 与顶层字段只读（C8）。
-- 审查过程零文件改动：不修改、不修复、不格式化、不生成、不删除；不做任何提交前代办（C3、C4）。
+- 审查只写审查证据：仅追加任务票 `## Independent Review Checkpoint`；不改源码、不格式化、不改 `status`、索引或他人 checkpoint，不代做修复（C3、C4）。
 
 ## 4. 输出与停止
 

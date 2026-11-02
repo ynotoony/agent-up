@@ -17,7 +17,13 @@ fi
 # 指名角色失败、parameter/context/output-only Prompt 夹具通过、duplicate-rule 与
 # missing-permission 角色合同夹具经 check-package 指名角色失败（检查 22/14）、
 # Triage 模板缺权限声明夹具结构断言指名角色失败、公共规则正文回写宿主夹具去重
-# 扫描失败。夹具全 mktemp 自建不入仓，被测对象只读；边界扫描为结构性标记代理
+# 扫描失败。票 238 追加能力收窄面：四件合同声明面与执行能力一致（triage execute
+# 白名单／impl git_write_enforcement 降级义务／review 只写审查证据／commit 仅编排
+# 入口）＋capability-contract §2.2 与五宿主 §2.3 投影同口径，含六条删/注入负例
+# （N7 triage 删 execute／N8 commit 注入 vcs-write／N9 review 零文件改动回潮／
+# N10 impl 删 git_write_enforcement／N11 commit 白名单外脚本／N12 triage 派发前置
+# 失实现阶段限定）。
+# 夹具全 mktemp 自建不入仓，被测对象只读；边界扫描为结构性标记代理
 # （规则块头/七字段体/权限清单体/输出格式签名），README 叙事面豁免（对齐
 # check-package 检查 12 口径））
 # ============================================================
@@ -116,6 +122,116 @@ rp_dedupe_check() {
     _rpd_bad=1
   fi
   return "$_rpd_bad"
+}
+
+# 提取角色合同 required_capabilities（运行时）声明行的反引号基元名（逐名一行；
+# 只收纯小写字母/连字符 token，编排入口命令等含空格/点号的反引号串不纳入名单）。
+rp_decl_names() {
+  LC_ALL=C grep '^required_capabilities（运行时）：' "$1" | head -n 1 \
+    | grep -o '`[a-z][a-z-]*`' | tr -d '`'
+}
+
+# 能力收窄断言（票 238）：四件角色合同声明面与可执行能力一致，无「零写入但必须
+# 运行脚本」类矛盾。triage 声明含 execute 且文件含编排命令白名单与 --check-dispatch
+# 派发前置口径（限实现阶段、linked worktree／in_progress）；implementation 声明不含
+# vcs-write 且保留 git_write_enforcement 降级记录义务；review 声明含 readonly-execute、
+# 写入面仅追加审查证据、不复述「零文件改动」；commit 声明不含 vcs-read/vcs-write、含
+# execute、文件含 ticket-run.sh <NN> commit 编排入口，且不点名白名单外脚本。
+# 用法: rp_capability_check <templates-dir>；缺陷明细输出 stdout，有缺陷 return 1。
+rp_capability_check() {
+  _rpc_dir="$1"
+  _rpc_bad=0
+  _rpc_triage="$_rpc_dir/agents-triage.md.tmpl"
+  _rpc_impl="$_rpc_dir/agents-implementation.md.tmpl"
+  _rpc_review="$_rpc_dir/agents-review.md.tmpl"
+  _rpc_commit="$_rpc_dir/agents-commit.md.tmpl"
+
+  for _rpc_f in "$_rpc_triage" "$_rpc_impl" "$_rpc_review" "$_rpc_commit"; do
+    if [ ! -f "$_rpc_f" ]; then
+      printf 'missing-file: %s\n' "$_rpc_f"
+      _rpc_bad=1
+    fi
+  done
+  if [ "$_rpc_bad" -ne 0 ]; then
+    return 1
+  fi
+
+  if ! rp_decl_names "$_rpc_triage" | LC_ALL=C grep -qx 'execute'; then
+    printf 'triage 声明缺 execute\n'
+    _rpc_bad=1
+  fi
+  for _rpc_need in 'ticket-run.sh' 'check-dispatch-contract.sh --check-dispatch' 'linked worktree' 'in_progress'; do
+    if ! LC_ALL=C grep -qF -- "$_rpc_need" "$_rpc_triage"; then
+      printf 'triage 缺编排/派发口径: %s\n' "$_rpc_need"
+      _rpc_bad=1
+    fi
+  done
+
+  if rp_decl_names "$_rpc_impl" | LC_ALL=C grep -qx 'vcs-write'; then
+    printf 'implementation 声明越权: vcs-write\n'
+    _rpc_bad=1
+  fi
+  if ! LC_ALL=C grep -q 'git_write_enforcement' "$_rpc_impl"; then
+    printf 'implementation 缺 git_write_enforcement 降级记录义务\n'
+    _rpc_bad=1
+  fi
+  if ! LC_ALL=C grep -q '降级' "$_rpc_impl"; then
+    printf 'implementation 缺降级原因记录义务\n'
+    _rpc_bad=1
+  fi
+
+  if ! rp_decl_names "$_rpc_review" | LC_ALL=C grep -qx 'readonly-execute'; then
+    printf 'review 声明缺 readonly-execute\n'
+    _rpc_bad=1
+  fi
+  if ! LC_ALL=C grep -q '只写审查证据' "$_rpc_review"; then
+    printf 'review 缺只写审查证据边界\n'
+    _rpc_bad=1
+  fi
+  if LC_ALL=C grep -q '零文件改动' "$_rpc_review"; then
+    printf 'review 含零文件改动旧表述（与追加审查证据矛盾）\n'
+    _rpc_bad=1
+  fi
+
+  _rpc_cdecl=$(rp_decl_names "$_rpc_commit")
+  for _rpc_need in vcs-read vcs-write; do
+    if printf '%s\n' "$_rpc_cdecl" | LC_ALL=C grep -qx "$_rpc_need"; then
+      printf 'commit 声明越权: %s\n' "$_rpc_need"
+      _rpc_bad=1
+    fi
+  done
+  if ! printf '%s\n' "$_rpc_cdecl" | LC_ALL=C grep -qx 'execute'; then
+    printf 'commit 声明缺 execute\n'
+    _rpc_bad=1
+  fi
+  if ! LC_ALL=C grep -qF 'ticket-run.sh <NN> commit' "$_rpc_commit"; then
+    printf 'commit 缺 ticket-run.sh <NN> commit 编排入口\n'
+    _rpc_bad=1
+  fi
+
+  # execute 白名单有牙：commit 合同出现的脚本名（含路径与命令形态）只允许 ticket-run.sh；
+  # 其它 .sh 即「必须跑但不在白名单」，防止职责回潮绕过能力声明。
+  _rpc_cscripts=$(LC_ALL=C grep -oE '[A-Za-z0-9_./-]+\.sh' "$_rpc_commit" \
+    | sed 's#.*/##' | LC_ALL=C sort -u)
+  for _rpc_s in $_rpc_cscripts; do
+    case $_rpc_s in
+      ticket-run.sh) ;;
+      *)
+        printf 'commit 需运行的脚本不在 execute 白名单: %s\n' "$_rpc_s"
+        _rpc_bad=1
+        ;;
+    esac
+  done
+
+  # 派发前置只对实现阶段合同成立（review/commit 合同无 REPOSITORY_PATH）：Triage 边界句
+  # 须限定实现阶段，否则 review/commit 派发不可满足。
+  if ! LC_ALL=C grep -F 'check-dispatch-contract.sh --check-dispatch' "$_rpc_triage" \
+    | LC_ALL=C grep -q '实现阶段'; then
+    printf 'triage 派发前置未限定实现阶段（review/commit 合同无 REPOSITORY_PATH）\n'
+    _rpc_bad=1
+  fi
+
+  return "$_rpc_bad"
 }
 
 suite_role_prompt() {
@@ -368,6 +484,91 @@ EOF
     ok '正例 P8f capability-contract.md 能力表按两层协作登记（无编码阶段式 Triage）'
   else
     bad '正例 P8f capability-contract.md 能力表按两层协作登记（无编码阶段式 Triage）' "$(cat "$D/p8f.out")"
+  fi
+
+  # ---- 正例 P9/P10（票 238）：角色能力收窄与执行能力一致 ----
+  # P9＝四件合同声明面（triage execute 白名单与派发前置口径、impl 不含 vcs-write 且
+  # 保留 git_write_enforcement 降级义务、review 只写审查证据、commit 仅编排入口）；
+  # P10＝capability-contract §2.2 与五宿主 §2.3 的 Commit/Triage 投影同口径。
+  if rp_capability_check "$TMPL" > "$D/p9.out" 2>&1; then
+    ok '正例 P9 四件角色合同能力面与执行能力一致（triage execute 白名单／impl 降级／review 只写证据／commit 编排入口）'
+  else
+    bad '正例 P9 四件角色合同能力面与执行能力一致（triage execute 白名单／impl 降级／review 只写证据／commit 编排入口）' "$(cat "$D/p9.out")"
+  fi
+  _p10_bad=''
+  if ! LC_ALL=C grep -qF 'Triage（主 agent） | inspect、search、execute（仅登记编排命令）' "$PKG_ROOT/references/adapters/capability-contract.md"; then
+    _p10_bad="$_p10_bad; capability-contract Triage 行缺 execute"
+  fi
+  if ! LC_ALL=C grep -qF 'Commit | inspect、execute（仅编排器' "$PKG_ROOT/references/adapters/capability-contract.md"; then
+    _p10_bad="$_p10_bad; capability-contract Commit 行缺编排入口能力"
+  fi
+  if LC_ALL=C grep -qF 'Commit | inspect、vcs-read、vcs-write' "$PKG_ROOT/references/adapters/capability-contract.md"; then
+    _p10_bad="$_p10_bad; capability-contract Commit 行仍列 vcs-read/vcs-write"
+  fi
+  for _p10h in zcode claude-code codex pi dsh; do
+    _p10row=$(LC_ALL=C grep -F '| <role-contract-dir>/commit.md |' "$PKG_ROOT/references/adapters/$_p10h.md" || true)
+    case "$_p10row" in
+      *'inspect, execute'*) ;;
+      *) _p10_bad="$_p10_bad; $_p10h commit 行缺 inspect, execute" ;;
+    esac
+    case "$_p10row" in
+      *'ticket-run.sh <NN> commit'*) ;;
+      *) _p10_bad="$_p10_bad; $_p10h commit 行缺 ticket-run 编排入口" ;;
+    esac
+    case "$_p10row" in
+      *'vcs-read'* | *'vcs-write'*) _p10_bad="$_p10_bad; $_p10h commit 行仍列 vcs 写能力" ;;
+    esac
+  done
+  if [ -z "$_p10_bad" ]; then
+    ok '正例 P10 capability-contract §2.2 与五宿主 §2.3 能力投影同口径（Triage execute／Commit 编排入口）'
+  else
+    bad '正例 P10 capability-contract §2.2 与五宿主 §2.3 能力投影同口径（Triage execute／Commit 编排入口）' "$_p10_bad"
+  fi
+
+  # ---- 负例 N7–N10（票 238）：能力面各删/注入一处 → 断言指名角色失败 ----
+  mkdir -p "$D/tmpl-cap"
+  cp "$TMPL"/agents-triage.md.tmpl "$TMPL"/agents-implementation.md.tmpl "$TMPL"/agents-review.md.tmpl "$TMPL"/agents-commit.md.tmpl "$D/tmpl-cap/"
+  # shellcheck disable=SC2016  # 反引号为 sed 字面删除模式（声明行基元），非命令替换
+  sed 's/、`execute`//' "$D/tmpl-cap/agents-triage.md.tmpl" > "$D/n7.tmp" && mv "$D/n7.tmp" "$D/tmpl-cap/agents-triage.md.tmpl"
+  if ! rp_capability_check "$D/tmpl-cap" > "$D/n7.out" 2>&1 && grep -q 'triage 声明缺 execute' "$D/n7.out"; then
+    ok '负例 N7 Triage 声明删 execute → 能力断言指名 triage 失败'
+  else
+    bad '负例 N7 Triage 声明删 execute → 能力断言指名 triage 失败' "$(cat "$D/n7.out")"
+  fi
+  cp "$TMPL"/agents-commit.md.tmpl "$D/tmpl-cap/agents-commit.md.tmpl"
+  # shellcheck disable=SC2016  # 反引号为 sed 字面替换模式（声明行基元），非命令替换
+  sed 's/`inspect`、`execute`/`inspect`、`execute`、`vcs-write`/' "$D/tmpl-cap/agents-commit.md.tmpl" > "$D/n8.tmp" && mv "$D/n8.tmp" "$D/tmpl-cap/agents-commit.md.tmpl"
+  if ! rp_capability_check "$D/tmpl-cap" > "$D/n8.out" 2>&1 && grep -q 'commit 声明越权: vcs-write' "$D/n8.out"; then
+    ok '负例 N8 Commit 声明注入 vcs-write → 能力断言指名 commit 越权失败'
+  else
+    bad '负例 N8 Commit 声明注入 vcs-write → 能力断言指名 commit 越权失败' "$(cat "$D/n8.out")"
+  fi
+  cp "$TMPL"/agents-review.md.tmpl "$D/tmpl-cap/agents-review.md.tmpl"
+  printf '\n本角色零文件改动。\n' >> "$D/tmpl-cap/agents-review.md.tmpl"
+  if ! rp_capability_check "$D/tmpl-cap" > "$D/n9.out" 2>&1 && grep -q '零文件改动' "$D/n9.out"; then
+    ok '负例 N9 Review 恢复零文件改动表述 → 能力断言指名失败（与追加审查证据矛盾）'
+  else
+    bad '负例 N9 Review 恢复零文件改动表述 → 能力断言指名失败（与追加审查证据矛盾）' "$(cat "$D/n9.out")"
+  fi
+  grep -v 'git_write_enforcement' "$TMPL/agents-implementation.md.tmpl" > "$D/tmpl-cap/agents-implementation.md.tmpl"
+  if ! rp_capability_check "$D/tmpl-cap" > "$D/n10.out" 2>&1 && grep -q 'git_write_enforcement' "$D/n10.out"; then
+    ok '负例 N10 Implementation 删 git_write_enforcement → 能力断言指名失败（降级义务缺失）'
+  else
+    bad '负例 N10 Implementation 删 git_write_enforcement → 能力断言指名失败（降级义务缺失）' "$(cat "$D/n10.out")"
+  fi
+  cp "$TMPL"/agents-triage.md.tmpl "$TMPL"/agents-commit.md.tmpl "$D/tmpl-cap/"
+  printf '\n必须运行 `verify-contract.sh` 复核范围。\n' >> "$D/tmpl-cap/agents-commit.md.tmpl"
+  if ! rp_capability_check "$D/tmpl-cap" > "$D/n11.out" 2>&1 && grep -q 'commit 需运行的脚本不在 execute 白名单: verify-contract.sh' "$D/n11.out"; then
+    ok '负例 N11 Commit 引入白名单外脚本 → 能力断言指名失败（必须跑但不在 execute）'
+  else
+    bad '负例 N11 Commit 引入白名单外脚本 → 能力断言指名失败（必须跑但不在 execute）' "$(cat "$D/n11.out")"
+  fi
+  cp "$TMPL"/agents-commit.md.tmpl "$D/tmpl-cap/agents-commit.md.tmpl"
+  sed 's/实现阶段建站派发前/建站派发前/' "$D/tmpl-cap/agents-triage.md.tmpl" > "$D/n12.tmp" && mv "$D/n12.tmp" "$D/tmpl-cap/agents-triage.md.tmpl"
+  if ! rp_capability_check "$D/tmpl-cap" > "$D/n12.out" 2>&1 && grep -q 'triage 派发前置未限定实现阶段' "$D/n12.out"; then
+    ok '负例 N12 Triage 派发前置去掉实现阶段限定 → 能力断言指名失败（review/commit 无 REPOSITORY_PATH）'
+  else
+    bad '负例 N12 Triage 派发前置去掉实现阶段限定 → 能力断言指名失败（review/commit 无 REPOSITORY_PATH）' "$(cat "$D/n12.out")"
   fi
 
   suite_summary 'role-prompt'

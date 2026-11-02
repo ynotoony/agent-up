@@ -89,7 +89,7 @@
 | 票状态索引 `index.json` | 票务脚本单写（C8） |
 | 现役状态投影 `progress-current.md` | 投影生成器独占写 |
 | 变更账本 `changes.jsonl` | 账本追加脚本单写（C9） |
-| 阶段 checkpoint | 所属阶段执行体 |
+| 阶段 checkpoint | 所属阶段执行体（commit 阶段由编排器 `ticket-run.sh commit` 写入，角色不直接写票） |
 | 审查结论 Checkpoint | Review 执行体单写（C3、C8） |
 | run record | 所属阶段执行体（C7、C8） |
 | `artifacts.yaml` | 产物 owner |

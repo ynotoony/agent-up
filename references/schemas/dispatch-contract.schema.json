@@ -1,7 +1,7 @@
 {
   "$id": "agent-up/references/schemas/dispatch-contract.schema.json",
   "title": "dispatch-contract（派发合同占位符清单）",
-  "description": "派发合同占位符统一索引与按阶段必备字段表：placeholders 为 28 个占位符全集（合同模板与合同文件共用的字段名字典）；contract_fields 按 implementation（16 字段）／review（6 字段）／commit（6 字段）三阶段列出必备字段。权威消费者＝scripts/check-dispatch-contract.sh：--check-template 以本表 placeholders 全集与 references/prompts/ 三份派发合同模板的占位符并集做双向零差集核对；--check 以本表 contract_fields 对合同文件做按推断类型的必备字段完整性核对。占位符承载面＝../prompts/implementation-prompt.md、../prompts/review-prompt.md、../prompts/commit-prompt.md。",
+  "description": "派发合同占位符统一索引与按阶段必备字段表：placeholders 为 28 个占位符全集（合同模板与合同文件共用的字段名字典）；contract_fields 按 implementation（16 字段）／review（6 字段）／commit（6 字段）三阶段列出必备字段。权威消费者＝scripts/check-dispatch-contract.sh：--check-template 以本表 placeholders 全集与 references/prompts/ 三份派发合同模板的占位符并集做双向零差集核对；--check 以本表 contract_fields 对合同文件做按推断类型的必备字段完整性核对；--check-dispatch 从合同文件解析 REPOSITORY_PATH 与 TICKET_ID，要求目标为主仓的 linked worktree 且 index 中该票 status=in_progress（主检出路径、未领取票或非 in_progress 票一律拒绝；repo-root 由 worktree 的 git-common-dir 反推）。占位符承载面＝../prompts/implementation-prompt.md、../prompts/review-prompt.md、../prompts/commit-prompt.md。",
   "version": "1.0.0",
   "placeholders": [
     "ACCEPTANCE_CRITERIA",

@@ -5,10 +5,13 @@
 # Output: implementation/review stdout 两行机器契约——`ticket-run: 站路径: <abs>` 与
 #         `ticket-run: 合同文件: <abs>`，合同文件留 $TMPDIR 供主 agent 派发；implementation
 #         缺站时经 worktree-add.sh 创建。commit 先核 Review 结论位，再经 check-gates.sh
-#         核对白名单与范围命令，创建产品提交；RECORD_FLIP_AUTHORIZATION 明列索引翻转时
-#         经 ticket-ops.sh flip-index 执行并创建纯记录提交。全程不 spawn 子 agent。
+#         核对白名单与范围命令，创建产品提交；随后在站内票本体写入 checkpoint.commit
+#         （编排器收尾，角色不直接写票），RECORD_FLIP_AUTHORIZATION 明列索引翻转时经
+#         ticket-ops.sh flip-index 执行，最后创建承载记录面的纯记录提交。
+#         全程不 spawn 子 agent。
 # Pos: 主 agent 三阶段唯一编排入口；只组合 contract-build/worktree-add/check-gates/
-#      ticket-ops 原子层，不读取或改写票状态逻辑。POSIX sh；JSON 仅经 json-validator.py。
+#      ticket-ops 原子层，不读取或改写票状态逻辑。POSIX sh；JSON 经 json-validator.py
+#      读取面与站内票 checkpoint.commit 原子写入。
 #      commit 不生成 User Review Checkpoint，不伪造用户裁决；Review pass 文件是提交硬前置。
 
 set -eu
@@ -57,7 +60,9 @@ commit 自动合同（票 dispatch.commit）:
                            none，或逐行 flips: facts/requirements/tickets/index.json:index:<id>:<status>:<updated_at>
   SCOPE_CHECK_COMMAND     一行一条验证命令，经 check-gates.sh 重跑
   TICKET_ID              必须与票文件 id 一致
-  commit 先创建白名单产品提交，再执行明列索引翻转并创建纯记录提交；无翻转则不建第二提交。
+  commit 先创建白名单产品提交，再在站内票本体写入 checkpoint.commit（编排器收尾），
+  执行明列索引翻转，最后创建承载记录面的纯记录提交（无翻转也建记录提交）；
+  stdout 打产品提交、checkpoint.commit 与记录提交行。
   commit 阶段不渲染阶段合同文件，不在 $TMPDIR 留产物。
 退出码: 0 完成；1 fail-closed（合同、Review pass、门禁、白名单或提交未过）；
         2 用法或环境错误（参数、仓库根、原子层缺失）。
@@ -293,7 +298,35 @@ git -C "$worktree" commit -m "$commit_message" || die1 '产品提交创建失败
 product_commit=$(git -C "$worktree" rev-parse HEAD)
 printf 'ticket-run: 产品提交: %s\n' "$product_commit"
 
-# ---- 纯记录提交：索引与投影只经 ticket-ops 生成后收编 ----
+# ---- 纯记录提交：checkpoint.commit、索引与投影统一收编 ----
+
+checkpoint_ticket_rel="facts/requirements/tickets/$(basename "$ticket_file")"
+checkpoint_ticket="${worktree}/${checkpoint_ticket_rel}"
+[ -f "$checkpoint_ticket" ] || die1 "站内票文件不存在，无法写入 checkpoint.commit: ${checkpoint_ticket}"
+committed_at=$(date -u +%Y-%m-%d)
+python3 - "$checkpoint_ticket" "$product_commit" "$committed_at" <<'PY' || die1 "checkpoint.commit 写入失败——产品提交 ${product_commit} 已创建、记录提交未创建"
+import json, os, sys, tempfile
+path, commit_id, committed_at = sys.argv[1:4]
+with open(path, encoding='utf-8') as handle:
+    data = json.load(handle)
+checkpoint = data.get('checkpoint')
+if not isinstance(checkpoint, dict):
+    checkpoint = {}
+checkpoint['commit'] = {'committed_at': committed_at, 'commit': commit_id}
+data['checkpoint'] = checkpoint
+mode = os.stat(path).st_mode & 0o777
+fd, tmp = tempfile.mkstemp(prefix='.ticket-checkpoint.', dir=os.path.dirname(path))
+try:
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+        handle.write('\n')
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+except BaseException:
+    os.unlink(tmp)
+    raise
+PY
+printf 'ticket-run: checkpoint.commit: %s\n' "$product_commit"
 
 if [ -n "$record_flips" ]; then
   for line in $record_flips; do
@@ -306,8 +339,9 @@ if [ -n "$record_flips" ]; then
       die1 "索引翻转代理失败——产品提交 ${product_commit} 已创建、记录提交未创建"
   done
   git -C "$worktree" add -- facts/requirements/tickets/index.json facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
-  git -C "$worktree" commit -m "chore(ticket): 记录翻转 — ${commit_message}" || die1 '纯记录提交创建失败'
-  record_commit=$(git -C "$worktree" rev-parse HEAD)
-  printf 'ticket-run: 记录提交: %s\n' "$record_commit"
 fi
-printf 'ticket-run: PASS（commit 完成；Review pass 已核对，产品提交与授权记录翻转分离）\n'
+git -C "$worktree" add -- "$checkpoint_ticket_rel" || die1 '票文件暂存失败'
+git -C "$worktree" commit -m "chore(ticket): 记录收尾 — ${commit_message}" || die1 '纯记录提交创建失败'
+record_commit=$(git -C "$worktree" rev-parse HEAD)
+printf 'ticket-run: 记录提交: %s\n' "$record_commit"
+printf 'ticket-run: PASS（commit 完成；Review pass 已核对，产品提交与记录收尾分离）\n'
