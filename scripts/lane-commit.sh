@@ -1,7 +1,8 @@
 #!/bin/sh
 # Input: 仓库根目录（缺省取当前目录所在 Git 仓库顶层）与行式提交合同文件
 #        （lane / ticket / whitelist / message / verify / record-only / verdict_quote /
-#         verdict_at / flips）。
+#         verdict_at / flips），或记录提交入口形式 `--record-commit <repo-root>
+#         <message> <记录路径>...`（票 247）。
 # Output: 门禁核对、白名单产品提交、记录写入（票 229 记录写职责外移，本件零记录写入面：
 #         user-review 道经同目录优先/PATH 回退定位 checkpoint-write.sh review-checkpoint
 #         追加 User Review Checkpoint——.md 票追加票尾，.json 票体零追加、落独立
@@ -14,6 +15,15 @@
 #         全仓仅 ticket-ops 一处承载，本件零直接 index.json 写入面与零直接生成器调用）→
 #         机械回写受影响票正文 **Status:** 行（.json 票体无 Status 行，跳过回写）；两段
 #         提交的逐步输出，两段提交 ID、各自文件清单与翻转清单分列回报。
+#         记录提交面（票 247）：第二段记录提交经单点入口 record_commit_run 承载——持票 246
+#         同一把记录层写锁、只暂存 facts/ 记录路径、拒绝部分暂存（暂存内容≠工作区）、
+#         只追加账本的 HEAD 旧内容须为待提交版本（暂存 blob）的字节前缀（前缀语义与
+#         check-append-only.sh 同源）、对私有索引写出的树断言暂存面恰为记录路径（混提拒绝），
+#         再经 write-tree/commit-tree/update-ref CAS 创建提交——断言对象＝被提交对象，共享索引
+#         在提交窗口内被并发暂存（中间插入/产品文件）不卷入提交；成功后仅把仍是旧 HEAD 快照
+#         的记录路径同步到新提交，并发暂存保留现场。任一不成立 fail-closed 零提交并报首个
+#         违规行号。同一入口可独立调用：
+#         `lane-commit.sh --record-commit <repo-root> <message> <记录路径>...`。
 # Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26；票 37 行为基线改造；票 229
 #      职责拆分——白名单提交留本件，记录写入三类代理化：索引翻转→ticket-ops flip-index、
 #      Review Checkpoint→checkpoint-write.sh、微账本→ledger-append.sh）；行为基线 =
@@ -26,6 +36,9 @@
 #      状态行不属本脚本写入面（README 状态列为人工登记投影，票 35/37 口径）。写入面路径
 #      边界（票 144）：whitelist 条目、flips 目标与 ticket 票文件须为仓库根内普通相对文件，
 #      ..、绝对路径、symlink 与 realpath 越出仓库根一律在写入前 fail-closed 拒绝。
+#      记录提交入口（票 247）写入面＝显式记录路径（须在 facts/ 下）＋私有索引 CAS 提交；锁＝
+#      common-helpers.sh record_lock_*（与 ticket-ops/ledger-append 同一把锁）；记录提交不运行
+#      Git 提交钩子（commit-tree），也不写 HEAD reflog（update-ref 不含 --create-reflog）。
 
 # 用法、合同行格式与输出格式见同目录 README.md。
 
@@ -60,8 +73,9 @@ TAB=$(printf '\t')
 usage() {
   cat <<'USAGE'
 用法: sh lane-commit.sh [repo-root] <contract-file>
+      sh lane-commit.sh --record-commit <repo-root> <message> <记录路径>...
 参数:
-  repo-root      仓库根目录；缺省取当前目录所在 Git 仓库顶层。
+  repo-root      仓库根目录；缺省取当前目录所在 Git 仓库顶层（仅合同形式可缺省）。
   contract-file  行式提交合同文件（临时输入，不落仓库），行格式（均以行首列为准）:
                    lane: user-review|micro            （micro 道预检，票 58：白名单 ≤3 条目
                                                        且改动集零新建（??）零删除（D），
@@ -101,13 +115,30 @@ usage() {
                  （generate-progress.sh）并 --check 核对（收尾链全仓仅 ticket-ops 一处，票 228
                  F1/F2 写入方收敛；ticket-ops 同目录优先、PATH 回退，缺失＝预检停止
                  fail-closed）→ 机械回写 ticket 票正文 **Status:** 行（.json 票体无 Status 行，
-                 跳过回写，票 108；投影打印件 `value`）。
+                 跳过回写，票 108；投影打印件 `value`）。目标 status=done 时 flip-index 另过
+                 ticket-ops 的双证门（actual_time＋ticket-audit --operation merge conformant，
+                 票 237）：证据未提交/diff 失配/unknown 即收尾停止（产品提交已创建、记录提交
+                 未创建，decision-required），不采信自报 PASS。
                  记录写入委托（票 229，本脚本零 checkpoint/账本写入面）: user-review 道经
                  checkpoint-write.sh review-checkpoint 追加 User Review Checkpoint（stdout
                  末行 `checkpoint-write: 目标文件: <rel>` 为机器契约，目标登记进记录提交）；
                  micro 道经 ledger-append.sh --micro 落微账本行（唯一写入方）。两件均同目录
                  优先、PATH 回退，缺失＝收尾预检停止 fail-closed（先于产品提交）。
   -h / --help    打印本用法。
+记录提交入口（--record-commit，票 247）: 两段式第二段的单点入口，也可独立调用。
+  持票 246 同一把记录层写锁（Git 公共目录，跨 worktree 共享）→ 记录路径白名单（须在
+  facts/ 下，防混提产品文件）→ 拒绝部分暂存（记录路径已在暂存区但与工作区不一致即
+  拒绝，不静默重暂存）→ 记录路径须在工作树存在（删除/缺失即拒绝）→ 在私有索引
+  （GIT_INDEX_FILE）上只 git add 记录路径（不写共享索引）→ 只追加账本
+  （facts/project/changes.jsonl、facts/project/micro.jsonl）的 HEAD 旧内容须为待提交版本
+  （私有索引 blob）的字节前缀（与 check-append-only.sh 同一原语）→ 对私有索引写出的树
+  断言文件集恰为记录路径（含产品文件即拒绝）→ write-tree → commit-tree → update-ref CAS
+  更新当前分支（旧 HEAD 不匹配即失败）。断言对象＝被提交对象；共享索引在窗口内被并发
+  暂存不卷入提交，成功后仅同步仍是旧 HEAD 快照的记录路径条目，并发暂存保留现场。
+  未改动的记录路径显式列为「已排除」后跳过，不计入提交文件集。
+  失败语义: 任一断言不成立即 exit 1、零提交、不改写任何历史行；前缀违规报首个违规行号
+  （待提交版行号）。失败不自动回滚暂存内容（不改写他人提交）。
+  注: commit-tree 不运行 Git 提交钩子，update-ref 不写 HEAD reflog。
 退出码: 0 全部完成；1 门禁不过或合同 fail-closed 条件（停止时未产生任何写入或提交）；
         2 用法或环境错误。
 USAGE
@@ -169,44 +200,359 @@ lc_in_repo() {
 
 tmp_gate=''
 tmp_flip=''
-# 用途: EXIT/HUP/INT/TERM 陷阱体，清理本脚本创建的临时文件，避免异常退出留残。
-# 参数: 无（读取全局 tmp_gate / tmp_flip）。
-# 副作用: 删除临时文件（rm -f 幂等，缺文件不报错）。注：tmp_flip 分支先清空
-#         变量再调 rm，实际只删得掉 tmp_gate；这是既有实现形态，本票仅文档化不改逻辑。
-#         （tmp_idx 随索引单写移交 ticket-ops flip-index 代理而撤除，票 228。）
+tmp_rc_index=''
+lock_owned=0
+
+# ---- 记录提交单点入口（票 247：同锁串行＋前缀门＋私有索引 CAS 提交）----
+# 用途: 见文件头「记录提交面」与 usage()：持票 246 同一把记录层写锁，以私有索引
+#       （GIT_INDEX_FILE）只暂存 facts/ 记录路径，拒绝部分暂存（工作区与共享索引不一致），
+#       断言只追加账本的 HEAD 旧内容须为待提交版本（私有索引 blob）的字节前缀（前缀原语
+#       与 check-append-only.sh 同源），再对私有索引写出的树断言文件集恰为记录路径，最后
+#       经 write-tree/commit-tree/update-ref CAS 创建提交。断言对象＝被提交对象；任一断言
+#       不成立即 fail-closed 零提交（提交对象在 CAS 前不可达）。
+# 参数: $1=repo-root；$2=提交说明；其余＝仓库根相对记录路径（至少一条，须在 facts/ 下）。
+# 副作用: 取/放记录层写锁；在私有索引上 git add 记录路径（不写共享索引）；创建单个提交并
+#         CAS 更新当前分支；成功后把记录路径的共享索引条目同步到新提交（保留并发暂存）。
+#         失败路径不回滚已暂存内容、不改写他人提交与任何历史行。
+# 返回码: 0 提交创建且树已核对；1 任一断言不成立（零提交）；2 用法或环境错误。
+# 测试钩子: RECORD_COMMIT_TEST_MARKER＝私有索引快照完成后写入的标记文件路径；
+#           RECORD_COMMIT_TEST_HOLD_MS＝写标记后延迟毫秒数（未设或 0＝零开销）。
+# 全局: rc_commit_id 置为本次记录提交 ID。调用方须已把 IFS 设为换行（本文件口径）。
+record_commit_run() {
+  _rcr_root=$1
+  _rcr_msg=$2
+  shift 2
+  [ $# -ge 1 ] || die1 '记录提交至少需要一条记录路径'
+  [ -n "${_rcr_msg}" ] || die1 '记录提交说明为空'
+  [ -d "${_rcr_root}" ] || die2 "仓库根不存在: ${_rcr_root}"
+  git -C "${_rcr_root}" rev-parse --git-dir >/dev/null 2>&1 || die2 "仓库根不是 Git 仓库: ${_rcr_root}"
+
+  # 记录路径白名单与写入面边界（只读预检，先于取锁；拒绝把产品文件混进记录提交）
+  _rcr_paths=''
+  for _rcr_p in "$@"; do
+    case ${_rcr_p} in
+      facts/*) : ;;
+      *) die1 "记录提交拒绝：路径不在 facts/ 记录面内（只暂存记录路径，不得混提产品文件）: ${_rcr_p}" ;;
+    esac
+    [ -e "${_rcr_root}/${_rcr_p}" ] || \
+      die1 "记录提交拒绝：记录路径在工作树不存在: ${_rcr_p}（删除与缺失不属于记录提交，零提交）"
+    lc_in_repo "${_rcr_root}" "${_rcr_p}" '记录提交路径' || \
+      die1 "记录提交路径边界校验未通过: ${_rcr_p}（须为仓库根内普通相对文件）"
+    _rcr_needle="${NL}${_rcr_p}${NL}"
+    case "${NL}${_rcr_paths}" in
+      *"${_rcr_needle}"*) : ;;
+      *) _rcr_paths="${_rcr_paths}${_rcr_p}${NL}" ;;
+    esac
+  done
+
+  # 持锁（票 246 原语）：独立调用自取锁并负责释放；RECORD_LOCK_INHERITED=1 时按父进程
+  # 传入的锁目录与令牌继承持有状态，跳过取锁与释放（锁生命周期归父进程）
+  _rcr_own_lock=0
+  if record_lock_inherit; then
+    :
+  else
+    record_lock_init "${_rcr_root}"
+    record_lock_acquire
+    _rcr_own_lock=1
+    lock_owned=1
+  fi
+
+  _rcr_t_dir=${TMPDIR:-/tmp}
+  _rcr_staged=$(git -C "${_rcr_root}" diff --cached --name-only)
+
+  # 部分暂存拒绝（票 247 AC2）：记录路径已在暂存区且暂存内容与工作区不一致即快照过期，
+  # 拒绝而非静默重暂存；报首个差异行（待提交暂存版 → 工作区）。
+  while IFS= read -r _rcr_p; do
+    [ -n "${_rcr_p}" ] || continue
+    _rcr_is_staged=0
+    while IFS= read -r _rcr_s; do
+      [ -n "${_rcr_s}" ] || continue
+      if [ "${_rcr_s}" = "${_rcr_p}" ]; then
+        _rcr_is_staged=1
+      fi
+    done <<EOF_STAGED
+${_rcr_staged}
+EOF_STAGED
+    [ "${_rcr_is_staged}" -eq 1 ] || continue
+    if git -C "${_rcr_root}" diff --quiet -- "${_rcr_p}"; then
+      continue
+    fi
+    _rcr_idx=$(mktemp "${_rcr_t_dir%/}/record-idx.XXXXXX")
+    _rcr_wt=$(mktemp "${_rcr_t_dir%/}/record-wt.XXXXXX")
+    if ! git -C "${_rcr_root}" show ":${_rcr_p}" > "${_rcr_idx}" 2>/dev/null; then
+      rm -f "${_rcr_idx}" "${_rcr_wt}"
+      die1 "记录提交拒绝：读不出 ${_rcr_p} 的暂存内容（零提交）"
+    fi
+    cp "${_rcr_root}/${_rcr_p}" "${_rcr_wt}"
+    _rcr_bad=$(record_first_bad_line "${_rcr_idx}" "${_rcr_wt}")
+    if [ -z "${_rcr_bad}" ]; then
+      _rcr_bad=$(( $(wc -l < "${_rcr_idx}" | tr -d ' ') + 1 ))
+    fi
+    rm -f "${_rcr_idx}" "${_rcr_wt}"
+    die1 "记录提交拒绝：${_rcr_p} 暂存内容与工作区不一致（部分暂存，首个差异行 ${_rcr_bad}）——零提交；先 git add 该路径或撤销过期暂存后重跑"
+  done <<EOF_PATHS
+${_rcr_paths}
+EOF_PATHS
+
+  # 私有索引（票 247 D1）：从 HEAD 初始化到 GIT_INDEX_FILE 临时件，后续 git add 与全部
+  # 断言都只作用于该索引——共享索引在提交窗口内被另一会话改写（中间插入/产品文件暂存）
+  # 也不会被卷入提交，断言对象即被提交对象。
+  _rcr_index=$(mktemp "${_rcr_t_dir%/}/record-index.XXXXXX") || \
+    die1 '记录提交拒绝：无法创建私有索引（零提交）'
+  rm -f "${_rcr_index}"
+  tmp_rc_index=${_rcr_index}
+  if git -C "${_rcr_root}" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+    GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" read-tree HEAD || \
+      die1 '记录提交拒绝：私有索引初始化失败（read-tree HEAD，零提交）'
+  else
+    GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" read-tree --empty || \
+      die1 '记录提交拒绝：私有索引初始化失败（read-tree --empty，零提交）'
+  fi
+
+  # 只暂存记录路径到私有索引；add 后私有索引须与工作区一致（断言对象＝待提交 blob）
+  while IFS= read -r _rcr_p; do
+    [ -n "${_rcr_p}" ] || continue
+    GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" add -- "${_rcr_p}" || \
+      die1 "git add 失败（记录提交，私有索引）: ${_rcr_p}"
+    GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" diff --quiet -- "${_rcr_p}" || \
+      die1 "记录提交拒绝：${_rcr_p} 私有索引内容与工作区不一致（部分暂存）——零提交"
+  done <<EOF_PATHS
+${_rcr_paths}
+EOF_PATHS
+
+  # 前缀断言（票 247 AC1）：HEAD 旧内容须为待提交版本（暂存 blob）的字节前缀；非前缀即
+  # 中间插入/改写/截断，报首个违规行号（待提交版行号），零提交、历史行零改写。
+  while IFS= read -r _rcr_p; do
+    [ -n "${_rcr_p}" ] || continue
+    record_append_only_path "${_rcr_p}" || continue
+    if ! git -C "${_rcr_root}" cat-file -e "HEAD:${_rcr_p}" 2>/dev/null; then
+      continue
+    fi
+    _rcr_old=$(mktemp "${_rcr_t_dir%/}/record-old.XXXXXX")
+    _rcr_new=$(mktemp "${_rcr_t_dir%/}/record-new.XXXXXX")
+    if ! git -C "${_rcr_root}" show "HEAD:${_rcr_p}" > "${_rcr_old}" 2>/dev/null; then
+      rm -f "${_rcr_old}" "${_rcr_new}"
+      die1 "记录提交拒绝：读不出 HEAD:${_rcr_p}（零提交）"
+    fi
+    if ! GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" show ":${_rcr_p}" > "${_rcr_new}" 2>/dev/null; then
+      rm -f "${_rcr_old}" "${_rcr_new}"
+      die1 "记录提交拒绝：读不出 ${_rcr_p} 的待提交内容（私有索引，零提交）"
+    fi
+    if cmp -s "${_rcr_old}" "${_rcr_new}"; then
+      rm -f "${_rcr_old}" "${_rcr_new}"
+      continue
+    fi
+    if ! record_prefix_ok "${_rcr_old}" "${_rcr_new}"; then
+      _rcr_bad=$(record_first_bad_line "${_rcr_old}" "${_rcr_new}")
+      [ -n "${_rcr_bad}" ] || _rcr_bad='?'
+      _rcr_old_size=$(wc -c < "${_rcr_old}" | tr -d ' ')
+      _rcr_new_size=$(wc -c < "${_rcr_new}" | tr -d ' ')
+      rm -f "${_rcr_old}" "${_rcr_new}"
+      die1 "记录提交拒绝：${_rcr_p} 的 HEAD 旧内容非待提交版本前缀（中间插入或改写；HEAD ${_rcr_old_size} 字节 → 待提交 ${_rcr_new_size} 字节），首个违规行号 ${_rcr_bad}（待提交版行号）——零提交，历史行零改写"
+    fi
+    rm -f "${_rcr_old}" "${_rcr_new}"
+  done <<EOF_PATHS
+${_rcr_paths}
+EOF_PATHS
+
+  # 记录路径无实际改动即无提交可创建（零提交，不做空提交）；未改动路径显式告知排除，
+  # 与 README「提交文件集恰为实际有改动的记录路径」措辞一致（票 247 D4）。
+  _rcr_changed=0
+  _rcr_unchanged=''
+  while IFS= read -r _rcr_p; do
+    [ -n "${_rcr_p}" ] || continue
+    if GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" diff --cached --quiet -- "${_rcr_p}"; then
+      _rcr_unchanged="${_rcr_unchanged}${_rcr_p}${NL}"
+    else
+      _rcr_changed=1
+    fi
+  done <<EOF_PATHS
+${_rcr_paths}
+EOF_PATHS
+  [ "${_rcr_changed}" -eq 1 ] || die1 '记录路径无实际改动，无提交可创建（零提交）'
+  if [ -n "${_rcr_unchanged}" ]; then
+    printf 'lane-commit: 记录路径无改动，已排除: %s\n' \
+      "$(printf '%s' "${_rcr_unchanged}" | paste -sd, -)"
+  fi
+
+  # 测试专用同步点（票 247 D3）：私有索引快照已完成、提交尚未创建时写标记文件；并发
+  # 用例以标记文件为可观测事件（而非固定 sleep）决定 B 的写入时点，HOLD 仅放大持锁窗口。
+  if [ -n "${RECORD_COMMIT_TEST_MARKER:-}" ]; then
+    printf '%s\n' "$$" > "${RECORD_COMMIT_TEST_MARKER}" || \
+      die1 '测试标记文件写入失败（RECORD_COMMIT_TEST_MARKER）'
+  fi
+  case ${RECORD_COMMIT_TEST_HOLD_MS:-} in
+    ''|*[!0-9]*|0) : ;;
+    *) sleep "$((RECORD_COMMIT_TEST_HOLD_MS / 1000)).$(printf '%03d' "$((RECORD_COMMIT_TEST_HOLD_MS % 1000))")" ;;
+  esac
+
+  # 提交前归属校验 + 合并态拒绝 + 私有索引写树（票 247 D1/D2）：文件集核对发生在提交
+  # 创建之前，断言对象＝将被提交的树；核对通过后 commit-tree 只产生对象、update-ref CAS
+  # 才移动分支，故任何失败路径都零可达提交。
+  record_lock_assert
+  if git -C "${_rcr_root}" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    die1 '合并进行中（MERGE_HEAD 在场）：记录提交不创建合并提交——零提交'
+  fi
+  _rcr_tree=$(GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" write-tree) || \
+    die1 '记录提交拒绝：私有索引写树失败（零提交）'
+  if git -C "${_rcr_root}" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+    _rcr_files=$(git -C "${_rcr_root}" diff-tree --no-commit-id --name-only -r HEAD "${_rcr_tree}")
+  else
+    _rcr_files=$(git -C "${_rcr_root}" ls-tree -r --name-only "${_rcr_tree}")
+  fi
+  [ -n "${_rcr_files}" ] || die1 '记录提交拒绝：待提交树与 HEAD 无差异（零提交）'
+  while IFS= read -r _rcr_f; do
+    [ -n "${_rcr_f}" ] || continue
+    _rcr_fneedle="${NL}${_rcr_f}${NL}"
+    case "${NL}${_rcr_paths}" in
+      *"${_rcr_fneedle}"*) : ;;
+      *) die1 "记录提交拒绝：待提交树含记录面外文件（记录提交与产品提交混提）: ${_rcr_f}——零提交；先提交或撤销该暂存后重跑" ;;
+    esac
+  done <<EOF_FILES
+${_rcr_files}
+EOF_FILES
+
+  # 树→提交对象→分支 CAS：旧 HEAD 不匹配即失败（并发提交），commit 对象不可达、零提交。
+  if git -C "${_rcr_root}" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+    _rcr_parent=$(git -C "${_rcr_root}" rev-parse HEAD)
+    _rcr_commit=$(git -C "${_rcr_root}" commit-tree "${_rcr_tree}" -p "${_rcr_parent}" -m "${_rcr_msg}") || \
+      die1 '记录提交拒绝：commit-tree 创建提交失败（零提交）'
+  else
+    _rcr_parent=''
+    _rcr_commit=$(git -C "${_rcr_root}" commit-tree "${_rcr_tree}" -m "${_rcr_msg}") || \
+      die1 '记录提交拒绝：commit-tree 创建提交失败（零提交）'
+  fi
+  _rcr_commit_tree=$(git -C "${_rcr_root}" rev-parse "${_rcr_commit}^{tree}") || \
+    die1 '记录提交拒绝：读不出新提交树（零提交）'
+  [ "${_rcr_commit_tree}" = "${_rcr_tree}" ] || \
+    die1 '记录提交拒绝：新提交树与私有索引树不一致（内部错误，零提交）'
+  _rcr_ref=$(git -C "${_rcr_root}" symbolic-ref -q HEAD) || \
+    die1 '记录提交拒绝：HEAD 处于分离状态（须在分支上），零提交'
+  record_lock_assert
+  if [ -n "${_rcr_parent}" ]; then
+    git -C "${_rcr_root}" update-ref -m 'lane-commit: 记录提交' \
+      "${_rcr_ref}" "${_rcr_commit}" "${_rcr_parent}" || \
+      die1 '记录提交拒绝：HEAD 已变化（并发提交竞态），零提交，重跑同一命令'
+  else
+    git -C "${_rcr_root}" update-ref -m 'lane-commit: 记录提交' \
+      "${_rcr_ref}" "${_rcr_commit}" 0000000000000000000000000000000000000000 || \
+      die1 '记录提交拒绝：分支已存在或 CAS 失败（零提交，重跑同一命令）'
+  fi
+  rc_commit_id=${_rcr_commit}
+
+  # 提交后兜底（票 247 D2）：提交已可达，文件集核对不得再以 exit 1 收场（否则就是
+  # 「报错但提交已创建」）；tree 与提交前核对一致，此分支正常不可达，只作内部错误诊断。
+  if [ -n "${_rcr_parent}" ]; then
+    _rcr_commit_files=$(git -C "${_rcr_root}" diff-tree --no-commit-id --name-only -r "${_rcr_commit}")
+  else
+    _rcr_commit_files=$(git -C "${_rcr_root}" diff-tree --root --no-commit-id --name-only -r "${_rcr_commit}")
+  fi
+  [ "${_rcr_commit_files}" = "${_rcr_files}" ] || \
+    warn "记录提交文件集与提交前核对不一致（提交已创建，须人工审计）: ${_rcr_commit_files}"
+
+  # 成功后把记录路径的共享索引同步到新提交：仅当共享索引仍是旧 HEAD 快照时改写，
+  # 提交窗口内他人暂存的内容保留现场（不覆盖、不回滚；票 247 forbidden）。
+  while IFS= read -r _rcr_p; do
+    [ -n "${_rcr_p}" ] || continue
+    _rcr_old_id=''
+    _rcr_idx_id=''
+    _rcr_new_id=''
+    if [ -n "${_rcr_parent}" ]; then
+      _rcr_old_id=$(git -C "${_rcr_root}" rev-parse -q --verify "${_rcr_parent}:${_rcr_p}" 2>/dev/null) || _rcr_old_id=''
+    fi
+    _rcr_idx_id=$(git -C "${_rcr_root}" rev-parse -q --verify ":${_rcr_p}" 2>/dev/null) || _rcr_idx_id=''
+    _rcr_new_id=$(git -C "${_rcr_root}" rev-parse -q --verify "${rc_commit_id}:${_rcr_p}" 2>/dev/null) || _rcr_new_id=''
+    if [ "${_rcr_idx_id}" = "${_rcr_new_id}" ]; then
+      :
+    elif [ "${_rcr_idx_id}" = "${_rcr_old_id}" ]; then
+      git -C "${_rcr_root}" reset -q "${rc_commit_id}" -- "${_rcr_p}" || \
+        warn "共享索引同步失败（记录提交已创建）: ${_rcr_p}——手工执行 git reset -q HEAD -- ${_rcr_p} 收敛"
+    else
+      warn "共享索引中 ${_rcr_p} 有并发暂存，已保留现场（记录提交已创建；不静默覆盖）"
+    fi
+  done <<EOF_PATHS
+${_rcr_paths}
+EOF_PATHS
+  rm -f "${_rcr_index}"
+  tmp_rc_index=''
+
+  printf 'lane-commit: 记录提交门: 同锁串行（锁目录 %s）\n' "${RECORD_LOCK_DIR}"
+  printf 'lane-commit: 记录提交 %s\n' "${rc_commit_id}"
+  printf 'lane-commit: 记录文件: %s\n' "$(printf '%s\n' "${_rcr_files}" | paste -sd, -)"
+  if [ "${_rcr_own_lock}" -eq 1 ]; then
+    record_lock_release
+    lock_owned=0
+  fi
+}
+
+# 用途: EXIT/HUP/INT/TERM 陷阱体，清理本脚本创建的临时文件并释放本进程自取的记录层
+#       写锁（票 247：独立记录提交失败路径不遗留锁；继承锁归父进程，不在此释放）。
+# 参数: 无（读取全局 tmp_gate / tmp_flip / tmp_rc_index / lock_owned）。
+# 副作用: 删除临时文件（rm -f 幂等，缺文件不报错）；lock_owned=1 时按令牌归属释放锁。
+#         注：tmp_flip 分支先清空变量再调 rm，实际只删得掉 tmp_gate；这是既有实现形态，
+#         本票仅文档化不改逻辑。（tmp_idx 随索引单写移交 ticket-ops flip-index 代理而撤除，票 228。）
+#         记录提交私有索引（tmp_rc_index）在失败路径可能仍在场，一并清除；提交成功路径
+#         已先 rm 并置空，此处 rm -f 幂等。
 # 返回码: 恒 0（末条 if 不成立时 test 的假值不影响陷阱退出码语义）。
 cleanup() {
   if [ -n "${tmp_gate}" ]; then rm -f "${tmp_gate}"; fi
   if [ -n "${tmp_flip}" ]; then tmp_flip=''; rm -f "${tmp_flip}"; fi
+  if [ -n "${tmp_rc_index}" ]; then rm -f "${tmp_rc_index}"; tmp_rc_index=''; fi
+  if [ "${lock_owned}" -eq 1 ]; then record_lock_release; lock_owned=0; fi
 }
 trap cleanup EXIT HUP INT TERM
 
-case $# in
-  2)
-    repo_root=$1
-    contract=$2
-    ;;
-  1)
-    case $1 in
-      -h|--help) usage; exit 0 ;;
-    esac
-    # 仓库根推导统一经 resolve_repo_root（票 227 F4：--git 口径＝当前目录所在仓库顶层）
-    repo_root=$(resolve_repo_root --git) || die2 '当前目录不在 Git 仓库内，且未提供 repo-root'
-    contract=$1
-    ;;
-  *)
+record_mode=0
+rc_message=''
+if [ "${1:-}" = '--record-commit' ]; then
+  record_mode=1
+  shift
+  if [ $# -lt 3 ]; then
     usage >&2
     exit 2
-    ;;
-esac
+  fi
+  repo_root=$1
+  rc_message=$2
+  shift 2
+fi
+
+if [ "${record_mode}" -eq 0 ]; then
+  case $# in
+    2)
+      repo_root=$1
+      contract=$2
+      ;;
+    1)
+      case $1 in
+        -h|--help) usage; exit 0 ;;
+      esac
+      # 仓库根推导统一经 resolve_repo_root（票 227 F4：--git 口径＝当前目录所在仓库顶层）
+      repo_root=$(resolve_repo_root --git) || die2 '当前目录不在 Git 仓库内，且未提供 repo-root'
+      contract=$1
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+fi
 
 [ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
-[ -r "${contract}" ] || die2 "合同文件不可读: ${contract}"
+if [ "${record_mode}" -eq 0 ]; then
+  [ -r "${contract}" ] || die2 "合同文件不可读: ${contract}"
+fi
 git -C "${repo_root}" rev-parse --git-dir >/dev/null 2>&1 || die2 "仓库根不是 Git 仓库: ${repo_root}"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-[ -r "${script_dir}/check-gates.sh" ] || die2 '同目录 check-gates.sh 缺失，无法执行门禁核对'
 
 IFS=${NL}
+
+# 记录提交入口（票 247）：独立调用走单点入口后即退出，不进入道合同流程
+if [ "${record_mode}" -eq 1 ]; then
+  record_commit_run "${repo_root}" "${rc_message}" "$@"
+  exit 0
+fi
+
+[ -r "${script_dir}/check-gates.sh" ] || die2 '同目录 check-gates.sh 缺失，无法执行门禁核对'
 
 # ---- 解析合同 ----
 
@@ -802,14 +1148,16 @@ fi
 # 写索引→generate-progress 再生→--check 收尾链全仓仅 ticket-ops 一处承载，本件零直接
 # 生成器调用）；progress-current.md 由记录提交一并收编（record_files 登记面不变）。
 
-# ---- 记录提交（两段式第二段，R-RC-003） ----
+# ---- 记录提交（两段式第二段，R-RC-003；票 247：持同一把锁的前缀门单点入口） ----
+# 记录路径经 record_commit_run 单点提交：同锁串行（与 ticket-ops/ledger-append 一把锁）→
+# 只暂存记录路径到私有索引 → 拒绝部分暂存 → 只追加账本 HEAD 须为待提交版前缀 → 私有索引
+# 写出的树文件集恰为记录路径（混提拒绝）→ commit-tree + update-ref CAS（断言对象＝被提交树）。
 
-for rpath in ${record_files}; do
-  git -C "${repo_root}" add -- "${rpath}" || die1 "git add 失败（记录提交）: ${rpath}"
-done
-
-git -C "${repo_root}" commit -m "chore(lane): 记录翻转 — ${message}" || die1 '记录提交创建失败'
-cid2=$(git -C "${repo_root}" rev-parse HEAD)
+set -f
+# shellcheck disable=SC2086  # 路径清单按换行分隔、刻意不加引号切分（记录路径不含空白与通配符；set -f 已关通配）
+record_commit_run "${repo_root}" "chore(lane): 记录翻转 — ${message}" ${record_files}
+set +f
+cid2=${rc_commit_id}
 
 # ---- 回报 ----
 

@@ -2,17 +2,19 @@
 # Input: 任务票编号前缀 <NN>、仓库根（缺省当前 Git 仓库）、审查收据文件（缺省
 #        facts/requirements/tickets/<NN>-*.review-evidence.json）、审计策略文件（缺省
 #        facts/requirements/audit-policy.json）与操作面 --operation（read/analyze/merge/
-#        push/release）；收据格式合同＝../references/schemas/receipt.schema.json，
+#        push）；收据格式合同＝../references/schemas/receipt.schema.json，
 #        证据定位经 git ls-tree／rev-parse／hash-object／merge-base／diff 只读事实。
 # Output: 逐谓词一行（PASS/FAIL/UNKNOWN＋谓词号与名＋文件:行号＋原因）、证据位置追溯行
 #         （路径@提交:blob）、操作面允许/拒绝行与三值判定行（conformant/nonconformant/
 #         unknown）；退出码 0＝conformant 或 unknown 下的读/分析，1＝nonconformant 或
-#         unknown 下的 merge/push/发布，2＝用法或环境错误。全程只读零写入。
+#         unknown 下的 merge/push，2＝用法或环境错误。全程只读零写入。
 # Pos: 记录层证据审计引擎（Review 证据绑定 base/diff 的最小 Git 事实判断）：只回答
 #      「证据是否已提交、是否绑定当前产品提交、审查者身份是否可佐证、策略是否适用」，
 #      不宣称能证明不可验证的独立身份——无法核验即 unknown，不以 unknown 阻断读/分析。
 #      POSIX sh＋python3（唯一 JSON 引擎）＋source common-helpers.sh；安装闭包随
 #      ticket-ops 门控同落位。回归＝tests/ 的 ticket-audit 套件。
+#      票 237 补正：base==head 或 base..head 为空 diff 时 P05 判非 conformant 并指名
+#      原因——零实现 diff 不得作为绑定实现的审查收据收口。
 
 set -eu
 set -f
@@ -37,23 +39,28 @@ usage() {
 用法: sh ticket-audit.sh <NN> [选项]
   <NN>                 任务票编号前缀（≥2 位数字）；定位 facts/requirements/tickets/<NN>-*.json 恰一命中
   --repo <dir>         仓库根（缺省＝git rev-parse --show-toplevel）
-  --operation <op>     read | analyze | merge | push | release（缺省 analyze）
+  --operation <op>     read | analyze | merge | push（缺省 analyze）
   --evidence <path>    审查收据路径（缺省＝<票文件>.review-evidence.json）
   --policy <path>      审计策略路径（缺省＝facts/requirements/audit-policy.json）
+  --allow-after <rel>  额外允许出现在 head 之后的仓库根相对路径（可重复；缺省仅证据
+                       文件。调用方显式传入记录载体，禁止整体放开 facts/或任意文件）
   -h / --help          打印本用法
 退出码: 0＝conformant，或 unknown 下的 read/analyze；1＝nonconformant，或 unknown 下的
-        merge/push/release；2＝用法或环境错误。
+        merge/push；2＝用法或环境错误。
 谓词: P01 收据可解析 / P02 证据已提交 / P03 base 可溯 / P04 审阅边界干净 /
       P05 diff 指纹绑定 / P06 审查者字段在场 / P07 审查者身份可佐证 /
       P08 审查者非实现者 / P09 审查时间有效 / P10 验收结果完备 / P11 策略适用。
 USAGE
 }
 
+NL='
+'
 NN=''
 REPO=''
 OPERATION='analyze'
 EVIDENCE=''
 POLICY=''
+ALLOW_AFTER=''
 
 while [ $# -gt 0 ]; do
   case $1 in
@@ -62,6 +69,17 @@ while [ $# -gt 0 ]; do
     --operation) [ $# -ge 2 ] || { usage >&2; exit 2; }; OPERATION=$2; shift 2 ;;
     --evidence) [ $# -ge 2 ] || { usage >&2; exit 2; }; EVIDENCE=$2; shift 2 ;;
     --policy) [ $# -ge 2 ] || { usage >&2; exit 2; }; POLICY=$2; shift 2 ;;
+    --allow-after)
+      [ $# -ge 2 ] || { usage >&2; exit 2; }
+      case $2 in
+        ''|/*|..|../*|*/..|*/../*)
+          printf 'ticket-audit: --allow-after 须为仓库根相对路径且不得含 ..: %s\n' "$2" >&2
+          exit 2
+          ;;
+      esac
+      ALLOW_AFTER="${ALLOW_AFTER}${NL}$2"
+      shift 2
+      ;;
     -*) printf 'ticket-audit: 未知参数: %s\n' "$1" >&2; usage >&2; exit 2 ;;
     *) [ -z "$NN" ] || { printf 'ticket-audit: 多余参数: %s\n' "$1" >&2; usage >&2; exit 2; }; NN=$1; shift ;;
   esac
@@ -71,7 +89,7 @@ case $NN in
 esac
 [ "${#NN}" -ge 2 ] || { printf 'ticket-audit: 任务票编号至少两位: %s\n' "$NN" >&2; usage >&2; exit 2; }
 case $OPERATION in
-  read|analyze|merge|push|release) ;;
+  read|analyze|merge|push) ;;
   *) printf 'ticket-audit: --operation 不合口径: %s\n' "$OPERATION" >&2; usage >&2; exit 2 ;;
 esac
 
@@ -349,13 +367,18 @@ else
   IFS='
 '
   for _path in $_changed; do
-    [ "$_path" = "$EVIDENCE_REL" ] || { _extra=$_path; break; }
+    [ "$_path" = "$EVIDENCE_REL" ] && continue
+    _allowed=0
+    for _ap in $ALLOW_AFTER; do
+      [ "$_path" = "$_ap" ] && { _allowed=1; break; }
+    done
+    [ "$_allowed" -eq 1 ] || { _extra=$_path; break; }
   done
   IFS=$_old_ifs
   if [ -n "$_extra" ]; then
-    p_fail P04 review-boundary-clean "$_extra:1 — head 之后出现证据文件以外的改动（审阅边界被污染）"
+    p_fail P04 review-boundary-clean "$_extra:1 — head 之后出现证据文件与显式允许集以外的改动（审阅边界被污染）"
   else
-    p_pass P04 review-boundary-clean "$EVIDENCE_REL:$(field_line "$EVIDENCE" head_sha) — head 之后仅证据文件提交（边界干净）"
+    p_pass P04 review-boundary-clean "$EVIDENCE_REL:$(field_line "$EVIDENCE" head_sha) — head 之后仅证据文件与显式允许集文件提交（边界干净）"
   fi
 fi
 
@@ -369,7 +392,12 @@ elif ! _is_sha "$R_DIFF"; then
   p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — diff_sha 非 40 位小写十六进制: ${R_DIFF:-缺失}"
 else
   _actual=$(git -C "$REPO" diff --no-color --no-ext-diff --no-textconv --binary "$R_BASE" "$R_HEAD" 2>/dev/null | git -C "$REPO" hash-object --stdin 2>/dev/null) || _actual=''
-  if [ -n "$_actual" ] && [ "$_actual" = "$R_DIFF" ]; then
+  _empty_diff=$(git -C "$REPO" hash-object --stdin </dev/null 2>/dev/null) || _empty_diff=''
+  if [ "$R_BASE" = "$R_HEAD" ]; then
+    p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" head_sha) — base_sha 与 head_sha 相同（零实现 diff，证据未绑定任何实现变更）"
+  elif [ -n "$_actual" ] && [ -n "$_empty_diff" ] && [ "$_actual" = "$_empty_diff" ]; then
+    p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — base..head 无差异（空 diff，diff_sha 未绑定任何实现变更）"
+  elif [ -n "$_actual" ] && [ "$_actual" = "$R_DIFF" ]; then
     p_pass P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — diff_sha 等于 base..head 重算指纹"
   else
     p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — diff_sha 与 base..head 重算指纹不符（声明: ${R_DIFF}，实测: ${_actual:-重算失败}）"

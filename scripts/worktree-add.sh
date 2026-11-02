@@ -62,6 +62,9 @@ usage() {
   4. git worktree add（--no-checkout）创建；对新区设 sparse-checkout 非锥形模式：
      '/*' 放行全部，再按 dp_mainonly 清单逐条 '!<路径>' 排除，reapply 生效；输出排除
      清单与完成行。
+  5. 完成行后提示依赖准备入口（同目录 worktree-deps.sh <站路径>）：本命令只创建
+     worktree、不安装依赖；非 npm 仓库由该命令自行 skip。本安装未随附该入口
+     （worktree-deps.sh 不在场）时改提示在站内自行准备依赖。
 退出码:
   0  创建并排除完成。
   1  fail-closed（链接 worktree 内运行、分支名不合 ticket 形态、worktree add 失败、
@@ -241,4 +244,11 @@ printf '%s\n' "$DP_MAINONLY" | while IFS= read -r _v; do
   if [ -n "$_v" ]; then printf '%s:   !%s\n' "$prog" "$_v"; fi
 done
 printf '%s: 排除清单持久于 %s/info/sparse-checkout（随 worktree 删除一并消失）\n' "$prog" "$wt_gd"
+printf '%s: 依赖未准备（本命令只创建 worktree，不安装依赖；禁符号链接共享）:\n' "$prog"
+_deps_script=$(CDPATH='' cd "$(dirname "$0")" && pwd)/worktree-deps.sh
+if [ -f "$_deps_script" ]; then
+  printf '%s:   npm 仓库请在该站独立准备: sh %s %s\n' "$prog" "$_deps_script" "$wt_abs"
+else
+  printf '%s:   本安装未随附依赖准备入口（worktree-deps.sh 不在场），请在站内自行准备依赖\n' "$prog"
+fi
 exit 0

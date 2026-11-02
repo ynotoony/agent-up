@@ -85,7 +85,7 @@ tix_build_fixture() {
   F=$1
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project" "$F/agent-up/scripts"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/ticket-audit.sh" "$F/rules/implementation/scripts/"
   cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/agent-up/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
@@ -176,8 +176,107 @@ tix_assert_readme_append_only() {
   assert_eq 'open 追加之前的既有行逐字节相等（票 191 AC1 字节比对）' "$3/prefix.md" "$1"
 }
 
-tix_expected_progress() {
-  # 独立重建：三票投影全文（generated_at 行规范化；按 id 升序；头部两路径＝生成器
+tix_audit_commit() {
+  # $1=夹具根 $2=作者邮箱 $3=UTC 时间 $4=提交信息：全量暂存并固定身份/日期提交
+  git -C "$1" add -A
+  GIT_AUTHOR_NAME=fixture GIT_AUTHOR_EMAIL=$2 GIT_AUTHOR_DATE=$3 \
+    GIT_COMMITTER_NAME=fixture GIT_COMMITTER_EMAIL=$2 GIT_COMMITTER_DATE=$3 \
+    git -C "$1" -c commit.gpgsign=false commit -qm "$4"
+}
+
+tix_audit_write_receipt() {
+  # $1=夹具根 $2=base $3=head：重算 diff 指纹写审查收据（ticket 42-audit-gate）
+  python3 - "$1/facts/requirements/tickets/42-audit-gate.review-evidence.json" "$2" "$3" "$1" <<'PYTHON'
+import json, subprocess, sys
+path, base, head, repo = sys.argv[1:5]
+diff = subprocess.run(
+    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
+     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
+diff_sha = subprocess.run(
+    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
+    stdout=subprocess.PIPE).stdout.decode().strip()
+receipt = {
+    'schema_version': 1,
+    'receipt_kind': 'review',
+    'ticket_id': '42-audit-gate',
+    'created_at': '2026-10-03T08:00:00Z',
+    'actor': 'reviewer',
+    'base_sha': base,
+    'head_sha': head,
+    'diff_sha': diff_sha,
+    'reviewer_identity': 'reviewer@example.com',
+    'reviewed_at': '2026-10-02T10:00:00Z',
+    'verdict': 'PASS',
+    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'product.txt:1'}],
+}
+with open(path, 'w') as fh:
+    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+PYTHON
+}
+
+tix_audit_fixture() {
+  # $1=夹具根 [$2=证据形态 committed|uncommitted|none|stale]
+  # 时序：C0 票务面提交（含 42-audit-gate 本体 actual_time）→ C1 策略 → C2 产品提交 →
+  # C3 审查收据提交（stale 追加 C4 产品改动，令 diff 在审查后变化）
+  _taf_mode=${2:-committed}
+  tix_build_fixture "$1"
+  tix_body_at "$1/facts/requirements/tickets/42-audit-gate.json" 42-audit-gate
+  # 票 237 收尾断言：可选注入 dispatch.commit.REVIEW_PASS_CHECKPOINT（须在 C0 之内落盘，
+  # 否则后置改票面本身即构成 P04 审查后改动，无法单独观测允许集形态）
+  if [ -n "${TIX237_CP:-}" ]; then
+    python3 - "$1/facts/requirements/tickets/42-audit-gate.json" "$TIX237_CP" <<'PYCP'
+import json, sys
+path, cp = sys.argv[1:3]
+with open(path, encoding='utf-8') as fh:
+    body = json.load(fh)
+body.setdefault('dispatch', {}).setdefault('commit', {})['REVIEW_PASS_CHECKPOINT'] = cp
+with open(path, 'w', encoding='utf-8') as fh:
+    json.dump(body, fh, ensure_ascii=False, indent=2)
+    fh.write('\n')
+PYCP
+  fi
+  sed -e '/"id": "20-beta-second"/ s/$/,/' \
+    -e 's/^  \]$/    {"id": "42-audit-gate", "status": "in_progress", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-01T10:00"}\
+  ]/' "$1/facts/requirements/tickets/index.json" > "$1/facts/requirements/tickets/index.tmp" \
+    && mv "$1/facts/requirements/tickets/index.tmp" "$1/facts/requirements/tickets/index.json"
+  # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
+  printf '| `42-audit-gate.json` | 任务票 42；`in_progress`（2026-10-01 开票） | Audit gate fixture |\n' \
+    >> "$1/facts/requirements/tickets/README.md"
+  git -C "$1" init -q
+  tix_audit_commit "$1" 'impl@example.com' '2026-10-01T00:00:00Z' 'ticket records'
+  _taf_base=$(git -C "$1" rev-parse HEAD)
+  printf '{"schema_version":1,"policy_id":"ticket-ops-audit","effective_from":"2026-01-01","baseline_sha":"%s","release_baseline":"none","trusted_reviewers":["reviewer@example.com"],"implementation_identities":["impl@example.com"]}\n' \
+    "$_taf_base" > "$1/facts/requirements/audit-policy.json"
+  tix_audit_commit "$1" 'impl@example.com' '2026-10-01T00:00:00Z' 'audit policy'
+  _taf_product_base=$(git -C "$1" rev-parse HEAD)
+  printf 'product\n' > "$1/product.txt"
+  tix_audit_commit "$1" 'impl@example.com' '2026-10-02T00:00:00Z' 'product change'
+  _taf_head=$(git -C "$1" rev-parse HEAD)
+  if [ "$_taf_mode" != 'none' ]; then
+    tix_audit_write_receipt "$1" "$_taf_product_base" "$_taf_head"
+    if [ "$_taf_mode" = 'committed' ] || [ "$_taf_mode" = 'stale' ]; then
+      tix_audit_commit "$1" 'reviewer@example.com' '2026-10-03T00:00:00Z' 'review evidence'
+    fi
+    if [ "$_taf_mode" = 'stale' ]; then
+      printf 'late\n' >> "$1/product.txt"
+      tix_audit_commit "$1" 'impl@example.com' '2026-10-04T00:00:00Z' 'late product change'
+    fi
+    # 票 237 收尾断言：审查后可选后置写面（product＝产品改动；checkpoint＝票面声明的
+    # Review Checkpoint 文件），用于观测允许集是否只认规范形态
+    case ${TIX237_LATE:-} in
+      product)
+        printf 'late\n' >> "$1/product.txt"
+        tix_audit_commit "$1" 'impl@example.com' '2026-10-04T00:00:00Z' 'late product change'
+        ;;
+      checkpoint)
+        printf 'review checkpoint\n' > "$1/facts/requirements/tickets/42-audit-gate-review-checkpoint.md"
+        tix_audit_commit "$1" 'reviewer@example.com' '2026-10-04T00:00:00Z' 'review checkpoint'
+        ;;
+    esac
+  fi
+}
+
+tix_expected_progress() {  # 独立重建：三票投影全文（generated_at 行规范化；按 id 升序；头部两路径＝生成器
   # 常量区新形态 issues_index_rel ＋ gen_script_rel 推导，票 113 波④）
   cat <<'EOF'
 <!-- generated_from: facts/requirements/tickets/index.json + rules/implementation/scripts/generate-progress.sh -->
@@ -2135,6 +2234,163 @@ PYTHON
     ok 'AC6 未来证据留空/pending 时开票 exit 0（ACTUAL_TIME、Review 结论、Commit pass 指针均不预填）'
   else
     bad 'AC6 未来证据留空/pending 时开票 exit 0（ACTUAL_TIME、Review 结论、Commit pass 指针均不预填）' "exit=$rc $(tix243_reason "$D/ac6b.log")"
+  fi
+
+  # ---- 票 237：close/flip/flip-index 三入口 done 证据门（同一判定，不留自报旁路）----
+  # 负例：无已提交证据 → 三入口均 exit 1 decision-required 且零写入（审计 P01 短路）。
+  LED237='{"date": "2026-10-04", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture audit gate", "evidence_ref": "facts/requirements/tickets/42-audit-gate.json"}'
+  tix_audit_fixture "$D/a237n" none
+  FA237N=$D/a237n
+  S237N=$(tix_state "$FA237N")
+  sh "$FA237N/rules/implementation/scripts/ticket-ops.sh" "$FA237N" close --id 42-audit-gate --ledger-line "$LED237" >"$D/a237n-close.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237N" = "$(tix_state "$FA237N")" ] \
+    && grep -q 'decision-required' "$D/a237n-close.log" \
+    && grep -q 'FAIL P01 receipt-parseable:' "$D/a237n-close.log"; then
+    ok '负例 N-237a close 无证据 → exit 1 decision-required 且零写入（P01 短路）'
+  else
+    bad '负例 N-237a close 无证据 → exit 1 decision-required 且零写入（P01 短路）' "exit=$rc $(head -n 2 "$D/a237n-close.log" | tr '\n' '|')"
+  fi
+  sh "$FA237N/rules/implementation/scripts/ticket-ops.sh" "$FA237N" flip --id 42-audit-gate --status done --ledger-line "$LED237" >"$D/a237n-flip.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237N" = "$(tix_state "$FA237N")" ] \
+    && grep -q 'decision-required' "$D/a237n-flip.log" \
+    && grep -q 'FAIL P01 receipt-parseable:' "$D/a237n-flip.log"; then
+    ok '负例 N-237b flip 至 done 无证据 → exit 1 decision-required 且零写入（与 close 同判）'
+  else
+    bad '负例 N-237b flip 至 done 无证据 → exit 1 decision-required 且零写入（与 close 同判）' "exit=$rc $(head -n 2 "$D/a237n-flip.log" | tr '\n' '|')"
+  fi
+  sh "$FA237N/rules/implementation/scripts/ticket-ops.sh" "$FA237N" flip-index --id 42-audit-gate --status done --updated-at '2026-10-04T10:00' >"$D/a237n-fi.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237N" = "$(tix_state "$FA237N")" ] \
+    && grep -q 'decision-required' "$D/a237n-fi.log" \
+    && grep -q 'FAIL P01 receipt-parseable:' "$D/a237n-fi.log"; then
+    ok '负例 N-237c flip-index 至 done 无证据 → exit 1 decision-required 且零写入（三入口同判）'
+  else
+    bad '负例 N-237c flip-index 至 done 无证据 → exit 1 decision-required 且零写入（三入口同判）' "exit=$rc $(head -n 2 "$D/a237n-fi.log" | tr '\n' '|')"
+  fi
+
+  # 负例 AC1：审查后产品 diff 变化（证据仍已提交）→ P04 拒，close 零写入。
+  tix_audit_fixture "$D/a237s" stale
+  FA237S=$D/a237s
+  S237S=$(tix_state "$FA237S")
+  sh "$FA237S/rules/implementation/scripts/ticket-ops.sh" "$FA237S" close --id 42-audit-gate --ledger-line "$LED237" >"$D/a237s.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237S" = "$(tix_state "$FA237S")" ] \
+    && grep -q 'decision-required' "$D/a237s.log" \
+    && grep -q 'FAIL P04 review-boundary-clean:' "$D/a237s.log"; then
+    ok '负例 N-237d 审查后 diff 变化 → exit 1 decision-required 且零写入（P04）'
+  else
+    bad '负例 N-237d 审查后 diff 变化 → exit 1 decision-required 且零写入（P04）' "exit=$rc $(head -n 2 "$D/a237s.log" | tr '\n' '|')"
+  fi
+
+  # 负例 AC1：证据未提交（工作树在、HEAD 未跟踪）→ P02 拒，flip 零写入。
+  tix_audit_fixture "$D/a237u" uncommitted
+  FA237U=$D/a237u
+  S237U=$(tix_state "$FA237U")
+  sh "$FA237U/rules/implementation/scripts/ticket-ops.sh" "$FA237U" flip --id 42-audit-gate --status done --ledger-line "$LED237" >"$D/a237u.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237U" = "$(tix_state "$FA237U")" ] \
+    && grep -q 'decision-required' "$D/a237u.log" \
+    && grep -q 'FAIL P02 evidence-committed:' "$D/a237u.log"; then
+    ok '负例 N-237e 证据未提交 → exit 1 decision-required 且零写入（P02）'
+  else
+    bad '负例 N-237e 证据未提交 → exit 1 decision-required 且零写入（P02）' "exit=$rc $(head -n 2 "$D/a237u.log" | tr '\n' '|')"
+  fi
+
+  # 正例：已提交且绑定 diff 的证据 → 三入口逐一放行，索引落 done。
+  tix_audit_fixture "$D/a237c" committed
+  FA237C=$D/a237c
+  sh "$FA237C/rules/implementation/scripts/ticket-ops.sh" "$FA237C" close --id 42-audit-gate --ledger-line "$LED237" >"$D/a237c-close.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "42-audit-gate", "status": "done"' "$FA237C/facts/requirements/tickets/index.json" \
+    && grep -q '证据门: close 放行' "$D/a237c-close.log" \
+    && [ "$(tix_readme_token "$FA237C/facts/requirements/tickets/README.md" 42)" = 'done' ]; then
+    ok '正例 P-237a close＋conformant 证据 → exit 0 索引/README 落 done 且证据门放行'
+  else
+    bad '正例 P-237a close＋conformant 证据 → exit 0 索引/README 落 done 且证据门放行' "exit=$rc $(head -n 2 "$D/a237c-close.log" | tr '\n' '|')"
+  fi
+  sh "$FA237C/rules/implementation/scripts/ticket-ops.sh" "$FA237C" flip --id 42-audit-gate --status done --ledger-line "$LED237" >"$D/a237c-flip.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '证据门: flip 放行' "$D/a237c-flip.log"; then
+    ok '正例 P-237b flip 至 done＋同一证据 → exit 0 且证据门放行（与 close 同判）'
+  else
+    bad '正例 P-237b flip 至 done＋同一证据 → exit 0 且证据门放行（与 close 同判）' "exit=$rc $(head -n 2 "$D/a237c-flip.log" | tr '\n' '|')"
+  fi
+  sh "$FA237C/rules/implementation/scripts/ticket-ops.sh" "$FA237C" flip-index --id 42-audit-gate --status done --updated-at '2026-10-04T10:00' >"$D/a237c-fi.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "42-audit-gate", "status": "done", "complexity": "C1", "blocked_by": \[\], "updated_at": "2026-10-04T10:00"' "$FA237C/facts/requirements/tickets/index.json" \
+    && grep -q '证据门: flip-index 放行' "$D/a237c-fi.log"; then
+    ok '正例 P-237c flip-index 至 done＋同一证据 → exit 0 索引单写且证据门放行'
+  else
+    bad '正例 P-237c flip-index 至 done＋同一证据 → exit 0 索引单写且证据门放行' "exit=$rc $(head -n 2 "$D/a237c-fi.log" | tr '\n' '|')"
+  fi
+
+  # ---- 票 237 收尾：允许集形态约束（dispatch.commit.REVIEW_PASS_CHECKPOINT 只认本票
+  # 规范路径 facts/requirements/tickets/<票 id>-review-checkpoint.md）----
+  # 负例 N-237g：票面声明 a.txt（产品文件）＋审查后产品改动 → 形态不符、不纳入允许集，
+  # P04 仍判审查后改动 → exit 1 零写入。
+  TIX237_CP='a.txt'
+  TIX237_LATE=product
+  tix_audit_fixture "$D/a237g" committed
+  unset TIX237_CP TIX237_LATE
+  FA237G=$D/a237g
+  S237G=$(tix_state "$FA237G")
+  sh "$FA237G/rules/implementation/scripts/ticket-ops.sh" "$FA237G" close --id 42-audit-gate --ledger-line "$LED237" >"$D/a237g.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237G" = "$(tix_state "$FA237G")" ] \
+    && grep -q 'REVIEW_PASS_CHECKPOINT 形态不符，不纳入允许集: a.txt' "$D/a237g.log" \
+    && grep -q 'FAIL P04 review-boundary-clean:' "$D/a237g.log"; then
+    ok '负例 N-237g 票面声明 a.txt → 形态不符不纳入允许集，审查后产品改动仍被 P04 拒（exit 1 零写入）'
+  else
+    bad '负例 N-237g 票面声明 a.txt → 形态不符不纳入允许集，审查后产品改动仍被 P04 拒（exit 1 零写入）' "exit=$rc $(head -n 2 "$D/a237g.log" | tr '\n' '|')"
+  fi
+
+  # 正例 P-237d：票面声明规范 Review Checkpoint 路径＋审查后仅写该文件 → 允许集生效放行。
+  TIX237_CP='facts/requirements/tickets/42-audit-gate-review-checkpoint.md'
+  TIX237_LATE=checkpoint
+  tix_audit_fixture "$D/a237h" committed
+  unset TIX237_CP TIX237_LATE
+  FA237H=$D/a237h
+  sh "$FA237H/rules/implementation/scripts/ticket-ops.sh" "$FA237H" close --id 42-audit-gate --ledger-line "$LED237" >"$D/a237h.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '证据门: close 放行' "$D/a237h.log" \
+    && ! grep -q '形态不符' "$D/a237h.log"; then
+    ok '正例 P-237d 票面声明规范 Review Checkpoint＋审查后仅写该文件 → 允许集生效，close exit 0 放行'
+  else
+    bad '正例 P-237d 票面声明规范 Review Checkpoint＋审查后仅写该文件 → 允许集生效，close exit 0 放行' "exit=$rc $(head -n 2 "$D/a237h.log" | tr '\n' '|')"
+  fi
+
+  # 负例 N-237h：同前缀异形路径（.md.bak）＋审查后产品改动 → 形态不符、P04 拒。
+  TIX237_CP='facts/requirements/tickets/42-audit-gate-review-checkpoint.md.bak'
+  TIX237_LATE=product
+  tix_audit_fixture "$D/a237i" committed
+  unset TIX237_CP TIX237_LATE
+  FA237I=$D/a237i
+  S237I=$(tix_state "$FA237I")
+  sh "$FA237I/rules/implementation/scripts/ticket-ops.sh" "$FA237I" close --id 42-audit-gate --ledger-line "$LED237" >"$D/a237i.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237I" = "$(tix_state "$FA237I")" ] \
+    && grep -q 'REVIEW_PASS_CHECKPOINT 形态不符，不纳入允许集: facts/requirements/tickets/42-audit-gate-review-checkpoint.md.bak' "$D/a237i.log" \
+    && grep -q 'FAIL P04 review-boundary-clean:' "$D/a237i.log"; then
+    ok '负例 N-237h 同前缀异形 .md.bak → 形态不符不纳入允许集，审查后产品改动仍被 P04 拒（exit 1 零写入）'
+  else
+    bad '负例 N-237h 同前缀异形 .md.bak → 形态不符不纳入允许集，审查后产品改动仍被 P04 拒（exit 1 零写入）' "exit=$rc $(head -n 2 "$D/a237i.log" | tr '\n' '|')"
+  fi
+
+  # 负例：flip-index done 双证缺一（有证据但缺 actual_time）→ actual_time 先拒。
+  tix_audit_fixture "$D/a237t" committed
+  FA237T=$D/a237t
+  tix_body "$FA237T/facts/requirements/tickets/42-audit-gate.json" 42-audit-gate
+  S237T=$(tix_state "$FA237T")
+  sh "$FA237T/rules/implementation/scripts/ticket-ops.sh" "$FA237T" flip-index --id 42-audit-gate --status done --updated-at '2026-10-04T10:00' >"$D/a237t.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S237T" = "$(tix_state "$FA237T")" ] \
+    && grep -q 'actual_time' "$D/a237t.log"; then
+    ok '负例 N-237f flip-index done 有证据但缺 actual_time → exit 1 零写入（双证缺一即拒）'
+  else
+    bad '负例 N-237f flip-index done 有证据但缺 actual_time → exit 1 零写入（双证缺一即拒）' "exit=$rc $(head -n 2 "$D/a237t.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'

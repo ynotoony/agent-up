@@ -21,7 +21,7 @@ tr_build_fixture() {
   mkdir -p "$R/rules/implementation/scripts" "$R/rules/implementation/references/schemas" \
     "$R/rules/implementation/references/prompts" "$R/facts/requirements/tickets" "$R/facts/project"
   for f in ticket-run.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
-    check-gates.sh ticket-ops.sh generate-progress.sh ledger-append.sh common-helpers.sh json-validator.py; do
+    check-gates.sh ticket-ops.sh generate-progress.sh ledger-append.sh common-helpers.sh json-validator.py ticket-audit.sh; do
     cp "$SCRIPT_DIR/$f" "$R/rules/implementation/scripts/$f"
   done
   cp "$PKG_ROOT/references/schemas/dispatch-contract.schema.json" "$R/rules/implementation/references/schemas/"
@@ -33,7 +33,7 @@ tr_build_fixture() {
 
 dp_mainonly agent-up/scripts/export-payload.sh
 EOF
-  printf 'seed\n' > "$R/product.txt"
+  printf 'implemented\n' > "$R/product.txt"
   cat > "$R/facts/requirements/tickets/index.json" <<EOF
 {
   "issues": [
@@ -53,12 +53,13 @@ review_keys = ['REVIEW_SCOPE', 'IMPLEMENTATION_SUMMARY', 'ACCEPTANCE_CRITERIA', 
 ticket = {
     'id': '90-run-fixture', 'kind': 'task', 'title': 'ticket-run fixture', 'created_at': '2026-10-28',
     'blocked_by': [],
+    'actual_time': '1h（fixture 净工时占位）',
     'dispatch': {
         'implementation': {key: 'fixture implementation ' + key for key in impl_keys},
         'review': {key: 'fixture review ' + key for key in review_keys},
         'commit': {
             'REVIEW_PASS_CHECKPOINT': 'facts/requirements/tickets/90-run-fixture-review-checkpoint.md',
-            'FILE_WHITELIST': 'product.txt,facts/requirements/tickets/90-run-fixture-review-checkpoint.md',
+            'FILE_WHITELIST': 'product.txt,facts/requirements/tickets/90-run-fixture-review-checkpoint.md,facts/requirements/tickets/90-run-fixture.review-evidence.json',
             'COMMIT_MESSAGE': 'test: ticket-run fixture',
             'RECORD_FLIP_AUTHORIZATION': 'flips: facts/requirements/tickets/index.json:index:90-run-fixture:done:2026-10-28T12:00',
             'SCOPE_CHECK_COMMAND': 'test -f product.txt',
@@ -74,6 +75,37 @@ with open(root + '/facts/requirements/tickets/90-run-fixture.json', 'w', encodin
 PY
   git -C "$R" init -q
   tr_git_commit "$R" init
+}
+
+tr_audit_receipt() {
+  # $1=仓库根（worktree）$2=base $3=head：按重算 diff 指纹写审查收据（reviewer 身份）
+  python3 - "$1/facts/requirements/tickets/90-run-fixture.review-evidence.json" "$2" "$3" "$1" <<'PY'
+import json, subprocess, sys, datetime
+path, base, head, repo = sys.argv[1:5]
+diff = subprocess.run(
+    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
+     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
+diff_sha = subprocess.run(
+    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
+    stdout=subprocess.PIPE).stdout.decode().strip()
+now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+receipt = {
+    'schema_version': 1,
+    'receipt_kind': 'review',
+    'ticket_id': '90-run-fixture',
+    'created_at': now,
+    'actor': 'reviewer',
+    'base_sha': base,
+    'head_sha': head,
+    'diff_sha': diff_sha,
+    'reviewer_identity': 'reviewer@example.com',
+    'reviewed_at': now,
+    'verdict': 'PASS',
+    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'product.txt:1'}],
+}
+with open(path, 'w') as fh:
+    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+PY
 }
 
 tr_run() {
@@ -225,9 +257,23 @@ suite_ticket_run() {
   fi
 
   printf 'Verdict: **PASS**\n' > "$WT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md"
+  tr_base=$(git -C "$WT" rev-parse HEAD)
+  printf 'implemented v2\n' >> "$WT/product.txt"
+  git -C "$WT" add product.txt
+  git -C "$WT" -c user.email=fixture@example.com -c user.name=fixture commit -qm 'product implementation'
+  tr_head=$(git -C "$WT" rev-parse HEAD)
+  tr_excl=$(git -C "$WT" rev-parse --git-path info/exclude)
+  case $tr_excl in /*) ;; *) tr_excl="$WT/$tr_excl" ;; esac
+  mkdir -p "$(dirname "$tr_excl")"
+  printf '%s\n' 'facts/requirements/audit-policy.json' >> "$tr_excl"
+  printf '{"schema_version":1,"policy_id":"ticket-run-fixture","effective_from":"2026-01-01","baseline_sha":"%s","release_baseline":"none","trusted_reviewers":["reviewer@example.com"],"implementation_identities":["fixture@example.com"]}\n' \
+    "$tr_base" > "$WT/facts/requirements/audit-policy.json"
+  tr_audit_receipt "$WT" "$tr_base" "$tr_head"
+  git -C "$WT" config user.email reviewer@example.com
+  git -C "$WT" config user.name reviewer
   tr_run 90 commit "$MAIN" > "$D/commit.out" 2> "$D/commit.err"
   rc=$?
-  if [ "$rc" -eq 0 ] && [ "$(git -C "$WT" rev-list --count HEAD)" -eq 3 ] \
+  if [ "$rc" -eq 0 ] && [ "$(git -C "$WT" rev-list --count HEAD)" -eq 4 ] \
     && grep -q '"id": "90-run-fixture", "status": "done"' "$WT/facts/requirements/tickets/index.json" \
     && grep -q '| 90-run-fixture | done |' "$WT/facts/requirements/tickets/progress-current.md" \
     && grep -q 'ticket-run: 产品提交:' "$D/commit.out" && grep -q 'ticket-run: 记录提交:' "$D/commit.out"; then
@@ -254,7 +300,7 @@ suite_ticket_run() {
   printf -- '- 评审结论：**pass**（2026-10-29，存量格式兼容夹具）\n' > "$WT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md"
   tr_run 90 commit "$MAIN" > "$D/commit-legacy.out" 2> "$D/commit-legacy.err"
   rc=$?
-  if [ "$rc" -eq 0 ] && [ "$(git -C "$WT" rev-list --count HEAD)" -eq 5 ] \
+  if [ "$rc" -eq 0 ] && [ "$(git -C "$WT" rev-list --count HEAD)" -eq 6 ] \
     && grep -q 'ticket-run: 产品提交:' "$D/commit-legacy.out"; then
     ok 'P6 存量格式「- 评审结论：**pass**（注记）」被采信并完成两段提交'
   else

@@ -2,11 +2,15 @@
 # Input: 调用方脚本环境（set -eu）与参数——resolve_repo_root 的模式/覆盖根；锁原语的
 #        仓库根；TICKET_OPS_LOCK_TIMEOUT／TICKET_OPS_LOCK_STALE／RECORD_LOCK_BREAK_STALE
 #        等运行开关。
-# Output: 错误与告警报文函数、仓库根推导，以及记录层写锁原语（mkdir 原子取锁、有界等待、
-#         陈旧锁只诊断、显式夺锁、令牌归属校验、继承识别与释放）；本库不直接写业务载体。
-# Pos: agent-up 脚本共享库，锁原语全仓唯一实现点（票 246）；ticket-ops.sh 与
-#      ledger-append.sh 只调用不复制。一旦我被更新，务必同步 rules/implementation/scripts/
-#      镜像件与同目录 README.md。
+# Output: 错误与告警报文函数、仓库根推导，只追加前缀语义（账本清单、字节前缀判定、
+#         首个违规行号定位——check-append-only.sh 与记录提交前缀门共用），记录层
+#         写锁原语（mkdir 原子取锁、有界等待、陈旧锁只诊断、显式夺锁、令牌归属校验、
+#         继承识别与释放），以及证据门 Review Checkpoint 允许集的唯一形态判定；本库
+#         不直接写业务载体。
+# Pos: agent-up 脚本共享库，锁原语（票 246）、前缀语义（票 247）与 Review Checkpoint
+#      允许集判定（票 237）全仓唯一实现点；ticket-ops.sh／merge-ticket.sh／
+#      ledger-append.sh／check-append-only.sh／lane-commit.sh 只调用不复制。
+#      一旦我被更新，务必同步 rules/implementation/scripts/ 镜像件与同目录 README.md。
 
 # Extract script name from $0 for error messages
 _script_name() {
@@ -28,6 +32,26 @@ die2() {
 # Warning message (non-fatal)
 warn() {
   printf '%s: WARNING: %s\n' "$(_script_name)" "$1" >&2
+}
+
+# review_checkpoint_allow_after <票 id> <JSON 引擎> <票体来源>
+# 证据门允许集里 Review Checkpoint 路径的唯一判定实现：<票体来源> 为票体文件路径或
+# '-'（读 stdin）。票面 dispatch.commit.REVIEW_PASS_CHECKPOINT 恰为本票规范路径
+# facts/requirements/tickets/<id>-review-checkpoint.md 时打印该路径；未声明或形态
+# 不符打印空（形态不符附告警）。ticket-ops 证据门与 merge-ticket 合并门共用本函数，
+# 禁止各写一份——两处口径必须同源，否则 done 能过而 merge 恒拒。
+review_checkpoint_allow_after() {
+  _rca_id=$1
+  _rca_engine=$2
+  _rca_src=$3
+  [ -f "$_rca_engine" ] || return 0
+  _rca_val=$(python3 "$_rca_engine" json get "$_rca_src" 'dispatch.commit.REVIEW_PASS_CHECKPOINT' 2>/dev/null) || _rca_val=''
+  case $_rca_val in
+    '') ;;
+    "facts/requirements/tickets/${_rca_id}-review-checkpoint.md") printf '%s\n' "$_rca_val" ;;
+    *) printf '%s: 证据门: REVIEW_PASS_CHECKPOINT 形态不符，不纳入允许集: %s\n' "$(_script_name)" "$_rca_val" >&2 ;;
+  esac
+  return 0
 }
 
 # resolve_repo_root [--git|--marker|--layout] [override]
@@ -91,6 +115,50 @@ resolve_repo_root() {
       printf '%s\n' "$_rr_root"
       ;;
   esac
+}
+
+# ---- 只追加前缀语义（票 247：check-append-only.sh 与 lane-commit.sh 记录提交门共用）----
+# 前缀判定的唯一实现点：校验「旧内容是否为新的字节前缀」与首个违规行号定位均在此，
+# 库外零副本；调用方只负责取旧/新两份内容文件并组装报因。
+# 只追加账本清单（仓库根相对，逐行一条；换行分隔以免调用方 IFS 差异影响切分）：
+# 记录提交前缀门仅对该集合断言 HEAD 前缀；check-append-only.sh 启动时以
+# record_append_only_path 自校验本地常量，防清单漂移。
+RECORD_APPEND_ONLY_PATHS='facts/project/changes.jsonl
+facts/project/micro.jsonl'
+
+# 判定路径是否属只追加账本清单（0＝是，1＝否）
+record_append_only_path() {
+  _rao_path=$1
+  for _rao_known in ${RECORD_APPEND_ONLY_PATHS}; do
+    if [ "$_rao_path" = "$_rao_known" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# 前缀判定：$1=旧内容文件 $2=新内容文件；0＝旧内容是新的字节前缀（合法尾部追加），
+# 1＝不是（中间插入/改写/截断/删除任一）。字节口径（head -c 截取后 cmp），不做行归一。
+record_prefix_ok() {
+  _rpo_old_size=$(wc -c < "$1" | tr -d ' ')
+  _rpo_new_size=$(wc -c < "$2" | tr -d ' ')
+  [ "$_rpo_new_size" -ge "$_rpo_old_size" ] || return 1
+  head -c "$_rpo_old_size" "$2" | cmp -s - "$1"
+}
+
+# 首个违规行号（新内容文件行号）：旧行与新行逐一相等比对，首个不等行即输出；新内容行数
+# 少于旧内容（截断）时输出缺失位置（新行数+1）；无行级差异时无输出（恒 0，行号经 stdout
+# 传递，避免 set -e 下命令替换非零退出歧义）。
+# 注：$1 为空文件时 awk 的 NR==FNR 对 $2 每一行都成立，这些行只被读入 old[] 而不参与
+# 比较，函数因此无输出——空旧内容视为任意新内容的字节前缀（与 record_prefix_ok 同口径）。
+# 调用方按「无行级差异」处理：前缀门在调用前已由 record_prefix_ok 判定，空旧内容不会
+# 走到本函数；部分暂存预检在暂存 blob 为空时无差异行可报，由调用方回退到「暂存行数+1」。
+record_first_bad_line() {
+  LC_ALL=C awk '
+    NR == FNR { old[FNR] = $0; on = FNR; next }
+    FNR <= on && $0 != old[FNR] { print FNR; found = 1; exit }
+    END { if (!found && FNR < on) print FNR + 1 }
+  ' "$1" "$2"
 }
 
 # ---- 记录层写锁原语（票 246：全仓唯一实现；ticket-ops.sh 与 ledger-append.sh 共用）----

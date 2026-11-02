@@ -1,5 +1,5 @@
 #!/bin/sh
-# Input: 子命令与参数（[repo-root] open/take/flip + 选项）与三个票务面数据载体：
+# Input: 子命令与参数（[repo-root] open/take/flip/close + 选项）与三个票务面数据载体：
 #        facts/requirements/tickets/index.json（票状态真相源，单文件一条目一行，票 33 终裁 T2）、
 #        facts/requirements/tickets/README.md 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，
 #        人工登记投影，票 37 口径）、facts/project/changes.jsonl 记录账本（键序
@@ -27,13 +27,19 @@
 #         blocked_by 逐项须在索引登记且 status=done，缺失或未完成即 exit 1 指名 blocker
 #         id 与其状态，零写入；request 无 blocked_by 不校验）；flip 至 done 另做 task 票
 #         actual_time 收口硬拦（票 100：票 JSON 本体 actual_time 须已填且非空，缺项即
-#         exit 1 指名票 id 与缺项；非 done 翻转不要求，request 不校验）＋账本追加行；
+#         exit 1 指名票 id 与缺项；非 done 翻转不要求，request 不校验）＋ done 证据门
+#         （票 237：调同目录 ticket-audit.sh --operation merge，只认 conformant；非
+#         conformant/unknown 即 exit 1 报 decision-required 并零写入）＋账本追加行；
+#         close＝done 收口入口（票 237，--id/--ledger-line 必选，status 固定 done）：
+#         与 flip 至 done 同一条写入链与同一证据判定（actual_time＋审计双证），不留
+#         自报旁路；
 #         ledger＝无票账本行入口（票 100：不依赖 facts/requirements/tickets/index.json
 #         条目 id，账本行形状校验先于写入，仅账本落行，不触索引/README/投影）；
 #         flip-index＝索引单写代理（票 228：快道收尾 lane-commit 的索引条目翻转经此
 #         承载——--id/--status/--updated-at 三项必选，锚点整行替换仅改 status/updated_at
-#         两值＋投影再生＋--check 收尾；不触 README/账本/票本体，不落账本行）；
-#         open/take/flip/flip-index 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
+#         两值＋投影再生＋--check 收尾；不触 README/账本/票本体，不落账本行；票 237
+#         起目标 task 票 done 同口径要求 actual_time＋审计 conformant 双证）。
+#         open/take/flip/close/flip-index 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
 #         现役状态投影并 --check 核对（再生调用全仓仅本件承载；ledger 无索引面改动，
 #         不做投影再生）。
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
@@ -144,11 +150,18 @@ usage() {
                  本票 JSON 本体（facts/requirements/tickets/<id>.json）须含 actual_time
                  字段且非空（净工时口径，会话段累计减中断段），缺项或空白即 exit 1 指名
                  票 id 与缺项（fail-closed 零写入）；非 done 翻转不要求 actual_time；
-                 request 票不校验。
+                 request 票不校验。done 另过证据门（票 237）：调同目录 ticket-audit.sh
+                 --operation merge，只认 conformant；未提交、提交后改动、diff 失配、
+                 unknown 一律 exit 1 报 decision-required 并零写入（不采信自报 PASS）。
                  take/flip 语义: 索引 id 锚点整行替换（仅改 status/updated_at 两值）→
                  README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token 替换（行内其余
                  文本不动）→ 账本追加行 → 投影再生＋--check。索引或 README 行缺失、锚点
                  不唯一、账本行非法即停止（fail-closed，写入前预检）。
+  close          done 收口入口（票 237）：--id --ledger-line 两项必选，status 固定 done
+                 （不得携带 --status）；写入链与证据判定与 flip 至 done 完全一致
+                 （actual_time + ticket-audit --operation merge conformant 双证），只多
+                 一个入口别名，不留自报旁路；request 票沿用 actual_time 与证据门豁免
+                 （kind=request 不要求审查证据）。
   ledger         无票账本行入口（票 100）：--ledger-line 必选；不依赖 facts/requirements/tickets/index.json
                  条目 id，账本行形状校验与落行由唯一写入方 ledger-append.sh 承载（票 228
                  F7），通过后向 facts/project/changes.jsonl 追加该行；不触索引/README/票文件/投影
@@ -157,11 +170,14 @@ usage() {
                  --updated-at 三项必选（--status 为状态机裸值，--updated-at 为 ISO 8601
                  YYYY-MM-DDTHH:MM[:SS]）；索引 id 锚点整行替换（仅改 status/updated_at
                  两值）→ 投影再生＋--check；不触 README/账本/票本体（README 状态列与
-                 账本行归各自治道承载，票 35/37 口径），不得携带 --ledger-line。
+                 账本行归各自治道承载，票 35/37 口径），不得携带 --ledger-line。目标
+                 task 票 done 同过 actual_time＋证据门双证（票 237）；request 票沿用
+                 两项豁免（kind=request 不要求审查证据）。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；并发写锁
         等待超时＝并发冲突，零写入，重跑同一命令即收敛；open 目标状态非 ready 即冲突
-        拒绝）；2 用法或环境错误（含未知 TICKET_OPS_FAULT 注入点）；
+        拒绝；done 缺证据即 decision-required）；2 用法或环境错误（含未知
+        TICKET_OPS_FAULT 注入点）；
         70 故障注入点命中（TICKET_OPS_FAULT，崩溃恢复测试用；该写点已完整落盘）。
 环境变量: TICKET_OPS_LOCK_TIMEOUT  写锁等待上限秒数（缺省 20）
           TICKET_OPS_LOCK_STALE    写锁陈旧判据秒数（缺省 600；仅用于 pid 缺失时的锁龄判定，
@@ -189,7 +205,7 @@ trap cleanup EXIT HUP INT TERM
 [ $# -ge 1 ] || { usage >&2; exit 2; }
 case $1 in
   -h|--help) usage; exit 0 ;;
-  open|take|flip|ledger|flip-index)
+  open|take|flip|close|ledger|flip-index)
     cmd=$1
     shift
     repo_root=''
@@ -199,7 +215,7 @@ case $1 in
     shift
     [ $# -ge 1 ] || { usage >&2; exit 2; }
     case $1 in
-      open|take|flip|ledger|flip-index) cmd=$1; shift ;;
+      open|take|flip|close|ledger|flip-index) cmd=$1; shift ;;
       *) usage >&2; exit 2 ;;
     esac
     ;;
@@ -248,9 +264,9 @@ done
 
 # ---- 公共校验（fail-closed，先于任何写入） ----
 
-# 票锚定命令（open/take/flip/flip-index）才要求 --id；ledger 无票面不依赖 id（票 100）
+# 票锚定命令（open/take/flip/close/flip-index）才要求 --id；ledger 无票面不依赖 id（票 100）
 case ${cmd} in
-  open|take|flip|flip-index)
+  open|take|flip|close|flip-index)
     case ${id} in
       '') die1 "缺少 --id" ;;
     esac
@@ -349,6 +365,14 @@ case ${cmd} in
     [ -z "${blocked_by}" ] || die2 'take/flip 不得携带 --blocked-by'
     [ -z "${updated_at}" ] || die2 'take/flip 不得携带 --updated-at（updated_at 由本件生成）'
     ;;
+  close)
+    [ -z "${status}" ] || die2 'close 不得携带 --status（收口状态固定 done）'
+    [ -z "${complexity}" ] || die2 'close 不得携带 --complexity'
+    [ -z "${title}" ] || die2 'close 不得携带 --title'
+    [ -z "${blocked_by}" ] || die2 'close 不得携带 --blocked-by'
+    [ -z "${updated_at}" ] || die2 'close 不得携带 --updated-at（updated_at 由本件生成）'
+    status='done'
+    ;;
   flip-index)
     [ -z "${ledger_line}" ] || die2 'flip-index 不得携带 --ledger-line（索引单写代理不落账本行——票 228 F1/F2）'
     [ -z "${complexity}" ] || die2 'flip-index 不得携带 --complexity'
@@ -383,6 +407,26 @@ _self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 # （<repo-root>/agent-up/scripts/json-validator.py），缺失回退本脚本同目录）
 _engine="${repo_root}/agent-up/scripts/json-validator.py"
 [ -f "${_engine}" ] || _engine="${_self_dir}/json-validator.py"
+# 证据审计引擎定位（票 237：done 证据门；同目录优先，PATH 回退——与 ledger-append
+# 同款定位口径，落位不要求可执行位，恒经 sh 调用）
+audit_cmd=''
+if [ -f "${script_dir}/ticket-audit.sh" ] && [ -r "${script_dir}/ticket-audit.sh" ]; then
+  audit_cmd="${script_dir}/ticket-audit.sh"
+else
+  _arest=${PATH:-}
+  while [ -n "${_arest}" ]; do
+    _adir=${_arest%%:*}
+    case ${_arest} in
+      *:*) _arest=${_arest#*:} ;;
+      *) _arest='' ;;
+    esac
+    [ -n "${_adir}" ] || continue
+    if [ -f "${_adir}/ticket-audit.sh" ] && [ -r "${_adir}/ticket-audit.sh" ]; then
+      audit_cmd="${_adir}/ticket-audit.sh"
+      break
+    fi
+  done
+fi
 # 票 79：open 本体落盘位与 schema 权威（development-process §5.2 开票形态注记）。
 # 安装闭包定位：先包基线布局（<repo-root>/agent-up/references/schemas/…），缺失回退
 # 安装布局（本脚本邻接 references/schemas/…）；均未命中时停在回退路径，由 open 预检
@@ -523,6 +567,54 @@ actual_time_check() {
     die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
   # 收口硬拦判据由唯一 JSON 引擎承载（票 227 F3；报文为 ticket-ops 合同输出）
   python3 "${_engine}" ticket-check close "${ticket_file}" "${id}"
+}
+
+# ---- done 证据门（票 237：只认 234 审计引擎的 conformant 判定） ----
+
+audit_gate() {
+  # $1=入口名（close|flip|flip-index）：done 收口前调同目录 ticket-audit.sh
+  # --operation merge，只认 conformant（exit 0）；nonconformant/unknown（exit 1）即
+  # 报 decision-required 并零写入；用法/环境错误（exit 2）按环境错误停。request 票
+  # 沿用既有豁免（与 actual_time 同口径，不要求审查证据）。不采信自报 PASS：
+  # 证据未提交、提交后改动、diff 失配、身份/策略不可核验一律拒绝。
+  _ag_entry=$1
+  _ag_kind='task'
+  if [ -r "${ticket_file}" ] && [ -f "${_engine}" ]; then
+    _ag_kind=$(python3 "${_engine}" json get "${ticket_file}" kind 2>/dev/null) || _ag_kind='task'
+  fi
+  if [ "${_ag_kind}" = 'request' ]; then
+    printf 'ticket-ops: 证据门: %s request 票沿用豁免（kind=request；不要求审查证据）\n' "${_ag_entry}"
+    return 0
+  fi
+  [ -n "${audit_cmd}" ] || die1 "证据审计引擎 ticket-audit.sh 不可用（同目录与 PATH 均未找到）——${_ag_entry} 至 done 预检停止：done 只认 ticket-audit --operation merge 的 conformant 判定（票 237），将 ticket-audit.sh 落位后重跑；未产生任何写入"
+  # 显式允许集（票 237 裁决）：done 面的合法后置写面＝记录载体（索引与投影）＋票面
+  # 声明的 Review Checkpoint；仅逐条显式传入，默认仍只认证据文件，不整体放开 facts 面。
+  # 形态约束（不得放宽）由 common-helpers 的 review_checkpoint_allow_after 唯一承载：
+  # 只认本票规范路径 facts/requirements/tickets/<票 id>-review-checkpoint.md。
+  _ag_cp=$(review_checkpoint_allow_after "${id}" "${_engine}" "${ticket_file}")
+  _ag_rc=0
+  if [ -n "${_ag_cp}" ]; then
+    sh "${audit_cmd}" "${nn}" --repo "${repo_root}" --operation merge \
+      --allow-after "${issues_index_rel}" \
+      --allow-after "${progress_current_rel}" \
+      --allow-after "${_ag_cp}" || _ag_rc=$?
+  else
+    sh "${audit_cmd}" "${nn}" --repo "${repo_root}" --operation merge \
+      --allow-after "${issues_index_rel}" \
+      --allow-after "${progress_current_rel}" || _ag_rc=$?
+  fi
+  case ${_ag_rc} in
+    0)
+      printf 'ticket-ops: 证据门: %s 放行（ticket-audit --operation merge conformant）\n' "${_ag_entry}"
+      ;;
+    2)
+      die2 "证据审计引擎用法/环境错误（exit 2）——${_ag_entry} 至 done 预检停止，未产生任何写入"
+      ;;
+    *)
+      die1 "decision-required: ${_ag_entry} 至 done 要求票 ${id} 的审查证据判 conformant（ticket-audit --operation merge exit ${_ag_rc}）——证据缺失/未提交/提交后改动/diff 失配/身份或策略不可核验一律拒绝；零写入，补齐已提交证据与审计策略后重跑"
+      ;;
+  esac
+  return 0
 }
 
 # ---- blocked_by 领取完整性门（take 专属） ----
@@ -777,9 +869,22 @@ else
   if [ "${cmd}" = 'take' ]; then
     blocked_by_check || die1 "blocked_by 领取预检未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（blocked_by 完整性门 fail-closed）"
   fi
-  if [ "${cmd}" = 'flip' ] && [ "${status}" = 'done' ]; then
-    actual_time_check || die1 "actual_time 收口校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（票 100 fail-closed）"
-  fi
+  # 票 237：close/flip/flip-index 三入口至 task 票 done 同一双证门——actual_time 先于
+  # 证据门（既有票 100 报文不变），证据门只认 ticket-audit --operation merge conformant。
+  case ${cmd} in
+    flip|close)
+      if [ "${status}" = 'done' ]; then
+        actual_time_check || die1 "actual_time 收口校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（票 100 fail-closed）"
+        audit_gate "${cmd}"
+      fi
+      ;;
+    flip-index)
+      if [ "${status}" = 'done' ]; then
+        actual_time_check || die1 "actual_time 收口校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（票 100 fail-closed）"
+        audit_gate 'flip-index'
+      fi
+      ;;
+  esac
   # 票 243 幂等：索引已是目标状态即跳过索引写（flip-index 由显式 --updated-at 承载，
   # 重放写同值属无害幂等，不另判）
   if [ "${cmd}" != 'flip-index' ]; then
@@ -955,7 +1060,7 @@ if [ "${cmd}" = 'open' ]; then
       die1 "issues-README 锚点行命中 ${readme_rows} 行（须恰 1 行）: 任务票 ${nn}；——先核对索引与 README 漂移，不静默叠行（索引已写入 ${id}）"
       ;;
   esac
-elif [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ]; then
+elif [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ] || [ "${cmd}" = 'close' ]; then
   tmp_readme=$(mktemp "${readme_dir}/.tix-tmp.readme.XXXXXX")
   RD_ANCHOR="任务票 ${nn}；" RD_STATUS=${status} awk '
     BEGIN { anchor = ENVIRON["RD_ANCHOR"]; nstatus = ENVIRON["RD_STATUS"] }
@@ -998,7 +1103,7 @@ fi
 # 行形校验已于公共段经其 --check 零写入模式预检（fail-closed 时序：校验先于票务面任何
 # 写入）。去重边界：只对状态操作（open/take/flip）判重——同一操作重跑不重复落行；
 # `ledger` 无票入口保持只追加不判重（无「同一操作」概念，静默跳过会吞掉事实）。
-if [ "${cmd}" = 'open' ] || [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ]; then
+if [ "${cmd}" = 'open' ] || [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ] || [ "${cmd}" = 'close' ]; then
   if ledger_row_exists; then
     printf 'ticket-ops: 账本行已在场（幂等跳过追加）: %s\n' "${ledger_rel}"
   else
