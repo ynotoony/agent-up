@@ -70,7 +70,10 @@
 #        正例、open 缺/invalid 拒零写入两负例＋valid 正开落地正例；夹具全 mktemp）。
 #        票 252 新增 role-permissions 套件（门禁角色归属只按 checkpoint 节点判定：
 #        dispatch-only 改写 exit 0、新建＋跨角色混合批仍 exit 1、单独新建件 exit 0，
-#        另含三类既有拒绝路径与全部仓侧夹具逐件回归）。
+#        另含三类既有拒绝路径与全部仓侧夹具逐件回归）。票 263 新增 dir-readme 套件
+#        （目录 README 四段式契约校验正负例 36 断言：成员表「成员／文件／名字」整格表头、
+#        计数句九形态含 `N 行`（排除「一行」「第 N 行」）／合同件数／成员文件票、子目录
+#        表头分隔行、正文提及词与普通两列表非成员表正例，失败按夹具断言 `文件:行` 行号）。
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 临时目录
 #         并 trap 清理（异常退出亦清）；被测对象只读零改动，真实仓库零写入。
 # Pos: 记录层共享回归 harness（票 49 沉淀，产品自检工具随包分发）：缺省自测同目录包内
@@ -151,6 +154,8 @@ export TEST_RECORD_SOURCE_ONLY
 . "$TESTS_DIR/suite-merge.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，成本度量回归）
 . "$TESTS_DIR/suite-context-cost.sh"
+# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，目录 README 结构契约回归）
+. "$TESTS_DIR/suite-dir-readme.sh"
 
 
 SUITE='all'
@@ -161,8 +166,8 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | all（缺省 all）
-    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | context-cost | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | dir-readme | all（缺省 all）
+    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | context-cost | dir-readme | all（缺省 all）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
@@ -181,8 +186,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|merge|all) ;;
-  module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|context-cost|all) ;;
+  module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|merge|dir-readme|all) ;;
+  module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|context-cost|dir-readme|all) ;;
   *) printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2; usage >&2; exit 2 ;;
 esac
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
@@ -252,6 +257,7 @@ case $SUITE in
   ticket-audit) suite_ticket_audit ;;
   merge) suite_merge ;;
   context-cost) suite_context_cost ;;
+  dir-readme) suite_dir_readme ;;
   all)
     suite_module_map
     suite_ticket_ops
@@ -284,6 +290,7 @@ case $SUITE in
     suite_ticket_audit
     suite_merge
     suite_context_cost
+    suite_dir_readme
     self_check_injection
     ;;
 esac

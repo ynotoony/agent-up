@@ -1,0 +1,16 @@
+# Input: 目录 README 四段式契约的纳入与排除范围（目标仓库根相对的目录通配模式）。
+# Output: generate-dir-readmes.sh --check 的范围唯一承载点——非执行式解析，每个非空
+#         非注释行恰为 `include <pattern>` 或 `exclude <pattern>`；pattern 相对目标仓库根，
+#         `*` 匹配任意字符（含 `/`），`?` 匹配单个字符；至少一条 include，缺件或任一
+#         行不合预期即 exit 2（fail-closed，不产生部分结论）。
+# Pos: 范围规则数据件（先例 module-map.rules：外置数据＋引擎零专名）；本件与
+#      package-manifest.rules 的 scripts 节、本目录 README.md 成员表三处登记须同步。
+
+include *
+
+# 测试夹具与生成物不参与校验：夹具目录只放临时件，生成物由生成器整文件重建。
+exclude tests/fixtures/**
+exclude facts/project/architecture/generated/**
+
+# 第三方依赖与 VCS 元数据不属于目录 README 导航面。
+exclude node_modules/**
