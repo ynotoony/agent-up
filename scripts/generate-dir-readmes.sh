@@ -16,6 +16,15 @@
 #         超 25 行不截断只报 NOTE，预演前后逐件核对 sha256；无迁移件零输出 exit 0。
 #         --init 与 --sync --dir 的目录路径规范化后含空白即 exit 2 零写入（范围规则与
 #         生成块标记均以空白分隔，含空白的目录二者都无法唯一表示）。
+#         --brief <rel-dir> 只读输出单个目录的 agent 素材包（零写入）：目录清单（一级
+#         成员的目录／文件、文件行数与字节数）、判断证据（仓库 facts/project/artifacts.yaml
+#         中该目录及目录内条目的 id／path／kind／authority／read_when 原文，按目录／一级
+#         成员／子目录内分组）、既有 README 现状（复用 --check 判定的缺段、占位行与逐条
+#         问题）、生成约定（四段写法、禁止事项与 25 行预算）。四节固定标题便于套件断言；
+#         素材只含目标目录一级成员与作用域为本目录的 artifacts 条目，authority／read_when
+#         原文照录（目录外指针保留）。artifacts.yaml 缺失或不可
+#         解析时降级为「目录清单＋生成约定」，输出一行 DEGRADED 原因并 exit 0，不静默。
+#         --brief 与 --check／--sync／--init／--migrate-dry-run 互斥，不接受 --dir。
 # Pos: 目录 README 结构校验、生成块同步、骨架生成与旧格式迁移预演器（Python 3 标准库
 #      实现，壳层只做解释器定位与转调）；契约与四段式骨架见
 #      references/templates/dir-README.md.tmpl，范围见同目录 dir-readme.rules；两件与
@@ -36,7 +45,8 @@ import re
 import sys
 
 USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] [--rules <path>]
-                            [--check | --sync | --init <rel> | --migrate-dry-run [--diff]]
+                            [--check | --sync | --init <rel> | --migrate-dry-run [--diff]
+                             | --brief <rel-dir>]
 参数:
   --target <repo-root>  目标仓库根目录；缺省取当前目录。
   --dir <rel>           只处理该目录（目标根相对路径）的 README.md；--init 时不可用。
@@ -67,6 +77,23 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
                         同一子目录表生成函数。超 25 行只报不截断。全程零写入：每件预演
                         前后核对 sha256，临时文件只落 $TMPDIR；无 H1、表头残缺、不可读
                         一律 exit 2 且不产生部分结论。
+  --brief <rel-dir>     只读输出该目录（目标根相对路径，须存在）的 agent 素材包，零写入。
+                        四节固定标题：
+                        ## BRIEF 目录清单——一级成员（目录／文件／链接），文件给行数与
+                        字节数，子目录标注 README.md 有无；
+                        ## BRIEF 判断证据——facts/project/artifacts.yaml 中该目录及目录内
+                        条目的 id／path／kind／authority／read_when 原文，按目录／一级成员／
+                        子目录内分组；authority 明确标注为待改写的层级描述，不是结论；
+                        authority／read_when 原文照录，目录外指针（如 rules/project.md §15.1）
+                        保留，供写指针用，不得据此读取或转述其内容；
+                        ## BRIEF 现状——README.md 是否存在、四段是否齐全、缺段、占位行与
+                        逐条问题（复用 --check 判定，回显原文不改写）；
+                        ## BRIEF 生成约定——四段写法要求、禁止事项（成员表、计数句、状态句、
+                        目录外引用）与 25 行预算。
+                        artifacts.yaml 缺失、不可解析或任一条目缺 id／path 时降级为
+                        「目录清单＋生成约定」，输出一行 `DEGRADED: <原因>` 并 exit 0，
+                        不静默、不 exit 2、不部分采用条目。
+                        与 --check／--sync／--init／--migrate-dry-run 互斥，不接受 --dir。
   --diff                仅与 --migrate-dry-run 连用：输出逐文件详情——`MIGRATE: <path>:
                         <形态>: <原行数>→<建议行数>`、`DROP: <path>: <起>-<止> 行: <原因>`、
                         `NOTE:`、统一 diff（--- a/<path> / +++ b/<path>）与带零写入证据的
@@ -89,7 +116,8 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
      dir 值与目录一致；围栏代码块（```／~~~，含更长围栏）内的成对标记不算生成块。
 退出码:
   0  校验通过／同步完成／骨架已写入（含无生成块的 SKIP）／迁移预演完成（建议内容本身
-     仍可能失败 --check，属交人工裁剪与填写）。
+     仍可能失败 --check，属交人工裁剪与填写）／素材包已输出（含 artifacts 索引缺失或
+     不可解析的降级输出）。
   1  保留（当前不产生）。
   2  不合规或异常形态（无文件、无四段标记可判、规则文件损坏、目标路径不存在、
      生成块未闭合或重复起始、--init 目标已存在、--init／--sync --dir 路径含空白、
@@ -114,6 +142,7 @@ def parse_args(argv):
     rules = os.path.join(here, "dir-readme.rules")
     explicit = []
     init_dir = None
+    brief_dir = None
     detail = False
     i = 1
     while i < len(argv):
@@ -147,6 +176,16 @@ def parse_args(argv):
             init_dir = value
             i += 2
             continue
+        if arg == "--brief":
+            if i + 1 >= len(argv):
+                die("%s 缺参数值（须给目标根相对目录）" % arg)
+            value = argv[i + 1]
+            if value == "" or value.startswith("--"):
+                die("%s 缺参数值（须给目标根相对目录）" % arg)
+            explicit.append("brief")
+            brief_dir = value
+            i += 2
+            continue
         if arg in ("--target", "--dir", "--rules"):
             if i + 1 >= len(argv):
                 die("%s 缺参数值" % arg)
@@ -163,7 +202,7 @@ def parse_args(argv):
             continue
         die("未知参数: %s（用法见 --help）" % arg)
     if len(explicit) > 1:
-        die("--check／--sync／--init／--migrate-dry-run 互斥，只能给一个")
+        die("--check／--sync／--init／--migrate-dry-run／--brief 互斥，只能给一个")
     if len(explicit) == 0 and detail:
         die("--diff 只能与 --migrate-dry-run 连用（单独出现无效，用法见 --help）")
     mode = explicit[0] if explicit else "check"
@@ -171,7 +210,9 @@ def parse_args(argv):
         die("--diff 只能与 --migrate-dry-run 连用（与 %s 同用无效，用法见 --help）" % ("--" + mode))
     if mode == "init" and only is not None:
         die("--init 不接受 --dir（目标目录由 --init 参数给出）")
-    return (target if target is not None else "."), only, rules, mode, init_dir, detail
+    if mode == "brief" and only is not None:
+        die("--brief 不接受 --dir（目标目录由 --brief 参数给出）")
+    return (target if target is not None else "."), only, rules, mode, init_dir, detail, brief_dir
 
 
 def load_rules(path):
@@ -1270,11 +1311,278 @@ def emit_problems(problems):
         sys.stderr.write("%s:%d: %s\n" % (path, line, reason))
 
 
+# ---------------------------------------------------------------- 单目录素材包
+
+BRIEF_GROUP_ORDER = {"目录": 0, "成员": 1, "子目录内": 2}
+
+
+def artifact_path_text(value):
+    # artifacts 的 path 允许在路径后附括注（镜像说明、迁移注记）：素材包只取路径本体，
+    # 括注是说明文字，不是条目路径，也不参与作用域判定。
+    text = value.strip()
+    text = re.split(r"[（(]", text, 1)[0].strip()
+    text = text.rstrip("/")
+    if not text or text.startswith("/") or text.startswith("~"):
+        return None
+    return text
+
+
+def artifact_path_norm(text):
+    # 聚合登记的 glob（如 facts/requirements/tickets/*.md）按其所在目录归属。
+    base = text.rsplit("/", 1)[0] if "*" in text and "/" in text else text
+    if "*" in base:
+        return None
+    parts = [part for part in base.split("/") if part not in ("", ".")]
+    if ".." in parts:
+        return None
+    return "/".join(parts)
+
+
+def load_artifacts_index(path):
+    # 只读平铺条目：本索引的登记行是 `  - ` 起始的条目加四空格缩进的标量字段，无跨行标量；
+    # 任意 `  - ` 行都是条目边界（不能只认 `- id:`，否则缺 id 的条目会被并入上一条）；
+    # 缺件、非 UTF-8、缺 artifacts 段、零条目或任一条目缺 id/path 一律整体降级，不部分采用。
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = fh.read().splitlines()
+    except FileNotFoundError:
+        return None, "artifacts 索引缺失"
+    except OSError:
+        return None, "artifacts 索引不可读"
+    except UnicodeDecodeError:
+        return None, "artifacts 索引不是 UTF-8"
+    entries = []
+    current = None
+    saw_section = False
+    in_section = False
+    for line in raw:
+        if line.strip() == "artifacts:":
+            saw_section = True
+            in_section = True
+            continue
+        if in_section and line and not line[0].isspace() and not line.startswith("#"):
+            if current is not None:
+                entries.append(current)
+                current = None
+            in_section = False
+        if not in_section:
+            continue
+        match = re.match(r"^  - (.*)$", line)
+        if match:
+            if current is not None:
+                entries.append(current)
+            rest = match.group(1).strip()
+            current = {}
+            key_match = re.match(r"([A-Za-z_]+):\s*(.*?)\s*$", rest)
+            if key_match:
+                current[key_match.group(1)] = key_match.group(2)
+            else:
+                current["id"] = ""
+            continue
+        if current is None:
+            continue
+        match = re.match(r"^    ([A-Za-z_]+):\s*(.*?)\s*$", line)
+        if not match:
+            continue
+        key, value = match.group(1), match.group(2)
+        if key in ("path", "kind", "authority", "read_when"):
+            current[key] = value
+    if current is not None:
+        entries.append(current)
+    if not saw_section:
+        return None, "artifacts 索引不可解析（缺 artifacts 段）"
+    if not entries:
+        return None, "artifacts 索引无有效条目"
+    for entry in entries:
+        if not entry.get("id") or not entry.get("path"):
+            return None, "artifacts 索引条目缺 id 或 path"
+    return entries, None
+
+
+def brief_entries(rel, entries):
+    selected = []
+    for entry in entries:
+        text = artifact_path_text(entry["path"])
+        if text is None:
+            continue
+        norm = artifact_path_norm(text)
+        if norm is None:
+            continue
+        if rel and norm != rel and not norm.startswith(rel + "/"):
+            continue
+        sub = "" if norm == rel else (norm[len(rel) + 1:] if rel else norm)
+        if norm == rel:
+            group = "目录"
+        elif "/" not in sub:
+            group = "成员"
+        else:
+            group = "子目录内"
+        selected.append((group, text, entry))
+    selected.sort(key=lambda item: (BRIEF_GROUP_ORDER[item[0]], item[1], item[2]["id"]))
+    return selected
+
+
+def render_brief_listing(target, rel):
+    base = os.path.join(target, rel) if rel else target
+    try:
+        names = sorted(name for name in os.listdir(base) if name != ".git")
+    except OSError:
+        die("目录不可读: %s" % (rel or "."))
+    lines = [
+        "## BRIEF 目录清单",
+        "- 目标目录：`%s`（一级成员 %d 个）" % (rel or ".", len(names)),
+    ]
+    if not names:
+        lines.append("- （空目录）")
+    for name in names:
+        path = os.path.join(base, name)
+        if os.path.islink(path):
+            lines.append("- l `%s`（符号链接，不跟随）" % name)
+            continue
+        if os.path.isdir(path):
+            has_readme = os.path.isfile(os.path.join(path, "README.md"))
+            lines.append(
+                "- d `%s/`（README.md：%s）" % (name, "有" if has_readme else "无")
+            )
+            continue
+        if os.path.isfile(path):
+            try:
+                with open(path, "rb") as fh:
+                    data = fh.read()
+            except OSError:
+                lines.append("- f `%s`（不可读）" % name)
+                continue
+            lines.append(
+                "- f `%s`（%d 行，%d 字节）" % (name, len(data.splitlines()), len(data))
+            )
+            continue
+        lines.append("- o `%s`（非常规文件）" % name)
+    return lines
+
+
+def render_brief_evidence(rel, entries):
+    lines = [
+        "## BRIEF 判断证据",
+        "- 来源：artifacts 索引条目（条目 id 可回溯；下列条目路径均在本目录内）",
+        "- 注：kind／authority／read_when 为原文；authority 是权威层级描述（约 70 字），"
+        "不是「哪份说了算」，须结合本目录文件内容改写，不得原文照抄；目录外指针原样保留，"
+        "供写指针用，不得据此读取或转述其内容。",
+    ]
+    selected = brief_entries(rel, entries)
+    if not selected:
+        lines.append("- （本目录及目录内没有 artifacts 条目）")
+        return lines
+    for group, text, entry in selected:
+        lines.append("- [%s] 条目 %s：`%s`" % (group, entry["id"], text))
+        for key in ("kind", "authority", "read_when"):
+            value = entry.get(key, "")
+            if value:
+                lines.append("  %s: %s" % (key, value))
+            else:
+                lines.append("  %s: （缺）" % key)
+    return lines
+
+
+def render_brief_state(target, rel):
+    readme_rel = join_rel(rel, "README.md")
+    path = os.path.join(target, readme_rel)
+    lines = ["## BRIEF 现状"]
+    if not os.path.isfile(path):
+        lines.append("- README.md：不存在（可经 --init 起骨架，再按生成约定填写判断段）")
+        lines.append("- CHECK: 无文件可校验")
+        return lines
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        lines.append("- README.md：存在但不可读")
+        lines.append("- CHECK: 不可读")
+        return lines
+    lines.append("- README.md：存在（%d 行）" % len(data.splitlines()))
+    problems = check_file(target, readme_rel)
+    missing = []
+    placeholders = []
+    no_h1 = False
+    for _, line_no, reason in problems:
+        if reason.startswith("缺少一级标题"):
+            no_h1 = True
+        elif reason.startswith("缺少段："):
+            missing.append(reason.split("缺少段：", 1)[1])
+        elif reason.startswith("判断位未填"):
+            placeholders.append(line_no)
+    if no_h1:
+        lines.append("- 四段：无法判定（缺一级标题）")
+    elif missing:
+        lines.append("- 四段：缺 %s" % "、".join(missing))
+    else:
+        lines.append("- 四段：齐全")
+    lines.append(
+        "- 占位：%s"
+        % ("无" if not placeholders else "、".join("第 %d 行" % n for n in sorted(set(placeholders))))
+    )
+    if not problems:
+        lines.append("- CHECK: 通过")
+    else:
+        lines.append("- CHECK: 不合规（%d 条）" % len(problems))
+        for problem_path, line_no, reason in problems:
+            lines.append("- CHECK 详情：%s:%d: %s" % (problem_path, line_no, reason))
+    return lines
+
+
+def render_brief_conventions():
+    return [
+        "## BRIEF 生成约定",
+        "- 结构：三行工作登记注释（Input／Output／Pos）＋一级标题＋一句话职责＋## 权威＋"
+        "## 读取禁忌＋## 子目录；总行数 ≤ 25。",
+        "- 头注：保留 Input／Output／Pos 三行，只把【填写：…】替换为事实，不删行。",
+        "- 职责句：H1 后一句话，写本目录承载什么、服务谁；判断必须能追到本目录内文件或"
+        "上方 artifacts 条目。",
+        "- ## 权威：两条列表——`- 现行：` 写本目录内以本目录为唯一承载点、有规则效力的"
+        "文件及作用；`- 派生：` 写由生成器或上游重建、不手改的文件及生成来源；"
+        "不得照抄 authority 原文。",
+        "- ## 读取禁忌：至少一条列表项，写读本目录前必须知道的易腐陈述、别名口径或"
+        "越层引用；能追到本目录内文件或 artifacts 条目。",
+        "- ## 子目录：保留生成块与 `| 子目录 | 一句话 | 禁忌 |` 三列表；判断文字写在"
+        "块外，块内由 --sync 重建。",
+        "- 禁止：成员表（含「名字／成员／文件」表头与 ## 成员 段）；计数句"
+        "（共 N 件／N 个脚本／N 行／N 份合同／N 个成员等）；状态句（当前没有）；"
+        "目标目录以外文件的路径引用（内容约定）。",
+        "- 路径引用：含 `/` 按目标根解析，裸文件名按本目录解析；路径记号的段可含"
+        "非 ASCII（如 `rules/规则`），单段 `name/` 同样按路径处理；`--check` 校验存在性"
+        "与目标根越界，不校验是否越出本目录，目录外引用须自行避免。",
+        "- 判断不出时写【填写：…】占位，不编造职责或禁忌；占位会被 --check 判为未填。",
+    ]
+
+
+def run_brief(target, brief_arg):
+    rel = normalize_dir(brief_arg)
+    if not os.path.isdir(os.path.join(target, rel) if rel else target):
+        die("--brief 指向的目录不存在: %s" % (brief_arg if brief_arg else "."))
+    index_path = os.path.join(target, "facts", "project", "artifacts.yaml")
+    entries, reason = load_artifacts_index(index_path)
+    lines = ["BRIEF: `%s`（只读素材包，零写入）" % (rel or ".")]
+    if entries is None:
+        lines.append("DEGRADED: %s；本次仅输出目录清单与生成约定" % reason)
+        lines.extend(render_brief_listing(target, rel))
+        lines.extend(render_brief_conventions())
+    else:
+        lines.extend(render_brief_listing(target, rel))
+        lines.extend(render_brief_evidence(rel, entries))
+        lines.extend(render_brief_state(target, rel))
+        lines.extend(render_brief_conventions())
+    sys.stdout.write("\n".join(lines) + "\n")
+    return 0
+
+
 def main(argv):
-    target_arg, only_arg, rules_path, mode, init_arg, detail = parse_args(argv)
+    target_arg, only_arg, rules_path, mode, init_arg, detail, brief_arg = parse_args(argv)
     target = os.path.abspath(target_arg)
     if not os.path.isdir(target):
         die("目标路径不存在或不是目录: %s" % target_arg)
+
+    if mode == "brief":
+        return run_brief(target, brief_arg)
+
     includes, excludes = load_rules(rules_path)
 
     if mode == "init":

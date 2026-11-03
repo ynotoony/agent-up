@@ -62,6 +62,7 @@ dr_expect_fail() {
   fi
 }
 
+
 suite_dir_readme() {
   # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='dir-readme'
@@ -1182,6 +1183,305 @@ PY
     ok '正例 --help 写明摘要／--diff 两种形态与 MIGRATE／DROP 报告行'
   else
     bad '正例 --help 写明摘要／--diff 两种形态与 MIGRATE／DROP 报告行' "stdout=$(head -n 1 "$D/out")"
+  fi
+
+  # B1 --brief 素材包：四节固定标题、目录清单、artifacts 原文与分组、条目作用域
+  B=$D/brief
+  mkdir -p "$B/repo/docs/sub" "$B/repo/other" "$B/repo/facts/project" "$B/repo/refs" \
+    "$B/nofacts/docs" "$B/badfacts/docs" "$B/badfacts/facts/project" \
+    "$B/badentry/docs" "$B/badentry/facts/project"
+  : > "$B/repo/docs/a.md"
+  : > "$B/repo/docs/b.md"
+  : > "$B/repo/other/secret.md"
+  : > "$B/nofacts/docs/a.md"
+  : > "$B/badfacts/docs/a.md"
+  cat > "$B/repo/facts/project/artifacts.yaml" <<'EOF'
+artifacts:
+  - id: docs-dir
+    path: docs/
+    kind: governance
+    authority: 权威层级第 6 级（导航索引：docs 目录登记；规则权威＝rules/project.md §15.1；另见 facts/project）
+    read_when: 查阅 docs 目录职责时；另见 ../SKILL.md；核对 rules/implementation/roles
+  - id: docs-a
+    path: docs/a.md
+    kind: governance
+    authority: 权威层级第 2 级（事实记录：docs 样例）
+    read_when: 校验 docs 段时
+  - id: docs-sub-doc
+    path: docs/sub/inner.md
+    kind: spec
+    authority: 权威层级第 3 级（规格：子目录内样例）
+    read_when: 校验子目录内分组时
+  - id: other-secret
+    path: other/secret.md
+    kind: governance
+    authority: 权威层级第 6 级（越界条目：不得出现在 docs 素材包）
+    read_when: 校验越界过滤时
+EOF
+  printf 'entries:\n  - id: docs-a\n    path: docs/a.md\n' \
+    > "$B/badfacts/facts/project/artifacts.yaml"
+  cat > "$B/badentry/facts/project/artifacts.yaml" <<'EOF'
+artifacts:
+  - id: docs-a
+    path: docs/a.md
+    kind: governance
+  - path: docs/b.md
+    kind: spec
+    authority: 权威层级第 1 级
+EOF
+  cat > "$B/repo/refs/README.md" <<'EOF'
+# refs
+
+现状 CHECK 回显样例。
+
+## 权威
+- 现行：`other/missing.md`
+- 派生：`../`
+
+## 读取禁忌
+- 无
+
+## 子目录
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+EOF
+  dr_brief() {
+    # $1=目标根 $2=相对目录：结果落 $D/brief.out／$D/brief.err／$D/brief.rc
+    sh "$G" --target "$1" --brief "$2" >"$D/brief.out" 2>"$D/brief.err"
+    printf '%s\n' "$?" > "$D/brief.rc"
+  }
+  dr_brief "$B/repo" docs
+  dr_brief_rc=$(cat "$D/brief.rc")
+  if [ "$dr_brief_rc" -eq 0 ] \
+    && [ "$(grep -c '^## BRIEF' "$D/brief.out")" -eq 4 ] \
+    && grep -qxF '## BRIEF 目录清单' "$D/brief.out" \
+    && grep -qxF '## BRIEF 判断证据' "$D/brief.out" \
+    && grep -qxF '## BRIEF 现状' "$D/brief.out" \
+    && grep -qxF '## BRIEF 生成约定' "$D/brief.out"; then
+    ok '正例 --brief 输出四节固定标题且 exit 0'
+  else
+    bad '正例 --brief 输出四节固定标题且 exit 0' "exit=$dr_brief_rc $(grep '^## BRIEF' "$D/brief.out" | tr '\n' '|')"
+  fi
+  if grep -qF -- '- 目标目录：`docs`（一级成员 3 个）' "$D/brief.out" \
+    && grep -qF -- '- d `sub/`（README.md：无）' "$D/brief.out" \
+    && grep -qF -- '- f `a.md`（0 行，0 字节）' "$D/brief.out"; then
+    ok '正例 --brief 目录清单列一级成员、文件行数与字节数'
+  else
+    bad '正例 --brief 目录清单列一级成员、文件行数与字节数' "$(sed -n '2,6p' "$D/brief.out" | tr '\n' '|')"
+  fi
+  # AC1 目录清单＝目标目录一级成员集合（`ls -1` 口径），正文里的成员不得混入
+  dr_docs_ls=$(CDPATH='' cd -- "$B/repo/docs" && LC_ALL=C ls -1 | LC_ALL=C sort)
+  dr_docs_listed=$(sed -n '/^## BRIEF 目录清单$/,/^## BRIEF 判断证据$/p' "$D/brief.out" \
+    | sed -n 's/^- [dfol] `\([^`]*\)`.*$/\1/p' | sed 's|/$||' | LC_ALL=C sort)
+  dr_docs_n=$(printf '%s\n' "$dr_docs_ls" | grep -c .)
+  if [ "$dr_docs_listed" = "$dr_docs_ls" ] \
+    && grep -qF -- "- 目标目录：\`docs\`（一级成员 $dr_docs_n 个）" "$D/brief.out" \
+    && ! printf '%s\n' "$dr_docs_listed" | grep -qx 'inner.md'; then
+    ok 'AC1 --brief 目录清单集合等于目标目录一级成员（不含目录外成员）'
+  else
+    bad 'AC1 --brief 目录清单集合等于目标目录一级成员（不含目录外成员）' "ls=$(printf '%s' "$dr_docs_ls" | tr '\n' ',') listed=$(printf '%s' "$dr_docs_listed" | tr '\n' ',')"
+  fi
+  if grep -qF -- '- [目录] 条目 docs-dir：`docs`' "$D/brief.out" \
+    && grep -qF -- '- [成员] 条目 docs-a：`docs/a.md`' "$D/brief.out" \
+    && grep -qF -- '- [子目录内] 条目 docs-sub-doc：`docs/sub/inner.md`' "$D/brief.out"; then
+    ok '正例 --brief 判断证据按目录／成员／子目录内分组'
+  else
+    bad '正例 --brief 判断证据按目录／成员／子目录内分组' "$(grep -F '条目 ' "$D/brief.out" | tr '\n' '|')"
+  fi
+  if grep -qF '  kind: governance' "$D/brief.out" \
+    && grep -qF '  authority: 权威层级第 2 级（事实记录：docs 样例）' "$D/brief.out" \
+    && grep -qF '  read_when: 校验 docs 段时' "$D/brief.out" \
+    && grep -qF '不是「哪份说了算」' "$D/brief.out"; then
+    ok '正例 --brief 证据字段为 artifacts 原文且标注 authority 不可照抄'
+  else
+    bad '正例 --brief 证据字段为 artifacts 原文且标注 authority 不可照抄' "$(grep -F '  authority:' "$D/brief.out" | tr '\n' '|')"
+  fi
+  if ! grep -qF 'other-secret' "$D/brief.out" \
+    && ! grep -qF 'other/secret.md' "$D/brief.out"; then
+    ok '正例 --brief 不带出目录外 artifacts 条目'
+  else
+    bad '正例 --brief 不带出目录外 artifacts 条目' "$(grep -F 'other' "$D/brief.out" | tr '\n' '|')"
+  fi
+  # AC1 证据段每条「[分组] 条目 id：路径」都能回查索引，且索引路径作用域在本目录；
+  # fixture 里的 other-secret 是别目录条目，不得被带出
+  dr_brief_scope() {
+    # $1=brief 输出文件 $2=artifacts 索引 $3=相对目录：打印问题行（空输出即通过）——
+    # 证据段每条「[分组] 条目 id：路径」都能回查索引，路径作用域均在本目录。
+    python3 - "$1" "$2" "$3" <<'PY'
+import re, sys
+
+out_path, index_path, rel = sys.argv[1], sys.argv[2], sys.argv[3]
+text = open(out_path, encoding="utf-8").read()
+begin = text.find("## BRIEF 判断证据")
+end = text.find("## BRIEF 现状")
+section = text[begin:end] if begin >= 0 and end > begin else ""
+shown = re.findall(r"^- \[[^\]]+\] 条目 (\S+)：`([^`]+)`$", section, re.M)
+index = {}
+cur = None
+for line in open(index_path, encoding="utf-8"):
+    line = line.rstrip("\n")
+    match = re.match(r"^  - id: (\S+)$", line)
+    if match:
+        cur = match.group(1)
+        index[cur] = None
+        continue
+    match = re.match(r"^    path: (.+)$", line)
+    if match and cur is not None and index[cur] is None:
+        index[cur] = re.split(r"[（(]", match.group(1).strip(), 1)[0].strip().rstrip("/")
+problems = []
+if not shown:
+    problems.append("证据段无条目")
+for entry_id, path in shown:
+    if entry_id not in index:
+        problems.append("id 不可回查:%s" % entry_id)
+        continue
+    known = index[entry_id]
+    if known != path:
+        problems.append("路径与索引不符:%s:%s!=%s" % (entry_id, path, known))
+    if not (known == rel or known.startswith(rel + "/")):
+        problems.append("作用域越界:%s:%s" % (entry_id, known))
+if re.search(r"条目 other-secret：", section):
+    problems.append("带出别目录条目 other-secret")
+sys.stdout.write("\n".join(problems))
+PY
+  }
+  dr_scope=$(dr_brief_scope "$D/brief.out" "$B/repo/facts/project/artifacts.yaml" docs)
+  if [ -z "$dr_scope" ]; then
+    ok 'AC1 --brief 判断证据条目 id 可回查且路径作用域在本目录'
+  else
+    bad 'AC1 --brief 判断证据条目 id 可回查且路径作用域在本目录' "$(printf '%s' "$dr_scope" | tr '\n' '|')"
+  fi
+  # AC1 回归钉：authority／read_when 原文照录，目录外指针逐字保留，不再出现屏蔽记号
+  if grep -qF '规则权威＝rules/project.md §15.1' "$D/brief.out" \
+    && grep -qF '另见 ../SKILL.md' "$D/brief.out" \
+    && ! grep -qF '〈目录外〉' "$D/brief.out" \
+    && ! grep -qF 'MASKED' "$D/brief.out"; then
+    ok 'AC1 --brief authority／read_when 原文照录（目录外指针保留、无屏蔽记号）'
+  else
+    bad 'AC1 --brief authority／read_when 原文照录（目录外指针保留、无屏蔽记号）' "$(grep -F '规则权威' "$D/brief.out" | tr '\n' '|')"
+  fi
+  # AC1 现状 CHECK 回显含目录外引用时原样输出，理由文字不被改写
+  dr_brief "$B/repo" refs
+  dr_brief_rc=$(cat "$D/brief.rc")
+  cp "$D/brief.out" "$D/brief-refs.out"
+  dr_brief "$B/repo" docs
+  if [ "$dr_brief_rc" -eq 0 ] \
+    && grep -qF '引用路径不存在: other/missing.md' "$D/brief-refs.out" \
+    && grep -qF '引用路径越出目标根: ../' "$D/brief-refs.out" \
+    && ! grep -qF '〈目录外〉' "$D/brief-refs.out" \
+    && ! grep -qF 'MASKED' "$D/brief-refs.out"; then
+    ok 'AC1 --brief 现状 CHECK 回显的目录外引用原样输出'
+  else
+    bad 'AC1 --brief 现状 CHECK 回显的目录外引用原样输出' "exit=$dr_brief_rc $(grep -F 'CHECK 详情' "$D/brief-refs.out" | tr '\n' '|')"
+  fi
+  if grep -qF -- '- README.md：不存在' "$D/brief.out" \
+    && grep -qF -- '- CHECK: 无文件可校验' "$D/brief.out" \
+    && grep -qF -- '- 判断不出时写【填写：…】占位' "$D/brief.out"; then
+    ok '正例 --brief 现状报缺 README、生成约定含占位与 25 行预算'
+  else
+    bad '正例 --brief 现状报缺 README、生成约定含占位与 25 行预算' "$(sed -n '/## BRIEF 现状/,$p' "$D/brief.out" | head -n 3 | tr '\n' '|')"
+  fi
+
+  # B2 降级：artifacts 缺失／缺 artifacts 段 → exit 0、一行 DEGRADED、仍出目录清单与约定
+  dr_brief "$B/nofacts" docs
+  dr_brief_rc=$(cat "$D/brief.rc")
+  if [ "$dr_brief_rc" -eq 0 ] \
+    && grep -qE '^DEGRADED: artifacts 索引缺失；本次仅输出目录清单与生成约定$' "$D/brief.out" \
+    && ! grep -q '^## BRIEF 判断证据' "$D/brief.out" \
+    && grep -qxF '## BRIEF 目录清单' "$D/brief.out" \
+    && grep -qxF '## BRIEF 生成约定' "$D/brief.out"; then
+    ok '正例 --brief artifacts 缺失降级为两节并 exit 0'
+  else
+    bad '正例 --brief artifacts 缺失降级为两节并 exit 0' "exit=$dr_brief_rc $(head -n 2 "$D/brief.out" | tr '\n' '|')"
+  fi
+  dr_brief "$B/badfacts" docs
+  dr_brief_rc=$(cat "$D/brief.rc")
+  if [ "$dr_brief_rc" -eq 0 ] \
+    && grep -qE '^DEGRADED: artifacts 索引不可解析（缺 artifacts 段）' "$D/brief.out" \
+    && ! grep -q '^## BRIEF 判断证据' "$D/brief.out"; then
+    ok '正例 --brief artifacts 不可解析降级且不静默'
+  else
+    bad '正例 --brief artifacts 不可解析降级且不静默' "exit=$dr_brief_rc $(head -n 2 "$D/brief.out" | tr '\n' '|')"
+  fi
+  # 条目边界按任意 `  - ` 行切分：任一条目缺 id／path 都整索引降级，不部分采用
+  dr_brief "$B/badentry" docs
+  dr_brief_rc=$(cat "$D/brief.rc")
+  if [ "$dr_brief_rc" -eq 0 ] \
+    && grep -qE '^DEGRADED: artifacts 索引条目缺 id 或 path' "$D/brief.out" \
+    && ! grep -q '^## BRIEF 判断证据' "$D/brief.out" \
+    && ! grep -qF 'docs/b.md' "$D/brief.out"; then
+    ok '负例 --brief artifacts 任一条目缺 id／path 整索引降级不部分采用'
+  else
+    bad '负例 --brief artifacts 任一条目缺 id／path 整索引降级不部分采用' "exit=$dr_brief_rc $(head -n 3 "$D/brief.out" | tr '\n' '|')"
+  fi
+
+  # B3 AC2／AC3：合规 README 现状判通过、--brief 零写入且连跑两次输出一致
+  dr_base_readme "$B/repo/docs/README.md"
+  dr_migrate_tree "$B/repo" > "$D/brief-tree-before"
+  sh "$G" --target "$B/repo" --check --dir docs >"$D/check.out" 2>"$D/check.err"
+  dr_check_rc=$?
+  dr_brief "$B/repo" docs
+  dr_migrate_tree "$B/repo" > "$D/brief-tree-after"
+  cp "$D/brief.out" "$D/brief-first.out"
+  dr_brief "$B/repo" docs
+  if [ "$dr_check_rc" -eq 0 ] && [ ! -s "$D/check.out" ] \
+    && grep -qF -- '- 四段：齐全' "$D/brief-first.out" \
+    && grep -qF -- '- CHECK: 通过' "$D/brief-first.out"; then
+    ok '正例 --brief 现状复用 --check 判定（合规 README 报齐全与通过）'
+  else
+    bad '正例 --brief 现状复用 --check 判定（合规 README 报齐全与通过）' "exit=$dr_check_rc $(sed -n '/## BRIEF 现状/,+3p' "$D/brief-first.out" | tr '\n' '|')"
+  fi
+  if cmp -s "$D/brief-tree-before" "$D/brief-tree-after"; then
+    ok 'AC2 --brief 零写入（目录树 sha256 前后一致）'
+  else
+    bad 'AC2 --brief 零写入（目录树 sha256 前后一致）' "$(diff "$D/brief-tree-before" "$D/brief-tree-after" | tr '\n' '|')"
+  fi
+  if cmp -s "$D/brief-first.out" "$D/brief.out"; then
+    ok 'AC3 --brief 连跑两次输出逐字节一致'
+  else
+    bad 'AC3 --brief 连跑两次输出逐字节一致' "$(diff "$D/brief-first.out" "$D/brief.out" | head -n 2 | tr '\n' '|')"
+  fi
+
+  # B4 现状缺段可见
+  mkdir -p "$B/repo/sparse"
+  printf '# sparse\n\n一句话职责。\n' > "$B/repo/sparse/README.md"
+  dr_brief "$B/repo" sparse
+  if [ "$(cat "$D/brief.rc")" -eq 0 ] \
+    && grep -qF -- '- 四段：缺 ' "$D/brief.out" \
+    && grep -qF -- '- CHECK: 不合规（' "$D/brief.out"; then
+    ok '正例 --brief 现状列出缺段与逐条 CHECK 问题'
+  else
+    bad '正例 --brief 现状列出缺段与逐条 CHECK 问题' "$(sed -n '/## BRIEF 现状/,+6p' "$D/brief.out" | tr '\n' '|')"
+  fi
+
+  # B5 参数错误与互斥 → exit 2
+  dr_brief_err=1
+  sh "$G" --target "$B/repo" --brief docs --check >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF '互斥' "$D/err" || dr_brief_err=0
+  sh "$G" --target "$B/repo" --brief >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF -- '--brief 缺参数值' "$D/err" || dr_brief_err=0
+  sh "$G" --target "$B/repo" --brief no/such/dir >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF '目录不存在' "$D/err" || dr_brief_err=0
+  sh "$G" --target "$B/repo" --brief docs --dir docs >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF '不接受 --dir' "$D/err" || dr_brief_err=0
+  sh "$G" --target "$B/repo" --brief docs --diff >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF '只能与 --migrate-dry-run 连用' "$D/err" || dr_brief_err=0
+  sh "$G" --target "$B/repo" --brief docs --sync >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF '互斥' "$D/err" || dr_brief_err=0
+  if [ "$dr_brief_err" -eq 1 ]; then
+    ok '负例 --brief 与其它模式互斥、缺值、目录不存在、带 --dir／--diff 均 exit 2'
+  else
+    bad '负例 --brief 与其它模式互斥、缺值、目录不存在、带 --dir／--diff 均 exit 2' "$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # B6 --help 登记 --brief 四节与降级语义
+  sh "$G" --help >"$D/out" 2>"$D/err"
+  if grep -qF -- '--brief <rel-dir>' "$D/out" \
+    && grep -qF '## BRIEF 判断证据' "$D/out" \
+    && grep -qF 'DEGRADED: <原因>' "$D/out"; then
+    ok '正例 --help 登记 --brief 四节与降级语义'
+  else
+    bad '正例 --help 登记 --brief 四节与降级语义' "stdout=$(grep -F -- '--brief' "$D/out" | head -n 1)"
   fi
 
   suite_summary 'dir-readme'
