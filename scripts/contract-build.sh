@@ -1,8 +1,9 @@
 #!/bin/sh
 # Input: <stage> <NN> [repo-root]——stage ∈ implementation|review|commit（派发阶段），
 #        NN＝票号段（^[0-9]{2,}$，定位 facts/requirements/tickets/<NN>-<slug>.json，
-#        恰一命中方渲染）；repo-root 可选（缺省按落位推导——resolve_repo_root，夹具/
-#        复制落位语境显式传参）。读取面两数据件：票本体 dispatch.<stage>.<KEY> 逐字段
+#        按票本体 id 口径筛选后恰一命中方渲染；派生件如 <id>.review-evidence.json 带
+#        点号、不参与计数，同 NN 多件真实本体仍 fail-closed 指名）；repo-root 可选
+#        （缺省按落位推导——resolve_repo_root，夹具/复制落位语境显式传参）。读取面两数据件：票本体 dispatch.<stage>.<KEY> 逐字段
 #        实值（唯一 JSON 引擎 json get 承载）＋references/schemas/
 #        dispatch-contract.schema.json contract_fields.<stage> 必备字段清单（渲染序）。
 # Output: stdout 渲染派发合同——逐字段 {{KEY}} 占位符行＋实值行块（形态与
@@ -43,7 +44,8 @@ usage() {
 参数:
   stage        派发阶段: implementation | review | commit
   NN           票号段（^[0-9]{2,}$）——定位 facts/requirements/tickets/<NN>-<slug>.json，
-               恰一命中方渲染（零命中或同 NN 异 slug 撞号即 fail-closed）
+               按票本体 id 口径筛选后恰一命中方渲染（派生件 <id>.review-evidence.json
+               等带点号不计；零命中或同 NN 多件真实本体即 fail-closed 指名）
   repo-root    仓库根目录；缺省按脚本落位推导（agent-up/scripts/ 上两级／
                rules/implementation/scripts/ 上三级），夹具语境显式传参
 行为: 读票 JSON dispatch 节（dispatch.<stage>.<KEY>）逐字段渲染派发合同到 stdout；
@@ -97,19 +99,32 @@ _dc_checker="$_self_dir/check-dispatch-contract.sh"
 [ -f "$_dc_checker" ] && [ -r "$_dc_checker" ] || \
   die2 "自校验器 check-dispatch-contract.sh 不在本脚本同目录: ${_dc_checker}（安装闭包须随 contract-build 同落位）"
 
-# 票文件定位: facts/requirements/tickets/<NN>-*.json 恰一命中（NN 唯一性由 open 门
-# 保证；未开票本体亦受理——glob 撞号即 fail-closed 指名，不猜测渲染对象）
+# 票文件定位: facts/requirements/tickets/<NN>-<slug>.json 按票本体 id 口径恰一命中。
+# 票本体文件名不含点号（slug 仅 [a-z0-9-]，与 ticket-record.schema.json 的 id 口径
+# 同源）；派生件（独立审查收据 <id>.review-evidence.json、工作流 sidecar 等）带点号，
+# 不参与计数——否则有收据的票在 <NN>-*.json 中必命中两件而被误判撞号。同 NN 多件
+# 真实本体仍 fail-closed 并逐件指名（NN 唯一性由 open 门保证，不猜测渲染对象）。
 issues_dir="${repo_root}/facts/requirements/tickets"
 [ -d "$issues_dir" ] || die1 "票目录不存在: ${issues_dir}"
 set +f
-set -- "${issues_dir}/${nn}"-*.json
-if [ $# -gt 1 ]; then
-  die1 "票号段 ${nn} 定位命中 $# 件（同 NN 异 slug 撞号，不猜测渲染对象）"
-fi
-ticket_file=$1
-[ -f "$ticket_file" ] || die1 "票号段 ${nn} 无命中（<NN>-*.json 零匹配，票不存在）: ${issues_dir}/${nn}-*.json"
-ticket_id=$(basename "$ticket_file" .json)
+_hit_count=0
+_hit_list=''
+ticket_file=''
+for _cand in "${issues_dir}/${nn}"-*.json; do
+  [ -f "$_cand" ] || continue
+  _cand_id=$(basename "$_cand" .json)
+  printf '%s' "$_cand_id" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || continue
+  _hit_count=$((_hit_count + 1))
+  [ -n "$ticket_file" ] || ticket_file=$_cand
+  _hit_list="${_hit_list}${NL}  ${_cand}"
+done
 set -f
+if [ "$_hit_count" -eq 0 ]; then
+  die1 "票号段 ${nn} 无命中（<NN>-<slug>.json 零匹配，派生件不计票本体）: ${issues_dir}/${nn}-*.json"
+elif [ "$_hit_count" -gt 1 ]; then
+  die1 "票号段 ${nn} 定位命中 ${_hit_count} 件票本体（同 NN 异 slug 撞号，不猜测渲染对象）:${_hit_list}"
+fi
+ticket_id=$(basename "$ticket_file" .json)
 
 # 字段清单提取（与 check-dispatch-contract.sh --check 同源同法；纯 awk，字段逐名一行）
 dc_required=$(LC_ALL=C awk -v sect="\"${stage}\":" '

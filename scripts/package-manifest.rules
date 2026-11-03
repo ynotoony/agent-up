@@ -205,7 +205,7 @@ pm_script scripts/dir-readme.rules rules '目录 README 四段式契约范围规
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/project-dashboard.html rules '本地项目仪表盘（单文件只读 HTML：Chrome/Edge 目录授权后读 module-map.json、票索引与全部卡片，页面打开期间轮询刷新；零网络零写入；kind=rules 意为非可执行数据件）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
-pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋32 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
+pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋33 个 suite-*.sh，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
 pm_script scripts/measure-context-cost.sh script '成本度量复测器（只读统计会话 wire.jsonl 的 usage.record 八项指标与分布，给定基线出差值；--governance 统计安装件字符数、规则块数与四阶段读取集字符数；缺失项或样本不足 exit 非 0 且零 stdout）'

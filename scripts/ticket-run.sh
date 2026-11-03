@@ -1,10 +1,10 @@
 #!/bin/sh
-# Input: <NN> <command> [args]——command ∈ next|start|contract|record|verify-dispatch
-#        （可恢复协调器五子命令），或 legacy implementation|review|commit。NN 定位唯一
+# Input: <NN> <command> [args]——command ∈ next|start|contract|record|verify-dispatch|repair
+#        （可恢复协调器六子命令），或 legacy implementation|review|commit。NN 定位唯一
 #        任务票；repo-root 缺省按脚本落位推导。contract 收 implementation|review；
 #        record 收收据 JSON 文件；verify-dispatch 收 implementation|review|commit
 #        与可选合同文件；next 另收 --clear-intent（显式清除残留 intent）。
-# Output: 五子命令各自只做一步、只经已登记幂等工具产生副作用，并在有副作用动作前写
+# Output: 六子命令各自只做一步、只经已登记幂等工具产生副作用，并在有副作用动作前写
 #         intent（<git-common-dir>/ticket-run/<NN>.intent，逐步 started/done），故同一
 #         命令失败后重跑即收敛；无法判定的状态返回 decision-required 而非猜测：
 #         next      只读推导下一步，恰打印「ticket-run: 下一步: <token>」与原因行；
@@ -23,6 +23,11 @@
 #                   同内容重跑收敛，不同内容返回 decision-required（证据不可静默覆盖）。
 #         verify-dispatch  重渲染票面 dispatch.<stage> 并与给定合同文件逐字比对；
 #                   缺阶段对象/缺键/空白值、合同文件缺失、合同漂移三类拒绝。
+#         repair    安全、幂等、追加式纠偏：补建缺失站（worktree-add）、重建派生投影
+#                   （generate-progress 再生 progress-current.md）、检测 main 直提并给
+#                   工具化迁移建议（拒绝执行 rebase/amend/force-push）、缺 Review 只给
+#                   pending-review 或 decision-required。只写站与派生投影，不改写索引/
+#                   README/账本/票本体，不生成任何审查结论；结果 token 见下。
 #         legacy implementation|review  渲染合同；implementation 缺站时经 worktree-add
 #                   合同入口创建（旧语义原样保留）。legacy commit 在授权记录翻转时，于
 #                   产品提交后把 checkpoint.commit（committed_at＋product commit）原子写入
@@ -33,7 +38,8 @@
 #      版本控制面；next --clear-intent 是残留 intent 的唯一登记清除路径（只清已判不可
 #      收敛的残留，删除前打印原内容；仍可收敛时拒绝；不碰任何状态载体）。POSIX sh；
 #      JSON 读取仅经 json-validator.py。commit 不生成 User Review Checkpoint，不伪造
-#      用户裁决；record 只搬已产出的收据，不生成 verdict。
+#      用户裁决；record 只搬已产出的收据，不生成 verdict；repair 只做可重建面与检测，
+#      不生成 verdict、不把缺 Review 的票改成已审查。
 
 set -eu
 set -f
@@ -85,16 +91,29 @@ usage() {
                               重渲染票面 dispatch.<stage> 并与合同文件逐字比对；无合同文件
                               时只核键集恰等与自校验。拒绝：缺阶段对象/缺键/空白值、
                               合同文件缺失、合同漂移。
+  repair [repo-root]          安全、幂等、追加式纠偏，四类动作：
+                              1) 补建缺失站（worktree-add，分支 ticket/<id>；站已有效即跳过）；
+                              2) 重建派生投影（progress-current.md 漂移时由 generate-progress
+                                 再生；--check 一致即零写入）；
+                              3) 检测 main 直提（main 上未经票分支的产品提交）并打印
+                                 cherry-pick 迁移建议——拒绝执行 rebase/amend/force-push
+                                 或任何历史改写；
+                              4) 缺 Review 只给 pending-review 或 decision-required，
+                                 绝不生成审查结论、绝不自动改成已审查。
+                              只写站与派生投影；索引/README/账本/票本体零改写。
+                              结果 token：converged|repaired|pending-review（exit 0）、
+                              decision-required（exit 1）。
   implementation|review       legacy 语义：渲染合同；implementation 缺站时自动建站（两行输出）。
   commit                      legacy 语义不变：Review 结论位＋check-gates 后产品/记录两段提交。
-退出码: 0 完成（next＝有下一步）；1 fail-closed（含 next 的 decision-required、
-        合同/Review/门禁/收据未过）；2 用法或环境错误（参数、仓库根、原子层缺失）。
+退出码: 0 完成（next＝有下一步；repair＝converged/repaired/pending-review）；
+        1 fail-closed（含 next 与 repair 的 decision-required、合同/Review/门禁/收据未过）；
+        2 用法或环境错误（参数、仓库根、原子层缺失）。
         逐子命令退出码表见同目录 README.md。
 -h / --help  打印本用法
 USAGE
 }
 
-# ---- 参数解析（五子命令与 legacy 三阶段共用 <NN> 首参）----
+# ---- 参数解析（六子命令与 legacy 三阶段共用 <NN> 首参）----
 
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
@@ -156,13 +175,17 @@ case $cmd in
       if [ -d "$1" ]; then repo_root=$1; else contract_arg=$1; fi
     fi
     ;;
+  repair)
+    [ $# -le 1 ] || { usage >&2; die2 "${cmd} 至多接受 [repo-root]"; }
+    repo_root=${1:-}
+    ;;
   implementation|review|commit)
     [ $# -le 1 ] || { usage >&2; die2 'legacy 三阶段至多接受 [repo-root]'; }
     stage=$cmd
     repo_root=${1:-}
     ;;
   *)
-    die2 "命令须为 next|start|contract|record|verify-dispatch 或 legacy implementation|review|commit: ${cmd}"
+    die2 "命令须为 next|start|contract|record|verify-dispatch|repair 或 legacy implementation|review|commit: ${cmd}"
     ;;
 esac
 printf '%s' "$nn" | LC_ALL=C grep -Eq '^[0-9]{2,}$' || die2 "NN 不合口径: ${nn}"
@@ -193,19 +216,21 @@ issues_dir="${repo_root}/facts/requirements/tickets"
 # 筛出票本体再计数：0 件与多件仍 fail-closed 报明。
 set +f
 hit_count=0
+hit_list=''
 ticket_file=''
 for _cand in "${issues_dir}/${nn}"-*.json; do
   [ -f "$_cand" ] || continue
   _cand_id=$(basename "$_cand" .json)
   printf '%s' "$_cand_id" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || continue
   hit_count=$((hit_count + 1))
-  ticket_file=$_cand
+  [ -n "$ticket_file" ] || ticket_file=$_cand
+  hit_list="${hit_list}${NL}  ${_cand}"
 done
 set -f
 if [ "$hit_count" -eq 0 ]; then
   die1 "票号段 ${nn} 无命中（<NN>-<slug>.json 零匹配，派生件不计票本体）: ${issues_dir}/${nn}-*.json"
 elif [ "$hit_count" -gt 1 ]; then
-  die1 "票号段 ${nn} 定位命中 ${hit_count} 件票本体，须恰一命中"
+  die1 "票号段 ${nn} 定位命中 ${hit_count} 件票本体，须恰一命中（同 NN 异 slug 撞号，不猜测渲染对象）:${hit_list}"
 fi
 ticket_id=$(basename "$ticket_file" .json)
 
@@ -787,6 +812,219 @@ conveyor_record() {
   exit 0
 }
 
+# ---- repair：安全、幂等、追加式纠偏（四类动作，状态载体零改写）----
+
+repair_main_ref() {
+  # 打印 main（或 master）提交 OID；两者皆无返回非 0
+  _rmr=$(git -C "$repo_root" rev-parse --verify -q refs/heads/main 2>/dev/null) || _rmr=''
+  [ -n "$_rmr" ] || _rmr=$(git -C "$repo_root" rev-parse --verify -q refs/heads/master 2>/dev/null) || _rmr=''
+  [ -n "$_rmr" ] || return 1
+  printf '%s' "$_rmr"
+}
+
+repair_divergence_base() {
+  # $1=票分支 ref；打印与 main 的 merge-base，无 main 返回非 0
+  _rdb_main=$(repair_main_ref 2>/dev/null) || return 1
+  git -C "$repo_root" merge-base "$1" "$_rdb_main" 2>/dev/null
+}
+
+repair_main_direct() {
+  # 打印 main 直提候选，一行一件：<sha> <subject>；无候选零输出。
+  # 判定面：main 可达但票分支不可达的非合并提交，且改动含治理记录面之外的路径。
+  # 只检测不执行——任何迁移都需人工确认，repair 不碰历史。
+  _rd_branch="refs/heads/ticket/${ticket_id}"
+  git -C "$repo_root" rev-parse --verify -q "$_rd_branch" >/dev/null 2>&1 || return 0
+  _rd_main=$(repair_main_ref 2>/dev/null) || return 0
+  _rd_base=$(repair_divergence_base "$_rd_branch" 2>/dev/null) || return 0
+  _rd_baseline=''
+  _rd_policy="${repo_root}/facts/requirements/audit-policy.json"
+  if [ -f "$_rd_policy" ]; then
+    _rd_baseline=$(python3 "$_engine" json get "$_rd_policy" baseline_sha 2>/dev/null) || _rd_baseline=''
+    case $_rd_baseline in
+      *[!0-9a-f]*) _rd_baseline='' ;;
+    esac
+    if [ -n "$_rd_baseline" ] && \
+      ! git -C "$repo_root" cat-file -e "${_rd_baseline}^{commit}" 2>/dev/null; then
+      _rd_baseline=''
+    fi
+  fi
+  [ -n "$_rd_baseline" ] || _rd_baseline=$_rd_base
+  for _rd_sha in $(git -C "$repo_root" rev-list --no-merges "${_rd_branch}..${_rd_main}" 2>/dev/null); do
+    git -C "$repo_root" merge-base --is-ancestor "$_rd_baseline" "$_rd_sha" 2>/dev/null || continue
+    _rd_product=$(git -C "$repo_root" show --name-only --format= "$_rd_sha" 2>/dev/null | LC_ALL=C awk '
+      /^(facts|rules|agent-up|\.zcode|\.githooks)\// { next }
+      /^(AGENTS\.md|CLAUDE\.md|README\.md|delivery\.rules|\.gitignore)$/ { next }
+      NF { print "yes"; exit }
+    ')
+    [ "$_rd_product" = 'yes' ] || continue
+    _rd_subject=$(git -C "$repo_root" log -1 --format=%s "$_rd_sha" 2>/dev/null) || _rd_subject=''
+    printf '%s %s\n' "$_rd_sha" "$_rd_subject"
+  done
+}
+
+conveyor_repair() {
+  _rp_status=$(index_status) || _rp_status=''
+  [ -n "$_rp_status" ] || die1 "repair 前置未满足：索引无该票条目（先 open）: ${ticket_id}"
+
+  _rp_station='ok'
+  _rp_projection='ok'
+  _rp_main_count=0
+  _rp_main_list=''
+  _rp_review='present'
+  _rp_outcome='converged'
+  _rp_reason=''
+
+  # ---- 动作 1：补建缺失站（站有效且分支正确即跳过；不领取、不写索引）----
+  if [ -e "$worktree" ]; then
+    worktree_path_valid || \
+      die1 "decision-required: 站路径存在但不是有效 Git worktree（repair 不删除未知目录）: ${worktree}"
+    [ "$(worktree_branch)" = "ticket/${ticket_id}" ] || \
+      die1 "decision-required: 站分支不是 ticket/${ticket_id}（实际 $(worktree_branch)）——repair 不改分支: ${worktree}"
+    worktree=$(CDPATH='' cd -- "$worktree" && pwd -P) || die2 'worktree 物理路径不可解析'
+    worktree_fence_require
+  else
+    case $_rp_status in
+      ready|in_progress|review_ready|review_pass|review_fail)
+        _rp_worktree_add="${script_dir}/worktree-add.sh"
+        [ -r "$_rp_worktree_add" ] || die2 "建站原子层缺失: ${_rp_worktree_add}"
+        intent_record repair started
+        mkdir -p "$(dirname "$worktree")" || die1 "站容器目录创建失败: $(dirname "$worktree")"
+        (cd "$repo_root" && sh "$_rp_worktree_add" "$worktree" "ticket/${ticket_id}" >&2) || \
+          die1 "worktree 补建失败（intent 已记 started）——重跑 repair 收敛: ${worktree}"
+        worktree_path_valid || die1 "补建后站路径不是有效 Git worktree: ${worktree}"
+        worktree=$(CDPATH='' cd -- "$worktree" && pwd -P) || die2 'worktree 物理路径不可解析'
+        worktree_fence_require
+        intent_record repair "done"
+        _rp_station='rebuilt'
+        _rp_outcome='repaired'
+        ;;
+      *) _rp_station='skipped-terminal' ;;
+    esac
+  fi
+
+  # ---- 动作 2：重建派生投影（--check 一致即零写入；不一致才再生）----
+  _rp_progress_script="${script_dir}/generate-progress.sh"
+  if [ ! -r "$_rp_progress_script" ]; then
+    _rp_projection='unavailable'
+    _rp_outcome='decision-required'
+    _rp_reason="派生投影生成器缺失: ${_rp_progress_script}"
+  else
+    _rp_prc=0
+    sh "$_rp_progress_script" --check "$repo_root" >/dev/null 2>&1 || _rp_prc=$?
+    case $_rp_prc in
+      0) ;;
+      1)
+        intent_record repair started
+        if sh "$_rp_progress_script" "$repo_root" >/dev/null 2>&1; then
+          intent_record repair "done"
+          _rp_projection='rebuilt'
+          [ "$_rp_outcome" = 'decision-required' ] || _rp_outcome='repaired'
+        else
+          _rp_projection='failed'
+          _rp_outcome='decision-required'
+          [ -n "$_rp_reason" ] || _rp_reason='派生投影重建失败（索引不可读或条目行不合预期）: progress-current.md'
+        fi
+        ;;
+      *)
+        _rp_projection='failed'
+        _rp_outcome='decision-required'
+        [ -n "$_rp_reason" ] || _rp_reason="派生投影无法核验（generate-progress --check exit ${_rp_prc}）"
+        ;;
+    esac
+  fi
+
+  # ---- 动作 3：检测 main 直提（只检测＋给工具化迁移建议，拒绝历史改写）----
+  # 判定只依赖票分支 ref 与 main，不依赖站是否在位；无站也要能检出。
+  _rp_main_list=$(repair_main_direct 2>/dev/null) || _rp_main_list=''
+  if [ -n "$_rp_main_list" ]; then
+    _rp_main_count=$(printf '%s\n' "$_rp_main_list" | grep -c .)
+    _rp_outcome='decision-required'
+    [ -n "$_rp_reason" ] || \
+      _rp_reason='检测到 main 直提：产品提交绕过票分支，须人工迁移；repair 拒绝执行历史改写'
+  fi
+
+  # ---- 动作 4：缺 Review 只到 pending-review / decision-required（不生成审查结论）----
+  # 收据判定不依赖站：站内在位优先，站缺失时看主仓 facts/requirements/tickets/。
+  _rp_evidence_rel="facts/requirements/tickets/${ticket_id}.review-evidence.json"
+  _rp_station_ok=0
+  worktree_path_valid && _rp_station_ok=1
+  _rp_evidence_path=''
+  if [ "$_rp_station_ok" -eq 1 ] && [ -f "${worktree}/${_rp_evidence_rel}" ]; then
+    _rp_evidence_path="${worktree}/${_rp_evidence_rel}"
+  elif [ -f "${repo_root}/${_rp_evidence_rel}" ]; then
+    _rp_evidence_path="${repo_root}/${_rp_evidence_rel}"
+  fi
+  if [ -n "$_rp_evidence_path" ]; then
+    _rp_review='present'
+  else
+    case $_rp_status in
+      done|review_pass)
+        _rp_review='blocked'
+        _rp_outcome='decision-required'
+        [ -n "$_rp_reason" ] || \
+          _rp_reason="索引状态 ${_rp_status} 但站内与主仓均无审查收据 ${_rp_evidence_rel}——repair 不生成审查结论，须人工裁决"
+        ;;
+      blocked|superseded)
+        _rp_review='skipped'
+        ;;
+      *)
+        _rp_impl=0
+        if [ "$_rp_station_ok" -eq 1 ]; then
+          _rp_branch="refs/heads/ticket/${ticket_id}"
+          if _rp_base=$(repair_divergence_base "$_rp_branch" 2>/dev/null); then
+            _rp_impl=$(git -C "$worktree" rev-list --count "${_rp_base}..HEAD" 2>/dev/null) || _rp_impl=0
+          else
+            _rp_impl=$(git -C "$worktree" rev-list --count HEAD 2>/dev/null) || _rp_impl=0
+            if [ "${_rp_impl:-0}" -gt 1 ]; then _rp_impl=1; else _rp_impl=0; fi
+          fi
+        fi
+        if [ "${_rp_impl:-0}" -gt 0 ] || [ "$_rp_status" = 'review_ready' ]; then
+          _rp_review='missing'
+          [ "$_rp_outcome" = 'decision-required' ] || _rp_outcome='pending-review'
+        else
+          _rp_review='not-required'
+        fi
+        ;;
+    esac
+  fi
+
+  printf 'ticket-run: repair: 站: %s\n' "$_rp_station"
+  printf 'ticket-run: repair: 派生投影: %s\n' "$_rp_projection"
+  printf 'ticket-run: repair: Review: %s\n' "$_rp_review"
+  if [ "$_rp_main_count" -gt 0 ]; then
+    printf 'ticket-run: repair: main 直提: %s 件（main 上未经票分支的产品提交）\n' "$_rp_main_count"
+    printf '%s\n' "$_rp_main_list" | while IFS= read -r _rp_line; do
+      [ -n "$_rp_line" ] || continue
+      printf 'ticket-run: repair: main 直提候选: %s\n' "$_rp_line"
+    done
+    printf 'ticket-run: repair: 迁移建议: 人工确认后在站内 git cherry-pick <sha>，再由独立 Review 覆盖；repair 拒绝执行 rebase/amend/force-push 或任何历史改写\n'
+  else
+    printf 'ticket-run: repair: main 直提: 0 件\n'
+  fi
+  printf 'ticket-run: repair: 状态载体: 索引/README/账本/票本体未改写\n'
+
+  case $_rp_outcome in
+    decision-required)
+      printf 'ticket-run: repair: 结果: decision-required\n'
+      printf 'ticket-run: repair: 原因: %s\n' "$_rp_reason"
+      exit 1
+      ;;
+    pending-review)
+      printf 'ticket-run: repair: 结果: pending-review\n'
+      printf 'ticket-run: repair: 下一步: 走 contract review 产出独立审查收据（repair 不生成审查结论）\n'
+      exit 0
+      ;;
+    repaired)
+      printf 'ticket-run: repair: 结果: repaired\n'
+      exit 0
+      ;;
+    *)
+      printf 'ticket-run: repair: 结果: converged\n'
+      exit 0
+      ;;
+  esac
+}
+
 # ---- verify-dispatch：重渲染比对，三类拒绝 ----
 
 conveyor_verify_dispatch() {
@@ -817,6 +1055,7 @@ case $cmd in
   contract) conveyor_contract ;;
   record) conveyor_record ;;
   verify-dispatch) conveyor_verify_dispatch ;;
+  repair) conveyor_repair ;;
 esac
 
 # ---- legacy 三阶段（行为与原实现一致）----
