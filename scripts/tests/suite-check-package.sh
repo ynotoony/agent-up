@@ -103,6 +103,11 @@ fi
 # 37、检查 21 成员 53、检查 22 块 36、检查 24 面 32/legacy 13/compatibility 45/链接 4、检查 35
 # 短码节 19）；N12～N16 注入目标改生成索引、N34～N36 改 core.md.tmpl，N17/N37～N40 与 P2 随
 # 检查 23 退役删除；N23 计数 33→34、N29 计数 38→41、P3 链接 10→5、P4 面 31→32。
+# 模型档位契约随票修（本次）：新增检查 37 模型档位契约结构（派生表数据行四行且 C0–C3 有序、
+# 无第五档；五宿主与骨架 §2.6 三条 bullet 与三行档位表；不可分档宿主三档 inherit、仅单档与
+# 不可分档宿主角色级模型键待实测、降级记录格式 model_tier）；四处金样各补 PASS: 37 行、
+# 汇总 36→37、N16 注入项号 37+1→38、检查 17 自述总数 36→37；补正例 P37（PASS 行逐字在场）与
+# 负例 N72（删一档行）/N73（清空档位取值）。
 # ============================================================
 
 suite_check_package() {
@@ -178,6 +183,7 @@ PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，�
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
 PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
+PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
 check-package: PASS
 EOF
   else
@@ -217,6 +223,7 @@ PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，�
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
 PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
+PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
 check-package: PASS
 EOF
   fi
@@ -227,7 +234,7 @@ EOF
   else
     bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
   fi
-  assert_eq '正例输出逐行逐一相等（三十六项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、25 待定规范声明检测、28 生成漂移与 29～36 包级语义一致性八项）' "$D/act.positive" "$D/exp.positive"
+  assert_eq '正例输出逐行逐一相等（三十七项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、25 待定规范声明检测、28 生成漂移、29～36 包级语义一致性八项与 37 模型档位契约结构）' "$D/act.positive" "$D/exp.positive"
 
   cp -R "$PKG_ROOT" "$D/pkgcopy"
   rm -f "$D/pkgcopy/scripts/generate-progress.sh"
@@ -265,7 +272,8 @@ PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，�
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
 PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
-check-package: FAIL（3 项未通过，共 36 项）
+PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
+check-package: FAIL（3 项未通过，共 37 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
   rc=$?
@@ -316,7 +324,8 @@ PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，�
 PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
 PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
 PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
-check-package: FAIL（1 项未通过，共 36 项）
+PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
+check-package: FAIL（1 项未通过，共 37 项）
 EOF
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
   rc=$?
@@ -594,14 +603,14 @@ EOF
   done
   rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
 
-  # 检查 17 负例 N16：机械行点名检查项号超界（R-CO-004 出处改「检查 37」）→ exit 1 且
-  # FAIL: 17 指名 ID 与项号（引擎自述上限 36；注入 37＝超界一位，随检查上限同步）。
+  # 检查 17 负例 N16：机械行点名检查项号超界（R-CO-004 出处改「检查 38」）→ exit 1 且
+  # FAIL: 17 指名 ID 与项号（引擎自述上限 37；注入 38＝超界一位，随检查上限同步）。
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed '/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |$/| 机械（检查 37） |/' "$D/pkgcopy13/references/rules-index.md" > "$D/tmpl13.tmp" \
+  sed '/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |$/| 机械（检查 38） |/' "$D/pkgcopy13/references/rules-index.md" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/rules-index.md"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-CO-004 机械行点名检查项号超界（当前共 36 项）: 检查 37' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-CO-004 机械行点名检查项号超界（当前共 37 项）: 检查 38' "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -1447,6 +1456,11 @@ EOF
   else
     bad '正例 P36 检查 36 fixture workflow 不标 production executable → PASS 行逐字在场（fixture 2 件）' "$(grep -m1 '^..: 36' "$D/act.positive")"
   fi
+  if grep -qxF 'PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）' "$D/act.positive"; then
+    ok '正例 P37 检查 37 模型档位契约结构 → PASS 行逐字在场（宿主 5 个，模板 1 件）'
+  else
+    bad '正例 P37 检查 37 模型档位契约结构 → PASS 行逐字在场（宿主 5 个，模板 1 件）' "$(grep -m1 '^..: 37' "$D/act.positive")"
+  fi
 
   # 负例 N64（检查 29）：活动创建路径面注入未标注退役 token 行 → exit 1 且 FAIL: 29
   # 指名文件:行号、token 与冲突类型。
@@ -1559,6 +1573,34 @@ EOF
     ok '负例 N71 fixture 去掉非生产标记 → exit 1 且 FAIL: 36 指名文件与冲突类型'
   else
     bad '负例 N71 fixture 去掉非生产标记 → exit 1 且 FAIL: 36 指名文件与冲突类型' "exit=$rc"
+  fi
+
+  # 负例 N72（检查 37）：宿主 §2.6 删一档行 → 档位表行数不足即 exit 1 且 FAIL: 37
+  # 指名文件与档位表行数。
+  cp -R "$PKG_ROOT" "$D/pksem9"
+  sed '/^| standard |/d' "$D/pksem9/references/adapters/codex.md" > "$D/sem9.tmp" \
+    && mv "$D/sem9.tmp" "$D/pksem9/references/adapters/codex.md"
+  sh "$D/pksem9/scripts/check-package.sh" "$D/pksem9" >"$D/act.n72" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 37 模型档位契约结构' "$D/act.n72" \
+    && grep -qF 'references/adapters/codex.md §2.6 档位表应恰 3 行' "$D/act.n72"; then
+    ok '负例 N72 宿主 §2.6 删一档行 → exit 1 且 FAIL: 37 指名文件与档位表行数'
+  else
+    bad '负例 N72 宿主 §2.6 删一档行 → exit 1 且 FAIL: 37 指名文件与档位表行数' "exit=$rc"
+  fi
+
+  # 负例 N73（检查 37）：宿主 §2.6 清空档位取值 → 取值非空断言即 exit 1 且 FAIL: 37
+  # 指名文件与档位。
+  cp -R "$PKG_ROOT" "$D/pksem10"
+  sed '/^| small |/s/^| small |.*|$/| small |  |/' "$D/pksem10/references/adapters/pi.md" > "$D/sem10.tmp" \
+    && mv "$D/sem10.tmp" "$D/pksem10/references/adapters/pi.md"
+  sh "$D/pksem10/scripts/check-package.sh" "$D/pksem10" >"$D/act.n73" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 37 模型档位契约结构' "$D/act.n73" \
+    && grep -qF 'references/adapters/pi.md §2.6 档位取值空: small' "$D/act.n73"; then
+    ok '负例 N73 宿主 §2.6 档位取值清空 → exit 1 且 FAIL: 37 指名文件与档位'
+  else
+    bad '负例 N73 宿主 §2.6 档位取值清空 → exit 1 且 FAIL: 37 指名文件与档位' "exit=$rc"
   fi
 
   suite_summary 'check-package'

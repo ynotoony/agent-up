@@ -100,6 +100,18 @@ tools: [Read, Grep, Glob, Bash]
 ---
 ```
 
+### 2.6 模型档位可用性
+
+- 分档能力：可逐档（按入口 frontmatter 逐会话声明模型；来源＝§3 本地观察注记，状态 local-observation，官方文档指针未核验，不冒充官方支持声明）。
+- 角色级模型键：`model`（subagent frontmatter 字段，本地观察来源 2026-09-30，状态 local-observation）。
+- 降级记录格式：`model_tier: inherit`（入口未声明模型时按会话模型执行，记录该行与所继承的会话档位；本文件不写模型名）。
+
+| 档位 | 取值来源 |
+| --- | --- |
+| small | frontmatter `model:` 填部署侧选定的低成本 provider/model，并按 §3 注记同声明思考档位（本文件不写模型名） |
+| standard | frontmatter `model:` 填部署侧选定的中间成本 provider/model，思考档位同声明（本文件不写模型名） |
+| strong | frontmatter `model:` 填部署侧选定的高能力 provider/model，思考档位同声明（本文件不写模型名） |
+
 ## 3. 解释与例外
 
 - inspect 映射为 Glob + Read 的组合：目录结构盘点用 Glob，现状内容核对用 Read；单能力对应多工具时按任务需要选用。

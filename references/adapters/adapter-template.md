@@ -38,7 +38,7 @@ depends_on: adapter-capability-contract（能力契约与 R-CC-005 扩展登记�
 #### R-AT-001 宿主差异面齐备 `MUST`
 
 - **When**：新建或修改任何 `adapters/<host>.md` 时。
-- **Action**：按 §2.2 骨架产出：frontmatter 九字段＋契约头三行（Input/Output/Pos）＋§1 宿主事实摘要＋§2 可执行规则（§2.1 公共规则唯一权威指针、§2.2 能力→宿主工具对照表、§2.3 三角色能力映射表、§2.4 独立执行体声明、§2.5 方言承载模板）＋§3 解释与例外；不设规则块；能力对照表 readonly-execute 行声明 `readonly_enforcement: <等级>`，execute 行声明 `git_write_enforcement: <等级>`。
+- **Action**：按 §2.2 骨架产出：frontmatter 九字段＋契约头三行（Input/Output/Pos）＋§1 宿主事实摘要＋§2 可执行规则（§2.1 公共规则唯一权威指针、§2.2 能力→宿主工具对照表、§2.3 三角色能力映射表、§2.4 独立执行体声明、§2.5 方言承载模板、§2.6 模型档位可用性）＋§3 解释与例外；不设规则块；能力对照表 readonly-execute 行声明 `readonly_enforcement: <等级>`，execute 行声明 `git_write_enforcement: <等级>`。
 - **Forbidden**：缺段落之一；在适配文件复述公共规则正文或另立第二权威；引用未核验的第三方观察作为分类依据；写平台无关角色合同中禁止的平台专名。
 - **Stop if**：平台官方文档不可达或身份存疑 → 停止登记，写【待定】并报告，不虚构事实。<!-- pending-decl-exempt: 写入指引面——本行是【待定】标记机制的指令本体（R-AT-001 事实准入），非未核验规范事实 -->
 - **Evidence**：适配文件可对照 §2.2 骨架逐段核对；三要素各有对应小节，公共规则段只有指针。
@@ -90,6 +90,17 @@ depends_on: adapter-capability-contract
 ### 2.5 方言承载模板
 <!-- 三角色入口的方言模板（frontmatter / config.toml / skills / cordis.yml 等）；
      <role-contract-dir> 变量展开说明与旧项目兼容目录并陈句。 -->
+
+### 2.6 模型档位可用性
+- 分档能力：<可逐档|仅单档|不可分档>（依据＝<官方文档依据＋取阅日期 或 local-observation>）
+- 角色级模型键：<已核实键名>（来源与取阅日期）／待实测（未核实面不写键名）
+- 降级记录格式：`model_tier: <inherit|单档键名>`（<记录口径>；本文件不写模型名）
+
+| 档位 | 取值来源 |
+| --- | --- |
+| small | <本宿主 small 档取值来源> |
+| standard | <本宿主 standard 档取值来源> |
+| strong | <本宿主 strong 档取值来源> |
 
 ## 3. 解释与例外
 <!-- 单能力多工具选用规则；宿主本地适配层实例与角色合同冲突处理；宿主特有观察注记。 -->

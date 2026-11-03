@@ -6,7 +6,7 @@
 #        契约指针各节唯一承载点）与适配差异数据表 references/adapters/adapter-diffs.rules
 #        （包根相对落位；四节机器数据行，检查 27 数据源）。两份均为非执行式解析
 #        （fail-closed）。
-# Output: 三十六项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
+# Output: 三十七项包完整性检查的逐项 PASS/FAIL 行与结尾汇总（全部通过 exit 0，任一失败
 #         exit 1；检查 13 仓根无镜像落位目录时静默跳过无输出行；检查 19 非 git 语境静默
 #         跳过无输出行）。
 # Pos: agent-up 公开包发布前核对工具（SPEC-06 §5 / R-06-004）；POSIX sh、只读检查、零网络依赖。
@@ -79,10 +79,10 @@ usage() {
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  三十六项检查全部通过
+  0  三十七项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-三十六项检查说明、例外登记与输出格式见同目录 README.md。
+三十七项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -2111,10 +2111,10 @@ fi
 # 检查 17：机械行点名出处存在。机械行（机制列首段＝受控值「机械」——该值
 # 为引擎语义锚点，词表成员资格仍以清单为权威）须在括注内点名出处：脚本名（*.sh）必须
 # 真实存在于包 $scripts_dir 且在清单 scripts 节登记；检查项号（「检查 N」）必须落在
-# 1..36（引擎自述上限，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
+# 1..37（引擎自述上限，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
 # 存在性核对）；零脚本零检查项的机械行判缺点名。对象＝生成索引机制列（检查 16 同源）。
 problems=''
-n_total_checks=36
+n_total_checks=37
 n_mrow=0
 mech_m='机械'
 if [ "$n_row16" -eq 0 ]; then
@@ -3853,8 +3853,189 @@ else
   pass 36 "fixture workflow 不标 production executable（工作流 ${n36_wf} 件，fixture ${n36_fix} 件，production ${n36_prod} 件）"
 fi
 
+# 检查 37：模型档位契约结构（复杂度派生档位 ↔ 适配器 §2.6）。三层断言：①
+# references/adapters/README.md「模型档位派生表」数据行恰四行且首列按 C0–C3 有序、第二列
+# 非空、C0–C2 三档词两两不同、C3 行第二列不得复用任三档词（无第五档）；②adapter-registry
+# 登记宿主文件与 adapter-template.md 骨架均含「### 2.6 模型档位可用性」，分档能力／
+# 角色级模型键／降级记录格式三条 bullet 各恰一行且值非空，档位表恰三行且档位集合＝派生表
+# 三档词（各一次）、取值非空；③宿主文件额外断言：分档能力以 可逐档／仅单档／不可分档
+# 开头，不可分档宿主三档取值均含 inherit，仅单档与不可分档宿主角色级模型键标待实测，
+# 降级记录格式含 model_tier，档位取值含 inherit 时该行同含 inherit。三档词自派生表数据
+# 读取（引擎零档位词硬编码）；模板骨架是占位，只做结构断言。
+problems=''
+n37_hosts=0
+n37_tmpl=0
+n37_tiers=3
+ad37_readme="$pkg_root/references/adapters/README.md"
+ad37_tmpl="$pkg_root/references/adapters/adapter-template.md"
+a37_t1=''
+a37_t2=''
+a37_t3=''
+if [ ! -f "$ad37_readme" ]; then
+  add_problem '  - references/adapters/README.md 不存在（模型档位派生表无承载）'
+else
+  a37_rows=$(sed -n '/^## 模型档位派生表/,/^## /p' "$ad37_readme" | LC_ALL=C awk -F'|' '
+    function trim(s) { gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s); return s }
+    /^\|/ {
+      c1 = trim($2); c2 = trim($3)
+      if (c1 == "复杂度" || c1 ~ /^-+$/) next
+      if (c1 == "" && c2 == "") next
+      print c1 "\t" c2
+    }')
+  a37_row_n=$(printf '%s\n' "$a37_rows" | grep -c . || true)
+  if [ "$a37_row_n" -ne 4 ]; then
+    add_problem "  - 模型档位派生表数据行应为 4 行（C0–C3），实为 ${a37_row_n} 行"
+  fi
+  a37_order=$(printf '%s\n' "$a37_rows" | cut -f1 | tr '\n' ' ' | sed 's/ $//')
+  if [ "$a37_order" != 'C0 C1 C2 C3' ]; then
+    add_problem "  - 模型档位派生表首列须按 C0 C1 C2 C3 有序（逐行对应 §2.1），实为「${a37_order}」"
+  fi
+  a37_empty=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$2 == "" { print NR }' | tr '\n' ' ')
+  if [ -n "$a37_empty" ]; then
+    add_problem "  - 模型档位派生表档位列有空行（第 ${a37_empty% } 行）"
+  fi
+  a37_t1=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C0" { print $2; exit }')
+  a37_t2=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C1" { print $2; exit }')
+  a37_t3=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C2" { print $2; exit }')
+  a37_c3=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C3" { print $2; exit }')
+  if [ -z "$a37_t1" ] || [ -z "$a37_t2" ] || [ -z "$a37_t3" ]; then
+    add_problem "  - 模型档位派生表 C0–C2 档位词须非空（实为「${a37_t1}」「${a37_t2}」「${a37_t3}」）"
+  else
+    if [ "$a37_t1" = "$a37_t2" ] || [ "$a37_t1" = "$a37_t3" ] || [ "$a37_t2" = "$a37_t3" ]; then
+      add_problem "  - 模型档位派生表 C0–C2 档位词须两两不同（实为「${a37_t1}」「${a37_t2}」「${a37_t3}」）"
+    fi
+    case $a37_c3 in
+      "$a37_t1"|"$a37_t2"|"$a37_t3")
+        add_problem "  - C3 行第二列不得复用三档词（无第五档）: ${a37_c3}" ;;
+    esac
+  fi
+fi
+
+# 单文件 §2.6 结构断言读值器（$1=文件 $2=bullet 标签 $3=count|value）
+a37_get() {
+  LC_ALL=C awk -v lab="$2" -v mode="$3" '
+    BEGIN { pre = "- " lab "：" ; prel = length(pre) }
+    index($0, pre) == 1 {
+      n++; v = substr($0, prel + 1); gsub(/^[ \t]+/, "", v); gsub(/[ \t]+$/, "", v); last = v
+    }
+    END { if (mode == "count") print n + 0; else print last }' "$1"
+}
+
+# 单文件 §2.6 档位表解析（$1=文件；输出「档位<TAB>取值」行）
+a37_tier_rows() {
+  LC_ALL=C awk -F'|' '
+    function trim(s) { gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s); return s }
+    /^### 2\.6 / { insec = 1; next }
+    insec && /^## / { insec = 0 }
+    insec && /^\|/ {
+      c1 = trim($2); c2 = trim($3)
+      if (c1 == "档位" || c1 ~ /^-+$/) next
+      if (c1 == "" && c2 == "") next
+      print c1 "\t" c2
+    }' "$1"
+}
+
+a37_check() {
+  # $1=包根相对路径 $2=host|template
+  a37_rel=$1
+  a37_kind=$2
+  a37_abs="$pkg_root/$a37_rel"
+  if [ ! -f "$a37_abs" ]; then
+    add_problem "  - 缺少适配文件: ${a37_rel}"
+    return
+  fi
+  if ! grep -q '^### 2\.6 模型档位可用性' "$a37_abs"; then
+    add_problem "  - ${a37_rel} 缺「### 2.6 模型档位可用性」段"
+    return
+  fi
+  for a37_lab in 分档能力 角色级模型键 降级记录格式; do
+    a37_cnt=$(a37_get "$a37_abs" "$a37_lab" count)
+    a37_val=$(a37_get "$a37_abs" "$a37_lab" value)
+    if [ "$a37_cnt" -ne 1 ]; then
+      add_problem "  - ${a37_rel} §2.6「${a37_lab}」行应恰 1 行（实为 ${a37_cnt} 行）"
+    elif [ -z "$a37_val" ]; then
+      add_problem "  - ${a37_rel} §2.6「${a37_lab}」取值为空"
+    fi
+  done
+  a37_tr=$(a37_tier_rows "$a37_abs")
+  a37_tr_n=$(printf '%s\n' "$a37_tr" | grep -c . || true)
+  if [ "$a37_tr_n" -ne "$n37_tiers" ]; then
+    add_problem "  - ${a37_rel} §2.6 档位表应恰 ${n37_tiers} 行（small/standard/strong），实为 ${a37_tr_n} 行"
+  fi
+  a37_set=$(printf '%s\n' "$a37_tr" | cut -f1 | LC_ALL=C sort | tr '\n' ' ')
+  a37_want_set=$(printf '%s\n%s\n%s\n' "$a37_t1" "$a37_t2" "$a37_t3" | LC_ALL=C sort | tr '\n' ' ')
+  if [ "$a37_set" != "$a37_want_set" ]; then
+    add_problem "  - ${a37_rel} §2.6 档位集合与派生表不一致（应＝「${a37_want_set% }」，实为「${a37_set% }」）"
+  fi
+  a37_tr_empty=$(printf '%s\n' "$a37_tr" | awk -F'\t' '$2 == "" { print $1 }' | tr '\n' ' ')
+  if [ -n "$a37_tr_empty" ]; then
+    add_problem "  - ${a37_rel} §2.6 档位取值空: ${a37_tr_empty% }"
+  fi
+  if [ "$a37_kind" = host ]; then
+    a37_dial=$(a37_get "$a37_abs" 分档能力 value)
+    case $a37_dial in
+      可逐档*) a37_tier_mode=逐档 ;;
+      仅单档*) a37_tier_mode=单档 ;;
+      不可分档*) a37_tier_mode=不可分档 ;;
+      *) a37_tier_mode=bad ;;
+    esac
+    if [ "$a37_tier_mode" = bad ]; then
+      add_problem "  - ${a37_rel} §2.6 分档能力须以 可逐档／仅单档／不可分档 开头: ${a37_dial}"
+    fi
+    if [ "$a37_tier_mode" = 不可分档 ]; then
+      a37_no_inh=$(printf '%s\n' "$a37_tr" | awk -F'\t' 'index($2, "inherit") == 0 { print $1 }' | tr '\n' ' ')
+      if [ -n "$a37_no_inh" ]; then
+        add_problem "  - ${a37_rel} §2.6 不可分档宿主三档取值须均为 inherit（缺: ${a37_no_inh% }）"
+      fi
+    fi
+    if [ "$a37_tier_mode" = 单档 ] || [ "$a37_tier_mode" = 不可分档 ]; then
+      a37_key=$(a37_get "$a37_abs" 角色级模型键 value)
+      case $a37_key in
+        *待实测*) ;;
+        *) add_problem "  - ${a37_rel} §2.6 仅单档/不可分档宿主的角色级模型键须标待实测: ${a37_key}" ;;
+      esac
+    fi
+    a37_rec=$(a37_get "$a37_abs" 降级记录格式 value)
+    case $a37_rec in
+      *model_tier*) ;;
+      *) add_problem "  - ${a37_rel} §2.6 降级记录格式须含 model_tier: ${a37_rec}" ;;
+    esac
+    if printf '%s\n' "$a37_tr" | awk -F'\t' 'index($2, "inherit") > 0 { f = 1 } END { exit f ? 0 : 1 }'; then
+      case $a37_rec in
+        *inherit*) ;;
+        *) add_problem "  - ${a37_rel} §2.6 档位取值含 inherit 时降级记录格式须同样含 inherit: ${a37_rec}" ;;
+      esac
+    fi
+    n37_hosts=$((n37_hosts + 1))
+  else
+    n37_tmpl=$((n37_tmpl + 1))
+  fi
+}
+
+OLDIFS37=$IFS
+IFS='
+'
+# shellcheck disable=SC2013  # 适配注册表行以 TAB 分列取第 3 字段（路径无空白），IFS 收敛换行即按行迭代
+for a37_reg in $(LC_ALL=C awk -F'\t' '{ print $3 }' "$pm_adapters"); do
+  IFS=$OLDIFS37
+  a37_check "$a37_reg" host
+  IFS='
+'
+done
+IFS=$OLDIFS37
+if [ -f "$ad37_tmpl" ]; then
+  a37_check 'references/adapters/adapter-template.md' template
+else
+  add_problem '  - references/adapters/adapter-template.md 不存在（骨架 §2.6 无承载）'
+fi
+if [ -n "$problems" ]; then
+  fail 37 "模型档位契约结构（宿主 ${n37_hosts} 个，模板 ${n37_tmpl} 件，档位 ${n37_tiers} 个）" "$problems"
+else
+  pass 37 "模型档位契约结构（宿主 ${n37_hosts} 个，模板 ${n37_tmpl} 件，档位 ${n37_tiers} 个）"
+fi
+
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 36 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 37 项）\n' "$failures"
   exit 1
 fi
 printf 'check-package: PASS\n'

@@ -90,6 +90,18 @@ description = "Review 阶段执行体运行时入口；只读独立审查，规�
 description = "Commit 阶段执行体运行时入口；白名单提交，规则以 <role-contract-dir>/commit.md 为准"
 ```
 
+### 2.6 模型档位可用性
+
+- 分档能力：仅单档（官方 config-reference 只登记 `agents.default_subagent_model` 一个子代理模型键，取阅 2026-09-06；无按角色或按档位分设的已核实键）。
+- 角色级模型键：待实测（官方 config-reference 未登记 `agents.<name>` 的模型字段，取阅 2026-09-06；核验前不写键名）。
+- 降级记录格式：`model_tier: default_subagent`（要求档位与单档取值不同时，记录实际生效的键与所要求的档位，不假装已分档；本文件不写模型名）。
+
+| 档位 | 取值来源 |
+| --- | --- |
+| small | `[agents] default_subagent_model`（唯一已核实子代理模型键，三档共用同一取值） |
+| standard | `[agents] default_subagent_model`（同上，三档共用同一取值） |
+| strong | `[agents] default_subagent_model`（同上；本宿主不能按档位区分模型能力） |
+
 ## 3. 解释与例外
 
 - Codex 工具面以 `shell` 命令执行为主：inspect/search/read/vcs 均经 shell 命令承载，单能力无专用工具时按任务需要选用命令；只读性由调用方约束与 sandbox_mode 共同收敛。

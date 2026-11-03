@@ -84,6 +84,18 @@ plugins:
   - path: ./adapters/roles-commit           # name: commit；白名单提交描述
 ```
 
+### 2.6 模型档位可用性
+
+- 分档能力：不可分档（官方文档未登记按角色或按档位选择模型的键，provider seam 未核验；核验前按不可分档从紧）。
+- 角色级模型键：待实测（官方文档未见角色级模型键，取阅 2026-09-06；核验前不写键名）。
+- 降级记录格式：`model_tier: inherit`（三档一律继承运行 profile 的 provider 选择，记录所继承的 provider 与运行 profile：全量 profile 或 sdk-minimal；本文件不写模型名）。
+
+| 档位 | 取值来源 |
+| --- | --- |
+| small | `inherit`（继承运行 profile 的 provider 选定模型） |
+| standard | `inherit`（继承运行 profile 的 provider 选定模型） |
+| strong | `inherit`（继承运行 profile 的 provider 选定模型） |
+
 ## 3. 解释与例外
 
 - 本文件工具对照以 sdk-minimal 双工具口径为已核验底线：inspect/search/read/vcs 均经 bash 命令承载；全量 profile 工具 roster 未核验（状态 pending），宿主部署可按官方文档补核验后扩表，不虚构工具名。

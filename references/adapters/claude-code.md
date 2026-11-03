@@ -101,6 +101,18 @@ model: inherit
 ---
 ```
 
+### 2.6 模型档位可用性
+
+- 分档能力：可逐档（官方 sub-agents 文档登记 subagent frontmatter `model` 字段，取阅 2026-09-06）。
+- 角色级模型键：`model`（subagent frontmatter 字段；官方 sub-agents 文档，取阅 2026-09-06）。
+- 降级记录格式：`model_tier: inherit`（取值解析为 `inherit` 时按会话模型执行，记录该行与实际继承的会话模型；本文件不写模型名）。
+
+| 档位 | 取值来源 |
+| --- | --- |
+| small | subagent frontmatter `model: <部署选定的低成本模型标识>`（本文件不写模型名） |
+| standard | subagent frontmatter `model: <部署选定的中间模型标识>`（本文件不写模型名） |
+| strong | subagent frontmatter `model: <部署选定的高能力模型标识>`（本文件不写模型名） |
+
 ## 3. 解释与例外
 
 - inspect 映射为 Glob + Read 的组合：目录结构盘点用 Glob，现状内容核对用 Read；单能力对应多工具时按任务需要选用。
