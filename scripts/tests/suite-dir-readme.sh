@@ -816,5 +816,373 @@ EOF
     bad '正例 --help 写明 --sync／--init、无生成块 SKIP 与空白限制' "stdout=$(head -n 1 "$D/out")"
   fi
 
+  # ============================================================
+  # --migrate-dry-run（旧格式迁移预演：形态判定、原样搬运、DROP／NOTE、零写入）
+  # ============================================================
+
+  MG=$D/migrate
+  mkdir -p "$MG/repo/four" "$MG/repo/member" "$MG/repo/plain" "$MG/repo/two-col"
+  mkdir -p "$MG/compliant/docs" "$MG/over" "$MG/anomaly/no-h1" "$MG/anomaly/broken"
+
+  cat > "$MG/repo/four/README.md" <<'EOF'
+# 派发模板
+
+本目录承载派发模板。
+
+## 权威分工
+
+- 模板以角色合同为准。
+- 模板与合同冲突时以合同为准。
+
+## 目录成员
+
+| 文件 | 描述 | 角色合同事实源 | 关键占位符 |
+| --- | --- | --- | --- |
+| `a.md` | A 阶段模板 | `roles/a.md` | `{{A}}` |
+
+## 使用方式
+
+1. 第一步：读取模板。
+2. 第二步：填充占位符。
+EOF
+
+  cat > "$MG/repo/member/README.md" <<'EOF'
+# 目录
+
+## 架构
+
+- 规则一：本目录只承载合同。
+- 规则二：冲突时以合同为准。
+
+## 已知限制
+
+- 限制一：链接按冻结态保留。
+
+## 目录清单
+
+| 名字 | 地位 | 功能 |
+| --- | --- | --- |
+| `a.md` | 文档 | 说明 |
+EOF
+
+  cat > "$MG/repo/plain/README.md" <<'EOF'
+# 目录
+
+本目录的职责句。
+
+## 架构
+
+- 规则一。
+
+## 边界
+
+- 不越层引用。
+EOF
+
+  cat > "$MG/repo/two-col/README.md" <<'EOF'
+# 目录
+
+本目录的职责句。
+
+| 检查项 | 依据文件 |
+| --- | --- |
+| 结构 | `a.md` |
+EOF
+
+  : > "$MG/compliant/docs/a.md"
+  dr_base_readme "$MG/compliant/docs/README.md"
+
+  # 超限夹具：架构节 40 条列表项，建议内容必然 > 25 行
+  {
+    printf '# 大目录\n\n大目录职责句。\n\n## 架构\n\n'
+    dr_i=1
+    while [ "$dr_i" -le 40 ]; do
+      printf -- '- 判断条目 %s：原文整行搬运。\n' "$dr_i"
+      dr_i=$((dr_i + 1))
+    done
+  } > "$MG/over/README.md"
+
+  printf 'no heading here\n\n## 权威\n- x\n' > "$MG/anomaly/no-h1/README.md"
+  printf '# 破损\n\n职责句。\n\n| 名字 | 地位 | 功能 |\n| a | b | c |\n' > "$MG/anomaly/broken/README.md"
+
+  dr_migrate_probe() {
+    # $1=原 README $2=预演 stdout：从统一 diff 重建建议内容后打印
+    # `LINES=n AUTH=n TABOO=n MISSING=n`（MISSING＝未能在原文逐字命中的判断行数）
+    python3 - "$1" "$2" <<'PY'
+import re
+import sys
+
+orig_path, out_path = sys.argv[1], sys.argv[2]
+old_lines = open(orig_path, encoding="utf-8").read().splitlines()
+old = set(old_lines)
+text = open(out_path, encoding="utf-8").read().split("\n")
+start = next((i for i, line in enumerate(text) if line.startswith("+++ b/")), None)
+hunks = []
+if start is not None:
+    cur = None
+    for line in text[start + 1:]:
+        if line.startswith("MIGRATE:") or line.startswith("SUMMARY:"):
+            break
+        match = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
+        if match:
+            cur = {"new_start": int(match.group(1)), "lines": []}
+            hunks.append(cur)
+            continue
+        if cur is not None:
+            cur["lines"].append(line)
+# 按 hunk 行号把 diff 还原成完整的新文件（hunk 间的未变更行从原文补回）
+new = []
+oi = 0
+for hunk in hunks:
+    while len(new) < hunk["new_start"] - 1:
+        new.append(old_lines[oi])
+        oi += 1
+    for line in hunk["lines"]:
+        tag, body = line[:1], line[1:]
+        if tag == " ":
+            new.append(body)
+            oi += 1
+        elif tag == "-":
+            oi += 1
+        elif tag == "+":
+            new.append(body)
+for line in old_lines[oi:]:
+    new.append(line)
+while new and new[-1] == "":
+    new.pop()
+auth = taboo = missing = 0
+section = None
+for line in new:
+    if line == "## 权威" or line == "## 读取禁忌":
+        section = line
+        continue
+    if line.startswith("## "):
+        section = None
+        continue
+    if section is not None and line.strip() and "【填写：" not in line:
+        if line not in old:
+            missing += 1
+        if section == "## 权威":
+            auth += 1
+        else:
+            taboo += 1
+print("LINES=%d AUTH=%d TABOO=%d MISSING=%d" % (len(new), auth, taboo, missing))
+PY
+  }
+
+  dr_migrate_tree() {
+    # $1=目录：打印内容树（sha256＋相对路径），用于零写入比对
+    python3 - "$1" <<'PY'
+import hashlib
+import os
+import sys
+
+root = sys.argv[1]
+for base, dirs, files in os.walk(root):
+    dirs.sort()
+    for name in sorted(files):
+        path = os.path.join(base, name)
+        with open(path, "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+        print(digest, os.path.relpath(path, root))
+PY
+  }
+
+  dr_migrate_tree "$MG/repo" > "$D/migrate-tree-before"
+  sh "$G" --target "$MG/repo" --migrate-dry-run --diff >"$D/migrate-all.out" 2>"$D/migrate-all.err"
+  rc=$?
+  dr_migrate_tree "$MG/repo" > "$D/migrate-tree-after"
+
+  # M1 三种形态各一 fixture（four-column／member-table／no-table）
+  if [ "$rc" -eq 0 ] && grep -qF 'MIGRATE: four/README.md: four-column:' "$D/migrate-all.out"; then
+    ok '正例 迁移预演 四列表 + 手册节 → four-column'
+  else
+    bad '正例 迁移预演 四列表 + 手册节 → four-column' "exit=$rc $(grep -F 'MIGRATE: four' "$D/migrate-all.out" | tr '\n' '|')"
+  fi
+  if grep -qF 'MIGRATE: member/README.md: member-table:' "$D/migrate-all.out"; then
+    ok '正例 迁移预演 成员三列表 → member-table'
+  else
+    bad '正例 迁移预演 成员三列表 → member-table' "$(grep -F 'MIGRATE: member' "$D/migrate-all.out" | tr '\n' '|')"
+  fi
+  if grep -qF 'MIGRATE: plain/README.md: no-table:' "$D/migrate-all.out"; then
+    ok '正例 迁移预演 无表格 → no-table'
+  else
+    bad '正例 迁移预演 无表格 → no-table' "$(grep -F 'MIGRATE: plain' "$D/migrate-all.out" | tr '\n' '|')"
+  fi
+
+  # M2 普通两列表（检查项｜依据文件）不得判成 member-table
+  if grep -qF 'MIGRATE: two-col/README.md: no-table:' "$D/migrate-all.out" \
+    && ! grep -qF 'MIGRATE: two-col/README.md: member-table:' "$D/migrate-all.out"; then
+    ok '正例 普通两列表不误判 member-table → no-table'
+  else
+    bad '正例 普通两列表不误判 member-table → no-table' "$(grep -F 'MIGRATE: two-col' "$D/migrate-all.out" | tr '\n' '|')"
+  fi
+
+  # M3 合规 README 不进入迁移集合 → 零输出 exit 0（AC3）
+  sh "$G" --target "$MG/compliant" --migrate-dry-run >"$D/migrate-ok.out" 2>"$D/migrate-ok.err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/migrate-ok.out" ] && [ ! -s "$D/migrate-ok.err" ]; then
+    ok 'AC3 摘要模式无迁移件零输出且 exit 0'
+  else
+    bad 'AC3 摘要模式无迁移件零输出且 exit 0' "exit=$rc stdout=$(head -n 1 "$D/migrate-ok.out")"
+  fi
+
+  # M4 判断文字原样搬运：## 权威 2 行、## 读取禁忌 1 行且逐字命中原文
+  sh "$G" --target "$MG/repo" --dir member --migrate-dry-run --diff >"$D/migrate-member.out" 2>"$D/migrate-member.err"
+  probe=$(dr_migrate_probe "$MG/repo/member/README.md" "$D/migrate-member.out")
+  if [ "$probe" = 'LINES=16 AUTH=2 TABOO=1 MISSING=0' ]; then
+    ok 'AC2 判断文字整行原文搬运且逐字命中（权威 2／禁忌 1／未命中 0）'
+  else
+    bad 'AC2 判断文字整行原文搬运且逐字命中（权威 2／禁忌 1／未命中 0）' "$probe"
+  fi
+  sh "$G" --target "$MG/repo" --dir four --migrate-dry-run --diff >"$D/migrate-four.out" 2>"$D/migrate-four.err"
+  probe=$(dr_migrate_probe "$MG/repo/four/README.md" "$D/migrate-four.out")
+  if [ "$probe" = 'LINES=16 AUTH=2 TABOO=0 MISSING=0' ]; then
+    ok 'AC2 四列件权威两行原样搬运且未改写'
+  else
+    bad 'AC2 四列件权威两行原样搬运且未改写' "$probe"
+  fi
+
+  # M5 超限：NOTE 点名行数、建议内容不截断（40 条判断条目全在）
+  sh "$G" --target "$MG/over" --migrate-dry-run --diff >"$D/migrate-over.out" 2>"$D/migrate-over.err"
+  over_note=$(sed -n 's/^NOTE: README\.md: 建议内容 \([0-9][0-9]*\) 行，超过上限 25，需人工裁剪$/\1/p' "$D/migrate-over.out")
+  probe=$(dr_migrate_probe "$MG/over/README.md" "$D/migrate-over.out")
+  if [ -n "$over_note" ] && [ "$probe" = "LINES=$over_note AUTH=40 TABOO=0 MISSING=0" ]; then
+    ok 'AC2 超限 40 行判断文字 → NOTE 点名行数且不截断（建议行数＝NOTE 行数）'
+  else
+    bad 'AC2 超限 40 行判断文字 → NOTE 点名行数且不截断（建议行数＝NOTE 行数）' "note=${over_note:-无} $probe"
+  fi
+  if grep -qF 'NOTE: over/README.md: 原文缺职责句' "$D/migrate-over.out" \
+    || ! grep -qF '【填写：一句话职责】' "$D/migrate-over.out"; then
+    ok '正例 已有职责句时不再插职责占位'
+  else
+    bad '正例 已有职责句时不再插职责占位' "$(grep -F 'NOTE: over' "$D/migrate-over.out" | tr '\n' '|')"
+  fi
+
+  # M6 丢弃段：成员表与手册节各有 DROP 行且行范围覆盖原文
+  hdr=$(grep -n '^| 名字' "$MG/repo/member/README.md" | cut -d: -f1)
+  last=$(grep -n '^| `a\.md`' "$MG/repo/member/README.md" | cut -d: -f1)
+  if grep -qF "DROP: member/README.md: $hdr-$last 行: 成员表（表头 名字｜地位｜功能）" "$D/migrate-member.out"; then
+    ok 'AC2 成员表逐段 DROP 且行范围覆盖表头至末行'
+  else
+    bad 'AC2 成员表逐段 DROP 且行范围覆盖表头至末行' "$(grep -F 'DROP: member' "$D/migrate-member.out" | tr '\n' '|')"
+  fi
+  man=$(grep -n '^## 使用方式' "$MG/repo/four/README.md" | cut -d: -f1)
+  man_end=$(wc -l < "$MG/repo/four/README.md" | tr -d ' ')
+  if grep -qF "DROP: four/README.md: $man-$man_end 行: 未迁入节：## 使用方式（非权威／禁忌类）" "$D/migrate-four.out"; then
+    ok 'AC2 手册节逐段 DROP 且行范围覆盖整节'
+  else
+    bad 'AC2 手册节逐段 DROP 且行范围覆盖整节' "$(grep -F 'DROP: four' "$D/migrate-four.out" | tr '\n' '|')"
+  fi
+
+  # M7 零写入：预演前后目录树内容哈希完全一致（含无新增 .bak／临时件）
+  if cmp -s "$D/migrate-tree-before" "$D/migrate-tree-after"; then
+    ok 'AC2 迁移预演零写入（目录树 sha256 前后一致）'
+  else
+    bad 'AC2 迁移预演零写入（目录树 sha256 前后一致）' "$(diff "$D/migrate-tree-before" "$D/migrate-tree-after" | tr '\n' '|')"
+  fi
+  if grep -qF 'SUMMARY: 迁移 4 件（four-column 1／member-table 1／no-table 2）；零写入 sha256 4/4 一致' "$D/migrate-all.out"; then
+    ok '正例 预演汇总行给出形态计数与零写入 sha256 证据'
+  else
+    bad '正例 预演汇总行给出形态计数与零写入 sha256 证据' "$(grep -F 'SUMMARY' "$D/migrate-all.out" | tr '\n' '|')"
+  fi
+
+  # M7b 默认摘要模式：≤15 行、无 diff 正文、含形态计数与 ZERO-WRITE
+  sh "$G" --target "$MG/repo" --migrate-dry-run >"$D/migrate-summary.out" 2>"$D/migrate-summary.err"
+  rc=$?
+  sum_lines=$(wc -l <"$D/migrate-summary.out" | tr -d ' ')
+  if [ "$rc" -eq 0 ] && [ "$sum_lines" -le 15 ] && [ ! -s "$D/migrate-summary.err" ] \
+    && grep -qF 'SUMMARY: 迁移 4 件（member-table 1／four-column 1／no-table 2）' "$D/migrate-summary.out" \
+    && grep -qF 'ZERO-WRITE: 4/4 sha256 一致' "$D/migrate-summary.out" \
+    && ! grep -qF -- '--- a/' "$D/migrate-summary.out"; then
+    ok '正例 默认摘要 ≤15 行且含形态计数与 ZERO-WRITE（无 diff 正文）'
+  else
+    bad '正例 默认摘要 ≤15 行且含形态计数与 ZERO-WRITE（无 diff 正文）' "exit=$rc lines=$sum_lines $(tr '\n' '|' <"$D/migrate-summary.out")"
+  fi
+  if grep -qF 'NEEDS-CONFIRM: 1 件缺职责句，建议留占位' "$D/migrate-summary.out" \
+    && grep -qF 'NEEDS-CONFIRM: 2 件缺「权威」或「读取禁忌」列表项，建议留占位' "$D/migrate-summary.out" \
+    && grep -qE '^NEEDS-CONFIRM: [0-9]+ 段内容未迁入（DROP），需人工判是否升格$' "$D/migrate-summary.out"; then
+    ok '正例 默认摘要含分类待人工确认清单行'
+  else
+    bad '正例 默认摘要含分类待人工确认清单行' "$(tr '\n' '|' <"$D/migrate-summary.out")"
+  fi
+
+  # M7c --diff 详情与 --diff 单独出现
+  if grep -qF -- '--- a/member/README.md' "$D/migrate-member.out" \
+    && grep -qF 'DROP: member/README.md:' "$D/migrate-member.out"; then
+    ok '正例 --diff 输出逐文件详情（统一 diff 与 DROP）'
+  else
+    bad '正例 --diff 输出逐文件详情（统一 diff 与 DROP）' "$(head -n 1 "$D/migrate-member.out")"
+  fi
+  dr_diff=1
+  sh "$G" --target "$MG/repo" --diff >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF '只能与 --migrate-dry-run 连用' "$D/err" || dr_diff=0
+  sh "$G" --target "$MG/repo" --diff --check >"$D/out" 2>"$D/err"
+  [ "$?" -eq 2 ] && grep -qF '只能与 --migrate-dry-run 连用' "$D/err" || dr_diff=0
+  if [ "$dr_diff" -eq 1 ]; then
+    ok '负例 --diff 单独出现或与 --check 同用 → exit 2 并说明用法'
+  else
+    bad '负例 --diff 单独出现或与 --check 同用 → exit 2 并说明用法' "$(tr '\n' '|' <"$D/err")"
+  fi
+  sh "$G" --target "$MG/repo" --diff --check >"$D/out" 2>"$D/err"
+  dr_rc=$?
+  if [ "$dr_rc" -eq 2 ] \
+    && grep -qF '（与 --check 同用无效，用法见 --help）' "$D/err" \
+    && ! grep -qE '用法见 --help）check$' "$D/err"; then
+    ok '负例 --diff --check 模式名嵌入句内且行尾无裸模式名'
+  else
+    bad '负例 --diff --check 模式名嵌入句内且行尾无裸模式名' "exit=$dr_rc $(tr '\n' '|' <"$D/err")"
+  fi
+
+  # M8 异常形态：无 H1／表头残缺 → exit 2 指名 file:line 且不产生部分结论
+  sh "$G" --target "$MG/anomaly" --migrate-dry-run >"$D/migrate-bad.out" 2>"$D/migrate-bad.err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && [ ! -s "$D/migrate-bad.out" ] \
+    && grep -qF 'no-h1/README.md:1: 缺少一级标题' "$D/migrate-bad.err"; then
+    ok '负例 无 H1 → exit 2 指名 file:line 且零 stdout'
+  else
+    bad '负例 无 H1 → exit 2 指名 file:line 且零 stdout' "exit=$rc stdout=$(head -n 1 "$D/migrate-bad.out") stderr=$(tr '\n' '|' < "$D/migrate-bad.err")"
+  fi
+  if grep -qF 'broken/README.md:5: 表头残缺（表头后缺少分隔行）' "$D/migrate-bad.err"; then
+    ok '负例 表头残缺 → exit 2 指名表头行'
+  else
+    bad '负例 表头残缺 → exit 2 指名表头行' "$(tr '\n' '|' < "$D/migrate-bad.err")"
+  fi
+
+  # M9 与三种既有模式互斥 → exit 2
+  dr_mutex=1
+  for dr_mode in '--check' '--sync' '--init member'; do
+    # shellcheck disable=SC2086  # 三个模式串按空格拆成参数，--init 需带目录值
+    sh "$G" --target "$MG/repo" --migrate-dry-run $dr_mode >"$D/out" 2>"$D/err"
+    if [ "$?" -ne 2 ] || ! grep -qF '互斥' "$D/err"; then
+      dr_mutex=0
+    fi
+  done
+  if [ "$dr_mutex" -eq 1 ]; then
+    ok '负例 --migrate-dry-run 与 --check／--sync／--init 互斥 → exit 2'
+  else
+    bad '负例 --migrate-dry-run 与 --check／--sync／--init 互斥 → exit 2' "$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # M10 --dir 限定生效
+  if grep -qF 'MIGRATE: member/README.md:' "$D/migrate-member.out" \
+    && ! grep -qF 'MIGRATE: four/README.md:' "$D/migrate-member.out"; then
+    ok '正例 --dir 限定只输出指定目录的迁移建议'
+  else
+    bad '正例 --dir 限定只输出指定目录的迁移建议' "$(grep -F 'MIGRATE:' "$D/migrate-member.out" | tr '\n' '|')"
+  fi
+
+  # M11 --help 写明两种输出形态与 --diff 用法
+  sh "$G" --help >"$D/out" 2>"$D/err"
+  if grep -qF -- '--migrate-dry-run' "$D/out" \
+    && grep -qF -- '--diff' "$D/out" \
+    && grep -qF '摘要' "$D/out" \
+    && grep -qF 'MIGRATE:' "$D/out" \
+    && grep -qF 'DROP:' "$D/out"; then
+    ok '正例 --help 写明摘要／--diff 两种形态与 MIGRATE／DROP 报告行'
+  else
+    bad '正例 --help 写明摘要／--diff 两种形态与 MIGRATE／DROP 报告行' "stdout=$(head -n 1 "$D/out")"
+  fi
+
   suite_summary 'dir-readme'
 }

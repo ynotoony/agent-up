@@ -9,11 +9,17 @@
 #         输出，不合规逐条输出 `path:line: 原因` 且 exit 2，异常形态 fail-closed exit 2。
 #         --sync 只重建生成块内的子目录表（块外逐字节不动，无生成块的 README 不新建
 #         不修改并输出 SKIP）；--init 为新目录写四段骨架（判断位留【填写：…】）。
+#         --migrate-dry-run 为旧格式迁移预演（只读）：跳过 --check 零问题的 README，其余按
+#         表格结构归入三种形态。默认输出摘要（≤15 行：SUMMARY 形态计数、ZERO-WRITE
+#         sha256 证据、NEEDS-CONFIRM 待人工确认清单）；--diff 连用才输出逐文件统一 diff
+#         与 MIGRATE／DROP／NOTE 详情（--diff 单独出现即 exit 2）。判断文字整行原文搬运、
+#         超 25 行不截断只报 NOTE，预演前后逐件核对 sha256；无迁移件零输出 exit 0。
 #         --init 与 --sync --dir 的目录路径规范化后含空白即 exit 2 零写入（范围规则与
 #         生成块标记均以空白分隔，含空白的目录二者都无法唯一表示）。
-# Pos: 目录 README 结构校验、生成块同步与骨架生成器（Python 3 标准库实现，壳层只做
-#      解释器定位与转调）；契约与四段式骨架见 references/templates/dir-README.md.tmpl，
-#      范围见同目录 dir-readme.rules；两件与本目录 README.md 成员表三处登记须同步。
+# Pos: 目录 README 结构校验、生成块同步、骨架生成与旧格式迁移预演器（Python 3 标准库
+#      实现，壳层只做解释器定位与转调）；契约与四段式骨架见
+#      references/templates/dir-README.md.tmpl，范围见同目录 dir-readme.rules；两件与
+#      本目录 README.md 成员表三处登记须同步。
 
 set -eu
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) || exit 2
@@ -22,13 +28,15 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 2
 fi
 exec python3 - "$here" "$@" <<'PY'
+import difflib
 import fnmatch
+import hashlib
 import os
 import re
 import sys
 
 USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] [--rules <path>]
-                            [--check | --sync | --init <rel>]
+                            [--check | --sync | --init <rel> | --migrate-dry-run [--diff]]
 参数:
   --target <repo-root>  目标仓库根目录；缺省取当前目录。
   --dir <rel>           只处理该目录（目标根相对路径）的 README.md；--init 时不可用。
@@ -44,6 +52,25 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
                         围栏代码块（```／~~~）内的标记不算生成块，不读不写。
   --init <rel-dir>      为 <target>/<rel-dir> 新建 README.md 四段骨架，判断位留
                         【填写：…】；目录不存在或 README.md 已存在即 exit 2 零写入。
+  --migrate-dry-run     旧格式迁移预演，只读。先以 --check 口径筛面：零问题的 README 不进
+                        迁移集合（范围内全合规时零输出、exit 0）。其余按表格结构归入
+                        four-column（四列表头且首格为「文件」类关键词）／member-table
+                        （表头任一格去空白、反引号与 ** 后整格等于「名字／成员／文件」，且
+                        紧随分隔行）／no-table（无上述表；普通两列表不算成员表）。
+                        默认摘要模式（≤15 行）：`SUMMARY: 迁移 N 件（member-table a／
+                        four-column b／no-table c）`、`ZERO-WRITE: N/N sha256 一致`，以及按
+                        类别各一行的 `NEEDS-CONFIRM:`（超 25 行、缺职责句、缺「权威」或
+                        「读取禁忌」列表项、未迁入段数）。无迁移件即零输出 exit 0。
+                        建议内容四段式：H1 与职责句原文；## 权威／## 读取禁忌 从旧文
+                        「架构／身份与冻结依据」「已知限制／维护纪律／边界」类段落整行搬
+                        运列表项（不改写、不合并、不换措辞）；## 子目录 复用 --sync 的
+                        同一子目录表生成函数。超 25 行只报不截断。全程零写入：每件预演
+                        前后核对 sha256，临时文件只落 $TMPDIR；无 H1、表头残缺、不可读
+                        一律 exit 2 且不产生部分结论。
+  --diff                仅与 --migrate-dry-run 连用：输出逐文件详情——`MIGRATE: <path>:
+                        <形态>: <原行数>→<建议行数>`、`DROP: <path>: <起>-<止> 行: <原因>`、
+                        `NOTE:`、统一 diff（--- a/<path> / +++ b/<path>）与带零写入证据的
+                        SUMMARY 行。单独出现或与 --check／--sync／--init 同用即 exit 2。
   --init 与 --sync --dir 的目录路径不得含空白字符（范围规则与生成块标记均以空白分隔，
                         含空白的目录既进不了范围也无法被生成块标记唯一表示），
                         规范化后含空白即 exit 2 零写入。
@@ -61,11 +88,13 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
   7. 生成块 <!-- dir-readme: generated dir=<rel> --> 与 <!-- /dir-readme --> 成对且
      dir 值与目录一致；围栏代码块（```／~~~，含更长围栏）内的成对标记不算生成块。
 退出码:
-  0  校验通过／同步完成／骨架已写入（含无生成块的 SKIP）。
+  0  校验通过／同步完成／骨架已写入（含无生成块的 SKIP）／迁移预演完成（建议内容本身
+     仍可能失败 --check，属交人工裁剪与填写）。
   1  保留（当前不产生）。
   2  不合规或异常形态（无文件、无四段标记可判、规则文件损坏、目标路径不存在、
      生成块未闭合或重复起始、--init 目标已存在、--init／--sync --dir 路径含空白、
-     模式互斥冲突），fail-closed，逐条输出 `path:line: 原因`，写入模式零写入。
+     模式互斥冲突），fail-closed，逐条输出 `path:line: 原因`，写入模式零写入；
+     迁移预演另对无 H1、表头残缺、不可读同上 exit 2 且不产生部分结论。
 """
 
 
@@ -85,18 +114,27 @@ def parse_args(argv):
     rules = os.path.join(here, "dir-readme.rules")
     explicit = []
     init_dir = None
+    detail = False
     i = 1
     while i < len(argv):
         arg = argv[i]
         if arg in ("-h", "--help"):
             sys.stdout.write(USAGE)
             sys.exit(0)
+        if arg == "--diff":
+            detail = True
+            i += 1
+            continue
         if arg == "--check":
             explicit.append("check")
             i += 1
             continue
         if arg == "--sync":
             explicit.append("sync")
+            i += 1
+            continue
+        if arg == "--migrate-dry-run":
+            explicit.append("migrate")
             i += 1
             continue
         if arg == "--init":
@@ -125,11 +163,15 @@ def parse_args(argv):
             continue
         die("未知参数: %s（用法见 --help）" % arg)
     if len(explicit) > 1:
-        die("--check／--sync／--init 互斥，只能给一个")
+        die("--check／--sync／--init／--migrate-dry-run 互斥，只能给一个")
+    if len(explicit) == 0 and detail:
+        die("--diff 只能与 --migrate-dry-run 连用（单独出现无效，用法见 --help）")
     mode = explicit[0] if explicit else "check"
+    if detail and mode != "migrate":
+        die("--diff 只能与 --migrate-dry-run 连用（与 %s 同用无效，用法见 --help）" % ("--" + mode))
     if mode == "init" and only is not None:
         die("--init 不接受 --dir（目标目录由 --init 参数给出）")
-    return (target if target is not None else "."), only, rules, mode, init_dir
+    return (target if target is not None else "."), only, rules, mode, init_dir, detail
 
 
 def load_rules(path):
@@ -705,6 +747,368 @@ def run_init(target, init_arg, includes, excludes):
     return 0
 
 
+# ---------------------------------------------------------------- 迁移预演
+
+PLACEHOLDER_AUTHORITY = "【填写：本目录的权威来源】"
+PLACEHOLDER_TABOO = "【填写：一条读取禁忌】"
+MIGRATE_LIMIT = 25
+FILE_HEADER_KEYS = ("文件", "文件名", "文件／路径", "文件/路径")
+AUTHORITY_SECTION_KEYS = ("架构", "身份与冻结依据", "身份", "定位", "权威")
+TABOO_SECTION_KEYS = ("已知限制", "维护纪律", "维护规则", "边界", "读取禁忌", "限制", "约束", "禁止")
+TABLE_SHAPE_REASONS = {
+    "four": "四列表（表头 %s）",
+    "member": "成员表（表头 %s）",
+    "other": "普通表格（非成员表，未迁入）",
+    "subdir": "子目录表（未迁入）",
+}
+
+
+def heading_key(text):
+    # 节名去掉反引号与破折号后的括注：`## 已知限制（冻结态保留，不修补）` 按「已知限制」判。
+    return re.split(r"[（(]", text.replace("`", ""))[0].strip()
+
+
+def section_role(name):
+    key = heading_key(name)
+    if any(key.startswith(prefix) for prefix in AUTHORITY_SECTION_KEYS):
+        return "authority"
+    if any(key.startswith(prefix) for prefix in TABOO_SECTION_KEYS):
+        return "taboo"
+    return None
+
+
+def looks_like_table_header(cells):
+    if len(cells) < 2:
+        return False
+    if any(normalize_cell(cell) in MEMBER_HEADER_KEYS for cell in cells):
+        return True
+    if any(cell in ("描述", "角色合同事实源", "关键占位符") for cell in cells):
+        return True
+    return len(cells) == 4 and normalize_cell(cells[0]) in FILE_HEADER_KEYS
+
+
+def scan_tables(body, fences):
+    # 表格按「表头行＋分隔行」识别；表意已定的表头缺分隔行属残缺，fail-closed 指名行号。
+    tables = []
+    problems = []
+    i = 0
+    total = len(body)
+    while i < total:
+        if fences[i] or not body[i].strip().startswith("|"):
+            i += 1
+            continue
+        start = i
+        end = i
+        while end + 1 < total and not fences[end + 1] and body[end + 1].strip().startswith("|"):
+            end += 1
+        header = table_cells(body[start])
+        if not (end > start and is_separator(body[start + 1])):
+            if looks_like_table_header(header):
+                problems.append((start + 1, "表头残缺（表头后缺少分隔行）"))
+            i = end + 1
+            continue
+        if is_subdir_header(body[start]):
+            kind = "subdir"
+        elif len(header) == 4 and normalize_cell(header[0]) in FILE_HEADER_KEYS:
+            kind = "four"
+        elif any(normalize_cell(cell) in MEMBER_HEADER_KEYS for cell in header):
+            kind = "member"
+        else:
+            kind = "other"
+        tables.append({"start": start, "end": end, "kind": kind, "header": header})
+        i = end + 1
+    return tables, problems
+
+
+def merge_drop_ranges(contents, labels, carried):
+    # 空行并入相邻同因段；被搬运的行截断范围，避免 DROP 区间把已搬运内容算进去。
+    ranges = []
+    current = None
+    for i in range(len(contents)):
+        if i in carried:
+            if current is not None:
+                ranges.append(current)
+                current = None
+            continue
+        label = labels.get(i)
+        if label is None:
+            continue
+        if current is not None and current[2] == label:
+            current[1] = i
+            continue
+        if current is not None:
+            ranges.append(current)
+        current = [i, i, label]
+    if current is not None:
+        ranges.append(current)
+    return [(start + 1, end + 1, reason) for start, end, reason in ranges]
+
+
+def plan_migrate_file(target, rel, contents, body, fences, includes, excludes):
+    h1 = None
+    for i, line in enumerate(body):
+        if not fences[i] and H1_RE.match(line):
+            h1 = i
+            break
+    if h1 is None:
+        return None, [(rel, 1, "缺少一级标题 # <目录名>（无法确定形态与职责句）")]
+
+    tables, problems = scan_tables(body, fences)
+    if problems:
+        return None, [(rel, line_no, reason) for line_no, reason in problems]
+
+    if any(table["kind"] == "four" for table in tables):
+        shape = "four-column"
+    elif any(table["kind"] == "member" for table in tables):
+        shape = "member-table"
+    else:
+        shape = "no-table"
+
+    duty = None
+    for i in range(h1 + 1, len(body)):
+        if fences[i]:
+            continue
+        line = body[i].strip()
+        if not line:
+            continue
+        if re.match(r"^#{1,6}\s", line):
+            break
+        if line.startswith("|"):
+            continue
+        duty = i
+        break
+
+    sections = []
+    for i, line in enumerate(body):
+        if fences[i]:
+            continue
+        match = H2_RE.match(line)
+        if match:
+            sections.append([i, len(body) - 1, match.group(1).strip()])
+    for idx in range(len(sections) - 1):
+        sections[idx][1] = sections[idx + 1][0] - 1
+
+    carried = {h1}
+    if duty is not None:
+        carried.add(duty)
+    prefix = []
+    for i in range(h1):
+        if not contents[i].strip() or not body[i].strip():
+            carried.add(i)
+            prefix.append(i)
+
+    labels = {}
+    for table in tables:
+        reason = TABLE_SHAPE_REASONS[table["kind"]]
+        if "%s" in reason:
+            reason = reason % "｜".join(table["header"])
+        for i in range(table["start"], table["end"] + 1):
+            labels[i] = reason
+
+    authority = []
+    taboo = []
+    for start, end, name in sections:
+        role = section_role(name)
+        if role is None:
+            reason = "未迁入节：## %s（非权威／禁忌类）" % name
+            labels.setdefault(start, reason)
+            for i in range(start + 1, end + 1):
+                if contents[i].strip():
+                    labels.setdefault(i, reason)
+            continue
+        labels[start] = "原节标题 ## %s（列表项已迁入）" % name
+        bucket = authority if role == "authority" else taboo
+        for i in range(start + 1, end + 1):
+            line = contents[i]
+            if not line.strip():
+                continue
+            if re.match(r"^\s*[-*+]\s", line):
+                carried.add(i)
+                bucket.append(i)
+                continue
+            labels.setdefault(i, "段落（非列表项，未迁入）")
+
+    for i in range(len(contents)):
+        if i in carried or i in labels or not contents[i].strip():
+            continue
+        labels[i] = "H1 之前的元数据块（未迁入）" if i < h1 else "段落（未迁入）"
+
+    out = [contents[i] for i in prefix]
+    while out and not out[-1].strip():
+        out.pop()
+    if out:
+        out.append("")
+    out.append(contents[h1])
+    out.append("")
+    gaps = []
+    if duty is None:
+        out.append(PLACEHOLDER_DUTY)
+        gaps.append("职责句")
+    else:
+        out.append(contents[duty])
+    out.append("")
+    out.append("## 权威")
+    if authority:
+        out.extend(contents[i] for i in authority)
+    else:
+        out.append("- " + PLACEHOLDER_AUTHORITY)
+        gaps.append("「权威」列表项")
+    out.append("")
+    out.append("## 读取禁忌")
+    if taboo:
+        out.extend(contents[i] for i in taboo)
+    else:
+        out.append("- " + PLACEHOLDER_TABOO)
+        gaps.append("「读取禁忌」列表项")
+    out.append("")
+    out.append("## 子目录")
+    base_rel = dir_of_readme(rel)
+    block_dir = base_rel if base_rel else "."
+    out.append("<!-- dir-readme: generated dir=%s -->" % block_dir)
+    out.extend(subdir_table_lines(list_subdirs(target, base_rel, includes, excludes), {}, target, base_rel))
+    out.append("<!-- /dir-readme -->")
+
+    notes = []
+    if len(out) > MIGRATE_LIMIT:
+        notes.append("建议内容 %d 行，超过上限 %d，需人工裁剪" % (len(out), MIGRATE_LIMIT))
+    if gaps:
+        notes.append("原文缺%s，建议内容留【填写：…】占位" % "、".join(gaps))
+
+    return {
+        "rel": rel,
+        "shape": shape,
+        "old": contents,
+        "new": out,
+        "drops": merge_drop_ranges(contents, labels, carried),
+        "notes": notes,
+    }, []
+
+
+def render_migrate_plan(plan):
+    rel = plan["rel"]
+    lines = [
+        "MIGRATE: %s: %s: %d→%d" % (rel, plan["shape"], len(plan["old"]), len(plan["new"]))
+    ]
+    for note in plan["notes"]:
+        lines.append("NOTE: %s: %s" % (rel, note))
+    for start, end, reason in plan["drops"]:
+        lines.append("DROP: %s: %d-%d 行: %s" % (rel, start, end, reason))
+    lines.extend(
+        difflib.unified_diff(
+            plan["old"],
+            plan["new"],
+            fromfile="a/" + rel,
+            tofile="b/" + rel,
+            lineterm="",
+            n=3,
+        )
+    )
+    return "\n".join(lines)
+
+
+def run_migrate(target, candidates, includes, excludes, detail):
+    before = {}
+    plans = []
+    problems = []
+    for rel in candidates:
+        try:
+            with open(os.path.join(target, rel), "rb") as fh:
+                data = fh.read()
+        except OSError:
+            problems.append((rel, 1, "README 不可读"))
+            continue
+        before[rel] = hashlib.sha256(data).hexdigest()
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            problems.append((rel, 1, "README 不是 UTF-8"))
+            continue
+        if not check_file(target, rel):
+            continue
+        contents = [content for content, _ in split_raw_lines(text)]
+        body = strip_comments(contents)
+        plan, probs = plan_migrate_file(
+            target, rel, contents, body, fenced_mask(body), includes, excludes
+        )
+        if probs:
+            problems.extend(probs)
+        else:
+            plans.append(plan)
+    if problems:
+        emit_problems(problems)
+        return 2
+    if not plans:
+        return 0
+
+    after = {}
+    for rel in before:
+        try:
+            with open(os.path.join(target, rel), "rb") as fh:
+                after[rel] = hashlib.sha256(fh.read()).hexdigest()
+        except OSError:
+            after[rel] = ""
+    changed = [rel for rel in before if before[rel] != after.get(rel)]
+    if changed:
+        for rel in sorted(changed):
+            sys.stderr.write("%s:1: 预演前后 sha256 不一致（只读被破坏）\n" % rel)
+        return 2
+
+    counts = {"four-column": 0, "member-table": 0, "no-table": 0}
+    for plan in plans:
+        counts[plan["shape"]] += 1
+    if detail:
+        blocks = [render_migrate_plan(plan) for plan in plans]
+        sys.stdout.write("\n\n".join(blocks) + "\n")
+        sys.stdout.write(
+            "SUMMARY: 迁移 %d 件（four-column %d／member-table %d／no-table %d）；零写入 sha256 %d/%d 一致\n"
+            % (
+                len(plans),
+                counts["four-column"],
+                counts["member-table"],
+                counts["no-table"],
+                len(before),
+                len(before),
+            )
+        )
+        return 0
+
+    over = [(plan["rel"], len(plan["new"])) for plan in plans if len(plan["new"]) > MIGRATE_LIMIT]
+    gap_duty = 0
+    gap_sections = 0
+    dropped = 0
+    for plan in plans:
+        notes = plan["notes"]
+        if any("职责句" in note for note in notes):
+            gap_duty += 1
+        if any("「权威」列表项" in note or "「读取禁忌」列表项" in note for note in notes):
+            gap_sections += 1
+        dropped += len(plan["drops"])
+    lines = [
+        "SUMMARY: 迁移 %d 件（member-table %d／four-column %d／no-table %d）"
+        % (len(plans), counts["member-table"], counts["four-column"], counts["no-table"]),
+        "ZERO-WRITE: %d/%d sha256 一致" % (len(before), len(before)),
+    ]
+    if over:
+        shown = "、".join("%s %d" % (rel, size) for rel, size in over[:5])
+        if len(over) > 5:
+            shown += " 等 %d 件" % len(over)
+        lines.append(
+            "NEEDS-CONFIRM: %d 件超 %d 行（%s）" % (len(over), MIGRATE_LIMIT, shown)
+        )
+    if gap_duty:
+        lines.append("NEEDS-CONFIRM: %d 件缺职责句，建议留占位" % gap_duty)
+    if gap_sections:
+        lines.append(
+            "NEEDS-CONFIRM: %d 件缺「权威」或「读取禁忌」列表项，建议留占位" % gap_sections
+        )
+    if dropped:
+        lines.append(
+            "NEEDS-CONFIRM: %d 段内容未迁入（DROP），需人工判是否升格" % dropped
+        )
+    sys.stdout.write("\n".join(lines) + "\n")
+    return 0
+
+
 def check_file(target, relpath):
     try:
         with open(os.path.join(target, relpath), "r", encoding="utf-8", errors="replace") as fh:
@@ -867,7 +1271,7 @@ def emit_problems(problems):
 
 
 def main(argv):
-    target_arg, only_arg, rules_path, mode, init_arg = parse_args(argv)
+    target_arg, only_arg, rules_path, mode, init_arg, detail = parse_args(argv)
     target = os.path.abspath(target_arg)
     if not os.path.isdir(target):
         die("目标路径不存在或不是目录: %s" % target_arg)
@@ -879,6 +1283,8 @@ def main(argv):
     candidates = resolve_candidates(target, only_arg, includes, excludes, rules_path, mode)
     if mode == "sync":
         return run_sync(target, candidates, includes, excludes)
+    if mode == "migrate":
+        return run_migrate(target, candidates, includes, excludes, detail)
 
     problems = []
     for rel in candidates:
@@ -890,5 +1296,11 @@ def main(argv):
     return 0
 
 
-sys.exit(main(sys.argv[1:]))
+try:
+    _code = main(sys.argv[1:])
+    sys.stdout.flush()
+except BrokenPipeError:
+    # 下游提前关闭管道（如 `| head -5`）时静默退出，不把 traceback 写到 stderr。
+    os._exit(0)
+sys.exit(_code)
 PY
