@@ -1,16 +1,19 @@
 #!/bin/sh
 # Input: --check-template（模板漂移检查模式）／--check <合同文件>（执行体自查模式）／
-#        --check-dispatch <合同文件>（派发前置校验模式）；schema 数据件与三份派发合同
-#        模板按脚本落位相对定位（包内语境）。
-# Output: exit 0（通过）／exit 1（失败：输出缺失字段名、差集或派发前置不满足）／
-#         exit 2（用法或环境错误：合同/索引不可读、路径非 Git 工作树等）。
-# Pos: 三模式派发合同校验器：模板漂移检查（schema 占位符全集与三份派发合同模板占位符
+#        --check-dispatch <合同文件>（派发前置校验模式）／--check-step-budget <合同文件>
+#        （步数预算与到线收尾校验模式）；schema 数据件与三份派发合同模板按脚本落位
+#        相对定位（包内语境）。
+# Output: exit 0（通过）／exit 1（失败：输出缺失字段名、差集、派发前置不满足或步数
+#         预算四类缺失之一）／exit 2（用法或环境错误：合同/索引不可读、路径非 Git
+#         工作树等）。
+# Pos: 四模式派发合同校验器：模板漂移检查（schema 占位符全集与三份派发合同模板占位符
 #      并集双向零差集）＋执行体自查（合同文件按推断类型的必备字段完整性核对）＋派发
 #      前置校验（合同 REPOSITORY_PATH 须为主仓 linked worktree 且票 status=in_progress；
 #      主检出路径、未领取票、非 in_progress 票一律拒绝，repo-root 由 worktree 的
-#      git-common-dir 反推）。POSIX sh＋awk；--check-dispatch 另需 python3 解析票索引
-#      （JSON 引擎与 contract-build.sh 同口径，其余两模式零外部依赖）。包内语境运行：
-#      schema 与模板按 scripts/ 上一级 references/ 相对定位；复制落位（rules/
+#      git-common-dir 反推）＋步数预算校验（缺步数上限／缺到线收尾表述／上限为空／
+#      上限非数字四类各自指名拒绝）。POSIX sh＋awk；--check-dispatch 另需 python3 解析
+#      票索引（JSON 引擎与 contract-build.sh 同口径），其余三模式零外部依赖。包内语境
+#      运行：schema 与模板按 scripts/ 上一级 references/ 相对定位；复制落位（rules/
 #      implementation/scripts/ 语境）须同迁 schema 与模板两件，引擎不自动探测其他落位。
 
 set -eu
@@ -22,7 +25,7 @@ PROMPT_DIR="$SCRIPT_DIR/../references/prompts"
 usage() {
   cat <<'USAGE'
 用法: sh check-dispatch-contract.sh --check-template | --check <合同文件> |
-      --check-dispatch <合同文件>
+      --check-dispatch <合同文件> | --check-step-budget <合同文件>
 模式:
     --check-template      模板漂移检查：schema 占位符全集与三份派发合同模板
                           （references/prompts/ 下 implementation/review/commit
@@ -35,7 +38,12 @@ usage() {
                           主仓 linked worktree（主检出拒绝），取 {{TICKET_ID}}
                           实值要求主仓 index 中该票 status=in_progress（未领取
                           或非 in_progress 拒绝）；repo-root 由 worktree 反推
-退出码: 0 通过；1 失败（缺失字段名、差集或派发前置不满足见输出）；2 用法或环境错误
+    --check-step-budget <合同文件>
+                          步数预算校验：合同须含「步数上限：<数字>」与到线即
+                          收尾／另起交接摘要表述；缺步数上限、缺到线收尾表述、
+                          上限为空、上限非数字四类各自指名拒绝（fail-closed）
+退出码: 0 通过；1 失败（缺失字段名、差集、派发前置不满足或步数预算缺失见输出）；
+        2 用法或环境错误
 -h / --help             打印本用法
 USAGE
 }
@@ -292,6 +300,60 @@ PY
   return 0
 }
 
+# 步数预算与到线收尾校验（票 253）：合同须含「步数上限：<数字>」声明，以及到线即
+# 收尾与另起交接摘要表述。四类缺失各自指名并 exit 1（fail-closed，不给警告放行）：
+# ①缺步数上限；②缺到线收尾表述；③上限为空；④上限非数字。四类齐全 exit 0。
+# 合同文件不可读 exit 2。取值只认「步数上限」后首个分隔符到标点/括号前的一段。
+check_step_budget() {
+  _budget_file="$1"
+
+  if [ ! -f "$_budget_file" ]; then
+    printf 'ERROR: 合同文件不存在: %s\n' "$_budget_file" >&2
+    return 2
+  fi
+
+  if ! LC_ALL=C grep -q '步数上限' "$_budget_file"; then
+    printf 'FAIL: 派发合同缺步数上限（须写明「步数上限：<数字>」）\n' >&2
+    return 1
+  fi
+
+  _budget_missing=''
+  for _budget_token in 到线 收尾 交接摘要; do
+    if ! LC_ALL=C grep -q "$_budget_token" "$_budget_file"; then
+      _budget_missing="${_budget_missing}${_budget_token}、"
+    fi
+  done
+  if [ -n "$_budget_missing" ]; then
+    _budget_missing=$(printf '%s' "$_budget_missing" | sed 's/、$//')
+    printf 'FAIL: 派发合同缺到线收尾表述（缺 %s；须写到线即收尾与另起交接摘要）\n' "$_budget_missing" >&2
+    return 1
+  fi
+
+  _budget_line=$(LC_ALL=C grep -E '步数上限[[:space:]]*[:：]' "$_budget_file" | head -n 1 || true)
+  _budget_value=''
+  if [ -n "$_budget_line" ]; then
+    _budget_value=$(printf '%s\n' "$_budget_line" \
+      | sed -n 's/.*步数上限[[:space:]]*[:：][[:space:]]*//p' \
+      | sed 's/[（(，,；;。].*$//' \
+      | sed 's/[[:space:]]*$//')
+  fi
+
+  if [ -z "$_budget_value" ]; then
+    printf 'FAIL: 步数上限为空（须写明「步数上限：<数字>」）\n' >&2
+    return 1
+  fi
+
+  case "$_budget_value" in
+    *[!0-9]*)
+      printf 'FAIL: 步数上限非数字：%s\n' "$_budget_value" >&2
+      return 1
+      ;;
+  esac
+
+  printf 'PASS: 步数预算与到线收尾完整（步数上限 %s）\n' "$_budget_value"
+  return 0
+}
+
 # 模板漂移检查（schema 占位符全集与模板占位符并集双向零差集）
 check_template_drift() {
   _schema_set=$(extract_schema_placeholders)
@@ -356,6 +418,14 @@ case "${1:-}" in
       exit 2
     fi
     check_dispatch_preconditions "$2"
+    ;;
+  --check-step-budget)
+    if [ -z "${2:-}" ]; then
+      printf 'ERROR: --check-step-budget 需要合同文件路径参数\n' >&2
+      usage >&2
+      exit 2
+    fi
+    check_step_budget "$2"
     ;;
   *)
     usage >&2

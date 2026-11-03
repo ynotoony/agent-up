@@ -21,6 +21,8 @@ fi
 # 放行；主检出／非 in_progress／未领取票 exit 1；非 Git 目录／相对路径／非树根／
 # 合同缺字段 exit 2）＋五宿主 execute 行 git_write_enforcement 登记面（受控词表、
 # host/runner 机制 token、policy/pending 实现模板降级义务；合成夹具证强制分支非空转）
+# 票 253 步数预算——--check-step-budget 四类缺失 fail-closed（缺步数上限／缺到线
+# 收尾表述／上限为空／上限非数字各自 exit 1 并指名；四类齐备 exit 0；缺文件 exit 2）。
 # ============================================================
 
 # 生成 implementation 型全 16 必备字段合同（占位符逐字段一行块，形态与合同实例一致）
@@ -203,6 +205,18 @@ dcon_git_write_check() {
 # 与 contract-build.sh 渲染序一致：占位符行＋实值行，字段间空行分隔）。
 dcon_dispatch_contract() {
   printf '{{REPOSITORY_PATH}}\n%s\n\n{{TICKET_ID}}\n%s\n' "$1" "$2"
+}
+
+# 步数预算合同夹具（票 253）：{{BUDGET_CHECKPOINTS}} 实值含「步数上限：<数字>」与
+# 到线即收尾／另起交接摘要表述，四类缺失负例由该正例派生。
+dcon_budget_contract() {
+  cat <<'EOF'
+{{BUDGET_CHECKPOINTS}}
+单任务步数上限：80；到线即收尾并报告未完成项；另起须带交接摘要（已完成项、未完成项、下一步，不重述全文）
+
+{{TICKET_ID}}
+80-sb-fixture
+EOF
 }
 
 suite_dispatch_contract() {
@@ -607,6 +621,59 @@ PY
     ok '负例 AC4 合同缺 REPOSITORY_PATH → exit 2'
   else
     bad '负例 AC4 合同缺 REPOSITORY_PATH → exit 2' "exit=$rc $(tail -n 2 "$D/gwd-missrepo.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 253：--check-step-budget（步数上限＋到线收尾；四类缺失 fail-closed）----
+  # 正例＝四类齐备 exit 0；负例四类各自 exit 1 并指名：缺步数上限／缺到线收尾表述／
+  # 上限为空／上限非数字；缺文件 exit 2（环境错误面）。
+  SB="$D/sb"
+  mkdir -p "$SB"
+  dcon_budget_contract > "$SB/pos.txt"
+  sh "$DC" --check-step-budget "$SB/pos.txt" > "$SB/pos.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'PASS: 步数预算与到线收尾完整（步数上限 80）' "$SB/pos.out"; then
+    ok '正例 --check-step-budget 步数上限＋到线收尾齐备 → exit 0'
+  else
+    bad '正例 --check-step-budget 步数上限＋到线收尾齐备 → exit 0' "exit=$rc $(tail -n 2 "$SB/pos.out" | tr '\n' '|')"
+  fi
+  grep -v '步数上限' "$SB/pos.txt" > "$SB/neg-budget.txt"
+  sh "$DC" --check-step-budget "$SB/neg-budget.txt" > "$SB/neg-budget.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '缺步数上限' "$SB/neg-budget.out"; then
+    ok '负例 --check-step-budget 缺步数上限 → exit 1 并指名缺步数上限'
+  else
+    bad '负例 --check-step-budget 缺步数上限 → exit 1 并指名缺步数上限' "exit=$rc $(tail -n 2 "$SB/neg-budget.out" | tr '\n' '|')"
+  fi
+  sed 's/到线即收尾[^；]*；//' "$SB/pos.txt" > "$SB/neg-wrapup.txt"
+  sh "$DC" --check-step-budget "$SB/neg-wrapup.txt" > "$SB/neg-wrapup.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '缺到线收尾表述' "$SB/neg-wrapup.out"; then
+    ok '负例 --check-step-budget 缺到线收尾表述 → exit 1 并指名缺到线收尾表述'
+  else
+    bad '负例 --check-step-budget 缺到线收尾表述 → exit 1 并指名缺到线收尾表述' "exit=$rc $(tail -n 2 "$SB/neg-wrapup.out" | tr '\n' '|')"
+  fi
+  sed 's/步数上限：80/步数上限：/' "$SB/pos.txt" > "$SB/neg-empty.txt"
+  sh "$DC" --check-step-budget "$SB/neg-empty.txt" > "$SB/neg-empty.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '步数上限为空' "$SB/neg-empty.out"; then
+    ok '负例 --check-step-budget 上限为空 → exit 1 并指名步数上限为空'
+  else
+    bad '负例 --check-step-budget 上限为空 → exit 1 并指名步数上限为空' "exit=$rc $(tail -n 2 "$SB/neg-empty.out" | tr '\n' '|')"
+  fi
+  sed 's/步数上限：80/步数上限：八十/' "$SB/pos.txt" > "$SB/neg-nan.txt"
+  sh "$DC" --check-step-budget "$SB/neg-nan.txt" > "$SB/neg-nan.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '步数上限非数字' "$SB/neg-nan.out"; then
+    ok '负例 --check-step-budget 上限非数字 → exit 1 并指名步数上限非数字'
+  else
+    bad '负例 --check-step-budget 上限非数字 → exit 1 并指名步数上限非数字' "exit=$rc $(tail -n 2 "$SB/neg-nan.out" | tr '\n' '|')"
+  fi
+  sh "$DC" --check-step-budget "$SB/missing.txt" > "$SB/missing.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '合同文件不存在' "$SB/missing.out"; then
+    ok '负例 --check-step-budget 合同文件不存在 → exit 2（环境错误面）'
+  else
+    bad '负例 --check-step-budget 合同文件不存在 → exit 2（环境错误面）' "exit=$rc $(tail -n 2 "$SB/missing.out" | tr '\n' '|')"
   fi
 
   suite_summary 'dispatch-contract'

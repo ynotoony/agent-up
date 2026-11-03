@@ -20,9 +20,10 @@ fi
 # 扫描失败。票 238 追加能力收窄面：四件合同声明面与执行能力一致（triage execute
 # 白名单／impl git_write_enforcement 降级义务／review 只写审查证据／commit 仅编排
 # 入口）＋capability-contract §2.2 与五宿主 §2.3 投影同口径，含六条删/注入负例
-# （N7 triage 删 execute／N8 commit 注入 vcs-write／N9 review 零文件改动回潮／
-# N10 impl 删 git_write_enforcement／N11 commit 白名单外脚本／N12 triage 派发前置
-# 失实现阶段限定）。
+# （N10 impl 删 git_write_enforcement／N11 commit 白名单外脚本／N12 triage 派发前置
+# 失实现阶段限定）。票 253 步数预算：三份角色模板 R-RI-005 正例（步数上限 80＋到线
+# 收尾＋另起交接摘要＋可核豁免）＋四负例（N13 删步数上限／N14 删到线收尾／N15 上限
+# 为空／N16 上限非数字，均指名失败）。
 # 夹具全 mktemp 自建不入仓，被测对象只读；边界扫描为结构性标记代理
 # （规则块头/七字段体/权限清单体/输出格式签名），README 叙事面豁免（对齐
 # check-package 检查 12 口径））
@@ -232,6 +233,75 @@ rp_capability_check() {
   fi
 
   return "$_rpc_bad"
+}
+
+# 步数预算与到线行为断言（票 253 AC1）：模板须含 R-RI-005 判据块，块内两条阈值
+# （单任务步数上限：<数字> 默认 80；到线即收尾＋另起交接摘要含已完成项／未完成项／
+# 下一步且不重述全文）与可核豁免（理由＋上限值）逐条在场，且无不可判定措辞。
+# 缺陷明细输出 stdout，有缺陷 return 1。
+rp_step_budget_check() {
+  _rps_file="$1"
+  if [ ! -f "$_rps_file" ]; then
+    printf 'missing-file: %s\n' "$_rps_file"
+    return 1
+  fi
+  _rps_win=$(LC_ALL=C awk '
+    /^\*\*R-RI-005/ { inblk = 1; print; next }
+    inblk && /^## / { exit }
+    inblk && /^\*\*R-[A-Z][A-Z]-[0-9][0-9][0-9]/ { exit }
+    inblk { print }
+  ' "$_rps_file")
+  if [ -z "$_rps_win" ]; then
+    printf 'missing-rule: R-RI-005\n'
+    return 1
+  fi
+  _rps_bad=0
+  if ! printf '%s\n' "$_rps_win" | LC_ALL=C grep -q '步数上限'; then
+    printf 'missing-budget: 步数上限\n'
+    _rps_bad=1
+  fi
+  _rps_val=$(printf '%s\n' "$_rps_win" \
+    | grep -E '步数上限[[:space:]]*[:：]' | head -n 1 \
+    | sed -n 's/.*步数上限[[:space:]]*[:：][[:space:]]*//p' \
+    | sed 's/[（(，,；;。].*$//' \
+    | sed 's/[[:space:]]*$//')
+  if [ -z "$_rps_val" ]; then
+    printf 'budget-empty: 步数上限为空\n'
+    _rps_bad=1
+  else
+    case "$_rps_val" in
+      *[!0-9]*)
+        printf 'budget-non-numeric: 步数上限非数字（%s）\n' "$_rps_val"
+        _rps_bad=1
+        ;;
+      80) ;;
+      *)
+        printf 'budget-default: 模板缺省值须为 80（实际 %s）\n' "$_rps_val"
+        _rps_bad=1
+        ;;
+    esac
+  fi
+  if ! printf '%s\n' "$_rps_win" | LC_ALL=C grep -q '到线' \
+    || ! printf '%s\n' "$_rps_win" | LC_ALL=C grep -q '收尾'; then
+    printf 'missing-wrapup: 缺到线收尾\n'
+    _rps_bad=1
+  fi
+  for _rps_need in 交接摘要 已完成 未完成 下一步 不重述; do
+    if ! printf '%s\n' "$_rps_win" | LC_ALL=C grep -q "$_rps_need"; then
+      printf 'missing-handoff: 交接摘要要素缺 %s\n' "$_rps_need"
+      _rps_bad=1
+    fi
+  done
+  if ! printf '%s\n' "$_rps_win" | LC_ALL=C grep -q '理由' \
+    || ! printf '%s\n' "$_rps_win" | LC_ALL=C grep -q '上限值'; then
+    printf 'missing-exemption: 豁免须可核（理由＋上限值）\n'
+    _rps_bad=1
+  fi
+  if printf '%s\n' "$_rps_win" | LC_ALL=C grep -qE '建议|尽量|尽可能|大致'; then
+    printf 'vague-wording: 不可判定措辞承载数值\n'
+    _rps_bad=1
+  fi
+  return "$_rps_bad"
 }
 
 suite_role_prompt() {
@@ -569,6 +639,43 @@ EOF
     ok '负例 N12 Triage 派发前置去掉实现阶段限定 → 能力断言指名失败（review/commit 无 REPOSITORY_PATH）'
   else
     bad '负例 N12 Triage 派发前置去掉实现阶段限定 → 能力断言指名失败（review/commit 无 REPOSITORY_PATH）' "$(cat "$D/n12.out")"
+  fi
+
+  # ---- 正例 P11／负例 N13–N16（票 253）：步数预算与到线行为 ----
+  # 正例＝三份角色模板均含 R-RI-005 判据：单任务步数上限：80、到线即收尾、另起交接
+  # 摘要（已完成/未完成/下一步/不重述）与可核豁免（理由＋上限值），且无不可判定措辞。
+  # 负例四类＝删步数上限／删到线收尾／上限为空／上限非数字，各自指名失败。
+  for _p11f in implementation triage review; do
+    if rp_step_budget_check "$TMPL/agents-$_p11f.md.tmpl" > "$D/p11-$_p11f.out" 2>&1; then
+      ok "正例 P11 agents-$_p11f.md.tmpl 含 R-RI-005（步数上限 80＋到线收尾＋交接摘要＋可核豁免）"
+    else
+      bad "正例 P11 agents-$_p11f.md.tmpl 含 R-RI-005（步数上限 80＋到线收尾＋交接摘要＋可核豁免）" "$(cat "$D/p11-$_p11f.out")"
+    fi
+  done
+  mkdir -p "$D/sb-tmpl"
+  grep -v '步数上限' "$TMPL/agents-implementation.md.tmpl" > "$D/sb-tmpl/nobudget.md.tmpl"
+  if ! rp_step_budget_check "$D/sb-tmpl/nobudget.md.tmpl" > "$D/n13.out" 2>&1 && grep -q 'missing-budget' "$D/n13.out"; then
+    ok '负例 N13 模板删步数上限 → 断言失败并指名 missing-budget'
+  else
+    bad '负例 N13 模板删步数上限 → 断言失败并指名 missing-budget' "$(cat "$D/n13.out")"
+  fi
+  sed 's/到线//g; s/收尾//g' "$TMPL/agents-implementation.md.tmpl" > "$D/sb-tmpl/nowrap.md.tmpl"
+  if ! rp_step_budget_check "$D/sb-tmpl/nowrap.md.tmpl" > "$D/n14.out" 2>&1 && grep -q 'missing-wrapup' "$D/n14.out"; then
+    ok '负例 N14 模板删到线收尾表述 → 断言失败并指名 missing-wrapup'
+  else
+    bad '负例 N14 模板删到线收尾表述 → 断言失败并指名 missing-wrapup' "$(cat "$D/n14.out")"
+  fi
+  sed 's/步数上限：80/步数上限：/' "$TMPL/agents-implementation.md.tmpl" > "$D/sb-tmpl/empty.md.tmpl"
+  if ! rp_step_budget_check "$D/sb-tmpl/empty.md.tmpl" > "$D/n15.out" 2>&1 && grep -q 'budget-empty' "$D/n15.out"; then
+    ok '负例 N15 模板步数上限值为空 → 断言失败并指名 budget-empty'
+  else
+    bad '负例 N15 模板步数上限值为空 → 断言失败并指名 budget-empty' "$(cat "$D/n15.out")"
+  fi
+  sed 's/步数上限：80/步数上限：八十/' "$TMPL/agents-implementation.md.tmpl" > "$D/sb-tmpl/nan.md.tmpl"
+  if ! rp_step_budget_check "$D/sb-tmpl/nan.md.tmpl" > "$D/n16.out" 2>&1 && grep -q 'budget-non-numeric' "$D/n16.out"; then
+    ok '负例 N16 模板步数上限非数字 → 断言失败并指名 budget-non-numeric'
+  else
+    bad '负例 N16 模板步数上限非数字 → 断言失败并指名 budget-non-numeric' "$(cat "$D/n16.out")"
   fi
 
   suite_summary 'role-prompt'
