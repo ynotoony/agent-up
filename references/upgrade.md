@@ -10,7 +10,7 @@ update_policy: 升级主链与三态口径为定稿基线；语义变化须用�
 depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则权威＝目标项目 rules/project.md 生成收敛模式节；对账工具＝scripts/upgrade-check.sh；目录 README 三步工具＝scripts/generate-dir-readmes.sh
 ---
 <!-- Input: 目标项目落地面现状（落位脚本、模板生成件、delivery.rules）、包新基线（clone/pull 后的包目录）、既有登记（facts/project/artifacts.yaml）。 -->
-<!-- Output: 已治理仓把已安装的部分对齐到包新版的升级主链：盘点已装件、逐件对比三态、差异清单确认、确认后对齐更新（含目录 README init→sync→check 三步与迁移清单）、验证与收尾。 -->
+<!-- Output: 已治理仓把已安装的部分对齐到包新版的升级主链：盘点已装件、逐件对比三态、差异清单确认、确认后对齐更新（含目录 README init→sync→check 三步与迁移清单）、验证与收尾（含临时副本升级演练验收与对抗回归）。 -->
 <!-- Pos: 已治理仓升级路径手册（与 old-project.md 平级的第三入口：old-project 管"未治理仓补缺"，本手册管"已治理仓跟上新版"）；只承载流程步骤与三态口径，对齐更新与记录保护的规则权威在目标项目 rules/project.md（发现被改过即停、写入前备份、模板升级不得覆盖记录），本手册照引不复制。 -->
 
 # 已治理仓升级手册
@@ -67,6 +67,13 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
 - 全套验证：包自检 `sh <pkg-dir>/scripts/check-package.sh`；仓侧检查（装好的 check-artifacts/check-stale-claims/check-gates 一族）；`upgrade-check.sh` 复跑确认自动检查面差距清零。对 `README.md`、`artifacts.yaml` 和其他项目自有正文，工具只核存在性并输出“人工核对”，不能据此宣称无保留的全同步；其中目录 `README.md` 另按 §4「目录 README 三步」跑 `--check` 核验结构、`--freshness` 核验生成块与子目录一致（两者都只读；`--sync` 是显式修复动作，不属于校验），存在性通过不等于四段契约通过。
 - **Derived 面回访**（升级专属步骤，项目地图回访面）：对账派生文件——项目地图触发矩阵命中而未生成＝欠账，补生成；已生成但代码拓扑已变未再生＝标 `stale`（生成物产物状态机口径，恢复前不当可信导航）。三态为本步骤自定义（比对轴是拓扑新鲜度，非 §2 的包版本轴）：未生成且命中＝欠账（补）、已生成且拓扑未变＝同步、已生成但拓扑已变未再生＝落后（再生）；漂移判定不适用（Derived 可再生，不存在"人工改过"保护面）。
 - **历史票清洗扫描**（升级专属步骤，历史票清洗面）：升级时对存量票面做一次清洗扫描，专找"看着像现行规定、实际已与权威层对不上"的危险内容——票面说明与 rules 三件/specs 冲突、`superseded` 票的说明仍被现行票引用、与新版模板条款相抵的旧口径句。输出危险票名单（票 id＋冲突点＋建议处置），**交用户逐票裁决**：名单本身零改写，裁决后走收口搬运（说明提炼进规则/事实层，R-DP-039 第 4 面）或替代标记（索引登记 `superseded_by`）。不升级时不主动扫描（翻到谁处理谁）。
+- **升级演练（临时副本，零风险验证）**：正式动目标仓之前，先在临时副本上把同一套升级命令跑一遍——复制目标仓到 `mktemp` 目录并保留 `.git`（不保留则先 `git init` 建基线），记录升级来源提交（`git -C <副本> rev-parse HEAD`），按 §4 顺序执行 `install.sh <门控>`，然后逐项验收：
+  1. 变更面核对：`git -C <副本> status --porcelain -uall` 逐行看，`rules/` 与 `.zcode/` 内不属于安装器落位路径（`rules/implementation/scripts/*`、`rules/implementation/references/*`）的改动计数必须为 0——非 0 即有人工搬运或安装器越界写。
+  2. 与全新安装对照：同版本包在另一份裸初始化副本上装完后，`diff -r <演练副本>/rules <全新副本>/rules` 应无差异；有差异即说明演练副本带进了手工内容，先查清再进正式仓。
+  3. 旧布局保留：旧 `scripts/` 内的件升级后仍在且字节不变（安装器不静默覆盖、不删除），对账器逐件标「旧布局」并提示人工核对，按 §3 确认后才移除。
+  4. 人工漂移停手：预置一个与包内基线不一致的同名件，安装器须 fail-closed（`目标同名件与包内基线不一致`）、零半套、该件字节不变；此时先走 reconcile 处理漂移，再重跑同一命令。
+  5. 演练副本上复跑 `upgrade-check.sh`，按 §2 三态核对差距清零；新装目录若缺 Conditional 目录 README，按 §4「目录 README 三步」的 `--init` 补齐后再复跑。
+- 包内对抗回归：`sh <pkg-dir>/scripts/tests/test-runner.sh --suite adversarial` 逐条真跑十条核心规则的负例与 G1–G5 正负例、一票 ready→done 正常路径，以及上面这套临时副本升级演练与安装后 `run-record` 落位；安装面场景需要 `install.sh` 在场（worktree 语境会显式 SKIP 并打印主检出复跑命令）。
 - 收尾报告按 `SKILL.md` 步骤 9，额外列：更新件清单（旧→新）、改过件的裁决结果、登记同步情况（artifacts.yaml 条目 `generated_from`/update_policy 括注随更新件刷新）、清洗扫描结果（名单与你的裁决，未执行写 `N/A + reason`）。
 - **对账报告标准四节**（升级对账的固定呈现格式，upgrade-check 输出即骨架，收尾报告照此四节组织、不再自由发挥）：①自动检查面——逐件列脚本、条件配置、规则块 ID 集结果；②差异面——落后/漂移/双布局冲突/分歧候选分类并附证据；③人工面——README、artifacts.yaml、块内语义与 Derived 回访结果；④结论行——自动检查面无差距且人工面已完成后才能称“全同步”，否则写明待核对项或待裁决差距数。
 
