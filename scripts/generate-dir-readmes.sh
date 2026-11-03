@@ -7,6 +7,12 @@
 #         所在目录）、正文裸露的【填写：…】占位（HTML 注释、行内代码段与围栏代码块内不算）、
 #         生成块标记成对（围栏代码块内标记不算块）；全部通过 exit 0 且零
 #         输出，不合规逐条输出 `path:line: 原因` 且 exit 2，异常形态 fail-closed exit 2。
+#         --freshness 为生成块新鲜度只读断言：在内存重算 --sync 应产出的生成块，与现行
+#         块逐行比对（不写任何文件），漂移即 exit 1 并逐条输出 `path:line: 缺失行: <原文>`
+#         ／`path:line: 多余行: <原文>`；无生成块的 README 跳过，块未闭合／重复起始／
+#         dir 值不符 exit 2。它补 --check 单独发现不了的「新增子目录未入表」（只校验标记
+#         成对，不比对表内容）。--check --blocks-only 只校验含生成块的 README（旧格式无
+#         生成块跳过），供收口门禁把结构断言限定在启用生成块的目录。
 #         --sync 只重建生成块内的子目录表（块外逐字节不动，无生成块的 README 不新建
 #         不修改并输出 SKIP）；--init 为新目录写四段骨架（判断位留【填写：…】）。
 #         --migrate-dry-run 为旧格式迁移预演（只读）：跳过 --check 零问题的 README，其余按
@@ -45,7 +51,8 @@ import re
 import sys
 
 USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] [--rules <path>]
-                            [--check | --sync | --init <rel> | --migrate-dry-run [--diff]
+                            [--check [--blocks-only] | --sync | --freshness
+                             | --init <rel> | --migrate-dry-run [--diff]
                              | --brief <rel-dir>]
 参数:
   --target <repo-root>  目标仓库根目录；缺省取当前目录。
@@ -54,6 +61,14 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
   -h / --help           打印本用法。
 模式（互斥，缺省 --check）:
   --check               结构校验，零写入。
+  --blocks-only         仅与 --check 连用：只校验含生成块的 README，无生成块的旧格式
+                        跳过（不阻断收口）；单独出现或与其它模式同用即 exit 2。
+  --freshness           生成块新鲜度只读断言，零写入：在内存按 --sync 同一生成函数重算
+                        生成块，与现行块逐行比对。漂移即 exit 1，逐条输出
+                        `path:line: 缺失行: <原文>`／`path:line: 多余行: <原文>`（缺失行
+                        行号＝该行在生成块内的期望位置）；无生成块的 README 跳过，干净时
+                        exit 0 且零输出；块未闭合／重复起始／dir 值不符 exit 2。
+                        用于收口门禁发现 --check 单独发现不了的「新增子目录未入表」。
   --sync                重建既有生成块（<!-- dir-readme: generated dir=<rel> --> 至
                         <!-- /dir-readme -->）内的子目录表；块外逐字节不动。无生成块的
                         README 不新建、不修改，逐文件输出 `SKIP: <path>: 无生成块`。
@@ -93,11 +108,13 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
                         artifacts.yaml 缺失、不可解析或任一条目缺 id／path 时降级为
                         「目录清单＋生成约定」，输出一行 `DEGRADED: <原因>` 并 exit 0，
                         不静默、不 exit 2、不部分采用条目。
-                        与 --check／--sync／--init／--migrate-dry-run 互斥，不接受 --dir。
+                        与 --check／--sync／--freshness／--init／--migrate-dry-run 互斥，
+                        不接受 --dir。
   --diff                仅与 --migrate-dry-run 连用：输出逐文件详情——`MIGRATE: <path>:
                         <形态>: <原行数>→<建议行数>`、`DROP: <path>: <起>-<止> 行: <原因>`、
                         `NOTE:`、统一 diff（--- a/<path> / +++ b/<path>）与带零写入证据的
-                        SUMMARY 行。单独出现或与 --check／--sync／--init 同用即 exit 2。
+                        SUMMARY 行。单独出现或与 --check／--sync／--freshness／--init
+                        同用即 exit 2。
   --init 与 --sync --dir 的目录路径不得含空白字符（范围规则与生成块标记均以空白分隔，
                         含空白的目录既进不了范围也无法被生成块标记唯一表示），
                         规范化后含空白即 exit 2 零写入。
@@ -115,14 +132,14 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
   7. 生成块 <!-- dir-readme: generated dir=<rel> --> 与 <!-- /dir-readme --> 成对且
      dir 值与目录一致；围栏代码块（```／~~~，含更长围栏）内的成对标记不算生成块。
 退出码:
-  0  校验通过／同步完成／骨架已写入（含无生成块的 SKIP）／迁移预演完成（建议内容本身
-     仍可能失败 --check，属交人工裁剪与填写）／素材包已输出（含 artifacts 索引缺失或
-     不可解析的降级输出）。
-  1  保留（当前不产生）。
+  0  校验通过／同步完成／骨架已写入／迁移预演完成／素材包已输出（含 artifacts 索引
+     缺失或不可解析的降级输出）／生成块新鲜度无漂移（零输出）。
+  1  --freshness 发现生成块漂移：逐条 `path:line: 缺失行／多余行: <原文>`，零写入
+     （其余模式不产生 1）。
   2  不合规或异常形态（无文件、无四段标记可判、规则文件损坏、目标路径不存在、
-     生成块未闭合或重复起始、--init 目标已存在、--init／--sync --dir 路径含空白、
-     模式互斥冲突），fail-closed，逐条输出 `path:line: 原因`，写入模式零写入；
-     迁移预演另对无 H1、表头残缺、不可读同上 exit 2 且不产生部分结论。
+     生成块未闭合或重复起始、dir 值不符、--init 目标已存在、--init／--sync --dir
+     路径含空白、模式互斥冲突），fail-closed，逐条输出 `path:line: 原因`，写入模式
+     零写入；迁移预演另对无 H1、表头残缺、不可读同上 exit 2 且不产生部分结论。
 """
 
 
@@ -144,6 +161,7 @@ def parse_args(argv):
     init_dir = None
     brief_dir = None
     detail = False
+    blocks_only = False
     i = 1
     while i < len(argv):
         arg = argv[i]
@@ -154,8 +172,16 @@ def parse_args(argv):
             detail = True
             i += 1
             continue
+        if arg == "--blocks-only":
+            blocks_only = True
+            i += 1
+            continue
         if arg == "--check":
             explicit.append("check")
+            i += 1
+            continue
+        if arg == "--freshness":
+            explicit.append("freshness")
             i += 1
             continue
         if arg == "--sync":
@@ -202,17 +228,19 @@ def parse_args(argv):
             continue
         die("未知参数: %s（用法见 --help）" % arg)
     if len(explicit) > 1:
-        die("--check／--sync／--init／--migrate-dry-run／--brief 互斥，只能给一个")
+        die("--check／--sync／--freshness／--init／--migrate-dry-run／--brief 互斥，只能给一个")
     if len(explicit) == 0 and detail:
         die("--diff 只能与 --migrate-dry-run 连用（单独出现无效，用法见 --help）")
     mode = explicit[0] if explicit else "check"
     if detail and mode != "migrate":
         die("--diff 只能与 --migrate-dry-run 连用（与 %s 同用无效，用法见 --help）" % ("--" + mode))
+    if blocks_only and mode != "check":
+        die("--blocks-only 只能与 --check 连用（与 %s 同用无效，用法见 --help）" % ("--" + mode))
     if mode == "init" and only is not None:
         die("--init 不接受 --dir（目标目录由 --init 参数给出）")
     if mode == "brief" and only is not None:
         die("--brief 不接受 --dir（目标目录由 --brief 参数给出）")
-    return (target if target is not None else "."), only, rules, mode, init_dir, detail, brief_dir
+    return (target if target is not None else "."), only, rules, mode, init_dir, detail, brief_dir, blocks_only
 
 
 def load_rules(path):
@@ -671,6 +699,16 @@ def write_text_exact(target, relpath, text):
         die("写入失败: %s" % relpath)
 
 
+def plan_generated_block(target, dir_value, old, base_rel, includes, excludes):
+    # --sync 与 --freshness 的唯一「应产出块」生成点：先算行集合，再套既有行原文复用。
+    # 新鲜度只读模式复用本函数，保证比对基准就是 --sync 会写入的同一内容。
+    subdirs = list_subdirs(target, base_rel, includes, excludes)
+    generated = ["<!-- dir-readme: generated dir=%s -->" % dir_value]
+    generated.extend(subdir_table_lines(subdirs, old, target, base_rel))
+    generated.append("<!-- /dir-readme -->")
+    return generated, subdirs
+
+
 def plan_sync_file(target, rel, includes, excludes):
     raw = read_text_exact(target, rel)
     lines = split_raw_lines(raw)
@@ -687,10 +725,9 @@ def plan_sync_file(target, rel, includes, excludes):
     deleted = []
     for open_idx, close_idx, dir_value in reversed(blocks):
         old = parse_old_rows(new_lines[open_idx + 1:close_idx], base_rel)
-        subdirs = list_subdirs(target, base_rel, includes, excludes)
-        generated = ["<!-- dir-readme: generated dir=%s -->" % dir_value]
-        generated.extend(subdir_table_lines(subdirs, old, target, base_rel))
-        generated.append("<!-- /dir-readme -->")
+        generated, subdirs = plan_generated_block(
+            target, dir_value, old, base_rel, includes, excludes
+        )
         last_term = new_lines[close_idx][1]
         gen = [(content, eol) for content in generated]
         gen[-1] = (gen[-1][0], last_term)
@@ -739,6 +776,62 @@ def run_sync(target, candidates, includes, excludes):
         )
         for name, duty in plan["deleted"]:
             sys.stdout.write("DEL: %s: %s: %s\n" % (rel, name, duty))
+    return 0
+
+
+def diff_block_lines(rel, open_idx, current, expected):
+    # 逐行比对现行块（含起始／结束标记）与 --sync 应产出块。行号统一换算成文件行号：
+    # 块内索引 0 = 起始标记 = 文件第 open_idx+1 行；缺失行给它在应产出块内的期望行号。
+    out = []
+    matcher = difflib.SequenceMatcher(None, current, expected, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        if tag in ("delete", "replace"):
+            for k in range(i1, i2):
+                out.append((rel, open_idx + 1 + k, "多余行", current[k]))
+        if tag in ("insert", "replace"):
+            for k in range(j1, j2):
+                out.append((rel, open_idx + 1 + k, "缺失行", expected[k]))
+    return out
+
+
+def run_freshness(target, candidates, includes, excludes):
+    # 只读生成块新鲜度：不写任何文件，不调用 --sync。无生成块的 README 静默跳过；
+    # 块级结构异常（未闭合／重复起始／dir 不符）按 --check 同口径 exit 2。
+    problems = []
+    drift = []
+    for rel in candidates:
+        raw = read_text_exact(target, rel)
+        lines = split_raw_lines(raw)
+        blocks, probs = find_blocks(rel, lines)
+        if probs:
+            problems.extend(probs)
+            continue
+        if not blocks:
+            continue
+        base_rel = dir_of_readme(rel)
+        for open_idx, close_idx, dir_value in blocks:
+            current = [content for content, _ in lines[open_idx:close_idx + 1]]
+            old = parse_old_rows(lines[open_idx + 1:close_idx], base_rel)
+            expected, _ = plan_generated_block(
+                target, dir_value, old, base_rel, includes, excludes
+            )
+            drift.extend(diff_block_lines(rel, open_idx, current, expected))
+    if problems:
+        emit_problems(problems)
+        return 2
+    if drift:
+        for rel, line, kind, text in drift:
+            sys.stderr.write("%s:%d: %s: %s\n" % (rel, line, kind, text))
+        files = sorted({item[0] for item in drift})
+        missing = sum(1 for item in drift if item[2] == "缺失行")
+        extra = sum(1 for item in drift if item[2] == "多余行")
+        sys.stderr.write(
+            "SUMMARY: 生成块漂移 %d 件（缺失 %d 行／多余 %d 行）\n"
+            % (len(files), missing, extra)
+        )
+        return 1
     return 0
 
 
@@ -1575,7 +1668,7 @@ def run_brief(target, brief_arg):
 
 
 def main(argv):
-    target_arg, only_arg, rules_path, mode, init_arg, detail, brief_arg = parse_args(argv)
+    target_arg, only_arg, rules_path, mode, init_arg, detail, brief_arg, blocks_only = parse_args(argv)
     target = os.path.abspath(target_arg)
     if not os.path.isdir(target):
         die("目标路径不存在或不是目录: %s" % target_arg)
@@ -1591,11 +1684,21 @@ def main(argv):
     candidates = resolve_candidates(target, only_arg, includes, excludes, rules_path, mode)
     if mode == "sync":
         return run_sync(target, candidates, includes, excludes)
+    if mode == "freshness":
+        return run_freshness(target, candidates, includes, excludes)
     if mode == "migrate":
         return run_migrate(target, candidates, includes, excludes, detail)
 
     problems = []
     for rel in candidates:
+        if blocks_only:
+            raw = read_text_exact(target, rel)
+            blocks, probs = find_blocks(rel, split_raw_lines(raw))
+            if probs:
+                problems.extend(probs)
+                continue
+            if not blocks:
+                continue
         problems.extend(check_file(target, rel))
 
     if problems:

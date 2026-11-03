@@ -2465,7 +2465,7 @@ else
   pass 20 "包闭合性与符号链接防护（scripts 一级 ${n_closure} 项，symlink ${n_syms} 个）"
 fi
 
-# 检查 21：references 树成员闭合与导航。三段防线：
+# 检查 21：references 树成员闭合与导航。四段防线：
 #   ①references 全树文件 ⊆ 清单登记——find references/ 全部常规文件逐件核对：包根相对
 #     路径在清单 entry-files 节，或属 references/templates/ 下 .tmpl 且在 templates 节
 #     （检查 5 同源数据，引擎零文件名硬编码）；未登记额外文件（成员增删漏登记、恶意
@@ -2478,6 +2478,10 @@ fi
 #     mailto:）与 # 纯锚点不在口径；其余剥离 #锚点 后相对所在文件目录词法折叠（点段
 #     折叠，复用检查 20 词法判定形态），目标不存在或折出包根（含绝对路径目标）即 FAIL
 #     指名文件:行号与目标（坏相对链接导航防线）。
+#   ④目录 README 兜底（票 266）——只读两检：①generate-dir-readmes.sh --check
+#     --blocks-only（只校验含生成块的 README 四段结构，旧格式无生成块跳过）；②--freshness
+#     （内存重算 --sync 应产出块并逐行比对，漂移即指名缺失／多余行）。两检均不写文件，
+#     失败逐条并入本检查问题面；生成器缺失交检查 8 报（不重复）。
 problems=''
 n_ref_files=0
 n_links=0
@@ -2634,6 +2638,32 @@ if [ -n "$link_raw" ]; then
     esac
   done
   IFS=$OLDIFS
+fi
+# ④目录 README 兜底（票 266，只读两检；与收口链、升级流程同口径）
+#   ①--check --blocks-only：只校验含生成块的 README 四段结构，旧格式无生成块跳过；
+#   ②--freshness：在内存重算 --sync 应产出块逐行比对，漂移即指名缺失／多余行。
+#   两检都不写文件；生成器缺失由检查 8 覆盖，本段不重复报；无启用目录时零动作（不作为即通过）。
+if [ -f "$pkg_root/scripts/generate-dir-readmes.sh" ]; then
+  dr_gen="$pkg_root/scripts/generate-dir-readmes.sh"
+  dr_rules="$pkg_root/scripts/dir-readme.rules"
+  _dr_err=''
+  if ! _dr_err=$(sh "$dr_gen" --target "$pkg_root" --rules "$dr_rules" --check --blocks-only 2>&1); then
+    while IFS= read -r _dr_line; do
+      [ -n "$_dr_line" ] || continue
+      add_problem "  - 目录 README 结构校验未过: $_dr_line"
+    done <<EOF
+${_dr_err}
+EOF
+  fi
+  _dr_err=''
+  if ! _dr_err=$(sh "$dr_gen" --target "$pkg_root" --rules "$dr_rules" --freshness 2>&1); then
+    while IFS= read -r _dr_line; do
+      [ -n "$_dr_line" ] || continue
+      add_problem "  - 目录 README 生成块新鲜度未过: $_dr_line"
+    done <<EOF
+${_dr_err}
+EOF
+  fi
 fi
 if [ -n "$problems" ]; then
   fail 21 "references 树成员闭合与导航（成员 ${n_ref_files} 件，链接 ${n_links} 个）" "$problems"

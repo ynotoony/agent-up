@@ -12,7 +12,9 @@
 #         references/schemas/ledger-row.schema.json 的 micro_seven_key/micro_six_key_legacy
 #         行族）、索引翻转与状态投影（flips 索引条目口径，票 228 F1/F2 写入方收敛：经
 #         同目录 ticket-ops.sh flip-index 子命令代理——索引单写→投影再生→--check 收尾链
-#         全仓仅 ticket-ops 一处承载，本件零直接 index.json 写入面与零直接生成器调用）→
+#         全仓仅 ticket-ops 一处承载，本件零直接 index.json 写入面与零直接生成器调用；
+#         翻转至 done 时目录 README 结构 --check／生成块 --freshness 亦随该代理在 ticket-ops
+#         内执行，收口失败即整体失败并指名文件与断言，本件不重复调用生成器（票 266））→
 #         机械回写受影响票正文 **Status:** 行（.json 票体无 Status 行，跳过回写）；两段
 #         提交的逐步输出，两段提交 ID、各自文件清单与翻转清单分列回报。
 #         记录提交面（票 247）：第二段记录提交经单点入口 record_commit_run 承载——持票 246
@@ -117,8 +119,10 @@ usage() {
                  fail-closed）→ 机械回写 ticket 票正文 **Status:** 行（.json 票体无 Status 行，
                  跳过回写，票 108；投影打印件 `value`）。目标 status=done 时 flip-index 另过
                  ticket-ops 的双证门（actual_time＋ticket-audit --operation merge conformant，
-                 票 237）：证据未提交/diff 失配/unknown 即收尾停止（产品提交已创建、记录提交
-                 未创建，decision-required），不采信自报 PASS。
+                 票 237）与目录 README 两检（结构 --check＋生成块 --freshness，取锁前预检，
+                 票 266）：
+                 证据未提交/diff 失配/unknown/README 结构不合规即收尾停止（产品提交已创建、
+                 记录提交未创建，decision-required），不采信自报 PASS。
                  记录写入委托（票 229，本脚本零 checkpoint/账本写入面）: user-review 道经
                  checkpoint-write.sh review-checkpoint 追加 User Review Checkpoint（stdout
                  末行 `checkpoint-write: 目标文件: <rel>` 为机器契约，目标登记进记录提交）；
@@ -1066,11 +1070,13 @@ for flip in ${flips}; do
     f_status=$(printf '%s' "${flip}" | cut -f 4)
     f_updated=$(printf '%s' "${flip}" | cut -f 5)
     # 索引单写经 ticket-ops flip-index 代理（票 228 F1/F2 写入方收敛）：索引锚点整行替换
-    # ＋投影再生＋--check 收尾链由代理一处承载；失败即收尾停止（产品提交已创建，如实
-    # 报告，重跑幂等——已翻条目再跑无副作用）。
+    # ＋投影再生＋--check 收尾链由代理一处承载；目标状态 done 时代理另在取锁与写入前
+    # 跑目录 README 结构 --check／生成块 --freshness（票 266），失败即同等收尾停止——
+    # 本件不重复调用生成器。
+    # 失败即收尾停止（产品提交已创建，如实报告，重跑幂等——已翻条目再跑无副作用）。
     sh "${to_cmd}" "${repo_root}" flip-index --id "${f_id}" --status "${f_status}" --updated-at "${f_updated}" || \
       die1 "索引翻转代理未过（ticket-ops flip-index fail-closed，详见上方输出）——收尾停止：产品提交 ${cid1} 已创建、记录提交未创建；核对索引排版与代理报因后重跑（幂等，已翻条目再跑无副作用）"
-    printf "lane-commit: 索引翻转已代理: ${FACTS_TICKETS_INDEX}（%s → %s，updated_at %s；索引单写＋投影再生 --check 经 ticket-ops flip-index 承载）\n" "${f_id}" "${f_status}" "${f_updated}"
+    printf "lane-commit: 索引翻转已代理: ${FACTS_TICKETS_INDEX}（%s → %s，updated_at %s；索引单写＋投影再生 --check 经 ticket-ops flip-index 承载；至 done 时另含目录 README --check/--freshness）\n" "${f_id}" "${f_status}" "${f_updated}"
     if [ "${ticket_is_json}" -eq 1 ]; then
       # .json 票体无 **Status:** 行（状态唯一真相源＝索引），跳过正文回写（票 108）
       printf 'lane-commit: 跳过正文 Status 回写: %s（.json 票体无 **Status:** 行，状态唯一真相源＝索引）\n' "${ticket}"
@@ -1146,7 +1152,8 @@ fi
 
 # 投影再生与 --check 已随索引翻转在 ticket-ops flip-index 代理内完成（票 228 F1/F2：
 # 写索引→generate-progress 再生→--check 收尾链全仓仅 ticket-ops 一处承载，本件零直接
-# 生成器调用）；progress-current.md 由记录提交一并收编（record_files 登记面不变）。
+# 生成器调用）；翻转至 done 时的目录 README --check/--freshness 同在该代理内执行
+# （票 266），本件不重复调用生成器；progress-current.md 由记录提交一并收编（record_files 登记面不变）。
 
 # ---- 记录提交（两段式第二段，R-RC-003；票 247：持同一把锁的前缀门单点入口） ----
 # 记录路径经 record_commit_run 单点提交：同锁串行（与 ticket-ops/ledger-append 一把锁）→
@@ -1167,4 +1174,4 @@ printf 'lane-commit: 产品提交 %s\n' "${cid1}"
 printf 'lane-commit: 产品文件: %s\n' "${c1_files}"
 printf 'lane-commit: 记录提交 %s\n' "${cid2}"
 printf 'lane-commit: 记录文件: %s\n' "${c2_files}"
-printf 'lane-commit: PASS（两段式完成：门禁 PASS、索引单写 %d 处、翻转 %d 项、投影已核对、记录已落盘）\n' "${n_index_flip}" "${n_flip}"
+printf 'lane-commit: PASS（两段式完成：门禁 PASS、索引单写 %d 处、翻转 %d 项、投影与目录 README 收口已核对、记录已落盘）\n' "${n_index_flip}" "${n_flip}"

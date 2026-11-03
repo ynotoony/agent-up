@@ -85,7 +85,7 @@ tix_build_fixture() {
   F=$1
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project" "$F/agent-up/scripts"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/ticket-audit.sh" "$F/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/ticket-audit.sh" "$F/rules/implementation/scripts/"
   cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/agent-up/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
@@ -2305,6 +2305,7 @@ PYTHON
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '"id": "42-audit-gate", "status": "done"' "$FA237C/facts/requirements/tickets/index.json" \
     && grep -q '证据门: close 放行' "$D/a237c-close.log" \
+    && grep -q '目录 README 收口预检通过' "$D/a237c-close.log" \
     && [ "$(tix_readme_token "$FA237C/facts/requirements/tickets/README.md" 42)" = 'done' ]; then
     ok '正例 P-237a close＋conformant 证据 → exit 0 索引/README 落 done 且证据门放行'
   else
@@ -2391,6 +2392,91 @@ PYTHON
     ok '负例 N-237f flip-index done 有证据但缺 actual_time → exit 1 零写入（双证缺一即拒）'
   else
     bad '负例 N-237f flip-index done 有证据但缺 actual_time → exit 1 零写入（双证缺一即拒）' "exit=$rc $(head -n 2 "$D/a237t.log" | tr '\n' '|')"
+  fi
+
+  # ---- 目录 README 收口门禁：close／flip 至 done 在取锁与写入前跑
+  #      --check --blocks-only ＋ --freshness 两检，不调用 --sync ----
+  # 负例：生成块结构漂移（缺 ## 读取禁忌）→ 结构 --check 阻断并指名 file:line。
+  tix_audit_fixture "$D/dr-gate" committed
+  FDG=$D/dr-gate
+  mkdir -p "$FDG/docs"
+  cat > "$FDG/docs/README.md" <<'EOF'
+# docs
+
+文档目录职责句。
+
+## 权威
+- 现行：无
+
+## 子目录
+<!-- dir-readme: generated dir=docs -->
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+<!-- /dir-readme -->
+EOF
+  sh "$FDG/rules/implementation/scripts/ticket-ops.sh" "$FDG" close --id 42-audit-gate --ledger-line "$LED237" >"$D/dr-gate.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q 'docs/README\.md:[0-9][0-9]*: 缺少段：## 读取禁忌' "$D/dr-gate.log" \
+    && grep -q '目录 README 结构校验未过' "$D/dr-gate.log" \
+    && grep -q -- '--migrate-dry-run' "$D/dr-gate.log"; then
+    ok 'AC1 目录 README 结构漂移 → close 阻断 exit 1 指名 docs/README.md:行 与断言并给迁移预演'
+  else
+    bad 'AC1 目录 README 结构漂移 → close 阻断 exit 1 指名 docs/README.md:行 与断言并给迁移预演' "exit=$rc $(grep -n 'docs/README.md\|目录 README' "$D/dr-gate.log" | head -n 3 | tr '\n' '|')"
+  fi
+
+  # 负例：新增子目录未入生成块表 → 新鲜度检出漂移，exit 1 指名缺失行；
+  # 收口链不调用 --sync，docs/README.md 与四载体零写入。
+  tix_audit_fixture "$D/dr-fresh" committed
+  FDR=$D/dr-fresh
+  mkdir -p "$FDR/docs/child"
+  printf '# child\n\n子目录职责句。\n' > "$FDR/docs/child/README.md"
+  cat > "$FDR/docs/README.md" <<'EOF'
+# docs
+
+文档目录职责句。
+
+## 权威
+- 现行：`docs/child/README.md`
+
+## 读取禁忌
+- 不把本文件当白名单。
+
+## 子目录
+<!-- dir-readme: generated dir=docs -->
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+| `docs/child/` | 子目录职责句。 | — |
+<!-- /dir-readme -->
+EOF
+  mkdir -p "$FDR/docs/newdir"
+  printf '# newdir\n\n新增子目录职责句。\n' > "$FDR/docs/newdir/README.md"
+  _drf_readme_before=$(cksum < "$FDR/docs/README.md")
+  SDRF=$(tix_state "$FDR")
+  sh "$FDR/rules/implementation/scripts/ticket-ops.sh" "$FDR" close --id 42-audit-gate --ledger-line "$LED237" >"$D/dr-fresh.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SDRF" = "$(tix_state "$FDR")" ] \
+    && [ "$_drf_readme_before" = "$(cksum < "$FDR/docs/README.md")" ] \
+    && grep -qE '^docs/README\.md:[0-9]+: 缺失行: .*docs/newdir/' "$D/dr-fresh.log" \
+    && grep -q '生成块漂移' "$D/dr-fresh.log" \
+    && grep -qF -- '--sync' "$D/dr-fresh.log"; then
+    ok 'AC1 新增子目录未入表 → close exit 1 指名缺失行，README 与四载体零改写（不静默 --sync）'
+  else
+    bad 'AC1 新增子目录未入表 → close exit 1 指名缺失行，README 与四载体零改写（不静默 --sync）' "exit=$rc $(grep -n 'docs/README.md\|生成块' "$D/dr-fresh.log" | head -n 3 | tr '\n' '|')"
+  fi
+
+  # 负例：生成器缺失 → 预检 fail-closed（取锁与写入前），四载体零写入。
+  tix_audit_fixture "$D/dr-nogen" committed
+  FDNG=$D/dr-nogen
+  rm -f "$FDNG/rules/implementation/scripts/generate-dir-readmes.sh"
+  SDRNG=$(tix_state "$FDNG")
+  sh "$FDNG/rules/implementation/scripts/ticket-ops.sh" "$FDNG" close --id 42-audit-gate --ledger-line "$LED237" >"$D/dr-nogen.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$SDRNG" = "$(tix_state "$FDNG")" ] \
+    && grep -q 'generate-dir-readmes.sh 不可用' "$D/dr-nogen.log"; then
+    ok 'AC1 目录 README 生成器缺失 → close 预检 fail-closed exit 1 且四载体零写入'
+  else
+    bad 'AC1 目录 README 生成器缺失 → close 预检 fail-closed exit 1 且四载体零写入' "exit=$rc $(head -n 2 "$D/dr-nogen.log" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-ops'

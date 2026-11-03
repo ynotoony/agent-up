@@ -7,10 +7,10 @@ read_when: 主流程模式判定为已治理（升级）时；已安装本体系
 trigger: 升级模式判别、升级主链步骤、对比三态分类或漂移处置语义变化
 owner: Agent Up 公开包维护者（变更经 Implementation -> Review -> Commit 门禁）
 update_policy: 升级主链与三态口径为定稿基线；语义变化须用户确认并同步 SKILL.md 模式判定与主流程
-depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则权威＝目标项目 rules/project.md 生成收敛模式节；对账工具＝scripts/upgrade-check.sh
+depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则权威＝目标项目 rules/project.md 生成收敛模式节；对账工具＝scripts/upgrade-check.sh；目录 README 三步工具＝scripts/generate-dir-readmes.sh
 ---
 <!-- Input: 目标项目落地面现状（落位脚本、模板生成件、delivery.rules）、包新基线（clone/pull 后的包目录）、既有登记（facts/project/artifacts.yaml）。 -->
-<!-- Output: 已治理仓把已安装的部分对齐到包新版的升级主链：盘点已装件、逐件对比三态、差异清单确认、确认后对齐更新、验证与收尾。 -->
+<!-- Output: 已治理仓把已安装的部分对齐到包新版的升级主链：盘点已装件、逐件对比三态、差异清单确认、确认后对齐更新（含目录 README init→sync→check 三步与迁移清单）、验证与收尾。 -->
 <!-- Pos: 已治理仓升级路径手册（与 old-project.md 平级的第三入口：old-project 管"未治理仓补缺"，本手册管"已治理仓跟上新版"）；只承载流程步骤与三态口径，对齐更新与记录保护的规则权威在目标项目 rules/project.md（发现被改过即停、写入前备份、模板升级不得覆盖记录），本手册照引不复制。 -->
 
 # 已治理仓升级手册
@@ -53,12 +53,18 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
   2. 再配置面（`delivery.rules` 按模板生成或按 diff 逐节对齐——锚点行逐字匹配，禁手抄）；
   3. 后更新模板生成的文件（逐件：备份现件 → 按新模板重生成 → 项目自有条款与【按项目填写】值按现件回填 → 你确认关键条款 diff）；
   4. 每件更新后重跑该件配套验证（脚本 `sh -n`＋家族夹具；条款件过包对账器）。
+- **目录 README 三步（`--init` 补缺失 → `--sync` 重建生成块（显式修复）→ `--check --freshness` 校验）**：生成器 `scripts/generate-dir-readmes.sh` 与范围规则 `scripts/dir-readme.rules` 随脚本同批落位（安装布局：脚本件与规则数据件都落 `rules/implementation/scripts/`，生成器按同目录定位规则表）；两者缺失时收口预检即 fail-closed，不按空范围放行。对范围内每个子目录：
+  1. **init（补缺失）**：`sh <pkg-dir>/scripts/generate-dir-readmes.sh --target <repo-root> --init <rel-dir>` 生成四段骨架（一句话职责／`## 权威`／`## 读取禁忌`／`## 子目录`），判断位留 `【填写：…】`；目录不存在或 README.md 已存在即 exit 2 零写入。骨架占位须由 agent 按 `references/templates/dir-README.md.tmpl` 补写，**不得静默跳过缺失目录**。
+  2. **sync（显式修复动作）**：`--sync` 只重建 `<!-- dir-readme: generated dir=<rel> -->` 至 `<!-- /dir-readme -->` 之间的子目录表（新增子目录出行、消失子目录删行），块外逐字节不动；无生成块的旧格式逐件 `SKIP`，不新建、不改写。**`--sync` 会写文件，只在人工确认后显式调用，改后由操作者提交**——收口链不调用它，收口遇漂移只阻断。
+  3. **check（结构与生成块新鲜度）**：`--check` 零写入校验四段、行数、成员表、计数/状态句、引用路径与生成块成对；`--freshness` 零写入在内存重算 `--sync` 应产出的生成块并逐行比对，漂移即 exit 1 并逐条 `path:line: 缺失行／多余行: <原文>`（补 `--check` 单独发现不了的「新增子目录未入表」）。两者可连用，失败即停并逐条报 `path:line`；旧格式或块级结构不合规被拦时，先跑 `--migrate-dry-run`（加 `--diff` 看逐件详情）取迁移清单——**只出清单、不自动改写**，按清单人工裁剪确认后才落笔。
+- 收口侧已按只读口径接线：close 与 flip／flip-index 至 done 在取锁与任何写入之前跑 `--check --blocks-only`（只校验含生成块的 README）＋`--freshness`，任一失败即 exit 1、本次零写入并指名 `path:line` 与断言；收口链**不调用 `--sync`**（漂移须按第 2 步显式修复并提交后再重跑）。升级完成后可用同款两检作为验证。
+- 生成器与范围规则表随安装政策（`install-policy.rules` 的 `fast-lane`／`ticket-ops` 两门控）在升级对齐时一并落位到 `rules/implementation/scripts/`，消费者无需手工放置；缺件时收口预检 fail-closed 指名。
 - 解析器升级（共享解析库 `scripts/dp-load-rules.sh`＋四消费件 `check-artifacts.sh`／`check-stale-claims.sh`／`export-payload.sh`／`worktree-add.sh`）整件对齐包新基线：解析版本唯一来源＝解析库 `DP_PARSER_VERSION`，消费件头部 `# dp-parser: N` 为最低要求版注记，报「共享解析器版本漂移」即解析库落后；安装语境下解析库随 fast-lane 门控与消费件同批落位（安装闭包见 `scripts/install-policy.rules`）。文法与版本详见 `delivery-rules.md`。
 - 记录类产物（决策账本、状态索引、运行记录）与用户事实**不在升级范围**：模板升级不得覆盖（核心规则 C9 记录只追加口径），永不触碰。
 
 ## 5. 验证与收尾
 
-- 全套验证：包自检 `sh <pkg-dir>/scripts/check-package.sh`；仓侧检查（装好的 check-artifacts/check-stale-claims/check-gates 一族）；`upgrade-check.sh` 复跑确认自动检查面差距清零。对 `README.md`、`artifacts.yaml` 和其他项目自有正文，工具只核存在性并输出“人工核对”，不能据此宣称无保留的全同步。
+- 全套验证：包自检 `sh <pkg-dir>/scripts/check-package.sh`；仓侧检查（装好的 check-artifacts/check-stale-claims/check-gates 一族）；`upgrade-check.sh` 复跑确认自动检查面差距清零。对 `README.md`、`artifacts.yaml` 和其他项目自有正文，工具只核存在性并输出“人工核对”，不能据此宣称无保留的全同步；其中目录 `README.md` 另按 §4「目录 README 三步」跑 `--check` 核验结构、`--freshness` 核验生成块与子目录一致（两者都只读；`--sync` 是显式修复动作，不属于校验），存在性通过不等于四段契约通过。
 - **Derived 面回访**（升级专属步骤，项目地图回访面）：对账派生文件——项目地图触发矩阵命中而未生成＝欠账，补生成；已生成但代码拓扑已变未再生＝标 `stale`（生成物产物状态机口径，恢复前不当可信导航）。三态为本步骤自定义（比对轴是拓扑新鲜度，非 §2 的包版本轴）：未生成且命中＝欠账（补）、已生成且拓扑未变＝同步、已生成但拓扑已变未再生＝落后（再生）；漂移判定不适用（Derived 可再生，不存在"人工改过"保护面）。
 - **历史票清洗扫描**（升级专属步骤，历史票清洗面）：升级时对存量票面做一次清洗扫描，专找"看着像现行规定、实际已与权威层对不上"的危险内容——票面说明与 rules 三件/specs 冲突、`superseded` 票的说明仍被现行票引用、与新版模板条款相抵的旧口径句。输出危险票名单（票 id＋冲突点＋建议处置），**交用户逐票裁决**：名单本身零改写，裁决后走收口搬运（说明提炼进规则/事实层，R-DP-039 第 4 面）或替代标记（索引登记 `superseded_by`）。不升级时不主动扫描（翻到谁处理谁）。
 - 收尾报告按 `SKILL.md` 步骤 9，额外列：更新件清单（旧→新）、改过件的裁决结果、登记同步情况（artifacts.yaml 条目 `generated_from`/update_policy 括注随更新件刷新）、清洗扫描结果（名单与你的裁决，未执行写 `N/A + reason`）。

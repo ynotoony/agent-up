@@ -41,7 +41,11 @@
 #         起目标 task 票 done 同口径要求 actual_time＋审计 conformant 双证）。
 #         open/take/flip/close/flip-index 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
 #         现役状态投影并 --check 核对（再生调用全仓仅本件承载；ledger 无索引面改动，
-#         不做投影再生）。
+#         不做投影再生）；close 与 flip/flip-index 至 done 另接目录 README 收口门禁：
+#         取锁与任何写入之前做两检——结构 --check（仅含生成块的 README）＋生成块
+#         --freshness（内存重算 --sync 应产出块逐行比对），任一失败即 exit 1 且本次零
+#         写入并指名 path:line 与断言；收口链不调用 --sync（漂移由操作者显式修复后
+#         提交），旧格式无生成块不阻断，仅提示 --migrate-dry-run（票 266）。
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
 #      零外部依赖（仅 POSIX 标准工具与内建，无 jq；票 79 起 open 本体 schema 校验另用
@@ -49,7 +53,8 @@
 #      索引排版破坏、README 行缺失或锚点不唯一（含 open 锚点已存在——追加语义要求
 #      零命中）、账本行不合键序、同 NN 异 slug 撞号
 #      （票 77）即停止不写；收尾生成器
-#      缺失或 --check 不过即整体失败退出非零，已写部分如实报告。运行时依赖定位（安装
+#      （投影再生与目录 README）缺失或 --check／--freshness 不过即整体失败退出非零，
+#      已写部分如实报告。运行时依赖定位（安装
 #      闭包）：open 的 schema 权威与 json-validator.py 校验器先取包基线布局
 #      （<repo-root>/agent-up/…），缺失回退安装布局（本脚本同目录及其 references/ 邻接
 #      目录——安装器把脚本件落位 rules/implementation/scripts/、数据件落位
@@ -155,13 +160,18 @@ usage() {
                  unknown 一律 exit 1 报 decision-required 并零写入（不采信自报 PASS）。
                  take/flip 语义: 索引 id 锚点整行替换（仅改 status/updated_at 两值）→
                  README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token 替换（行内其余
-                 文本不动）→ 账本追加行 → 投影再生＋--check。索引或 README 行缺失、锚点
-                 不唯一、账本行非法即停止（fail-closed，写入前预检）。
+                 文本不动）→ 账本追加行 → 投影再生＋--check；仅 flip 至 done 另在取锁
+                 与写入前做目录 README 两检——结构 --check（仅含生成块的 README）＋
+                 生成块 --freshness，失败即 exit 1 指名 path:line 与断言且本次零写入
+                 （旧格式无生成块不阻断；收口链不调 --sync）。索引或 README
+                 行缺失、锚点不唯一、账本行非法即停止（fail-closed，写入前预检）。
   close          done 收口入口（票 237）：--id --ledger-line 两项必选，status 固定 done
                  （不得携带 --status）；写入链与证据判定与 flip 至 done 完全一致
                  （actual_time + ticket-audit --operation merge conformant 双证），只多
-                 一个入口别名，不留自报旁路；request 票沿用 actual_time 与证据门豁免
-                 （kind=request 不要求审查证据）。
+                 一个入口别名，不留自报旁路；收尾另含目录 README 两检（同 flip 至 done
+                 口径：结构 --check ＋生成块 --freshness，取锁前预检、失败即 exit 1 且
+                 本次零写入）；request 票沿用
+                 actual_time 与证据门豁免（kind=request 不要求审查证据）。
   ledger         无票账本行入口（票 100）：--ledger-line 必选；不依赖 facts/requirements/tickets/index.json
                  条目 id，账本行形状校验与落行由唯一写入方 ledger-append.sh 承载（票 228
                  F7），通过后向 facts/project/changes.jsonl 追加该行；不触索引/README/票文件/投影
@@ -171,8 +181,10 @@ usage() {
                  YYYY-MM-DDTHH:MM[:SS]）；索引 id 锚点整行替换（仅改 status/updated_at
                  两值）→ 投影再生＋--check；不触 README/账本/票本体（README 状态列与
                  账本行归各自治道承载，票 35/37 口径），不得携带 --ledger-line。目标
-                 task 票 done 同过 actual_time＋证据门双证（票 237）；request 票沿用
-                 两项豁免（kind=request 不要求审查证据）。
+                 task 票 done 同过 actual_time＋证据门双证（票 237）；收尾另经目录
+                 README 结构 --check／生成块 --freshness 两检（取锁前预检，同 close
+                 口径；票 266）；request
+                 票沿用两项豁免（kind=request 不要求审查证据）。
   -h / --help    打印本用法。
 退出码: 0 全部完成；1 fail-closed（校验/锚点/收尾核对不过，已写部分如实报告；并发写锁
         等待超时＝并发冲突，零写入，重跑同一命令即收敛；open 目标状态非 ready 即冲突
@@ -835,6 +847,83 @@ else
   fi
 fi
 
+# 目录 README 收口门禁定位（票 266：close 与 flip/flip-index 至 done；同目录优先，
+# PATH 回退；生成器或范围规则缺失即预检停止——fail-closed，不按空范围放行）
+dir_readme_gate=0
+case ${cmd} in
+  close) dir_readme_gate=1 ;;
+  flip|flip-index)
+    if [ "${status}" = 'done' ]; then dir_readme_gate=1; fi
+    ;;
+esac
+dirmap_cmd=''
+dirmap_rules=''
+if [ "${dir_readme_gate}" -eq 1 ]; then
+  if [ -f "${script_dir}/generate-dir-readmes.sh" ] && [ -r "${script_dir}/generate-dir-readmes.sh" ]; then
+    dirmap_cmd="${script_dir}/generate-dir-readmes.sh"
+    printf 'ticket-ops: 目录 README 生成器定位: 同目录 %s\n' "${dirmap_cmd}"
+  else
+    _drest=${PATH:-}
+    while [ -n "${_drest}" ]; do
+      _ddir=${_drest%%:*}
+      case ${_drest} in
+        *:*) _drest=${_drest#*:} ;;
+        *) _drest='' ;;
+      esac
+      [ -n "${_ddir}" ] || continue
+      if [ -f "${_ddir}/generate-dir-readmes.sh" ] && [ -r "${_ddir}/generate-dir-readmes.sh" ]; then
+        dirmap_cmd="${_ddir}/generate-dir-readmes.sh"
+        break
+      fi
+    done
+    if [ -n "${dirmap_cmd}" ]; then
+      printf 'ticket-ops: 目录 README 生成器定位: PATH %s\n' "${dirmap_cmd}"
+    fi
+  fi
+  [ -n "${dirmap_cmd}" ] || \
+    die1 "目录 README 生成器 generate-dir-readmes.sh 不可用（同目录与 PATH 均未找到）——预检停止：close 与 flip/flip-index 至 done 的收口前须用生成器做结构 --check 与生成块 --freshness 两检（本次零写入）；将生成器与 dir-readme.rules 落位到本脚本同目录（${scripts_dir_rel}/）或 PATH 后重跑（升级流程见 agent-up/references/upgrade.md）"
+  _dmdir=$(CDPATH='' cd -- "$(dirname -- "${dirmap_cmd}")" && pwd)
+  for _drc in "${_dmdir}/dir-readme.rules" \
+              "${_dmdir}/../references/dir-readme.rules" \
+              "${repo_root}/rules/implementation/references/dir-readme.rules" \
+              "${repo_root}/agent-up/scripts/dir-readme.rules"; do
+    if [ -f "${_drc}" ] && [ -r "${_drc}" ]; then
+      dirmap_rules=${_drc}
+      break
+    fi
+  done
+  [ -n "${dirmap_rules}" ] || \
+    die1 "目录 README 范围规则 dir-readme.rules 不可用（生成器邻接、安装布局 references/、目标仓两布局均未命中）——预检停止：fail-closed，不按空范围放行；按升级流程落位后重跑"
+  printf 'ticket-ops: 目录 README 范围规则: %s\n' "${dirmap_rules}"
+  # 两检都在取锁与任何写入之前完成，全程只读：结构 --check（仅含生成块的 README）与
+  # 生成块 --freshness。任一失败即 exit 1 且本次 close／flip 零写入；收口链不调用
+  # --sync——漂移由操作者显式修复（--sync 改后自行提交）再重跑。
+  _dr_rc=0
+  _dr_out=$(sh "${dirmap_cmd}" --target "${repo_root}" --rules "${dirmap_rules}" --check --blocks-only 2>&1) || _dr_rc=$?
+  if [ "${_dr_rc}" -ne 0 ]; then
+    printf '%s\n' "${_dr_out}" >&2
+    _dr_first=$(printf '%s\n' "${_dr_out}" | sed -n '1p')
+    [ -n "${_dr_first}" ] || _dr_first="--check exit ${_dr_rc}（无 stderr）"
+    die1 "目录 README 结构校验未过: ${_dr_first}——收口停止：预检在取锁与写入前完成，本次零写入；按上方 file:line 修好 README 后重跑同一命令；旧格式/缺块迁移预演：sh ${dirmap_cmd} --target ${repo_root} --migrate-dry-run"
+  fi
+  _dr_rc=0
+  _dr_out=$(sh "${dirmap_cmd}" --target "${repo_root}" --rules "${dirmap_rules}" --freshness 2>&1) || _dr_rc=$?
+  if [ "${_dr_rc}" -ne 0 ]; then
+    printf '%s\n' "${_dr_out}" >&2
+    _dr_first=$(printf '%s\n' "${_dr_out}" | sed -n '1p')
+    [ -n "${_dr_first}" ] || _dr_first="--freshness exit ${_dr_rc}（无 stderr）"
+    if [ "${_dr_rc}" -eq 1 ]; then
+      _dr_kind='生成块漂移'
+      _dr_hint="生成块子目录表已过期（新增/删除子目录未入表）；先显式运行 sh ${dirmap_cmd} --target ${repo_root} --rules ${dirmap_rules} --sync 重建生成块、按迁移清单人工确认后提交，再重跑同一命令"
+    else
+      _dr_kind='生成块结构异常'
+      _dr_hint='生成块未闭合／重复起始／dir 值与目录不符；按上方 file:line 修正标记后重跑同一命令'
+    fi
+    die1 "目录 README ${_dr_kind}: ${_dr_first}——收口停止：预检在取锁与写入前完成，本次零写入；${_dr_hint}；旧格式/缺块迁移预演：sh ${dirmap_cmd} --target ${repo_root} --migrate-dry-run"
+  fi
+  printf 'ticket-ops: 目录 README 收口预检通过: 结构 --check（仅含生成块）与生成块 --freshness 均只读通过；旧格式无生成块不阻断（迁移预演见 --migrate-dry-run）\n'
+fi
+
 # ---- 状态预检（锁内：票 246 单写路径——预检读取与写入同锁区间，防读-改-写丢更新）----
 
 record_lock_acquire
@@ -1143,8 +1232,12 @@ replay_note=''
 if [ "${replay}" -eq 1 ]; then
   replay_note='（幂等重放）'
 fi
+_dr_pass_note=''
+if [ "${dir_readme_gate}" -eq 1 ]; then
+  _dr_pass_note='＋目录 README --check/--freshness 预检'
+fi
 if [ "${cmd}" = 'flip-index' ]; then
-  printf 'ticket-ops: PASS（flip-index 完成：索引单写＋投影 --check 落地；不触 README/账本/票本体——票 228 F1/F2 索引单写代理）\n'
+  printf 'ticket-ops: PASS（flip-index 完成：索引单写＋投影 --check%s 落地；不触 README/账本/票本体——票 228 F1/F2 索引单写代理）\n' "${_dr_pass_note}"
 else
-  printf 'ticket-ops: PASS（%s 完成%s：索引、issues-README、账本、投影 --check 全部落地）\n' "${cmd}" "${replay_note}"
+  printf 'ticket-ops: PASS（%s 完成%s：索引、issues-README、账本、投影 --check%s 全部落地）\n' "${cmd}" "${replay_note}" "${_dr_pass_note}"
 fi

@@ -38,7 +38,7 @@ lc_build_fixture() {
   R=$1
   rm -rf "$R"
   mkdir -p "$R/rules/implementation/scripts" "$R/facts/project"
-  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/checkpoint-write.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/ticket-audit.sh" "$R/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/checkpoint-write.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/ticket-audit.sh" "$R/rules/implementation/scripts/"
   printf '{"date": "2026-09-28", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' > "$R/facts/project/micro.jsonl"
   printf 'seed\n' > "$R/a.txt"
   git -C "$R" init -q
@@ -699,6 +699,7 @@ PYTHON
     && grep -q '索引翻转已代理' "$D/pj.out" \
     && grep -q 'ticket-ops: 证据门: flip-index 放行' "$D/pj.out" \
     && grep -q 'ticket-ops: PASS（flip-index 完成' "$D/pj.out" \
+    && grep -q '目录 README 收口预检通过' "$D/pj.out" \
     && grep -q '跳过正文 Status 回写' "$D/pj.out"; then
     ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋证据门 conformant＋README 替换＋投影落行＋回写跳过说明行（票 108/237）'
   else
@@ -748,6 +749,56 @@ PYTHON
     ok '正例 P-json 二次收口 checkpoint md 已存在 → 追加记录块（标题恰 1 个、记录块 2 个）且票体仍零追加（票 108）'
   else
     bad '正例 P-json 二次收口 checkpoint md 已存在 → 追加记录块（标题恰 1 个、记录块 2 个）且票体仍零追加（票 108）' "exit=$rc $(tail -n 3 "$D/pj2.out" | tr '\n' '|')"
+  fi
+
+  # 负例：done 翻转遇目录 README 生成块结构漂移 → 收口 --check 阻断，产品提交已创建、
+  # 记录提交未创建、代理 fail-closed exit 1。docs/ 须在基线提交内，避免审计判审查后改动。
+  lc_build_fixture "$D/drg"
+  lc_json_docs "$D/drg"
+  mkdir -p "$D/drg/docs"
+  cat > "$D/drg/docs/README.md" <<'EOF'
+# docs
+
+文档目录职责句。
+
+## 权威
+- 现行：无
+
+## 子目录
+<!-- dir-readme: generated dir=docs -->
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+<!-- /dir-readme -->
+EOF
+  lc_git_commit "$D/drg"
+  drg_base=$(git -C "$D/drg" rev-parse HEAD)
+  printf 'change-drg\n' > "$D/drg/a.txt"
+  lc_impl_commit "$D/drg" 'fixture dir readme drift'
+  drg_impl=$(git -C "$D/drg" rev-parse HEAD)
+  lc_audit_receipt "$D/drg" "$drg_base" "$drg_impl"
+  git -C "$D/drg" config user.email reviewer@example.com
+  git -C "$D/drg" config user.name reviewer
+  drg_n0=$(git -C "$D/drg" rev-list --count HEAD)
+  {
+    printf 'lane: user-review\n'
+    printf 'ticket: facts/requirements/tickets/33-lc-ticket.json\n'
+    printf 'whitelist: facts/requirements/tickets/33-lc-ticket.review-evidence.json\n'
+    printf 'message: fixture dir readme drift\n'
+    printf 'verify: true\n'
+    printf 'verdict_quote: OK（dir readme drift）\n'
+    printf 'verdict_at: 2026-09-30T12:00\n'
+    printf 'flips: facts/requirements/tickets/index.json:index:33-lc-ticket:done:2026-09-30T12:00\n'
+  } > "$D/drg.contract"
+  sh "$LC" "$D/drg" "$D/drg.contract" >"$D/drg.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q 'docs/README\.md:[0-9][0-9]*: 缺少段：## 读取禁忌' "$D/drg.out" \
+    && grep -q '目录 README 结构校验未过' "$D/drg.out" \
+    && grep -q '索引翻转代理未过' "$D/drg.out" \
+    && [ "$(git -C "$D/drg" rev-list --count HEAD)" -eq "$((drg_n0 + 1))" ]; then
+    ok 'AC1 快道 done 翻转遇目录 README 漂移 → exit 1 指名 file:line 且记录提交未创建'
+  else
+    bad 'AC1 快道 done 翻转遇目录 README 漂移 → exit 1 指名 file:line 且记录提交未创建' "exit=$rc commits=$(git -C "$D/drg" rev-list --count HEAD)/预期$((drg_n0 + 1)) $(tail -n 3 "$D/drg.out" | tr '\n' '|')"
   fi
 
   # ---- 票 237：lane-commit done 翻转前核审计结论（非 conformant 不得收尾）----
