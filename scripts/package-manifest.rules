@@ -186,7 +186,7 @@ pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：tic
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-docs-index.sh script '规则索引生成器（扫描包内规则块→references/rules-index.md；--check 零漂移核对，零写入）'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
-pm_script scripts/generate-dir-readmes.sh script '目录 README 结构校验器（四段齐全／总行数上限 25／无成员表／无计数与状态句／正文反引号相对路径存在／生成块标记成对；--check 零写入，本版不生成；范围规则可 --rules 覆盖）'
+pm_script scripts/generate-dir-readmes.sh script '目录 README 校验／同步／骨架生成器（四段齐全／总行数上限 25／无成员表／无计数与状态句／正文反引号相对路径存在／正文裸露占位【填写：…】（HTML 注释、行内代码段与围栏代码块内不算）／生成块标记成对（围栏代码块内标记不算块）；--check 零写入；--sync 只重建生成块内子目录表、块外逐字节不动且幂等，子目录名含 | 时首格转义，无生成块输出 SKIP；--init 新目录四段骨架留占位；--init 与 --sync --dir 路径含空白 exit 2 零写入；三模式互斥；范围规则可 --rules 覆盖）'
 pm_script scripts/generate-adapter-diffs.sh script '适配器宿主差异段生成器与生成漂移核对器（数据表四节机器数据行→Markdown 差异段；check-package 检查 28 经其 --check 指名宿主与段）'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/close/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理；close/flip/flip-index 至 done 需 actual_time＋ticket-audit conformant 双证，缺证据 decision-required 零写入；记录层写锁经共享库原语 record_lock_* 承载）'
 pm_script scripts/ledger-append.sh script '账本唯一写入方（changes.jsonl 行族形状校验＋唯一 JSON 引擎解析门＋追加单点，ticket-ops 账本落行与写前预检经其承载；--micro 微账本行族 facts/project/micro.jsonl 写入，lane-commit 微道落行经其承载；写模式自取记录层写锁、嵌套调用按继承标记跳过）'

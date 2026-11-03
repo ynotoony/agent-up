@@ -8,7 +8,7 @@ fi
 
 
 # ============================================================
-# suite: dir-readme（目录 README 四段式契约与结构校验）
+# suite: dir-readme（目录 README 四段式契约校验、生成块同步与骨架生成）
 # 夹具全部构建于 mktemp 临时目录，仓库零写入；正例断言 exit 0 且 stdout/stderr 双零输出，
 # 负例断言 exit 2 且逐条报文指名 相对路径:行 与原因片段。
 # ============================================================
@@ -374,6 +374,446 @@ suite_dir_readme() {
     ok '负例 未知参数 → exit 2'
   else
     bad '负例 未知参数 → exit 2' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+
+  # ============================================================
+  # --sync / --init（生成块重建、骨架生成与占位断言）
+  # ============================================================
+
+  S=$D/sync
+  mkdir -p "$S/docs/alpha" "$S/docs/beta"
+  printf '# alpha\n\n阿尔法职责句。\n' > "$S/docs/alpha/README.md"
+  cat > "$S/docs/README.md" <<'EOF'
+<!-- Input: 块外头注 -->
+<!-- Output: 块外导航 -->
+<!-- Pos: 块外定位 -->
+
+# docs
+
+块外职责句。
+
+## 权威
+- 现行：无
+- 派生：无
+
+## 读取禁忌
+- 块外禁忌句。
+
+## 子目录
+<!-- dir-readme: generated dir=docs -->
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+| `docs/beta/` | 贝塔原句 | 贝塔原禁忌 |
+<!-- /dir-readme -->
+
+块外尾注一行。
+EOF
+  cp "$S/docs/README.md" "$D/sync-before.md"
+  awk '/^<!-- dir-readme: generated/{exit} {print}' "$D/sync-before.md" > "$D/sync-head-before"
+  awk 'f{print} /^<!-- \/dir-readme -->$/{f=1}' "$D/sync-before.md" > "$D/sync-tail-before"
+  sh "$G" --target "$S" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok '正例 --sync 重建生成块 → exit 0'
+  else
+    bad '正例 --sync 重建生成块 → exit 0' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+
+  # AC1 块外逐字节不变（块前、块后分别 cmp）
+  awk '/^<!-- dir-readme: generated/{exit} {print}' "$S/docs/README.md" > "$D/sync-head-after"
+  if cmp -s "$D/sync-head-before" "$D/sync-head-after"; then
+    ok 'AC1 --sync 生成块之前逐字节不变'
+  else
+    bad 'AC1 --sync 生成块之前逐字节不变' "$(diff "$D/sync-head-before" "$D/sync-head-after" 2>/dev/null | sed -n '2,5p' | tr '\n' '|')"
+  fi
+  awk 'f{print} /^<!-- \/dir-readme -->$/{f=1}' "$S/docs/README.md" > "$D/sync-tail-after"
+  if cmp -s "$D/sync-tail-before" "$D/sync-tail-after"; then
+    ok 'AC1 --sync 生成块之后逐字节不变'
+  else
+    bad 'AC1 --sync 生成块之后逐字节不变' "$(diff "$D/sync-tail-before" "$D/sync-tail-after" 2>/dev/null | sed -n '2,5p' | tr '\n' '|')"
+  fi
+
+  # 增行：新子目录自动出行，一句话取子目录 README 职责句；既有行两格原文复用
+  if grep -qF '| `docs/alpha/` | 阿尔法职责句。 | — |' "$S/docs/README.md" \
+    && grep -qF '| `docs/beta/` | 贝塔原句 | 贝塔原禁忌 |' "$S/docs/README.md"; then
+    ok '正例 --sync 增行取子目录职责句且既有行两格原文复用'
+  else
+    bad '正例 --sync 增行取子目录职责句且既有行两格原文复用' "$(sed -n '/dir-readme: generated/,/\/dir-readme/p' "$S/docs/README.md" | tr '\n' '|')"
+  fi
+
+  # AC2 幂等：第二次零差异且 exit 0
+  cp "$S/docs/README.md" "$D/sync-after1.md"
+  sh "$G" --target "$S" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && cmp -s "$D/sync-after1.md" "$S/docs/README.md"; then
+    ok 'AC2 连跑两次 --sync：第二次 exit 0 且零差异'
+  else
+    bad 'AC2 连跑两次 --sync：第二次 exit 0 且零差异' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+
+  # 删行：子目录消失后整行删除，并逐行报告 DEL
+  rm -rf "$S/docs/beta"
+  sh "$G" --target "$S" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -qF 'beta' "$S/docs/README.md"; then
+    ok '正例 --sync 子目录消失后整行删除 → exit 0'
+  else
+    bad '正例 --sync 子目录消失后整行删除 → exit 0' "exit=$rc remaining=$(grep -F 'beta' "$S/docs/README.md" | tr '\n' '|')"
+  fi
+  if grep -qF 'DEL: docs/README.md: beta: 贝塔原句' "$D/out"; then
+    ok '正例 --sync 逐行报告删除行 DEL'
+  else
+    bad '正例 --sync 逐行报告删除行 DEL' "stdout=$(tr '\n' '|' < "$D/out")"
+  fi
+
+  # 无生成块 → SKIP、exit 0、文件字节不变
+  NB=$D/sync-no-block
+  mkdir -p "$NB"
+  cat > "$NB/README.md" <<'EOF'
+# plain
+
+无生成块的职责句。
+
+## 权威
+- 现行：无
+
+## 读取禁忌
+- 无
+
+## 子目录
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+EOF
+  cp "$NB/README.md" "$D/no-block-before.md"
+  sh "$G" --target "$NB" --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -qxF 'SKIP: README.md: 无生成块' "$D/out"; then
+    ok '正例 --sync 无生成块 → SKIP 且 exit 0'
+  else
+    bad '正例 --sync 无生成块 → SKIP 且 exit 0' "exit=$rc stdout=$(tr '\n' '|' < "$D/out")"
+  fi
+  if cmp -s "$D/no-block-before.md" "$NB/README.md"; then
+    ok '正例 --sync 无生成块不新建不修改（字节不变）'
+  else
+    bad '正例 --sync 无生成块不新建不修改（字节不变）' '文件被改动'
+  fi
+
+  # 未闭合生成块 → exit 2 指名行号、零写入
+  U=$D/sync-unclosed
+  mkdir -p "$U/docs"
+  cat > "$U/docs/README.md" <<'EOF'
+# docs
+
+职责句。
+
+## 权威
+- 现行：无
+
+## 读取禁忌
+- 无
+
+## 子目录
+<!-- dir-readme: generated dir=docs -->
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+EOF
+  cp "$U/docs/README.md" "$D/unclosed-before.md"
+  sh "$G" --target "$U" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -qF 'docs/README.md:12: 生成块未闭合' "$D/err"; then
+    ok '负例 --sync 生成块未闭合 → exit 2 指名 path:line'
+  else
+    bad '负例 --sync 生成块未闭合 → exit 2 指名 path:line' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+  if cmp -s "$D/unclosed-before.md" "$U/docs/README.md"; then
+    ok '负例 --sync 生成块未闭合 → 零写入'
+  else
+    bad '负例 --sync 生成块未闭合 → 零写入' '文件被改动'
+  fi
+
+  # 重复起始标记 → exit 2、指名行号、零写入
+  DU=$D/sync-duplicate
+  mkdir -p "$DU/docs"
+  cat > "$DU/docs/README.md" <<'EOF'
+# docs
+
+职责句。
+
+## 权威
+- 现行：无
+
+## 读取禁忌
+- 无
+
+## 子目录
+<!-- dir-readme: generated dir=docs -->
+<!-- dir-readme: generated dir=docs -->
+<!-- /dir-readme -->
+EOF
+  cp "$DU/docs/README.md" "$D/duplicate-before.md"
+  sh "$G" --target "$DU" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] \
+    && grep -qF 'docs/README.md:13: 生成块重复起始标记' "$D/err" \
+    && cmp -s "$D/duplicate-before.md" "$DU/docs/README.md"; then
+    ok '负例 --sync 生成块重复起始 → exit 2 指名 path:line 且零写入'
+  else
+    bad '负例 --sync 生成块重复起始 → exit 2 指名 path:line 且零写入' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # --sync 与 --init 互斥 → exit 2
+  sh "$G" --target "$S" --sync --init docs >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -qF '互斥' "$D/err"; then
+    ok '负例 --sync 与 --init 同时给 → exit 2'
+  else
+    bad '负例 --sync 与 --init 同时给 → exit 2' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+
+  # --init 生成四段骨架，判断位留占位，--check 因占位 exit 2；手填后 exit 0
+  I=$D/init
+  mkdir -p "$I/area/child"
+  printf '# child\n\n子目录职责。\n' > "$I/area/child/README.md"
+  sh "$G" --target "$I" --init area >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ -f "$I/area/README.md" ]; then
+    ok '正例 --init 新目录 → exit 0 且生成 README.md'
+  else
+    bad '正例 --init 新目录 → exit 0 且生成 README.md' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+  if grep -qxF '# area' "$I/area/README.md" \
+    && grep -qxF '## 权威' "$I/area/README.md" \
+    && grep -qxF '## 读取禁忌' "$I/area/README.md" \
+    && grep -qxF '## 子目录' "$I/area/README.md"; then
+    ok '正例 --init 骨架四段齐全'
+  else
+    bad '正例 --init 骨架四段齐全' "$(tr '\n' '|' < "$I/area/README.md")"
+  fi
+  if grep -qF '<!-- dir-readme: generated dir=area -->' "$I/area/README.md" \
+    && grep -qF '| `area/child/` | 子目录职责。 | — |' "$I/area/README.md"; then
+    ok '正例 --init 生成块包住自动子目录表'
+  else
+    bad '正例 --init 生成块包住自动子目录表' "$(sed -n '/dir-readme: generated/,/\/dir-readme/p' "$I/area/README.md" | tr '\n' '|')"
+  fi
+  sh "$G" --target "$I" --dir area --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -qF '判断位未填（【填写：…】占位）' "$D/err"; then
+    ok 'AC3 --init 骨架占位未清 → --check exit 2'
+  else
+    bad 'AC3 --init 骨架占位未清 → --check exit 2' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+  python3 - "$I/area/README.md" <<'PY'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as fh:
+    text = fh.read()
+text = re.sub(r"【填写：[^】]*】", "已填", text)
+with open(path, "w", encoding="utf-8", newline="") as fh:
+    fh.write(text)
+PY
+  sh "$G" --target "$I" --dir area --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/out" ] && [ ! -s "$D/err" ]; then
+    ok 'AC3 手填占位后 --check exit 0 且零输出'
+  else
+    bad 'AC3 手填占位后 --check exit 0 且零输出' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # --init 目标已存在 → exit 2 零写入
+  cp "$I/area/README.md" "$D/init-before.md"
+  sh "$G" --target "$I" --init area >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -qF '已存在' "$D/err"; then
+    ok '负例 --init 目标 README.md 已存在 → exit 2'
+  else
+    bad '负例 --init 目标 README.md 已存在 → exit 2' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+  if cmp -s "$D/init-before.md" "$I/area/README.md"; then
+    ok '负例 --init 目标已存在 → 零写入'
+  else
+    bad '负例 --init 目标已存在 → 零写入' '文件被改动'
+  fi
+
+  # 占位断言不误伤 HTML 注释内的【填写：】
+  C=$D/placeholder-comment
+  mkdir -p "$C/docs/sub"
+  : > "$C/docs/a.md"
+  dr_base_readme "$C/docs/README.md"
+  {
+    printf '<!-- Input: 【填写：注释内占位不算正文】 -->\n'
+    cat "$C/docs/README.md"
+  } > "$D/tmp" && mv "$D/tmp" "$C/docs/README.md"
+  sh "$G" --target "$C" --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/out" ] && [ ! -s "$D/err" ]; then
+    ok '正例 HTML 注释内【填写：】不误伤 → exit 0 零输出'
+  else
+    bad '正例 HTML 注释内【填写：】不误伤 → exit 0 零输出' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # F1 空白目录名 fail-closed：--init 与 --sync --dir 均 exit 2、零写入
+  W=$D/whitespace
+  mkdir -p "$W/区域 子目录"
+  sh "$G" --target "$W" --init '区域 子目录' >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -qF '目录路径不得含空白' "$D/err"; then
+    ok '负例 --init 目录名含空白 → exit 2 点明限制'
+  else
+    bad '负例 --init 目录名含空白 → exit 2 点明限制' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+  if [ ! -e "$W/区域 子目录/README.md" ]; then
+    ok '负例 --init 目录名含空白 → 零写入'
+  else
+    bad '负例 --init 目录名含空白 → 零写入' 'README.md 被创建'
+  fi
+  sh "$G" --target "$W" --dir '区域 子目录' --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -qF '目录路径不得含空白' "$D/err"; then
+    ok '负例 --sync --dir 目录名含空白 → exit 2'
+  else
+    bad '负例 --sync --dir 目录名含空白 → exit 2' "exit=$rc stderr=$(head -n 1 "$D/err")"
+  fi
+
+  # F2 占位断言只拦散文／表格单元格：行内代码段与围栏代码块内的【填写：】不误伤
+  PH=$D/placeholder-scope
+  mkdir -p "$PH/docs/sub"
+  : > "$PH/docs/a.md"
+  dr_base_readme "$PH/docs/README.md"
+  printf '文档里以行内代码引用占位写法 `【填写：…】`，不是待填判断位。\n' >> "$PH/docs/README.md"
+  sh "$G" --target "$PH" --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/out" ] && [ ! -s "$D/err" ]; then
+    ok '正例 行内代码段内【填写：】不误伤 → exit 0 零输出'
+  else
+    bad '正例 行内代码段内【填写：】不误伤 → exit 0 零输出' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+  printf '```text\n【填写：围栏内占位】\n```\n' >> "$PH/docs/README.md"
+  sh "$G" --target "$PH" --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/out" ] && [ ! -s "$D/err" ]; then
+    ok '正例 围栏代码块内【填写：】不误伤 → exit 0 零输出'
+  else
+    bad '正例 围栏代码块内【填写：】不误伤 → exit 0 零输出' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+  printf '散文里裸写【填写：露出的占位】。\n' >> "$PH/docs/README.md"
+  sh "$G" --target "$PH" --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -qF '判断位未填（【填写：…】占位）' "$D/err"; then
+    ok '负例 散文裸露【填写：】仍 exit 2'
+  else
+    bad '负例 散文裸露【填写：】仍 exit 2' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # F3 围栏代码块内的成对标记不是生成块：--sync 不读不写、--check 不判
+  FB=$D/fence-block
+  mkdir -p "$FB/docs"
+  cat > "$FB/docs/README.md" <<'EOF'
+# docs
+
+职责句。
+
+## 权威
+- 现行：无
+
+## 读取禁忌
+- 无
+
+## 子目录
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+
+示例（围栏内只是展示，不是真生成块）：
+
+```markdown
+<!-- dir-readme: generated dir=docs -->
+| `docs/` | 示例 | — |
+<!-- /dir-readme -->
+```
+EOF
+  cp "$FB/docs/README.md" "$D/fence-before.md"
+  sh "$G" --target "$FB" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -qxF 'SKIP: docs/README.md: 无生成块' "$D/out"; then
+    ok '正例 --sync 围栏内标记不算块 → SKIP 且 exit 0'
+  else
+    bad '正例 --sync 围栏内标记不算块 → SKIP 且 exit 0' "exit=$rc stdout=$(tr '\n' '|' < "$D/out")"
+  fi
+  if cmp -s "$D/fence-before.md" "$FB/docs/README.md"; then
+    ok '正例 --sync 围栏内标记不读不写（字节不变）'
+  else
+    bad '正例 --sync 围栏内标记不读不写（字节不变）' "diff=$(diff "$D/fence-before.md" "$FB/docs/README.md" | tr '\n' '|')"
+  fi
+  sh "$G" --target "$FB" --dir docs --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/out" ] && [ ! -s "$D/err" ]; then
+    ok '正例 --check 围栏内成对标记不判块 → exit 0 零输出'
+  else
+    bad '正例 --check 围栏内成对标记不判块 → exit 0 零输出' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # F4 模板首格与根相对路径口径一致
+  TMPL="$SCRIPT_DIR/../references/templates/dir-README.md.tmpl"
+  if grep -qF '| `notes/sub/` |' "$TMPL" && ! grep -qF '【一级子目录名】' "$TMPL"; then
+    ok '正例 模板首格为根相对示例（无「一级子目录名」占位）'
+  else
+    bad '正例 模板首格为根相对示例（无「一级子目录名」占位）' "$(grep -n 'notes/sub/\|一级子目录名' "$TMPL" | tr '\n' '|')"
+  fi
+
+  # F5 子目录名含 |：首格转义为 \|，读回反转义后复跑零差异，--check 不误判幽灵路径
+  PP=$D/pipe
+  mkdir -p "$PP/docs/a|b"
+  printf '# a|b\n\n管道职责。\n' > "$PP/docs/a|b/README.md"
+  cat > "$PP/docs/README.md" <<'EOF'
+# docs
+
+职责句。
+
+## 权威
+- 现行：无
+
+## 读取禁忌
+- 无
+
+## 子目录
+<!-- dir-readme: generated dir=docs -->
+| 子目录 | 一句话 | 禁忌 |
+| --- | --- | --- |
+<!-- /dir-readme -->
+EOF
+  sh "$G" --target "$PP" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -qF '| `docs/a\|b/` | 管道职责。 | — |' "$PP/docs/README.md"; then
+    ok '正例 --sync 子目录名含 | → 首格转义 \|'
+  else
+    bad '正例 --sync 子目录名含 | → 首格转义 \|' "exit=$rc row=$(grep -F 'a\|b' "$PP/docs/README.md" | tr '\n' '|')"
+  fi
+  cp "$PP/docs/README.md" "$D/pipe-after1.md"
+  sh "$G" --target "$PP" --dir docs --sync >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && cmp -s "$D/pipe-after1.md" "$PP/docs/README.md"; then
+    ok '正例 含 | 的行复跑 --sync 零差异'
+  else
+    bad '正例 含 | 的行复跑 --sync 零差异' "exit=$rc"
+  fi
+  sh "$G" --target "$PP" --dir docs --check >"$D/out" 2>"$D/err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$D/out" ] && [ ! -s "$D/err" ]; then
+    ok '正例 含 | 的行 --check exit 0（转义不误判幽灵路径）'
+  else
+    bad '正例 含 | 的行 --check exit 0（转义不误判幽灵路径）' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
+  fi
+
+  # --help 写明两个写入模式、无生成块的 SKIP 语义与空白限制
+  sh "$G" --help >"$D/out" 2>"$D/err"
+  if grep -qF -- '--sync' "$D/out" \
+    && grep -qF -- '--init' "$D/out" \
+    && grep -qF '无生成块' "$D/out" \
+    && grep -qF '不得含空白' "$D/out"; then
+    ok '正例 --help 写明 --sync／--init、无生成块 SKIP 与空白限制'
+  else
+    bad '正例 --help 写明 --sync／--init、无生成块 SKIP 与空白限制' "stdout=$(head -n 1 "$D/out")"
   fi
 
   suite_summary 'dir-readme'

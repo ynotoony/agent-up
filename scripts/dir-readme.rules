@@ -1,5 +1,5 @@
 # Input: 目录 README 四段式契约的纳入与排除范围（目标仓库根相对的目录通配模式）。
-# Output: generate-dir-readmes.sh --check 的范围唯一承载点——非执行式解析，每个非空
+# Output: generate-dir-readmes.sh --check／--sync／--init 的范围唯一承载点——非执行式解析，每个非空
 #         非注释行恰为 `include <pattern>` 或 `exclude <pattern>`；pattern 相对目标仓库根，
 #         `*` 匹配任意字符（含 `/`），`?` 匹配单个字符；至少一条 include，缺件或任一
 #         行不合预期即 exit 2（fail-closed，不产生部分结论）。
