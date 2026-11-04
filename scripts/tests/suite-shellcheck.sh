@@ -103,6 +103,8 @@ suite_shellcheck() {
 
   # 防空转自检：负例断言前置 require_out 的翻红能力必须可证——目标文件缺失时
   # 裸 `! grep -q` 会空转通过（假绿），前置须记 FAIL；文件在场时前置不得误报。
+  # 探针子 shell 内清空 CUR_JOURNAL：这里的 FAIL 是「故意让前置翻红」的探针结果，
+  # 只观测子 shell 内 FAILS 计数，不得混入套件日志（票 258 journal 回传口径）。
   _sh_av_missing="$D/vacuity-missing.out"
   _sh_av_present="$D/vacuity-present.out"
   rm -f "$_sh_av_missing"
@@ -112,20 +114,20 @@ suite_shellcheck() {
   else
     bad '防空转自检：缺前置的 ! grep -q 对缺失文件空转通过（前置必要性的反证）' '裸 grep 在缺失文件上未空转——环境口径变化'
   fi
-  if (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_missing"; [ "$FAILS" -eq 1 ]) >/dev/null 2>&1; then
+  if (CUR_JOURNAL=''; TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_missing"; [ "$FAILS" -eq 1 ]) >/dev/null 2>&1; then
     ok '防空转自检：目标文件缺失时负例前置记 FAIL（不得空转通过）'
   else
     bad '防空转自检：目标文件缺失时负例前置记 FAIL（不得空转通过）' 'require_out 对缺失文件未记 FAIL'
   fi
-  if (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_present"; [ "$FAILS" -eq 0 ]) >/dev/null 2>&1; then
+  if (CUR_JOURNAL=''; TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_present"; [ "$FAILS" -eq 0 ]) >/dev/null 2>&1; then
     ok '防空转自检：目标文件在场时负例前置不误报（前置非恒假）'
   else
     bad '防空转自检：目标文件在场时负例前置不误报（前置非恒假）' 'require_out 对在场文件记了 FAIL'
   fi
   _sh_av_empty="$D/vacuity-empty.out"
   : > "$_sh_av_empty"
-  if (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out --allow-empty '防空转自检' "$_sh_av_empty"; [ "$FAILS" -eq 0 ]) >/dev/null 2>&1 \
-    && (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_empty"; [ "$FAILS" -eq 1 ]) >/dev/null 2>&1; then
+  if (CUR_JOURNAL=''; TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out --allow-empty '防空转自检' "$_sh_av_empty"; [ "$FAILS" -eq 0 ]) >/dev/null 2>&1 \
+    && (CUR_JOURNAL=''; TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_empty"; [ "$FAILS" -eq 1 ]) >/dev/null 2>&1; then
     ok '防空转自检：--allow-empty 只放宽空输出（在场即过），缺省口径仍把空文件判红'
   else
     bad '防空转自检：--allow-empty 只放宽空输出（在场即过），缺省口径仍把空文件判红' 'allow-empty 口径与缺省口径之一不符'

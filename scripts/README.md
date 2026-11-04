@@ -50,7 +50,7 @@
 | `test-checkpoint-recovery.sh` | Checkpoint 中断续传回归测试 | workflow-executor.sh 中断续传机制回归测试：模拟工作流中断后从 checkpoint 恢复继续执行的场景，验证 checkpoint 文件格式、恢复逻辑正确性；POSIX sh、mktemp 夹具 trap 清理、零工作区写入。供开发/升级时自检 checkpoint 机制。 |
 | `upgrade-check.sh` | 落地面升级对账器 | 用户确认升级模式后，以完整治理面组合识别 modern/legacy/mixed；按 install-policy 门控检查新旧脚本落位（双份都 cmp 并报告冲突）；未启用门控显示 N/A；快道证据两源＝delivery.rules 在场或快道专属脚本已装，多门控共享脚本（如 generate-progress.sh）不构成快道证据——未启用快道时 delivery.rules 恒 N/A，快道脚本已装而缺配置才报落后；从模板 manifest 提取固定 Conditional README Emits，目录存在时检查 README，目录不存在时 N/A；旧布局映射到对应 docs/兼容面；动态 `<目录>/README.md` 输出列为人工盘点；对 README/artifacts 与 Derived 不宣称内容同步。全程只读，退出码 0 自动检查面无差距、1 有差距、2 用法环境或布局不明。详见下文专节。 |
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
-| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器＋test-helpers.sh 共享断言＋34 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
+| `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器（ALL_SUITES 唯一枚举＋fast 短车道＋per-suite 超时／信号清理／断言下限）＋test-helpers.sh 共享断言（结果日志回传）＋35 个 suite-*.sh（各 suite 可独立运行 `sh tests/suite-<name>.sh`；含 harness 自身硬化负例）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
 
 旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
@@ -1241,7 +1241,10 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 ```
 
 - 无参数：`--suite all`；被测脚本目录缺省＝本脚本所在目录，包根缺省＝被测脚本目录的上一级（check-package.sh 同款）。
-- `--suite module-map|ticket-ops|progress|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|ticket-repair|ticket-audit|context-cost|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
+- `--suite module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|ticket-repair|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|merge|context-cost|dir-readme|adversarial|harness|fast|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
+- `--suite fast`：短套件车道（`FAST_SUITES`＝`ALL_SUITES` 子集，日常回归目标 ≤180s）；重活（`ticket-ops` 全量、`ticket-audit`、`lane-commit`、`workflow-contract`、`shellcheck`、`merge`、`check-package`、`install`）只在 `all` 跑。子集包含关系由启动核对与 `self-check` 双向钉死。
+- 环境变量：`TEST_SUITE_TIMEOUT` 单套件超时秒数（缺省 300，超时记 FAIL 行并继续后续套件）；`TEST_ASSERTION_FLOOR` 断言数下限（缺省仅 `all` 生效＝1100，显式设置时对任意车道生效）。
+- 执行模型：每个套件在子 shell 中运行（套件内 `exit` 不终止整轮），断言经 `$T/journal.<name>` 回传父进程计数；`INT`/`TERM` 中断时先停子进程再清临时目录，按约定码退出。
 - `--script-dir <dir>`：被测脚本所在目录（须含被测成员全集，权威清单＝`tests/test-runner.sh` 启动核对，含 `generate-module-map.sh`＋`module-map.rules`、`ticket-ops.sh`＋`generate-progress.sh`、`check-package.sh`、`check-append-only.sh`、`check-artifacts.sh`、`check-stale-claims.sh`、`worktree-add.sh`、`dp-load-rules.sh`；main-only 栅栏件 install.sh/export-payload.sh 不在核对清单，相关套件自行 SKIP）；对复制落位副本或被测脚本修改副本复跑时使用。
 - `--pkg-root <dir>`：check-package 套件的包根，缺省＝script-dir 的上一级。
 - `-h` / `--help`：打印用法。
@@ -1281,10 +1284,11 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `merge` |  | 合并站证据门正负例：无绑定 worktree/未提交证据 → 拒绝合并 decision-required（exit 1，worktree/分支保留）；actual_time 仅在票分支（主检出缺失）→ 仍合并放行；分支 tip 含合法 Review Checkpoint md → 允许集与 done 门同源放行；审查后产品又提交 → P04 点名拒（P02 通过）；head 重绑但 diff_sha 未重算 → P05 点名拒（P02/P04 通过）；conformant 证据 → 合并放行（ff/no-ff 模式与提交哈希打印）并清场；未合并分支/主仓不干净/参数形态负例；安装闭包 fast-lane 真跑（merge-ticket＋ticket-audit 落位与包基线字节一致） | 13 |
 | `project-dashboard` |  | 本地项目仪表盘常驻回归：静态单文件面（无外部脚本/样式引用）＋不可信文本零 HTML 注入面＋零网络 API＋零写入/删与 readwrite 面＋`mode: 'read'` 只读授权＋核心块与测试钩子在场；Node 抽取运行核心逻辑——能力检测与不支持提示／`pickDirectory` 传 `{mode:'read'}` 且缺 API 拒绝／JSON 与索引解析（畸形与缺 id 逐项报）／Markdown 与 JSON 卡片解析（标题、状态、复杂度、对象形态验收、缺字段提示）／状态合并以索引为准并记录正文冲突／全部卡片无遗漏与孤儿索引条目／地图节点边一致与未解析引用／缺失地图声明不重建／损坏与读取失败逐卡指名且不影响其他卡／不可信文本纯文本保留与转义／布局确定性／搜索与状态筛选／快照增量不改输入／自动刷新数据源（每轮重新读取、内容变更、新增与删除文件、单文件读取失败、空目录）＋指纹稳定与变更检出＋核心零写入能力＋页面文件逐字节不变；公开包登记断言（清单 scripts 节、README 成员表、安装政策 ticket-ops 行、runner 派发表）＋安装闭包真跑（登记行复制一件且与基线一致）与缺源件预检负例；搜索按生效状态与索引失败降级两组断言（worktree 栅栏环境 install.sh 不在场时，两条安装闭包断言显式 SKIP，计数 40 为全量口径） | 40 |
 | `check-gates` |  | check-gates.sh 验证执行边界正负例：合法只读验证 exit 0 且既有 PASS/汇总行格式保持；五类越界写——新建未跟踪文件（exit 1 指名文件、保持现场、同批后续 verify 输出 SKIP 且不执行）、删除跟踪文件、修改索引（git add）、创建符号链接、改写已修改文件（git status 行不变仍经内容哈希检出）；allow-output 目录内产出 exit 0 且工作区只留白名单改动与允许输出、既有产物复跑按允许输出放行；allow-output 含跟踪文件或路径含 .. → exit 2；record-only + verify N/A 语义不变 | 11 |
-| （仅 all）注入自检 |  | 临时副本上故意注入一处规则表 label 破坏——harness 必须 exit 非零且输出 FAIL 行（测试自检，验证 harness 敏感度） | 2 |
+| （仅 all）注入自检 | 258 | 临时副本上按四类代表面各注入一处：规则表 label 破坏（`module-map`）＋产品脚本首行 `exit 0` 假绿（`ticket-ops`/`ticket-run`/`check-package`，后者在 worktree 栅栏内显式 SKIP 归主检出）；每个目标三断言（整轮 exit 非零＋含 FAIL 逐项行＋仍有套件汇总行），另含未注入对照与套件名三向一致（ALL⊆用法行、FAST⊆ALL、用法行⊆ALL∪{all,fast}） | 16（主检出）／13（worktree） |
 | `ticket-audit` |  | 证据审计引擎十一谓词正负例：正例 analyze/read/merge 三面 conformant 且十一谓词逐行 PASS、证据位置 `路径@提交:blob` 与 `git log`／`rev-parse` 逐一相等；负例按谓词分离——P01 证据缺失／非 review 收据／票号不匹配（P01 短路），P02 提交后又改动／未提交（HEAD 未跟踪），P04 证据之后混入产品改动（指名路径）与 head 非祖先，P05 diff 指纹篡改（按行号指名）／base==head 零实现 diff／base≠head 但两提交树相同（空 diff），P09 旧 PASS 与 reviewed_at 越界，P10 自由文本 verdict／FAIL verdict／PASS 含未知验收，P08 自签与策略实现者名单命中；未知分支——P07 身份不可佐证（author 不一致／不在可信名单）与 P11 策略缺失／非法 effective_from／不适用／发布基线标签缺失（analyze exit 0 且 merge/push 拒绝）；用法与环境错误 exit 2；一次审计零写入（文件 cksum 与 HEAD 前后一致）；P04 允许集三例——显式允许记录载体 exit 0、未传入时同改动 exit 1 指名 index.json、产品文件与允许集外 facts 文件仍 FAIL 指名路径 | 41 |
 | `context-cost` |  | 成本度量复测器正负例（mktemp 夹具）：会话模式合成 `wire.jsonl` 夹具逐项相等（raw／cache_read／input_added／output／context_per_call／每步工具调用数／超 2 万字符结果数／超 250 步 agent 数／calls）＋给基线 JSON 逐项差值与变化率＋未知字段容忍、坏行跳过、缓存字段缺失按 0＋负例（样本低于阈值、0 条 `usage.record`（默认阈值）、会话路径不存在、目录无 `wire.jsonl`、基线文件缺失、基线缺指标——均 exit 非 0 且零 stdout，不输出半套指标）＋治理模式九件夹具逐项相等（install_chars／install_blocks／四阶段读取集）＋治理基线差值与缺键负例＋`--help`、非法 `--min-samples` 与 `--min-samples 0`（用法错误 exit 2）用法负例＋只读复核（会话与模板夹具 cksum 前后一致） | 51 |
 | `adversarial` | 241 | 对抗金丝雀：十条核心规则各一个真跑负例（C1 `checkpoint-write` 缺裁决原文 exit 2 票文件零写入＋无 checkpoint md；C2 `run-record seal` 待填 fail-closed 且 record 字节不变；C3 自签 P08 非 conformant；C4 白名单外改动 `check-gates` 拒且 HEAD 不变；C5 双布局同脚本分歧 `upgrade-check` exit 1 且旧件不删；C6 记录路径被删的 `--record-commit` 拒且零提交；C7 索引无条目的 `ticket-run start` decision-required、索引字节不变；C8 通用 `flips` 直写 `index.json` 拒；C9 历史行改写 `check-append-only` 指名违规行号；C10 同改 implementation／review `check-role-permissions` 拒）＋G1–G5 正负例逐项（G1=`checkpoint-write`、G2=`run-record`、G3=`ticket-audit`、G4=记录提交删除/恢复、G5=`upgrade-check` 冲突/一致）＋一票 ready→done 正常路径五站（start 建站并领取、implementation／review 合同、commit 产品＋记录两段提交且翻 done 与投影、HEAD 恰前进两次）＋安装面（install 后 `run-record new`＋`seal` 真跑、幂等重跑 SKIP、新目录 README 收口后现行 `upgrade-check` 零差距；`install.sh` 为 main-only 件，worktree 显式 SKIP 并打印主检出复跑命令）＋临时副本升级切换（记录升级来源提交、`.zcode/` 字节零改动、`rules/` 手工改动计数 0、与全新安装 `rules/` 逐字节一致、旧 `scripts/` 件零静默覆盖并标旧布局、人工漂移停手不覆盖）＋纯文档项目与 Seed 初始化项目前置流程 | 46（worktree）／61（主检出） |
+| `harness` | 258 | harness 自身硬化负例（合成夹具＝mktemp 内复制同款 runner/helpers ＋ 按 `ALL_SUITES` 生成的桩套件，只把被验套件换成探针，真实套件零参与）：per-suite 超时（`TEST_SUITE_TIMEOUT=1`＋`sleep` 探针 → 整轮 exit 1、FAIL 行指名超时上限、后续套件照跑、仍有汇总行）＋套件内 `exit 2`（子 shell 隔离 → 整轮 exit 1、FAIL 行指名退出码、后续套件照跑、父进程按日志补出该套件汇总行且退出前断言不丢）＋TERM/INT 中断（经 python3 重置 SIGINT 处置后 exec 绕过后台任务的 SIG_IGN；各三断言：exit 130、输出中断行、临时目录已删除）＋断言数下限（`TEST_ASSERTION_FLOOR=999999` → exit 1 且 FAIL 行指名实测与下限）＋fast 车道静态面（非空且 ⊆ all、真子集、缺省下限 1100 在场） | 20 |
 
 断言计数随维护增减（suite 汇总行按实际计数输出；stale-claims/ticket-ops/append-only 行计数删格——数字以 `--suite` 实跑输出为唯一真相源）。
 
@@ -1301,7 +1305,8 @@ test-record-layer: FAIL（共 N 项断言，M 项失败）    # exit 1
 | --- | --- |
 | 0 | 全部断言通过。 |
 | 1 | 存在失败断言（逐项 FAIL 行见输出）。 |
-| 2 | 用法或环境错误（`--suite` 不合口径、被测成员缺失、包根不存在、git 不可用）。 |
+| 2 | 用法或环境错误（`--suite` 不合口径、被测成员缺失、包根不存在、git 不可用、超时/下限环境变量非数字）。 |
+| 130 | 收到 `INT`/`TERM`：停止在跑套件、清理临时目录后退出（`HUP` 为 129）。 |
 
 ### 维护规则
 
