@@ -66,7 +66,8 @@ EOF
   return 0
 }
 
-# 票本体（open 本体 schema 合法形态；profile_reason 七键齐备）
+# 票本体（open 本体 schema 合法形态；profile_reason 七键齐备；票 268 起新 task 开票门
+# 必备 user_stories——夹具适配只加字段，不动任何断言逻辑与既有断言强度）
 rc_write_body() {
   cat > "$1" <<EOF
 {
@@ -82,6 +83,7 @@ rc_write_body() {
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
   "complexity_reason": "rc fixture complexity reason",
   "priority_reason": "rc fixture priority reason",
+  "user_stories": ["US1: 作为夹具维护者，我要安装闭包正例开票携带用户故事，以便开票门正例有载体"],
   "actual_time": "1h（fixture 净工时占位）"
 }
 EOF

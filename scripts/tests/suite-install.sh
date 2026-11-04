@@ -253,6 +253,8 @@ suite_install() {
 
   # 闭包正例 R2：已安装 ticket-grade 真实执行 → exit 0 出定级建议（同目录 validator
   # 定位与邻接 references/ profile 路径在安装布局生效）。
+  # 票 268：向前生效开票门夹具适配——R3 由本件派生 50-open-fixture 后 open，新开 task
+  # 本体须带 user_stories（仅加字段，不动任何断言逻辑与既有断言强度）。
   mkdir -p "$D/tix"
   cat > "$D/tix/40-grade-fixture.json" <<'EOF'
 {
@@ -268,6 +270,7 @@ suite_install() {
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
   "complexity_reason": "fixture 定级理由（非空）",
   "priority_reason": "fixture 优先级理由（非空）",
+  "user_stories": ["US1: 作为夹具维护者，我要安装正例开票携带用户故事，以便开票门正例有载体"],
   "dispatch": {
     "implementation": {"REPOSITORY_PATH": "fixture repo root", "TASK_DESCRIPTION": "fixture task", "GOAL": "fixture goal", "SCOPE_TREE": "fixture scope", "OUT_OF_SCOPE": "fixture oos", "CONTEXT_EVIDENCE": "fixture context", "CONSTRAINTS": "fixture constraints", "FORBIDDEN_CHANGES": "fixture forbidden", "ACCEPTANCE_CRITERIA": "fixture acceptance", "VERIFICATION_COMMANDS": "fixture verification", "DEPENDENCIES_BLOCKERS": "fixture deps", "RISKS": "fixture risks", "BUDGET_CHECKPOINTS": "80 calls", "ESTIMATED_TIME": "0.5d", "ACTUAL_TIME": "by coordinator", "TICKET_ID": "40-grade-fixture"},
     "review": {"REVIEW_SCOPE": "fixture review scope", "IMPLEMENTATION_SUMMARY": "fixture summary", "ACCEPTANCE_CRITERIA": "fixture acceptance", "DIFF_LOCATION": "fixture worktree", "REVIEW_DIMENSIONS": "fixture dimensions", "TICKET_ID": "40-grade-fixture"},

@@ -5,6 +5,10 @@
   "complexity": "C2",
   "profile": "D:Required,B:Required,I:Required,U:N/A,S:N/A,M:Required,O:N/A",
   "blocked_by": [],
+  "user_stories": [
+    "US1: 作为需求提出者，我要样例展示用户故事条目格式，以便新票开票时照此书写",
+    "US2: 作为项目维护者，我要缺项在开票时被拒收，以便规则不漂移"
+  ],
   "estimated_time": "0.5d（样例占位，非真实工时记录）",
   "actual_time": "1.5h（样例占位：实际完成净工时——会话段累计减中断段；真实票由收口时经 Checkpoint 落盘的会话段清单汇总填写）",
   "title": "42 — 样例任务票（占位，非真实任务票）",
