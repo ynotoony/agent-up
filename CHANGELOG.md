@@ -8,6 +8,17 @@
 
 已按本体系初始化的项目要跟上新版：跑 `sh <包目录>/scripts/upgrade-check.sh <包目录> <你的项目根>` 看你仓里已装部分与包新版的差距，按 `references/upgrade.md` 走升级流程。
 
+## 2026-11-04（治理运行时与证据链硬化波：安装闭包、用户故事契约、可恢复编排；覆盖 2026-10-28 以来累计 44 张已收口票）
+
+- **运行时依赖只认安装闭包**（本波）：`ticket-ops.sh`／`contract-build.sh`／`ledger-append.sh`／`ticket-run.sh`／`run-record.sh`／`test-checkpoint-recovery.sh` 删除全部 `repo_root/agent-up` 工作树回退，唯一 JSON 引擎与 schema／规则／prompt 数据件只认脚本同目录与邻接 `../references/`；闭包缺失即 fail-closed 零写入，报文指名缺失绝对路径与升级／修补入口（`references/upgrade.md`、`scripts/install.sh`）。本地闭包与包工作树副本内容不同时以本地为准；新增 runtime-closure 套件（13 条定位正负例与零写入指纹）。**升级后 `rules/implementation/references/` 数据闭包必须在场，否则运行入口按设计 fail-closed。**
+- **新开 task 卡必填用户故事**（本波）：`ticket-record.schema.json` 新增 `user_stories`（数组、至少一条、条目格式 `US<n>: 作为…，我要…，以便…`）；`ticket-ops open` 经 `json-validator --new-ticket` 对缺项／空数组／非数组／格式不符机械拒收且四载体零写入；向前生效、存量读取零回扫；示例、票模板、assessment 与 AGENTS 路由句同口径。
+- **票务编排与恢复**：`ticket-run.sh` 可恢复协调器（next／start／contract／record／verify-dispatch）与 repair 纠偏；派发合同四模式校验（模板零差集／执行体自查／派发前置／步数预算）；步数预算与到线收尾、短上下文别名与模型档位登记；记录层互斥锁、记录提交前缀门、索引单写与崩溃恢复收敛。
+- **证据与门禁**：`ticket-audit.sh` 十一谓词审计引擎（merge／push 证据门）；done／merge 收口双证（actual_time＋合并证据）；push 面批量审计兜底；门禁执行隔离、角色权限守卫、包级语义一致性门禁；对抗金丝雀 G1–G5 与 10 条核心规则负例。
+- **目录 README 契约**：四段式结构（`--check`）＋生成块同步（`--sync`）＋新鲜度（`--freshness`）＋迁移预演（`--migrate-dry-run`）；收口前结构／新鲜度两检，生成器与范围规则随安装闭包落位。
+- **适配器与宿主配置**：能力差异数据表与宿主差异段生成器；公共规则去重与结构基线；角色与包入口术语统一；宿主配置对账（`host-config.sh`）。
+- **测试面**：harness 硬化与快慢分层、静态检查与空转加固、包内计数去漂移、`--suite all` 断言数不再硬编码。
+- **要不要跟**：已初始化项目建议按 `references/upgrade.md` 升级（运行入口现为 fail-closed，升级后 `rules/implementation/scripts/` 应含 `ticket-audit.sh`／`generate-dir-readmes.sh`／`dir-readme.rules` 等安装件，`rules/implementation/references/` 应有 schema／protocol／prompt 数据闭包）；新开 kind=task 卡须带 `user_stories`。仅使用规则文档、未安装票务脚本的项目不受影响。
+
 ## 2026-10-28（脚本事职责拆分波：快道收尾的记录写入外移，单件单责）
 
 - **快道收尾拆分**：`lane-commit.sh` 只保留合同预检与白名单提交，记录写入改由三件原子层代理——索引翻转仍经 `ticket-ops.sh flip-index`，新增 `checkpoint-write.sh` 承载 User Review Checkpoint 写入，微账本行改经 `ledger-append.sh --micro` 落行（`ledger-append.sh` 由此同时成为 `changes.jsonl` 与 `micro.jsonl` 两账本唯一写入方）。CLI 与提交合同格式不变，调用方无需改命令；三件代理均同目录优先、PATH 回退，缺失即收尾预检停止（零提交零写入）。
