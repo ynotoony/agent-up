@@ -18,7 +18,8 @@ Entry points:
 Exit codes:
   0 = operation completed
   1 = validation failed or invalid input (3 = path/element miss for json ops)
-  2 = usage error or missing dependencies
+  2 = usage error, missing dependencies, or non-standard JSON document in json ops
+      (NaN/Infinity/-Infinity literals, duplicate keys in one object)
 """
 
 import sys
@@ -28,6 +29,36 @@ import re
 import tempfile
 from datetime import datetime
 from collections import defaultdict
+
+
+class StrictJSONError(json.JSONDecodeError):
+    """非标准 JSON：NaN/Infinity/-Infinity 字面量或同一对象内重复键。
+
+    继承 JSONDecodeError，既有调用方的 except json.JSONDecodeError 分支照常把它
+    判为非法 JSON；json 通用操作面把它映射为 exit 2。
+    """
+
+    def __init__(self, message):
+        super().__init__(message, '', 0)
+
+
+def _reject_json_constant(name):
+    raise StrictJSONError(f'非标准 JSON 字面量: {name}')
+
+
+def _reject_duplicate_keys(pairs):
+    obj = {}
+    for key, value in pairs:
+        if key in obj:
+            raise StrictJSONError(f'同一对象内重复键: {key}')
+        obj[key] = value
+    return obj
+
+
+def _strict_load(fp):
+    """json.load 的严格形态：拒绝 NaN/Infinity/-Infinity 与重复键。"""
+    return json.load(fp, parse_constant=_reject_json_constant,
+                     object_pairs_hook=_reject_duplicate_keys)
 
 
 # ============================================================
@@ -538,12 +569,17 @@ _MISSING = object()
 
 
 def _load_json(src, what='JSON'):
-    """Load JSON from a file path or '-' (stdin). Exit 1 on failure."""
+    """Load JSON from a file path or '-' (stdin). Non-standard JSON
+    (NaN/Infinity/-Infinity literals, duplicate keys) exits 2; other read or
+    parse failures exit 1."""
     try:
         if src == '-':
-            return json.load(sys.stdin)
+            return _strict_load(sys.stdin)
         with open(src, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            return _strict_load(f)
+    except StrictJSONError as e:
+        print(f'json-validator: FAIL: {what} 不合法: {src}（{e}）', file=sys.stderr)
+        sys.exit(2)
     except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
         print(f'json-validator: FAIL: 无法读取或解析{what}: {src}（{e}）', file=sys.stderr)
         sys.exit(1)

@@ -235,8 +235,12 @@ record_lock_steal() {
   return 0
 }
 
-# 有界等待取锁；超时 exit 1「并发冲突」（含锁路径与持有者 pid），零写入
+# 有界等待取锁；空锁目录 exit 1（不得落到 CWD 相对路径），超时 exit 1「并发冲突」
+# （含锁路径与持有者 pid），零写入
 record_lock_acquire() {
+  if [ -z "${RECORD_LOCK_DIR:-}" ]; then
+    die1 "写锁目录未初始化（RECORD_LOCK_DIR 为空）——拒绝取锁，零写入"
+  fi
   _rlock_timeout=${TICKET_OPS_LOCK_TIMEOUT:-20}
   case $_rlock_timeout in ''|*[!0-9]*) _rlock_timeout=20 ;; esac
   _rlock_stale=${TICKET_OPS_LOCK_STALE:-600}

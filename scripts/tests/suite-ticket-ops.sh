@@ -2012,6 +2012,33 @@ PROBE
     bad 'AC6 持锁期间主检与 worktree 的 git status --short 均为空（锁不污染白名单门禁）' "main=$(tr '\n' '|' < "$D/ac6-status-main.txt" 2>/dev/null) wt=$(tr '\n' '|' < "$D/ac6-status-wt.txt" 2>/dev/null)"
   fi
 
+  # ---- AC1(261)：空 RECORD_LOCK_DIR 取锁即拒 exit 1，且当前目录零残留（不得落 .steal.PID）----
+  # 子 shell 在独立空目录内显式 RECORD_LOCK_DIR='' 调 acquire：守卫须在任何 mkdir/mv/rm 前
+  # exit 1；ls -a 除 . 与 .. 外零条目（无锁目录、无 .steal.* 旁路）。
+  F261L=$D/fix261-lockguard
+  rm -rf "$F261L"
+  mkdir -p "$F261L"
+  ( cd "$F261L" && RECORD_LOCK_DIR='' sh -c '. "$1"; record_lock_acquire' sh "$SCRIPT_DIR/common-helpers.sh" ) >"$D/ac1-261-lockguard.log" 2>&1
+  tix261_lg_rc=$?
+  tix261_lg_entries=0
+  tix261_lg_steal=0
+  for tix261_lg_e in "$F261L"/* "$F261L"/.*; do
+    [ -e "$tix261_lg_e" ] || [ -L "$tix261_lg_e" ] || continue
+    tix261_lg_base=${tix261_lg_e##*/}
+    case $tix261_lg_base in
+      .|..) continue ;;
+      .steal.*) tix261_lg_steal=$((tix261_lg_steal + 1)) ;;
+    esac
+    tix261_lg_entries=$((tix261_lg_entries + 1))
+  done
+  if [ "$tix261_lg_rc" -eq 1 ] && [ "$tix261_lg_entries" = '0' ] && [ "$tix261_lg_steal" = '0' ] && \
+     grep -q '写锁目录未初始化' "$D/ac1-261-lockguard.log"; then
+    ok 'AC1 空 RECORD_LOCK_DIR 取锁即拒 exit 1 且 CWD 零残留（无 .steal.*、无锁目录）'
+  else
+    bad 'AC1 空 RECORD_LOCK_DIR 取锁即拒 exit 1 且 CWD 零残留（无 .steal.*、无锁目录）' "exit=$tix261_lg_rc 条目=$tix261_lg_entries steal=$tix261_lg_steal $(tix243_reason "$D/ac1-261-lockguard.log" | cut -c 1-160)"
+  fi
+  rm -rf "$F261L"
+
   # ---- AC8：锁原语单点实现（两脚本无锁实现字样）＋三镜像件逐字节一致 ----
   tix246_impl=''
   # shellcheck disable=SC2016  # case/for 分支里的注入桩原文含 ${...} 字样（单引号防展开），非缺陷

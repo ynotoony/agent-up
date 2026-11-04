@@ -161,7 +161,9 @@ USAGE
 # 副作用: 仅违规时向 stderr 打印一行 FAIL 报因；不写任何文件、不改全局状态（局部变量
 #         以 _lir_ 前缀隔离）。
 # 返回码: 0 校验通过（静默）；1 任一道检查违规（已向 stderr 报因）。
-# POSIX 依赖仅 realpath（POSIX 2018 标准外部命令）与 test 探针；macOS/BSD/GNU 通用。
+# POSIX 依赖仅 realpath 与 test 探针：realpath 由 POSIX Issue 8（2024）标准化——
+# GNU coreutils 与 macOS 均提供；macOS 版只有基础形态、无 GNU 的 -m/-e/--relative-to
+# 等扩展选项，本脚本只依赖单参数规范化解链这一共同形态。
 lc_in_repo() {
   _lir_root=$1
   _lir_path=$2

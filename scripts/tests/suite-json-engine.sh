@@ -10,7 +10,8 @@ fi
 # ============================================================
 # suite: json-engine（票 227 F3：唯一 JSON 引擎 json-validator.py 通用操作面——
 # json get/fields/len/pick/count-key 与 ticket-check close/deps/open-body、
-# contract ticket-id 正负例覆盖；json-helpers.sh awk 行解析退役后由本套件承接
+# contract ticket-id 正负例覆盖；票 261 严格化——NaN 与重复键 exit 2、合法输入对照；
+# json-helpers.sh awk 行解析退役后由本套件承接
 # 解析层行为回归，至少 12 断言）
 # ============================================================
 
@@ -206,6 +207,33 @@ suite_json_engine() {
     ok 'contract ticket-id 模板节次行提取'
   else
     bad 'contract ticket-id 模板节次行提取' "expected=77-template-slug actual=$result"
+  fi
+
+  # ---- 票 261 AC2：非标准 JSON fail-closed（NaN／重复键 exit 2，合法输入仍放行）----
+  printf '%s\n' '{"value": NaN}' > "$D/nan.json"
+  python3 "$ENGINE" json get "$D/nan.json" value >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ]; then
+    ok 'json 拒绝 NaN 字面量（exit 2，fail-closed）'
+  else
+    bad 'json 拒绝 NaN 字面量（exit 2，fail-closed）' "expected=2 actual=$rc"
+  fi
+
+  printf '%s\n' '{"key": 1, "key": 2}' > "$D/dup-key.json"
+  python3 "$ENGINE" json get "$D/dup-key.json" key >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ]; then
+    ok 'json 拒绝同一对象重复键（exit 2，fail-closed）'
+  else
+    bad 'json 拒绝同一对象重复键（exit 2，fail-closed）' "expected=2 actual=$rc"
+  fi
+
+  result=$(python3 "$ENGINE" json get "$D/entry.json" status)
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$result" = "ready" ]; then
+    ok '严格化后合法 JSON 仍 exit 0 且取值不变（负例对照）'
+  else
+    bad '严格化后合法 JSON 仍 exit 0 且取值不变（负例对照）' "exit=$rc actual=$result"
   fi
 
   suite_summary 'json-engine'
