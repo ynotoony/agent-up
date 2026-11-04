@@ -113,6 +113,13 @@ model: inherit
 | standard | subagent frontmatter `model: <部署选定的中间模型标识>`（本文件不写模型名） |
 | strong | subagent frontmatter `model: <部署选定的高能力模型标识>`（本文件不写模型名） |
 
+### 2.7 短上下文别名与到线策略
+
+- 短上下文别名取值：待实测（本机无 claude-code 运行环境，未实测别名的上下文窗口上限取值；官方 sub-agents／settings 文档未登记短上下文别名口径，取阅 2026-09-06；核验前不写取值）。
+- 到线行为：待实测（`max_input_size` 到线是压缩上下文还是硬拒绝未实测；核验前不据此判定档位为硬封顶或软封顶）。
+- Agent 工具显式覆盖：待实测（§2.6 的 `model` 为 subagent frontmatter 声明面；运行期逐次派发显式传模型能否覆盖该声明未核验）。
+- 降级记录格式：`short_context: <取值|none> boundary: <压缩|硬拒绝|待实测> evidence: <实测命令、环境与日期>`（未取短上下文别名时记 `none`；`boundary` 与 `evidence` 按实测填写，未实测保持待实测；本文件不写模型标识）。
+
 ## 3. 解释与例外
 
 - inspect 映射为 Glob + Read 的组合：目录结构盘点用 Glob，现状内容核对用 Read；单能力对应多工具时按任务需要选用。

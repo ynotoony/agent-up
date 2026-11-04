@@ -112,6 +112,13 @@ tools: [Read, Grep, Glob, Bash]
 | standard | frontmatter `model:` 填部署侧选定的中间成本 provider/model，思考档位同声明（本文件不写模型名） |
 | strong | frontmatter `model:` 填部署侧选定的高能力 provider/model，思考档位同声明（本文件不写模型名） |
 
+### 2.7 短上下文别名与到线策略
+
+- 短上下文别名取值：262144 token（短上下文别名的上下文窗口上限口径＝`max_context_size` 262144 token，约 256Ki token；本机 Kimi Code CLI 只读实测 2026-11-04：19 个已登记别名中 4 个取 262144、15 个取 1048576；四个 262144 短上下文别名均未设 `max_input_size`，全文件仅 1 处该键为 `DeepSeek/deepseek-flash` 的 `200000`，不属短上下文别名；命令与结果见该票 Implementation Checkpoint）。
+- 到线行为：待实测（未发起到线请求：`max_input_size` 到线是压缩上下文还是硬拒绝未实测；核验前不据此判定档位为硬封顶或软封顶）。
+- Agent 工具显式覆盖：否（本机运行面 Agent 工具形参仅 prompt/description/subagent_type/resume/run_in_background 且 `additionalProperties` 为 false，无 `model` 形参，逐次派发不能覆盖 §2.6 的入口级 `model` 声明；2026-11-04 只读核对）。
+- 降级记录格式：`short_context: <262144 token|none> boundary: <压缩|硬拒绝|待实测> evidence: <实测命令与环境>`（未取短上下文别名时记 `none`；`boundary` 与 `evidence` 按实测填写，未实测保持待实测；本文件不写模型标识）。
+
 ## 3. 解释与例外
 
 - inspect 映射为 Glob + Read 的组合：目录结构盘点用 Glob，现状内容核对用 Read；单能力对应多工具时按任务需要选用。

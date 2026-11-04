@@ -102,6 +102,13 @@ description = "Commit 阶段执行体运行时入口；白名单提交，规则�
 | standard | `[agents] default_subagent_model`（同上，三档共用同一取值） |
 | strong | `[agents] default_subagent_model`（同上；本宿主不能按档位区分模型能力） |
 
+### 2.7 短上下文别名与到线策略
+
+- 短上下文别名取值：待实测（本机无 codex 运行环境，未实测别名的上下文窗口上限取值；官方 config-reference 未登记上下文窗口或输入上限键，取阅 2026-09-06；核验前不写键名与取值）。
+- 到线行为：待实测（`max_input_size` 到线是压缩上下文还是硬拒绝未实测；sandbox 档位不改变到线语义，核验前不据此判定档位为硬封顶或软封顶）。
+- Agent 工具显式覆盖：待实测（§2.6 登记的 `[agents] default_subagent_model` 为单一子代理模型键；逐次派发显式指定模型能否覆盖该键未核验）。
+- 降级记录格式：`short_context: <取值|none> boundary: <压缩|硬拒绝|待实测> evidence: <实测命令、环境与日期>`（未取短上下文别名时记 `none`；`boundary` 与 `evidence` 按实测填写，未实测保持待实测；本文件不写模型标识）。
+
 ## 3. 解释与例外
 
 - Codex 工具面以 `shell` 命令执行为主：inspect/search/read/vcs 均经 shell 命令承载，单能力无专用工具时按任务需要选用命令；只读性由调用方约束与 sandbox_mode 共同收敛。

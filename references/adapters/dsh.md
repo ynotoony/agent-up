@@ -96,6 +96,13 @@ plugins:
 | standard | `inherit`（继承运行 profile 的 provider 选定模型） |
 | strong | `inherit`（继承运行 profile 的 provider 选定模型） |
 
+### 2.7 短上下文别名与到线策略
+
+- 短上下文别名取值：待实测（本机无 dsh 运行环境，未实测别名的上下文窗口上限取值；provider seam 与全量 roster 未核验（状态 pending），核验前不写键名与取值）。
+- 到线行为：待实测（`max_input_size` 到线是压缩上下文还是硬拒绝未实测；approval/sandbox seam 不改变到线语义，核验前不据此判定档位为硬封顶或软封顶）。
+- Agent 工具显式覆盖：待实测（provider 选择按运行 profile 决定；逐次派发显式指定模型能否覆盖 profile 选择未核验）。
+- 降级记录格式：`short_context: none boundary: <压缩|硬拒绝|待实测> evidence: <实测命令、运行 profile 与日期>`（宿主未提供短上下文别名键时固定记 `none`；`evidence` 须写全量 profile 或 `sdk-minimal`；`boundary` 未实测保持待实测；本文件不写模型标识）。
+
 ## 3. 解释与例外
 
 - 本文件工具对照以 sdk-minimal 双工具口径为已核验底线：inspect/search/read/vcs 均经 bash 命令承载；全量 profile 工具 roster 未核验（状态 pending），宿主部署可按官方文档补核验后扩表，不虚构工具名。

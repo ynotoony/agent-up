@@ -12,15 +12,15 @@
 
 | 名字 | 地位 | 规则块短码 | 功能 |
 | --- | --- | --- | --- |
-| `README.md` | 目录索引 | 无 | 说明本目录用途、C0–C3 到模型档位的派生表并登记直接成员。 |
-| `adapter-template.md` | 平台适配文件结构模板（单文件 per 平台基线） | `AT` | 新建 `<host>.md` 的结构基线：必填段落与骨架（三要素＝能力基元映射、方言承载形态、独立执行体声明）；公共规则只留唯一权威指针，不复制规范正文；骨架含 §2.6 模型档位可用性段。 |
+| `README.md` | 目录索引 | 无 | 说明本目录用途、C0–C3 到模型档位的派生表、短上下文别名取值与到线行为两张受控词表，并登记直接成员。 |
+| `adapter-template.md` | 平台适配文件结构模板（单文件 per 平台基线） | `AT` | 新建 `<host>.md` 的结构基线：必填段落与骨架（三要素＝能力基元映射、方言承载形态、独立执行体声明）；公共规则只留唯一权威指针，不复制规范正文；骨架含 §2.6 模型档位可用性段与 §2.7 短上下文别名与到线策略段。 |
 | `capability-contract.md` | 宿主能力契约手册（adapters/ 内宿主映射文件的共同上游） | `CC` | 九能力基元、两层协作→能力表（路由层 Triage＋编码层三阶段；历史 Intake 行已于 2026-10-23 退役，现行口径不含该行）、required_capabilities 声明规则、无 subagent 降级路径（含分级交付道车道衔接注记）、微任务道能力束、readonly_enforcement 只读约束等级模型（四级＋pending）与 git_write_enforcement execute 行 git 写强制等级、capability profile 档位定稿、platform 枚举扩展登记。适配器公共规则的唯一权威。 |
 | `adapter-diffs.rules` | 适配差异数据表（五宿主差异面机器数据行；数据＝机器真相，宿主 Markdown＝现行文档基线） | 无 | 四节机器数据行：capability-map（九基元↔宿主工具逐宿主映射，含 readonly-execute 行内嵌 readonly_enforcement 等级声明、execute 行内嵌 git_write_enforcement 等级声明）、role-map（三阶段角色映射）、executor-status（独立执行体状态）、dialect-signature（宿主特有方言签名）；与五份宿主映射文件对应段的一致性由 `check-package.sh` 检查 27 机械核对，两向漂移即 FAIL 指名宿主与段（表文修正归人工裁决，不静默互改）。 |
-| `zcode.md` | zcode 宿主映射手册（运行时映射，不是事实源） | `ZC` | 能力→宿主工具对照、三角色 frontmatter 方言模板、独立执行体状态声明（readonly_enforcement: policy-only；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源。 |
-| `claude-code.md` | claude-code 宿主映射手册（运行时映射，不是事实源；shell hooks 代表） | `CL` | 能力→宿主工具对照、三角色 subagent frontmatter 方言模板、独立执行体声明（readonly_enforcement: policy-only；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源。 |
-| `codex.md` | codex 宿主映射手册（运行时映射，不是事实源；规则文件代表） | `CX` | 能力→宿主工具对照、三角色 config.toml agents 表方言、独立执行体声明（readonly_enforcement: runner-enforced；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源。 |
-| `pi.md` | pi 宿主映射手册（运行时映射，不是事实源；插件扩展代表） | `PI` | 能力→宿主工具对照、三角色 skills/上下文承载形态、独立执行体声明（默认无内置；readonly_enforcement: policy-only；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源。 |
-| `dsh.md` | dsh 宿主映射手册（运行时映射，不是事实源；插件扩展第二代表） | `DS` | 能力→宿主工具对照、三角色 cordis.yml 承载形态、独立执行体声明（按 profile 区分；readonly_enforcement: pending，落定前按 policy-only 从紧；git_write_enforcement: pending，落定前按 policy-only 从紧）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源。 |
+| `zcode.md` | zcode 宿主映射手册（运行时映射，不是事实源） | `ZC` | 能力→宿主工具对照、三角色 frontmatter 方言模板、独立执行体状态声明（readonly_enforcement: policy-only；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源；§2.7 短上下文别名与到线策略登记别名取值、到线行为、显式覆盖与降级记录格式。 |
+| `claude-code.md` | claude-code 宿主映射手册（运行时映射，不是事实源；shell hooks 代表） | `CL` | 能力→宿主工具对照、三角色 subagent frontmatter 方言模板、独立执行体声明（readonly_enforcement: policy-only；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源；§2.7 短上下文别名与到线策略登记别名取值、到线行为、显式覆盖与降级记录格式。 |
+| `codex.md` | codex 宿主映射手册（运行时映射，不是事实源；规则文件代表） | `CX` | 能力→宿主工具对照、三角色 config.toml agents 表方言、独立执行体声明（readonly_enforcement: runner-enforced；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源；§2.7 短上下文别名与到线策略登记别名取值、到线行为、显式覆盖与降级记录格式。 |
+| `pi.md` | pi 宿主映射手册（运行时映射，不是事实源；插件扩展代表） | `PI` | 能力→宿主工具对照、三角色 skills/上下文承载形态、独立执行体声明（默认无内置；readonly_enforcement: policy-only；git_write_enforcement: policy-only）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源；§2.7 短上下文别名与到线策略登记别名取值、到线行为、显式覆盖与降级记录格式。 |
+| `dsh.md` | dsh 宿主映射手册（运行时映射，不是事实源；插件扩展第二代表） | `DS` | 能力→宿主工具对照、三角色 cordis.yml 承载形态、独立执行体声明（按 profile 区分；readonly_enforcement: pending，落定前按 policy-only 从紧；git_write_enforcement: pending，落定前按 policy-only 从紧）；公共规则只留 capability-contract 指针；§2.6 模型档位可用性登记分档能力、角色级模型键与三档取值来源；§2.7 短上下文别名与到线策略登记别名取值、到线行为、显式覆盖与降级记录格式。 |
 
 ## 短码投影（导航，非登记事实）
 
@@ -41,6 +41,29 @@
 - 本表恰四行、无第五档；C0–C2 行的第二列是模型档位，C3 行的第二列是拆票动作而非档位。
 - 档位落到宿主的方式由各宿主文件 §2.6 决定：可逐档宿主按档位选择模型；仅单档或不可分档宿主按该节登记的取值与降级记录格式执行，不虚构键名、不把未核实键写成已支持。
 - 「模型档位」与 `capability-contract.md` R-CC-003 的 capability profile 档位（minimum／full）是两套维度：前者选推理成本，后者定能力覆盖，互不替代。
+
+## 短上下文别名与到线词表
+
+五份宿主映射文件的 §2.7 登记短上下文别名取值、到线行为、能否被 Agent 工具显式 `model` 覆盖与降级记录格式；两张受控词表是本节的唯一取值来源，宿主文件的对应 bullet 不得越表取值。别名取值与到线行为都以实测为准：未实测一律记 `待实测`，不以推测或代码阅读替代运行实测。
+
+### 别名取值词表
+
+| 取值 | 单位与含义 | 登记准入 |
+| --- | --- | --- |
+| `262144 token` | 262144 个 token（约 256Ki）：短上下文别名声明的上下文窗口上限 | 须有本机实测（命令、环境、日期、结果落 Implementation Checkpoint）方可登记 |
+| `1048576 token` | 1048576 个 token（约 1Mi）：满上下文别名口径，作短上下文对照登记 | 同上 |
+| `待实测` | 取值未实测（本机无该宿主环境，或未核对该别名） | 登记时须在降级记录格式写明待补的实测项 |
+
+### 到线行为词表
+
+| 取值 | 含义 | 登记准入 |
+| --- | --- | --- |
+| `压缩` | 到线前或到线时压缩上下文后继续，请求不被直接拒绝 | 须有实测证据（命令、环境、日期与结果）方可登记 |
+| `硬拒绝` | 到线即拒绝该请求，不做压缩 | 同上 |
+| `待实测` | 到线行为未实测，不得以推测或代码阅读替代 | 登记时须在降级记录格式写明待补的实测项 |
+
+- 口径说明：`max_context_size` 是别名声明的上下文窗口上限，`max_input_size` 是输入上限；两者都可能构成到线条件，任一未实测即记 `待实测`，不把窗口上限直接写成到线行为。
+- 显式覆盖列的取值集为 `可`／`否`／`待实测`，由 `check-package.sh` 检查 37 断言（与 §2.6 分档能力三值同款引擎内闭集，不另设词表）。
 
 ## 公共规则去重
 
