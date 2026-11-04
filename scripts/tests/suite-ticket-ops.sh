@@ -23,7 +23,9 @@ fi
 # 票 230 dispatch 节开票门——新 task 必备三阶段派发合同数据节（缺节/缺阶段对象/缺键/越键/
 # 空白值五形态拒开零写入且报文指名 dispatch 路径）＋存量无节票 flip 读取面兼容正例
 # （开票校验与读取校验分层，存量零回扫；tix_body 正例形态带全节、tix_body_at 保留无节
-# 存量形态供 flip 兼容面）
+# 存量形态供 flip 兼容面）；票 268 新 task 开票门必备 user_stories（用户故事：数组至少
+# 一条，条目格式 US<n>: 作为<角色>，我要<功能>，以便<收益>；缺项/空数组/不合格式拒开零
+# 写入，合规条目放行；读取面不要求该字段，存量票零回扫）
 # ============================================================
 
 tix_body() {
@@ -31,6 +33,7 @@ tix_body() {
   # 含七维 profile_reason 正例形态——新 task 开票门必备，恰七键逐键非空；
   # 含 dispatch 三阶段正例形态——票 230 开票门必备，键集与 contract_fields 恰等逐键非空，
   # TICKET_ID 随 $2 同步供 sed 派生夹具一致改写；
+  # 含 user_stories 正例形态——票 268 开票门必备，至少一条合规用户故事；
   # 字段各占一行便于负例 sed 逐字段破坏；无 actual_time——供 flip 硬拦负例使用）
   cat > "$1" <<EOF
 {
@@ -46,6 +49,7 @@ tix_body() {
   "verification": [{"name": "fixture", "check": "true", "expect_exit": 0}],
   "complexity_reason": "fixture 定级理由（正例，非空）",
   "priority_reason": "fixture 优先级理由（正例，非空）",
+  "user_stories": ["US1: 作为夹具维护者，我要开票正例携带合规用户故事，以便开票门正例有载体"],
   "dispatch": {
     "implementation": {"REPOSITORY_PATH": "fixture repo root", "TASK_DESCRIPTION": "fixture task", "GOAL": "fixture goal", "SCOPE_TREE": "fixture scope tree", "OUT_OF_SCOPE": "fixture out of scope", "CONTEXT_EVIDENCE": "fixture context", "CONSTRAINTS": "fixture constraints", "FORBIDDEN_CHANGES": "fixture forbidden", "ACCEPTANCE_CRITERIA": "fixture acceptance", "VERIFICATION_COMMANDS": "fixture verification", "DEPENDENCIES_BLOCKERS": "fixture deps", "RISKS": "fixture risks", "BUDGET_CHECKPOINTS": "80 calls", "ESTIMATED_TIME": "0.5d", "ACTUAL_TIME": "", "TICKET_ID": "$2"},
     "review": {"REVIEW_SCOPE": "fixture review scope", "IMPLEMENTATION_SUMMARY": "", "ACCEPTANCE_CRITERIA": "fixture acceptance", "DIFF_LOCATION": "fixture worktree", "REVIEW_DIMENSIONS": "fixture dimensions", "TICKET_ID": "$2"},
@@ -2507,6 +2511,97 @@ EOF
     ok 'AC1 目录 README 生成器缺失 → close 预检 fail-closed exit 1 且四载体零写入'
   else
     bad 'AC1 目录 README 生成器缺失 → close 预检 fail-closed exit 1 且四载体零写入' "exit=$rc $(head -n 2 "$D/dr-nogen.log" | tr '\n' '|')"
+  fi
+
+  # ---- 票 268：新 task 票必备 user_stories（用户故事）开票门＋示例/模板同口径 ----
+  # AC1/AC2：ticket-ops open（validator --new-ticket 链路）缺项／空数组／条目格式不符，
+  # 一律 exit 1、四载体指纹零写入且报文指名 user_stories；合规条目放行落索引。
+  # AC3：schema 属性、示例、issues-README 票模板与 assessment/AGENTS 路由句同口径
+  # （套件机械核对单源；条目 pattern 与校验器现场执行同源）。
+  F268="$D/fix268"
+  tix_build_fixture "$F268"
+  TIX268="$F268/rules/implementation/scripts/ticket-ops.sh"
+  BODY268="$F268/facts/requirements/tickets/60-us-fixture.json"
+  LED268='{"date": "2026-11-04", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture 268 user_stories", "evidence_ref": "facts/requirements/tickets/60-us-fixture.json"}'
+  tix_body "$BODY268" 60-us-fixture
+  sh "$TIX268" "$F268" open --id 60-us-fixture --complexity C1 --title 'US fixture ticket' --ledger-line "$LED268" >"$D/us268-pos.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '"id": "60-us-fixture"' "$F268/facts/requirements/tickets/index.json"; then
+    ok '正例 268 user_stories 合规条目 open → exit 0 且索引落条目（AC2 合规放行）'
+  else
+    bad '正例 268 user_stories 合规条目 open → exit 0 且索引落条目（AC2 合规放行）' "exit=$rc $(head -n 2 "$D/us268-pos.log" | tr '\n' '|')"
+  fi
+
+  us268_case() {
+    # $1=用例名 $2=派生模式 $3=报文必含片段：自 tix_body 正例基体派生负例本体
+    USID="61-us-$2"
+    python3 - "$BODY268" "$F268/facts/requirements/tickets/$USID.json" "$2" "$USID" <<'PYTHON'
+import json, sys
+base, out, mode, tid = sys.argv[1:5]
+body = json.load(open(base, encoding='utf-8'))
+body['id'] = tid
+if mode == 'missing':
+    body.pop('user_stories', None)
+elif mode == 'empty':
+    body['user_stories'] = []
+elif mode == 'format':
+    body['user_stories'] = ['作为需求提出者，我要没有 US 序号的用户故事，以便被拒收']
+elif mode == 'not-array':
+    body['user_stories'] = 'US1: 作为需求提出者，我要字符串形态，以便被拒收'
+with open(out, 'w', encoding='utf-8') as f:
+    json.dump(body, f, ensure_ascii=False)
+PYTHON
+    S0=$(tix_state "$F268")
+    LEDCASE="{\"date\": \"2026-11-04\", \"kind\": \"scope\", \"scope\": \"facts/requirements/tickets\", \"decision\": \"fixture 268 $2\", \"evidence_ref\": \"facts/requirements/tickets/$USID.json\"}"
+    sh "$TIX268" "$F268" open --id "$USID" --complexity C1 --title 'US fixture ticket' --ledger-line "$LEDCASE" >"$D/us268-$2.log" 2>&1
+    rc=$?
+    if [ "$rc" -eq 1 ] && [ "$S0" = "$(tix_state "$F268")" ] && grep -qF -- 'user_stories' "$D/us268-$2.log" && grep -qF -- "$3" "$D/us268-$2.log"; then
+      ok "负例 268 $1 open → exit 1 零写入且报文指名 user_stories（AC1/AC2）"
+    else
+      bad "负例 268 $1 open → exit 1 零写入且报文指名 user_stories（AC1/AC2）" "exit=$rc $(head -n 2 "$D/us268-$2.log" | tr '\n' '|')"
+    fi
+  }
+  us268_case 缺项 missing '新 task 票必须提供 user_stories'
+  us268_case 空数组 empty 'user_stories 不能为空数组'
+  us268_case 条目格式不符 format 'user_stories[0] 不合格式'
+  us268_case 非数组形态 not-array 'user_stories 必须是数组'
+
+  # 正例：存量票无 user_stories 读取面不要求（tix_body_at 保留无该字段的存量形态）
+  tix_body_at "$D/us268-legacy.json" 62-us-legacy
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$D/us268-legacy.json" >/dev/null 2>&1; then
+    ok '正例 存量票无 user_stories 读取面不要求（开票校验与读取校验分层，AC1 向前生效）'
+  else
+    bad '正例 存量票无 user_stories 读取面不要求（开票校验与读取校验分层，AC1 向前生效）' 'exit 非 0'
+  fi
+
+  # AC3：schema 属性／示例／票模板／assessment、AGENTS 路由句同口径（单源机械核对）
+  SCHEMA268="$SCRIPT_DIR/../references/schemas/ticket-record.schema.json"
+  EXAMPLE268="$SCRIPT_DIR/../references/schemas/ticket-record.example.json"
+  TMPL268="$SCRIPT_DIR/../references/templates"
+  if python3 - "$SCHEMA268" "$EXAMPLE268" "$TMPL268" <<'PYTHON'
+import json, re, sys
+schema_path, example_path, tmpl_dir = sys.argv[1:4]
+us = json.load(open(schema_path, encoding='utf-8'))['properties']['user_stories']
+assert us['type'] == 'array' and us['minItems'] == 1
+assert us['items']['type'] == 'string'
+assert us['items']['pattern'] == r'^US[0-9]+: 作为.+，我要.+，以便.+$'
+assert '至少一条' in us['description'] and 'US<n>' in us['description'] and '开票' in us['description']
+stories = json.load(open(example_path, encoding='utf-8'))['user_stories']
+rx = re.compile(us['items']['pattern'])
+assert isinstance(stories, list) and stories
+assert all(isinstance(s, str) and rx.search(s) for s in stories)
+readme = open(tmpl_dir + '/issues-README.md.tmpl', encoding='utf-8').read()
+assert 'user_stories' in readme and 'US<n>: 作为<角色>，我要<功能>，以便<收益>' in readme
+assessment = open(tmpl_dir + '/assessment.md.tmpl', encoding='utf-8').read()
+agents = open(tmpl_dir + '/AGENTS.md.tmpl', encoding='utf-8').read()
+assert 'user_stories' in assessment and 'user_stories' in agents
+assert 'US<n>: 作为<角色>，我要<功能>，以便<收益>' in assessment
+assert 'US<n>: 作为<角色>，我要<功能>，以便<收益>' in agents
+PYTHON
+  then
+    ok '正例 AC3 user_stories 口径单源：schema 属性/示例/票模板/assessment/AGENTS 同口径（套件可核）'
+  else
+    bad '正例 AC3 user_stories 口径单源：schema 属性/示例/票模板/assessment/AGENTS 同口径（套件可核）' '口径漂移或单源缺失'
   fi
 
   suite_summary 'ticket-ops'

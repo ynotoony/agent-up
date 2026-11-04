@@ -186,6 +186,34 @@ def validate_ticket(schema_path, ticket_path, new_ticket=False):
                 elif not schema_string_valid(pr[key], pr_props.get(key, {})):
                     errs.append(f'profile_reason.{key} 必须是非空字符串')
 
+    # user_stories gate (2026-11-04): 新 task 票开票时点必须带至少一条格式合规
+    # 的用户故事。presence 只在开票路径（--new-ticket）要求；读取面不要求本字段——
+    # 存量票（从未携带）零回扫照常可读（开票校验与读取校验分层，同 profile_reason）。
+    # 注意：本字段刻意不进 schema 的 allOf then.required（该清单由本校验器读取面
+    # 一并执行，加入会使存量 task 票读取即拒）；开票必备语义由本 new_ticket 门承载。
+    if new_ticket and body.get('kind') == 'task' and 'user_stories' not in body:
+        errs.append(
+            '新 task 票必须提供 user_stories（用户故事数组，至少一条，条目格式 '
+            'US<n>: 作为<角色>，我要<功能>，以便<收益>；schema 见 ticket-record.schema.json '
+            'user_stories 属性）；存量票读取面不要求本字段'
+        )
+
+    # 条目格式单源＝schema user_stories 属性（数组 minItems 1、items pattern
+    # ^US<n>: 作为…，我要…，以便…$），本门按 schema 现场执行其在用约束词子集。
+    if new_ticket and body.get('kind') == 'task' and 'user_stories' in body:
+        us = body['user_stories']
+        us_item_rules = props.get('user_stories', {}).get('items', {})
+        if not isinstance(us, list):
+            errs.append('user_stories 必须是数组（每条＝一个用户故事字符串）')
+        elif not us:
+            errs.append('user_stories 不能为空数组（kind=task 至少一条用户故事）')
+        else:
+            for i, item in enumerate(us):
+                if not schema_string_valid(item, us_item_rules):
+                    errs.append(
+                        f'user_stories[{i}] 不合格式（须为 US<n>: 作为<角色>，我要<功能>，以便<收益>）: {item!r}'
+                    )
+
     # blocked_by array items pattern
     if 'blocked_by' in body and 'blocked_by' in props:
         if not isinstance(body['blocked_by'], list):

@@ -7,14 +7,14 @@
 
 ## 架构
 
-- 一张票一个文件：新开任务票为 `<NN>-<slug>.json`，按依赖顺序编号（blocker 在前），过 `references/schemas/ticket-record.schema.json` 结构化校验（required＝`id`/`kind`/`title`/`created_at`，task 另必备 `complexity`/`profile`/`blocked_by`），本体无 `status` 字段——票状态真相源＝本目录 `index.json`。
+- 一张票一个文件：新开任务票为 `<NN>-<slug>.json`，按依赖顺序编号（blocker 在前），过 `references/schemas/ticket-record.schema.json` 结构化校验（required＝`id`/`kind`/`title`/`created_at`，task 另必备 `complexity`/`profile`/`blocked_by`/`user_stories`），本体无 `status` 字段——票状态真相源＝本目录 `index.json`。
 - 票是 **agent 的任务**，只活在文件里；GitHub Issues 等人向追踪器若启用，只承接人向工作项（bug 报告、外部请求、协作讨论），两边不互为副本、不双写状态。
 - 卡片由需求接收落成（需求工作三道，见 `rules/assessment.md` §4）：新增需求道在对话出方案、用户拍板后经 `ticket-ops.sh open` 落卡；Triage/主 agent 负责定级拆分与本目录登记（需求登记册已退役，2026-10-14；存量项目旧 `../requests/` 登记冻结只读）。
 - 领取规则：**blocker 全部 `done` 的票才可领取**（frontier）；状态流转 `ready / in_progress / blocked / review_ready / review_pass / review_fail / done` 记录在票内与 `../index.json`（票内状态行与清单状态列为人工登记投影），阻塞带原因（如 `blocked: scope-change`）；`superseded` 标签仅用于状态索引登记历史票据（保留原文用于历史追溯、不再领取），不属于状态机流转取值。历史票（done/superseded）只能作历史证据引用，不得当现行指令执行（R-DP-039 读取面纪律）；被推翻的票经 `superseded_by` 回链跳转替代票。
 
 ## 卡片：一张存下来的方案
 
-本目录的票在需求语境下叫**卡片**：用户提需求、agent 出方案、用户拍板之后，方案落成一张卡片存进本目录（一卡一文件）。卡片从头用到尾——存方案时是方案卡，开工后是任务单，做完后是留底档案；不换纸、不搬家、不设第二本账。卡片正面六格（全部为既有字段）：`goal` 要解决什么 / `out_of_scope` 不做什么 / `scope` 怎么做（允许改动的路径）/ `acceptance` 怎么算完 / `risks` 会牵动哪里 / `decision` 用户拍板原话＋日期；背面（开工后追加）＝Checkpoint 区：干到哪了、验证结果、审查结论。开卡同时声明类别 `category`（问题性质轴，定义见票模板节）——类别驱动流程：bug 卡的 `verification` 必须至少含一条回归验证句（复现路径或回归断言），enhancement 卡带验收口径，debt 卡带复发风险说明，chore 卡即做即走。bug 回归验证句的承载＝开票时自查＋Review 按 R-RR-002 验收核对职责间接核对，非机械门禁。
+本目录的票在需求语境下叫**卡片**：用户提需求、agent 出方案、用户拍板之后，方案落成一张卡片存进本目录（一卡一文件）。卡片从头用到尾——存方案时是方案卡，开工后是任务单，做完后是留底档案；不换纸、不搬家、不设第二本账。卡片正面六格（全部为既有字段）：`goal` 要解决什么 / `out_of_scope` 不做什么 / `scope` 怎么做（允许改动的路径）/ `acceptance` 怎么算完 / `risks` 会牵动哪里 / `decision` 用户拍板原话＋日期；背面（开工后追加）＝Checkpoint 区：干到哪了、验证结果、审查结论。开卡同时声明类别 `category`（问题性质轴，定义见票模板节）——类别驱动流程：bug 卡的 `verification` 必须至少含一条回归验证句（复现路径或回归断言），enhancement 卡带验收口径，debt 卡带复发风险说明，chore 卡即做即走。bug 回归验证句的承载＝开票时自查＋Review 按 R-RR-002 验收核对职责间接核对，非机械门禁。kind=task 卡另必备 `user_stories`（用户故事）：至少一条，每条格式 `US<n>: 作为<角色>，我要<功能>，以便<收益>`，开票时点经 `ticket-ops.sh open` 机械拒收缺项／空数组／不合格式；完整口径见票模板节。
 
 卡片一生五态：**存好**（`ready`——用户拍板后落卡即停，等发令；停着的卡不算过期）/ **进行中**（`in_progress`——用户发令后按卡施工）/ **卡住**（`blocked`——报用户，不动手）/ **归档**（`done`——验收后留底，永不删）/ **弃案**（`superseded`——标注原因留底；重提开新卡不翻旧案）。需求变更＝卡面修订一版、用户重新拍板、重新等发令。
 
@@ -29,7 +29,7 @@
 
 ## 票模板
 
-新开票为过 schema 的 JSON 文件（结构示例，字段权威＝`../schemas/ticket-record.schema.json`；task 另必备 `complexity`/`profile`/`blocked_by`/`complexity_reason`/`priority_reason`，即下方必备清单 schema 侧的提取权威）：
+新开票为过 schema 的 JSON 文件（结构示例，字段权威＝`../schemas/ticket-record.schema.json`；task 另必备 `complexity`/`profile`/`blocked_by`/`user_stories`/`complexity_reason`/`priority_reason`，即下方必备清单 schema 侧的提取权威）：
 
 ```json
 {
@@ -41,6 +41,7 @@
   "complexity": "C0|C1|C2|C3",
   "profile": "D:...,B:...,I:...,U:...,S:...,M:...,O:...",
   "blocked_by": [],
+  "user_stories": ["US1: 作为<角色>，我要<功能>，以便<收益>"],
   "complexity_reason": "<为何判此档>",
   "priority_reason": "<为何此时开此票>",
   "goal": "<这张票让什么端到端行为生效，从用户视角写>",
@@ -53,6 +54,7 @@
 ```
 
 - `id`＝文件名去 `.json` 扩展名；`goal` 从用户视角写端到端行为，不是逐层实现清单。
+- `user_stories`（kind=task 必备，2026-11-04 起）：数组至少一条，每条固定格式 `US<n>: 作为<角色>，我要<功能>，以便<收益>`；`ticket-ops.sh open` 开票时点经 `json-validator --new-ticket` 机械拒收缺项／空数组／不合格式（不按 category 分档豁免）；向前生效，存量票读取面不要求该字段（开票校验与读取校验分层）。
 - `blocked_by` 只列真正门禁这张票的票 id，无依赖为空数组。
 - 本体无 `status` 字段——票状态真相源＝本目录 `index.json`（见上方架构节）。
 - `category` 可选（问题性质轴，驱动流程；权威条文＝R-DP-039 类别保留）：`bug` 坏了（行为不合预期，须修复）/ `enhancement` 更好（现有行为可用但不理想，须带验收口径）/ `debt` 欠账（已知技术债或权宜实现，须带复发风险说明）/ `chore` 保养（依赖升级、清理等例行维护，即做即走）；缺省视同 `chore`。bug 类票的 `verification` 必须至少含一条回归验证句（复现路径或回归断言）：开票时自查、Review 按验收逐项核对（流程职责，非机械门禁）。旧三值 `decision`/`procedural`/`temporal` 退役：存量票零回扫，旧值原样保留不校验、不补不改。原三值的保留政策语义（永久/冻结/时效）不承载于 category，并入 R-DP-039 读取面纪律：所有票默认永久保留，不作执行依据的判定靠状态投影与 `superseded_by`，不靠 category。票被推翻时其索引条目登记 `superseded_by: <替代票 id>`（替代标记，存在性经 check-stale-claims.sh S7 硬断言）。

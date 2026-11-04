@@ -389,6 +389,57 @@ PYTHON
       ok "负例 183-U-$case 拒绝纯空白验收字段"
     fi
   done
+  # 票 268：kind=task 新票必备 user_stories（用户故事）——validator --new-ticket
+  # 正负例；读取面（不传 --new-ticket）不要求该字段（存量兼容分层）；schema 单源
+  # 数组 minItems=1 且条目 pattern 锁定「US<n>: 作为…，我要…，以便…」。
+  US268="$VTEST/us268"
+  mkdir -p "$US268"
+  cat > "$US268/base.json" <<'EOF'
+{"id":"99-us","kind":"task","title":"us","created_at":"2026-11-04","complexity":"C1","profile":"D:Required,B:N/A,I:N/A,U:N/A,S:N/A,M:N/A,O:N/A","profile_reason":{"D":"d","B":"b","I":"i","U":"u","S":"s","M":"m","O":"o"},"blocked_by":[],"complexity_reason":"x","priority_reason":"x","scope":["a"],"verification":[{"name":"a","check":"true","expect_exit":0}],"user_stories":["US1: 作为需求提出者，我要新卡写清用户故事，以便实施围绕用户价值"]}
+EOF
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$US268/base.json" --new-ticket >/dev/null 2>&1; then
+    ok '正例 268 validator 新 task user_stories 合规条目 --new-ticket → PASS'
+  else
+    bad '正例 268 validator 新 task user_stories 合规条目 --new-ticket → PASS'
+  fi
+  python3 - "$US268" <<'PYTHON'
+import json, os, sys
+d = sys.argv[1]
+base = json.load(open(os.path.join(d, 'base.json'), encoding='utf-8'))
+cases = {}
+missing = dict(base); missing.pop('user_stories'); cases['missing'] = missing
+empty = dict(base); empty['user_stories'] = []; cases['empty'] = empty
+malformed = dict(base); malformed['user_stories'] = ['用户需要用户故事']; cases['malformed'] = malformed
+not_array = dict(base); not_array['user_stories'] = 'US1: 作为需求提出者，我要字符串，以便拒收'; cases['not-array'] = not_array
+for name, value in cases.items():
+    with open(os.path.join(d, name + '.json'), 'w', encoding='utf-8') as f:
+        json.dump(value, f, ensure_ascii=False)
+PYTHON
+  for case in missing empty malformed not-array; do
+    if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$US268/$case.json" --new-ticket >/dev/null 2>&1; then
+      bad "负例 268 validator 新 task user_stories $case → FAIL"
+    else
+      ok "负例 268 validator 新 task user_stories $case → FAIL"
+    fi
+  done
+  if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$US268/missing.json" >/dev/null 2>&1; then
+    ok '正例 268 存量票无 user_stories 读取面不要求（开票/读取校验分层）'
+  else
+    bad '正例 268 存量票无 user_stories 读取面不要求（开票/读取校验分层）'
+  fi
+  if python3 - "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" <<'PYTHON'
+import json, sys
+us = json.load(open(sys.argv[1], encoding='utf-8'))['properties']['user_stories']
+assert us['type'] == 'array' and us['minItems'] == 1
+assert us['items']['type'] == 'string'
+assert us['items']['pattern'] == r'^US[0-9]+: 作为.+，我要.+，以便.+$'
+PYTHON
+  then
+    ok '正例 268 schema user_stories 数组至少一条＋条目 pattern 单源锁定'
+  else
+    bad '正例 268 schema user_stories 数组至少一条＋条目 pattern 单源锁定'
+  fi
+
   sed 's/"verification":\[/"record_only":{"reason":"record","unexpected":true},"verification":\[/' "$VTEST/base.json" > "$VTEST/bad-record-only.json"
   if python3 "$SCRIPT_DIR/json-validator.py" ticket "$SCRIPT_DIR/../references/schemas/ticket-record.schema.json" "$VTEST/bad-record-only.json" >/dev/null 2>&1; then
     bad '负例 183-M record_only 含未知字段 → FAIL'
