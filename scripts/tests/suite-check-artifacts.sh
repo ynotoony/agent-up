@@ -71,6 +71,8 @@ suite_check_artifacts() {
   D=$T/rt
   mkdir -p "$D"
   CA="$SCRIPT_DIR/check-artifacts.sh"
+  HC="$SCRIPT_DIR/host-config.sh"
+  REF="$SCRIPT_DIR/../references"
 
   # 正例 P1：登记↔实物全对账 → exit 0；micro.jsonl 登记暂缺走懒创建 SKIP（不计缺口）
   rt_build_fixture "$D/p1"
@@ -228,6 +230,149 @@ suite_check_artifacts() {
     ok '负例 N6 repo-root 不存在 → exit 2'
   else
     bad '负例 N6 repo-root 不存在 → exit 2' "exit=$rc"
+  fi
+
+  # ============================================================
+  # host-config：宿主用户级配置对账（缺省 dry-run 零写入、写入备份与幂等、
+  # 人工改动冲突停手、四类用法负例、host-profile 文档面与 adapter kind 双向对账）
+  # ============================================================
+  mkdir -p "$D/hc2"
+  printf '[agents]\nfoo = 1\n' > "$D/hc2/config.toml"
+  cp "$D/hc2/config.toml" "$D/hc2/before.copy"
+  sh "$HC" --config "$D/hc2/config.toml" \
+    --set 'agents.default_subagent_model=model-a' \
+    --set 'model.short_context=262144' \
+    --profile facts/project/host-profile.md > "$D/hc2/dry.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '将修改（项目外）' "$D/hc2/dry.out" \
+    && grep -F -q "目标: $D/hc2/config.toml" "$D/hc2/dry.out" \
+    && grep -F -q 'agents.default_subagent_model = model-a' "$D/hc2/dry.out" \
+    && grep -F -q 'model.short_context = 262144' "$D/hc2/dry.out" \
+    && grep -F -q "备份: $D/hc2/config.toml.bak." "$D/hc2/dry.out" \
+    && grep -F -q 'host-profile 建议行:' "$D/hc2/dry.out"; then
+    ok 'host-config AC1 dry-run → 「将修改（项目外）」含目标绝对路径、逐行片段、.bak 备份路径与 host-profile 建议行'
+  else
+    bad 'host-config AC1 dry-run → 「将修改（项目外）」含目标绝对路径、逐行片段、.bak 备份路径与 host-profile 建议行' "exit=$rc"
+  fi
+  if cmp -s "$D/hc2/before.copy" "$D/hc2/config.toml" \
+    && [ -z "$(find "$D/hc2" -maxdepth 1 -name 'config.toml.bak.*' -print)" ]; then
+    ok 'host-config AC2 dry-run 零写入 → 目标逐字节不变且无备份件'
+  else
+    bad 'host-config AC2 dry-run 零写入 → 目标逐字节不变且无备份件'
+  fi
+
+  mkdir -p "$D/hc3"
+  printf '[agents]\nfoo = 1\n' > "$D/hc3/config.toml"
+  sh "$HC" --config "$D/hc3/config.toml" \
+    --set 'agents.default_subagent_model=model-a' --write --confirm > "$D/hc3/w1.out" 2>&1
+  rc=$?
+  n_bak=$(find "$D/hc3" -maxdepth 1 -name 'config.toml.bak.*' -print | wc -l | tr -d ' ')
+  if [ "$rc" -eq 0 ] && [ "$n_bak" -eq 1 ] && grep -F -q "备份: $D/hc3/config.toml.bak." "$D/hc3/w1.out" \
+    && grep -F -q '# >>> agent-up host-config >>>' "$D/hc3/config.toml"; then
+    ok 'host-config AC3 写入 → exit 0、先备份再追加标记块'
+  else
+    bad 'host-config AC3 写入 → exit 0、先备份再追加标记块' "exit=$rc bak=$n_bak"
+  fi
+  cp "$D/hc3/config.toml" "$D/hc3/written.copy"
+  sh "$HC" --config "$D/hc3/config.toml" \
+    --set 'agents.default_subagent_model=model-a' --write --confirm > "$D/hc3/w2.out" 2>&1
+  rc=$?
+  n_bak2=$(find "$D/hc3" -maxdepth 1 -name 'config.toml.bak.*' -print | wc -l | tr -d ' ')
+  if [ "$rc" -eq 0 ] && [ "$n_bak2" -eq 1 ] && grep -q '幂等跳过' "$D/hc3/w2.out" \
+    && cmp -s "$D/hc3/written.copy" "$D/hc3/config.toml"; then
+    ok 'host-config AC3 复跑 → 块逐字一致幂等跳过 exit 0、不重复备份、文件不变'
+  else
+    bad 'host-config AC3 复跑 → 块逐字一致幂等跳过 exit 0、不重复备份、文件不变' "exit=$rc bak=$n_bak2"
+  fi
+  sed 's/^agents\.default_subagent_model = model-a$/agents.default_subagent_model = model-x/' \
+    "$D/hc3/config.toml" > "$D/hc3/tamper.tmp" && mv "$D/hc3/tamper.tmp" "$D/hc3/config.toml"
+  cp "$D/hc3/config.toml" "$D/hc3/tampered.copy"
+  sh "$HC" --config "$D/hc3/config.toml" \
+    --set 'agents.default_subagent_model=model-a' --write --confirm > "$D/hc3/w3.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '不一致' "$D/hc3/w3.out" \
+    && grep -F -q "$D/hc3/config.toml" "$D/hc3/w3.out" \
+    && cmp -s "$D/hc3/tampered.copy" "$D/hc3/config.toml"; then
+    ok 'host-config AC3 人工改块 → exit 1 指名文件、不覆盖、文件不变'
+  else
+    bad 'host-config AC3 人工改块 → exit 1 指名文件、不覆盖、文件不变' "exit=$rc"
+  fi
+
+  if grep -q '仅单档' "$REF/adapters/codex.md" \
+    && grep -q '角色级模型键：待实测' "$REF/adapters/codex.md" \
+    && grep -q 'model_tier:' "$REF/adapters/codex.md"; then
+    ok 'host-config AC4 宿主文件 §2.6 单档口径与降级记录格式在场'
+  else
+    bad 'host-config AC4 宿主文件 §2.6 单档口径与降级记录格式在场'
+  fi
+  if grep -F -q '| 宿主 | 三档取值 | 落地方式 | 状态 |' "$REF/adapters/README.md" \
+    && grep -q '已写入' "$REF/adapters/README.md" \
+    && grep -q '仅片段' "$REF/adapters/README.md" \
+    && grep -q '降级 inherit＋原因' "$REF/adapters/README.md" \
+    && grep -q '待实测' "$REF/adapters/README.md"; then
+    ok 'host-config AC4 adapters README → host-profile 四列表头与四个状态取值在场'
+  else
+    bad 'host-config AC4 adapters README → host-profile 四列表头与四个状态取值在场'
+  fi
+
+  rt_build_fixture "$D/h5"
+  printf '# host-profile\n' > "$D/h5/facts/project/host-profile.md"
+  cat >> "$D/h5/facts/project/artifacts.yaml" <<'EOF'
+  - id: host-profile
+    path: facts/project/host-profile.md
+    kind: adapter
+    lifecycle: Adapter
+EOF
+  sh "$CA" "$D/h5" > "$D/h5.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '^check-artifacts: FAIL' "$D/h5.out"; then
+    ok 'host-config AC5 host-profile 以 kind: adapter 登记 → 双向对账 exit 0'
+  else
+    bad 'host-config AC5 host-profile 以 kind: adapter 登记 → 双向对账 exit 0' "exit=$rc"
+  fi
+  rt_build_fixture "$D/h6"
+  printf '# host-profile\n' > "$D/h6/facts/project/host-profile.md"
+  sh "$CA" "$D/h6" > "$D/h6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'FAIL: 受管文件未登记: facts/project/host-profile.md' "$D/h6.out"; then
+    ok 'host-config AC5 host-profile 未登记 → 反向对账 exit 1 指名路径'
+  else
+    bad 'host-config AC5 host-profile 未登记 → 反向对账 exit 1 指名路径' "exit=$rc"
+  fi
+
+  sh "$HC" --config "$D/hc2/config.toml" --set 'a=b' --write >/dev/null 2>&1
+  if [ "$?" -eq 2 ]; then
+    ok 'host-config 负例 --write 缺 --confirm → exit 2'
+  else
+    bad 'host-config 负例 --write 缺 --confirm → exit 2'
+  fi
+  sh "$HC" --config "$D/hc2/config.toml" --set 'bad key=1' >/dev/null 2>&1
+  if [ "$?" -eq 2 ]; then
+    ok 'host-config 负例 非法键 → exit 2'
+  else
+    bad 'host-config 负例 非法键 → exit 2'
+  fi
+  sh "$HC" --config "$D/hc2/config.toml" --set 'a=' >/dev/null 2>&1
+  if [ "$?" -eq 2 ]; then
+    ok 'host-config 负例 空值 → exit 2'
+  else
+    bad 'host-config 负例 空值 → exit 2'
+  fi
+  sh "$HC" --config "$D/hc2/config.toml" --set 'a=b' --bogus >/dev/null 2>&1
+  if [ "$?" -eq 2 ]; then
+    ok 'host-config 负例 未知参数 → exit 2'
+  else
+    bad 'host-config 负例 未知参数 → exit 2'
+  fi
+
+  mkdir -p "$D/hc7"
+  sh "$HC" --config "$D/hc7/new.toml" --set 'a=b' --write --confirm > "$D/hc7/w.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '目标原不存在，新建' "$D/hc7/w.out" && grep -F -q 'a = b' "$D/hc7/new.toml"; then
+    ok 'host-config 正例 目标不存在 → 新建并写块、备份行报无备份'
+  else
+    bad 'host-config 正例 目标不存在 → 新建并写块、备份行报无备份' "exit=$rc"
   fi
 
   suite_summary 'check-artifacts'

@@ -196,6 +196,7 @@ pm_script scripts/ticket-grade.sh script '票定级建议器（建议不裁决�
 pm_script scripts/install.sh script '包侧安装器（安装政策执行引擎）'
 pm_script scripts/check-append-only.sh script 'Record 只追加守卫（补登记——检查 17 机械行点名脚本须在册；前缀判定与违规行号定位经 common-helpers 共享原语，与 lane-commit 记录提交门同源）'
 pm_script scripts/check-artifacts.sh script '治理产物对账器（补登记——检查 17 机械行点名脚本须在册）'
+pm_script scripts/host-config.sh script '宿主无关的宿主用户级配置对账器（缺省 dry-run 零写入；--write --confirm 写入前备份、标记块逐字一致幂等跳过、人工改动即停不覆盖；宿主知识由 --set key=value 传入，引擎零宿主专名）'
 pm_script scripts/export-payload.sh script '公开载荷导出单命令（delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force；真跑主检出门禁）'
 pm_script scripts/worktree-add.sh script 'worktree 栅栏化创建单命令（delivery.rules main-only 节驱动 sparse-checkout 排除＋主检出自拒＋分支形态断言）'
 pm_script scripts/worktree-deps.sh script 'worktree 依赖准备单命令（符号链接 node_modules 拒绝＋安装前 workspace 清单断言零安装＋非 npm 仓库 skip exit 0＋克隆加速显式开关）'

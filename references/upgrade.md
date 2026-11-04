@@ -45,6 +45,8 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
 - **将更新**一列逐件标注来源版本去向（旧拷贝 → 包新版），让你看清每一件跟不跟。
 - 改过的文件逐件给三选项（保留你的改／跟包／登记分歧），你逐项裁决后才能进第 4 步。
 - 新增件（包有而仓无，如新模板、新脚本）单列，标注其触发条件与生成义务（如 `delivery-rules.tmpl` 生成 `delivery.rules` 归仓根）。
+- **将修改（项目外）**单列一组：宿主用户级配置逐条列目标路径、将追加的逐行片段与备份路径；未勾选写入时只列片段并标「未勾选，不写入」。写入由 `<pkg-dir>/scripts/host-config.sh` 执行（缺省 dry-run；写入须 `--write --confirm`），写前备份为 `<file>.bak.<UTC>`，标记块逐字一致即幂等跳过，标记块被人工改过即 exit 1 停手、不覆盖；备份路径与是否写入进收尾报告。
+- 宿主能力写没写都登记 `facts/project/host-profile.md`（kind: adapter，四列格式见 `references/adapters/README.md`），多宿主多行，并逐条登记 `facts/project/artifacts.yaml`。
 
 ## 4. 对齐更新（确认后逐件）
 
