@@ -10,7 +10,9 @@ fi
 # Output: 逐项 PASS/FAIL 行与计数汇总（任一失败 exit 1）；夹具全部构建于 mktemp 并 trap
 #         清理，被测仓库只读零改动（零写入断言以 cksum 与 HEAD 前后比对承载）。
 # Pos: 记录层回归 harness 的 ticket-audit 套件（十一谓词正负例）：正例断言 conformant
-#      与证据位置可追溯，负例逐条分离 P01～P11 的失败/未知分支与操作面窗口。
+#      与证据位置可追溯，负例逐条分离 P01～P11 的失败/未知分支与操作面窗口；票 262 起
+#      另覆盖批量/推送面（--range：merge 无收据指名 P01、ff 单亲按索引 status 兜底、
+#      上限/跳过/区间合法性用法错误）。
 # shellcheck disable=SC2034  # CUR_SUITE/SUITE_FAILS/SUITE_START 由 sourced 的 test-helpers.sh suite_summary 使用（shellcheck 单文件视野误报）
 
 # ============================================================
@@ -22,6 +24,11 @@ fi
 # 自由文本 verdict/FAIL verdict/非 pass 验收、P08 自签与策略实现者名单命中；
 # 未知分支——P07 身份不可佐证与不在可信名单、P11 策略缺失/非法/不适用/标签缺失
 # （analyze exit 0 且 merge exit 1）；用法与环境错误 exit 2；一次审计零写入。
+# 票 262 批量面：无收据 merge 提交指名票 id 与 P01、有绑定收据放行、ff 单亲按索引
+# status 兜底（done 放行／非 done 与未登记拒绝）、裸号标题按索引前缀解析为全 slug
+# （唯一命中放行；零命中／多命中指名拒绝）、票 id 不可解析拒绝、空区间与全
+# conformant 批量 exit 0、base 非祖先／非法 range／超 --max-commits／--skip 空白
+# 与形态 exit 2、--skip 输出 skip 行且不改变其他判定、批量面零写入。
 # ============================================================
 
 TA_EVIDENCE_REL='facts/requirements/tickets/07-fixture.review-evidence.json'
@@ -156,6 +163,87 @@ ta_expect() {
     fi
   done
   ok "$_te_name"
+}
+
+ta_make_batch_fixture() {
+  # $1=夹具仓根 [$2=索引 status，缺省 done] [$3=full|bare 标题票号形态，缺省 full]
+  # 时序：C0 票种子（区间 base）→ C1 索引 → C2 产品提交（区间 tip）；均单亲提交
+  # bare 时提交标题写裸号「票 07」，索引与票文件名仍为全 slug 07-fixture
+  _tb_d=$1
+  _tb_status=${2:-done}
+  _tb_form=${3:-full}
+  case $_tb_form in
+    bare) _tb_ref='07' ;;
+    *) _tb_ref='07-fixture' ;;
+  esac
+  rm -rf "$_tb_d"
+  mkdir -p "$_tb_d/facts/requirements/tickets"
+  git -C "$_tb_d" init -q
+  printf 'seed\n' > "$_tb_d/a.txt"
+  printf '{"id":"07-fixture","kind":"task","title":"fixture","created_at":"2026-10-01T00:00:00Z"}\n' \
+    > "$_tb_d/facts/requirements/tickets/07-fixture.json"
+  ta_commit_all "$_tb_d" impl@example.com '2026-10-01T00:00:00Z' "chore(seed): 票 ${_tb_ref} 种子"
+  printf '{"issues":[{"id":"07-fixture","status":"%s"}]}\n' "$_tb_status" \
+    > "$_tb_d/facts/requirements/tickets/index.json"
+  ta_commit_all "$_tb_d" impl@example.com '2026-10-01T01:00:00Z' "chore(records): 索引 票 ${_tb_ref}"
+  printf 'product\n' >> "$_tb_d/a.txt"
+  ta_commit_all "$_tb_d" impl@example.com '2026-10-02T00:00:00Z' "feat: product 票 ${_tb_ref}"
+}
+
+ta_make_ambiguous_fixture() {
+  # $1=夹具仓根：索引对同一裸号 07 登记两条不同 slug（07-alpha/07-beta），
+  # 提交标题只写裸号「票 07」——用于多命中不猜的负例
+  _ta_d=$1
+  rm -rf "$_ta_d"
+  mkdir -p "$_ta_d/facts/requirements/tickets"
+  git -C "$_ta_d" init -q
+  printf 'seed\n' > "$_ta_d/a.txt"
+  printf '{"id":"07-alpha","kind":"task","title":"alpha","created_at":"2026-10-01T00:00:00Z"}\n' \
+    > "$_ta_d/facts/requirements/tickets/07-alpha.json"
+  printf '{"id":"07-beta","kind":"task","title":"beta","created_at":"2026-10-01T00:00:00Z"}\n' \
+    > "$_ta_d/facts/requirements/tickets/07-beta.json"
+  ta_commit_all "$_ta_d" impl@example.com '2026-10-01T00:00:00Z' 'chore(seed): 票 07 种子'
+  printf '{"issues":[{"id":"07-alpha","status":"done"},{"id":"07-beta","status":"done"}]}\n' \
+    > "$_ta_d/facts/requirements/tickets/index.json"
+  ta_commit_all "$_ta_d" impl@example.com '2026-10-01T01:00:00Z' 'chore(records): 索引 票 07'
+}
+
+ta_make_merge_fixture() {
+  # $1=夹具仓根 [$2=索引 status，缺省 done] [$3=bound|unbound，缺省 unbound]
+  # 在上款夹具上追加：side 分支提交 → 普通 merge（保留 merge 提交）；bound 时再补一条
+  # head_sha 绑定该 merge 提交的收据提交
+  _tm_d=$1
+  _tm_status=${2:-done}
+  _tm_receipt=${3:-unbound}
+  ta_make_batch_fixture "$_tm_d" "$_tm_status"
+  git -C "$_tm_d" checkout -q -b side-branch
+  printf 'side\n' > "$_tm_d/b.txt"
+  ta_commit_all "$_tm_d" impl@example.com '2026-10-02T01:00:00Z' 'feat: side 票 07-fixture'
+  git -C "$_tm_d" checkout -q -
+  GIT_AUTHOR_NAME=fixture GIT_AUTHOR_EMAIL=impl@example.com \
+    GIT_AUTHOR_DATE='2026-10-02T02:00:00Z' GIT_COMMITTER_NAME=fixture \
+    GIT_COMMITTER_EMAIL=impl@example.com GIT_COMMITTER_DATE='2026-10-02T02:00:00Z' \
+    git -C "$_tm_d" -c commit.gpgsign=false merge --no-ff -q side-branch \
+    -m 'merge: side 票 07-fixture'
+  if [ "$_tm_receipt" = 'bound' ]; then
+    _tm_merge=$(git -C "$_tm_d" rev-parse HEAD)
+    printf '{"schema_version":1,"receipt_kind":"review","ticket_id":"07-fixture","head_sha":"%s"}\n' \
+      "$_tm_merge" > "$_tm_d/facts/requirements/tickets/07-fixture.review-evidence.json"
+    ta_commit_all "$_tm_d" reviewer@example.com '2026-10-03T00:00:00Z' 'chore(evidence): 收据 票 07-fixture'
+  fi
+}
+
+ta_run_batch() {
+  # $1=夹具仓根 $2=输出文件；其余参数原样传给被测引擎（批量面不传 <NN>）
+  _trb_repo=$1
+  _trb_out=$2
+  shift 2
+  sh "$TA" --repo "$_trb_repo" --operation push "$@" > "$_trb_out" 2>&1
+}
+
+ta_batch_conformant_lines() {
+  # $1=输出文件：逐提交 conformant 判定行数
+  grep -c '^ticket-audit: 批量 [0-9a-f]\{12\} conformant ' "$1" || true
 }
 
 suite_ticket_audit() {
@@ -488,6 +576,179 @@ suite_ticket_audit() {
     ok '负例 N20b 审计前后 HEAD 不变'
   else
     bad '负例 N20b 审计前后 HEAD 不变' 'HEAD 被改写'
+  fi
+
+  # ---- 票 262：批量/推送面（--operation push --range，逐提交判定） ----
+
+  # AC1：无绑定收据的 merge 提交 → exit 1，指名票 id 与失败谓词 P01
+  ta_make_merge_fixture "$D/b1"
+  _b1_base=$(git -C "$D/b1" rev-list --max-parents=0 HEAD)
+  _b1_head=$(git -C "$D/b1" rev-parse HEAD)
+  _b1_short=$(git -C "$D/b1" rev-parse --short=12 "$_b1_head")
+  ta_run_batch "$D/b1" "$D/b1.out" --range "$_b1_base..$_b1_head"
+  rc=$?
+  ta_expect '批量 AC1 无收据 merge 提交 → exit 1 且指名票 id 与 P01' "$rc" 1 "$D/b1.out" \
+    "ticket-audit: 批量 ${_b1_short} nonconformant merge：票 07-fixture 无绑定审查收据（失败谓词 P01）" \
+    'ticket-audit: 批量 判定: nonconformant'
+  if [ "$(grep -c "^ticket-audit: 批量 [0-9a-f]\{12\} conformant 兜底：票 07-fixture status=done" "$D/b1.out")" -eq 3 ]; then
+    ok '批量 AC1 同区间单亲提交照旧按 status=done 兜底放行（仅 merge 被拒）'
+  else
+    bad '批量 AC1 同区间单亲提交照旧按 status=done 兜底放行（仅 merge 被拒）' '兜底 conformant 行数≠3'
+  fi
+
+  # 负例 B1：--skip 豁免该 merge → skip 行且其余判定不变，整体 exit 0
+  ta_run_batch "$D/b1" "$D/b1.skip.out" --range "$_b1_base..$_b1_head" --skip "$_b1_head"
+  rc=$?
+  ta_expect '批量 B1 --skip 豁免 merge → exit 0 且输出 skip 行' "$rc" 0 "$D/b1.skip.out" \
+    "ticket-audit: 批量 ${_b1_short} skip 依据：--skip 显式豁免（不计入判定）" \
+    'ticket-audit: 批量 判定: conformant（4 个提交，1 跳过，全部 conformant）'
+  if [ "$(ta_batch_conformant_lines "$D/b1.skip.out")" -eq 3 ]; then
+    ok '批量 B1 --skip 不改变其余提交判定（仍 3 条兜底 conformant）'
+  else
+    bad '批量 B1 --skip 不改变其余提交判定（仍 3 条兜底 conformant）' 'conformant 行数≠3'
+  fi
+
+  # AC2：ff 遗留（单亲提交）按索引 status 兜底——done 放行
+  ta_make_batch_fixture "$D/b2" 'done'
+  _b2_base=$(git -C "$D/b2" rev-list --max-parents=0 HEAD)
+  _b2_head=$(git -C "$D/b2" rev-parse HEAD)
+  ta_run_batch "$D/b2" "$D/b2.out" --range "$_b2_base..$_b2_head"
+  rc=$?
+  ta_expect '批量 AC2 单亲提交且索引 status=done → exit 0 且依据含兜底' "$rc" 0 "$D/b2.out" \
+    '兜底：票 07-fixture status=done' \
+    'ticket-audit: 批量 判定: conformant'
+  if [ "$(ta_batch_conformant_lines "$D/b2.out")" -eq 2 ]; then
+    ok '批量 AC2 done 兜底逐提交输出两行 conformant'
+  else
+    bad '批量 AC2 done 兜底逐提交输出两行 conformant' "conformant 行数=$(ta_batch_conformant_lines "$D/b2.out")"
+  fi
+
+  # AC2b：标题只给裸号（票 07）、索引为全 slug → 按 ^07- 前缀唯一解析并写全 id
+  ta_make_batch_fixture "$D/b2d" 'done' bare
+  _b2d_base=$(git -C "$D/b2d" rev-list --max-parents=0 HEAD)
+  _b2d_head=$(git -C "$D/b2d" rev-parse HEAD)
+  ta_run_batch "$D/b2d" "$D/b2d.out" --range "$_b2d_base..$_b2d_head"
+  rc=$?
+  ta_expect '批量 AC2b 裸号标题 → 前缀解析为全 slug 并兜底放行' "$rc" 0 "$D/b2d.out" \
+    '兜底：票 07-fixture status=done' \
+    'ticket-audit: 批量 判定: conformant'
+  if [ "$(ta_batch_conformant_lines "$D/b2d.out")" -eq 2 ]; then
+    ok '批量 AC2b 两条单亲提交均输出全 slug 兜底行'
+  else
+    bad '批量 AC2b 两条单亲提交均输出全 slug 兜底行' "conformant 行数=$(ta_batch_conformant_lines "$D/b2d.out")"
+  fi
+
+  # 负例 B2c：同一裸号在索引命中两条不同 slug → nonconformant 且指名候选，不猜
+  ta_make_ambiguous_fixture "$D/b2e"
+  _b2e_base=$(git -C "$D/b2e" rev-list --max-parents=0 HEAD)
+  _b2e_head=$(git -C "$D/b2e" rev-parse HEAD)
+  ta_run_batch "$D/b2e" "$D/b2e.out" --range "$_b2e_base..$_b2e_head"
+  rc=$?
+  ta_expect '批量 B2c 裸号多命中 → exit 1 且指名候选不猜' "$rc" 1 "$D/b2e.out" \
+    '兜底：票 id 不唯一（裸号 07 命中 07-alpha, 07-beta），不猜' \
+    'ticket-audit: 批量 判定: nonconformant'
+
+  # 负例 B2d：裸号在索引零命中 → nonconformant 指名未登记
+  printf 'late\n' > "$D/b2d/c.txt"
+  ta_commit_all "$D/b2d" impl@example.com '2026-10-02T02:00:00Z' 'feat: tail 票 08'
+  _b2d_miss_head=$(git -C "$D/b2d" rev-parse HEAD)
+  _b2d_miss_prev=$(git -C "$D/b2d" rev-parse "${_b2d_miss_head}^")
+  ta_run_batch "$D/b2d" "$D/b2d.miss.out" --range "${_b2d_miss_prev}..${_b2d_miss_head}"
+  rc=$?
+  ta_expect '批量 B2d 裸号零命中 → exit 1 且指名未登记' "$rc" 1 "$D/b2d.miss.out" \
+    '兜底：票 08 未登记（索引无 ^08- 前缀条目），status 缺失' \
+    'ticket-audit: 批量 判定: nonconformant'
+
+  # 负例 B2：同形单亲提交但索引 status=in_progress → nonconformant 指名实际状态
+  ta_make_batch_fixture "$D/b2b" in_progress
+  _b2b_base=$(git -C "$D/b2b" rev-list --max-parents=0 HEAD)
+  ta_run_batch "$D/b2b" "$D/b2b.out" --range "$_b2b_base..$(git -C "$D/b2b" rev-parse HEAD)"
+  rc=$?
+  ta_expect '批量 B2 单亲提交 status=in_progress → exit 1 且指名实际状态' "$rc" 1 "$D/b2b.out" \
+    '兜底：票 07-fixture status=in_progress（非 done）' \
+    'ticket-audit: 批量 判定: nonconformant'
+
+  # 负例 B2b：未 done 的跳过不改变 reject；再补一条票 id 不可解析的提交 → exit 1 指名
+  ta_make_batch_fixture "$D/b2c" 'done'
+  printf 'late\n' > "$D/b2c/c.txt"
+  ta_commit_all "$D/b2c" impl@example.com '2026-10-02T02:00:00Z' 'feat: no ticket reference'
+  _b2c_head=$(git -C "$D/b2c" rev-parse HEAD)
+  _b2c_prev=$(git -C "$D/b2c" rev-parse "${_b2c_head}^")
+  ta_run_batch "$D/b2c" "$D/b2c.out" --range "${_b2c_prev}..${_b2c_head}"
+  rc=$?
+  ta_expect '批量 B2b 票 id 不可解析 → exit 1 且指名不可解析' "$rc" 1 "$D/b2c.out" \
+    '票 id 不可解析（提交标题无「票 <id>」或 ticket/<id>）' \
+    'ticket-audit: 批量 判定: nonconformant'
+
+  # AC3：全 conformant 批量（含绑定收据的 merge）→ exit 0 且逐提交判定行
+  ta_make_merge_fixture "$D/b3" 'done' bound
+  _b3_base=$(git -C "$D/b3" rev-list --max-parents=0 HEAD)
+  _b3_head=$(git -C "$D/b3" rev-parse HEAD)
+  _b3_merge=$(git -C "$D/b3" rev-parse "$_b3_head^")
+  _b3_merge_short=$(git -C "$D/b3" rev-parse --short=12 "$_b3_merge")
+  ta_run_batch "$D/b3" "$D/b3.out" --range "$_b3_base..$_b3_head"
+  rc=$?
+  ta_expect '批量 AC3 全 conformant → exit 0 且逐提交输出判定行' "$rc" 0 "$D/b3.out" \
+    "ticket-audit: 批量 ${_b3_merge_short} conformant merge：收据 facts/requirements/tickets/07-fixture.review-evidence.json 的 head_sha 绑定本提交" \
+    'ticket-audit: 批量 判定: conformant'
+  if [ "$(ta_batch_conformant_lines "$D/b3.out")" -eq 5 ]; then
+    ok '批量 AC3 区间五个提交各一行 conformant 判定'
+  else
+    bad '批量 AC3 区间五个提交各一行 conformant 判定' "conformant 行数=$(ta_batch_conformant_lines "$D/b3.out")"
+  fi
+
+  # 正例 B3：空区间 → 一行判定并 exit 0
+  ta_run_batch "$D/b3" "$D/b3.empty.out" --range "$_b3_head..$_b3_head"
+  rc=$?
+  ta_expect '批量 B3 空区间 → 输出一行判定且 exit 0' "$rc" 0 "$D/b3.empty.out" \
+    'ticket-audit: 批量 判定: conformant（区间' '无提交'
+
+  # 负例 B4：base 非 head 祖先 → exit 2 用法错误
+  ta_run_batch "$D/b3" "$D/b3.anc.out" --range "$_b3_head..$_b3_base"
+  rc=$?
+  ta_expect '批量 B4 base 非 head 祖先 → exit 2' "$rc" 2 "$D/b3.anc.out" '非 head 祖先'
+
+  # 负例 B5：非法 --range 形态（非 40 位小写提交号）→ exit 2
+  ta_run_batch "$D/b3" "$D/b3.form.out" --range 'abc..def'
+  rc=$?
+  ta_expect '批量 B5 非法 --range 形态 → exit 2' "$rc" 2 "$D/b3.form.out" \
+    '--range base 须为完整 40 位小写十六进制'
+
+  # 负例 B6：区间提交数超 --max-commits → exit 2 并指名实际条数与上限
+  ta_run_batch "$D/b2" "$D/b2.max.out" --range "$_b2_base..$_b2_head" --max-commits 1
+  rc=$?
+  ta_expect '批量 B6 超 --max-commits → exit 2 且指名实际条数与上限' "$rc" 2 "$D/b2.max.out" \
+    '区间提交数 2 超上限 1'
+
+  # 负例 B7：--skip 只认完整 40 位小写十六进制 → exit 2
+  ta_run_batch "$D/b3" "$D/b3.skipform.out" --range "$_b3_base..$_b3_head" --skip '1234567890ab'
+  rc=$?
+  ta_expect '批量 B7 --skip 短 sha → exit 2' "$rc" 2 "$D/b3.skipform.out" \
+    '--skip 须为完整 40 位小写十六进制提交号'
+
+  # 负例 B9：--skip 空值不得静默忽略 → exit 2
+  ta_run_batch "$D/b3" "$D/b3.skipempty.out" --range "$_b3_base..$_b3_head" --skip ''
+  rc=$?
+  ta_expect '批量 B9 --skip 空值 → exit 2' "$rc" 2 "$D/b3.skipempty.out" \
+    '--skip 不得为空'
+
+  # 负例 B8：--range 未与 --operation push 同用 → exit 2
+  sh "$TA" 07 --repo "$D/b3" --range "$_b3_base..$_b3_head" > "$D/b3.nopush.out" 2>&1
+  rc=$?
+  ta_expect '批量 B8 --range 未配 push → exit 2' "$rc" 2 "$D/b3.nopush.out" \
+    '--range 仅与 --operation push 同用'
+
+  # 正例 B4：批量面零写入（文件 cksum 与 HEAD 前后一致）
+  _b3_head_before=$(git -C "$D/b3" rev-parse HEAD)
+  ( cd "$D/b3" && LC_ALL=C find . -type f ! -path './.git/*' -exec cksum {} + | LC_ALL=C sort ) > "$D/b3.before"
+  ta_run_batch "$D/b3" "$D/b3.zero.out" --range "$_b3_base..$_b3_head"
+  rc=$?
+  ( cd "$D/b3" && LC_ALL=C find . -type f ! -path './.git/*' -exec cksum {} + | LC_ALL=C sort ) > "$D/b3.after"
+  if [ "$rc" -eq 0 ] && cmp -s "$D/b3.before" "$D/b3.after" \
+    && [ "$(git -C "$D/b3" rev-parse HEAD)" = "$_b3_head_before" ]; then
+    ok '批量 B4 批量审计零写入（cksum 与 HEAD 前后一致）'
+  else
+    bad '批量 B4 批量审计零写入（cksum 与 HEAD 前后一致）' "exit=$rc"
   fi
 
   # ---- 用法与环境错误 exit 2 ----
