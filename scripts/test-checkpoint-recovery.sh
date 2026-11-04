@@ -617,8 +617,19 @@ RETRY_FAILURE_OUTPUT="$test_dir/retry-failure-output" sh "$executor" "$test_dir/
 grep -q '从此 step 继续执行: retry-command' "$test_dir/retry-failure-resume.log"
 echo "PASS: resume reran a step after its retry failed"
 
+# 票 269：schema 数据件只认安装闭包（脚本邻接 references/schemas/），不读包工作树
+# 副本；缺失即 fail-closed 指名缺失绝对路径与升级/修补入口
 schema_dir="$script_dir/../references/schemas"
-[ -d "$schema_dir" ] || schema_dir="$script_dir/../../../agent-up/references/schemas"
+if [ ! -d "$schema_dir" ]; then
+  printf 'test-checkpoint-recovery: FAIL: 安装闭包缺失（schema 目录不存在）: %s——运行时依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑\n' "$schema_dir" >&2
+  exit 1
+fi
+for _schema_file in workflow.schema.json ticket-record.schema.json; do
+  [ -f "$schema_dir/$_schema_file" ] || {
+    printf 'test-checkpoint-recovery: FAIL: 安装闭包缺失（schema 数据件不存在）: %s——运行时依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑\n' "$schema_dir/$_schema_file" >&2
+    exit 1
+  }
+done
 python3 - "$schema_dir/workflow.schema.json" "$schema_dir/ticket-record.schema.json" <<'PYTHON'
 import json, re, sys
 for path in sys.argv[1:]:

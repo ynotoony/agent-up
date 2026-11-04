@@ -32,6 +32,10 @@ set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
 
 # Source common helper functions（票 227 F5：die 兜底副本清零，统一 source common-helpers.sh）
+_self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) || {
+  printf 'run-record: FAIL: 脚本目录不可解析\n' >&2
+  exit 2
+}
 _helper_script=$(dirname "$0")/common-helpers.sh
 if [ -f "$_helper_script" ]; then
   # shellcheck source=agent-up/scripts/common-helpers.sh  # 路径动态计算，显式声明基线位置
@@ -153,9 +157,10 @@ if [ "$cmd" = stats ]; then
   [ -d "$repo_root/$RUNS_DIR_REL" ] || \
     die1 "$RUNS_DIR_REL/ 不存在——无卡可聚合（fail-closed）"
 
-  validator_script="$(dirname "$0")/json-validator.py"
-  [ -f "$validator_script" ] || validator_script="$repo_root/agent-up/scripts/json-validator.py"
-  [ -f "$validator_script" ] || die2 "json-validator.py 不存在: $validator_script"
+  # 票 269：唯一 JSON 引擎只认安装闭包同目录，不读包工作树副本
+  validator_script="${_self_dir}/json-validator.py"
+  [ -f "$validator_script" ] || \
+    die2 "json-validator.py 不存在（安装闭包缺失）: ${validator_script}——运行时光依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑"
 
   python3 "$validator_script" run stats "$repo_root/$RUNS_DIR_REL"
   exit $?
@@ -408,9 +413,9 @@ check_path_safety "$mf_rel" 'modified_files'
 mf_abs=$(printf '%s\n' "$mf_rel" | absolutize)
 
 # 票 160：使用独立 Python 模块 json-validator.py（run seal 模式）
-validator_script="$(dirname "$0")/json-validator.py"
-[ -f "$validator_script" ] || validator_script="$repo_root/agent-up/scripts/json-validator.py"
-[ -f "$validator_script" ] || die2 "json-validator.py 不存在: $validator_script"
+validator_script="${_self_dir}/json-validator.py"
+[ -f "$validator_script" ] || \
+  die2 "json-validator.py 不存在（安装闭包缺失）: ${validator_script}——运行时依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑"
 
 RR_UPDATED_AT=$now_ua RR_VCS_REF=$vcs_ref RR_FP=$fingerprint RR_MF=$mf_abs \
   python3 "$validator_script" run seal "$rr_file"

@@ -81,7 +81,7 @@
 #      脚本（check-package.sh 同款路径惯例），--script-dir/--pkg-root 参数化支持复制落位
 #      语境；套件集合以本文件 `ALL_SUITES` 唯一枚举为准（启动时逐名核对套件函数在位、
 #      `FAST_SUITES` 为短套件子集，成员历次随票扩）＋完整运行（--suite all）末尾注入自检；
-#      安装面收敛后新增 docs-generation（规则索引生成器回归）与 governance-size（安装面预算回归）；票 233 新增 project-dashboard 套件（本地项目仪表盘：Node 抽取运行页面核心逻辑，缺 node 即 exit 2；静态零写入/零网络面与安装闭包真跑）；票 234 新增 ticket-audit 套件（证据审计引擎十一谓词：正例三操作面 conformant 与证据位置可追溯，负例/未知分支逐谓词分离，零写入断言以 cksum 与 HEAD 前后比对承载）；新增 context-cost 套件（成本治理度量：合成 wire.jsonl 夹具、基线逐项差值、样本不足 fail-closed 零 stdout、治理体积与每阶段读取集差值）；票 236 新增 ticket-repair 套件（repair 四类纠偏动作：补站/派生投影/禁 main 直提/Review 收据在场，终态与不合口径分支 fail-closed，站与投影外零写入）；票 258 执行模型硬化与快慢分层（ALL_SUITES 唯一枚举＋FAST_SUITES 短车道、per-suite 超时 TEST_SUITE_TIMEOUT 缺省 300s、子 shell 隔离、INT/TERM 清理后 exit 130、断言数下限 ASSERTION_FLOOR=1100、self-check 扩到四目标；新增 suite-harness 常驻覆盖四条负例）；POSIX sh 零外部
+#      安装面收敛后新增 docs-generation（规则索引生成器回归）与 governance-size（安装面预算回归）；票 233 新增 project-dashboard 套件（本地项目仪表盘：Node 抽取运行页面核心逻辑，缺 node 即 exit 2；静态零写入/零网络面与安装闭包真跑）；票 234 新增 ticket-audit 套件（证据审计引擎十一谓词：正例三操作面 conformant 与证据位置可追溯，负例/未知分支逐谓词分离，零写入断言以 cksum 与 HEAD 前后比对承载）；新增 context-cost 套件（成本治理度量：合成 wire.jsonl 夹具、基线逐项差值、样本不足 fail-closed 零 stdout、治理体积与每阶段读取集差值）；票 236 新增 ticket-repair 套件（repair 四类纠偏动作：补站/派生投影/禁 main 直提/Review 收据在场，终态与不合口径分支 fail-closed，站与投影外零写入）；票 258 执行模型硬化与快慢分层（ALL_SUITES 唯一枚举＋FAST_SUITES 短车道、per-suite 超时 TEST_SUITE_TIMEOUT 缺省 300s、子 shell 隔离、INT/TERM 清理后 exit 130、断言数下限 ASSERTION_FLOOR=1100、self-check 扩到四目标；新增 suite-harness 常驻覆盖四条负例）；票 269 新增 runtime-closure 套件（六运行脚本运行时依赖只认安装闭包：静态零工作树回退扫描、本地闭包与包工作树副本分歧时以本地为准、五入口闭包缺失 fail-closed 零写入、checkpoint-recovery 邻接 references/ 缺失 fail-closed）；POSIX sh 零外部
 #      依赖（夹具 git init/commit 依赖被测脚本自身声明的 Git；self-check 中断负例经 python3 重置 SIGINT 处置）。用法、suite 覆盖表、退出码
 #      与维护规则见同目录 README.md 专节。
 
@@ -159,6 +159,8 @@ export TEST_RECORD_SOURCE_ONLY
 . "$TESTS_DIR/suite-context-cost.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，目录 README 结构契约回归）
 . "$TESTS_DIR/suite-dir-readme.sh"
+# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，运行时依赖只认安装闭包回归，票 269）
+. "$TESTS_DIR/suite-runtime-closure.sh"
 
 # shellcheck disable=SC1091  # 对抗金丝雀（票 241）
 . "$TESTS_DIR/suite-adversarial.sh"
@@ -172,7 +174,7 @@ SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd) || exit 2
 PKG_ROOT=''
 
 # ---- 套件名单（唯一枚举；--suite all 的执行顺序）----
-ALL_SUITES='module-map ticket-ops progress json-engine check-package append-only check-artifacts delivery-parser stale-claims lane-commit ledger-append checkpoint-write authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge context-cost dir-readme adversarial harness'
+ALL_SUITES='module-map ticket-ops progress json-engine check-package append-only check-artifacts delivery-parser stale-claims lane-commit ledger-append checkpoint-write authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge context-cost dir-readme runtime-closure adversarial harness'
 # ---- fast 车道（票 258）：ALL_SUITES 的短套件子集，日常回归目标 ≤180s。重活
 #      （ticket-ops 全量、ticket-audit、lane-commit、check-package、install、workflow-contract
 #      等）留给 --suite all；成员是否 ⊆ all 由启动核对与 self-check 双向钉死 ----
@@ -193,7 +195,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | ticket-repair | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | context-cost | dir-readme | adversarial | harness | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
+    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | ticket-repair | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | context-cost | dir-readme | runtime-closure | adversarial | harness | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法

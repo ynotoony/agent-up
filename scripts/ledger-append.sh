@@ -262,12 +262,11 @@ else
 fi
 
 # JSON 解析门（唯一 JSON 引擎承载——票 227 口径；行族链在前的合法面恒过本门，行族链
-# 外的残缺 JSON 形态由此 fail-closed 收口）：双布局定位（包基线优先，缺失回退本脚本
-# 同目录），缺 python3 或引擎即 fail-closed 指名，零写入。
-_engine="${repo_root}/agent-up/scripts/json-validator.py"
-[ -f "${_engine}" ] || _engine="${_self_dir}/json-validator.py"
+# 外的残缺 JSON 形态由此 fail-closed 收口）：票 269 起只认安装闭包同目录引擎，不读包
+# 工作树副本；缺 python3 或引擎即 fail-closed 指名缺失绝对路径与升级/修补入口，零写入。
+_engine="${_self_dir}/json-validator.py"
 [ -f "${_engine}" ] || \
-  die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
+  die1 "json-validator.py 不存在（安装闭包缺失）: ${_engine}——运行时依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑（本次零写入）"
 command -v python3 >/dev/null 2>&1 || \
   die1 'python3 不可用——账本行 JSON 解析门无法执行（fail-closed；JSON 可解析性由唯一 JSON 引擎承载）'
 _ledger_fields=$(printf '%s' "${ledger_line}" | python3 "${_engine}" json fields - date kind scope decision evidence_ref) || \

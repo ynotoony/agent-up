@@ -54,11 +54,12 @@
 #      零命中）、账本行不合键序、同 NN 异 slug 撞号
 #      （票 77）即停止不写；收尾生成器
 #      （投影再生与目录 README）缺失或 --check／--freshness 不过即整体失败退出非零，
-#      已写部分如实报告。运行时依赖定位（安装
-#      闭包）：open 的 schema 权威与 json-validator.py 校验器先取包基线布局
-#      （<repo-root>/agent-up/…），缺失回退安装布局（本脚本同目录及其 references/ 邻接
-#      目录——安装器把脚本件落位 rules/implementation/scripts/、数据件落位
-#      rules/implementation/references/）；两布局均未命中即报明双候选 fail-closed。
+#      已写部分如实报告。运行时依赖定位（安装闭包，票 269）：open 的 schema 权威与
+#      json-validator.py 校验器只认安装闭包——脚本同目录 json-validator.py 与
+#      ../references/ 下的 schema/规则数据件（安装器把脚本件落位
+#      rules/implementation/scripts/、数据件落位 rules/implementation/references/），
+#      不读包工作树副本；闭包缺失即 fail-closed 零写入，报缺失绝对路径并指向
+#      升级/修补入口（Agent Up 包 references/upgrade.md 与 scripts/install.sh）。
 #      职责边界：只做票务面
 #      写入，不执行门禁核对与 Git 提交，不调用 check-gates.sh 与 lane-commit.sh（投影
 #      再生调用 generate-progress.sh 不在此限）。
@@ -412,13 +413,13 @@ esac
 
 index_file="${repo_root}/${issues_index_rel}"
 readme_file="${repo_root}/${issues_readme_rel}"
-# 本脚本所在目录（安装闭包回退定位基准；包基线布局＝agent-up/scripts/，安装布局＝
-# rules/implementation/scripts/——两者相对自身目录的 references/ 邻接路径同构）。
+# 本脚本所在目录与安装闭包根（票 269：运行时依赖只认安装闭包——脚本同目录
+# json-validator.py 与 ../references/ 下的 schema/规则数据件；不读包工作树副本）。
 _self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-# 唯一 JSON 引擎定位（票 227 F3；安装闭包定位同 schema 权威：先包基线布局
-# （<repo-root>/agent-up/scripts/json-validator.py），缺失回退本脚本同目录）
-_engine="${repo_root}/agent-up/scripts/json-validator.py"
-[ -f "${_engine}" ] || _engine="${_self_dir}/json-validator.py"
+_closure_root=$(CDPATH='' cd -- "${_self_dir}/.." && pwd -P) || _closure_root="${_self_dir}/.."
+_closure_hint="运行时依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑"
+# 唯一 JSON 引擎定位（票 227 F3；票 269 起只认安装闭包同目录，缺失 fail-closed）
+_engine="${_self_dir}/json-validator.py"
 # 证据审计引擎定位（票 237：done 证据门；同目录优先，PATH 回退——与 ledger-append
 # 同款定位口径，落位不要求可执行位，恒经 sh 调用）
 audit_cmd=''
@@ -440,13 +441,10 @@ else
   done
 fi
 # 票 79：open 本体落盘位与 schema 权威（development-process §5.2 开票形态注记）。
-# 安装闭包定位：先包基线布局（<repo-root>/agent-up/references/schemas/…），缺失回退
-# 安装布局（本脚本邻接 references/schemas/…）；均未命中时停在回退路径，由 open 预检
-# 报明双候选 fail-closed。
+# 票 269：schema 权威只认安装闭包（本脚本邻接 references/schemas/…），不读包工作树
+# 副本；缺失由 open 预检 fail-closed 指名缺失绝对路径与升级/修补入口。
 ticket_file="${repo_root}/${issues_dir_rel}/${id}.json"
-schema_file_pkg="${repo_root}/agent-up/references/schemas/ticket-record.schema.json"
-schema_file="${schema_file_pkg}"
-[ -f "${schema_file}" ] || schema_file="${_self_dir}/../references/schemas/ticket-record.schema.json"
+schema_file="${_closure_root}/references/schemas/ticket-record.schema.json"
 # dispatch 节键集权威（dispatch-contract.schema.json）自票 243 起不在本件读取：开票不再
 # 校验派发合同数据节（AC6），键集核对移至派发阶段消费面（contract-build.sh 渲染前自校验）。
 
@@ -576,7 +574,7 @@ actual_time_check() {
   [ -r "${ticket_file}" ] || \
     die1 "票 ${id} 收口缺 actual_time：票本体不可读: ${ticket_file}（flip 校验须先读本票本体核 actual_time——票 100）"
   [ -f "${_engine}" ] || \
-    die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
+    die1 "json-validator.py 不存在（安装闭包缺失）: ${_engine}——${_closure_hint}"
   # 收口硬拦判据由唯一 JSON 引擎承载（票 227 F3；报文为 ticket-ops 合同输出）
   python3 "${_engine}" ticket-check close "${ticket_file}" "${id}"
 }
@@ -648,7 +646,7 @@ blocked_by_check() {
   [ -r "${ticket_file}" ] || \
     die1 "票 ${id} 领取预检失败：票本体不可读: ${ticket_file}（blocked_by 完整性门须读本票声明的被依赖票清单）"
   [ -f "${_engine}" ] || \
-    die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
+    die1 "json-validator.py 不存在（安装闭包缺失）: ${_engine}——${_closure_hint}"
   # 领取完整性门判据由唯一 JSON 引擎承载（票 227 F3；报文为 ticket-ops 合同输出）
   python3 "${_engine}" ticket-check deps "${ticket_file}" "${index_file}" "${id}"
 }
@@ -802,11 +800,11 @@ ticket_body_check() {
     die1 "新票本体不存在: ${issues_dir_rel}/${id}.json——票 79 起 open 须先落位过 schema 的票 JSON 本体再开票"
   [ -r "${ticket_file}" ] || die1 "新票本体不可读: ${ticket_file}"
   [ -f "${schema_file}" ] || \
-    die1 "schema 文件不存在（安装闭包双布局定位均未命中: ${schema_file_pkg} 与 ${schema_file}）（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，development-process §5.2）"
+    die1 "ticket-record.schema.json 不存在（安装闭包缺失）: ${schema_file}——${_closure_hint}（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，development-process §5.2）"
   [ -r "${schema_file}" ] || die1 "schema 文件不可读: ${schema_file}"
 
   [ -f "${_engine}" ] || \
-    die1 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
+    die1 "json-validator.py 不存在（安装闭包缺失）: ${_engine}——${_closure_hint}"
 
   # 票 160：schema 校验由唯一 JSON 引擎 json-validator.py 承载（票 227 F3：原内嵌
   # python heredoc 收敛改调 ticket-check open-body；207 交付的 --new-ticket 门语义保留）
@@ -884,16 +882,14 @@ if [ "${dir_readme_gate}" -eq 1 ]; then
     die1 "目录 README 生成器 generate-dir-readmes.sh 不可用（同目录与 PATH 均未找到）——预检停止：close 与 flip/flip-index 至 done 的收口前须用生成器做结构 --check 与生成块 --freshness 两检（本次零写入）；将生成器与 dir-readme.rules 落位到本脚本同目录（${scripts_dir_rel}/）或 PATH 后重跑（升级流程见 agent-up/references/upgrade.md）"
   _dmdir=$(CDPATH='' cd -- "$(dirname -- "${dirmap_cmd}")" && pwd)
   for _drc in "${_dmdir}/dir-readme.rules" \
-              "${_dmdir}/../references/dir-readme.rules" \
-              "${repo_root}/rules/implementation/references/dir-readme.rules" \
-              "${repo_root}/agent-up/scripts/dir-readme.rules"; do
+              "${_dmdir}/../references/dir-readme.rules"; do
     if [ -f "${_drc}" ] && [ -r "${_drc}" ]; then
       dirmap_rules=${_drc}
       break
     fi
   done
   [ -n "${dirmap_rules}" ] || \
-    die1 "目录 README 范围规则 dir-readme.rules 不可用（生成器邻接、安装布局 references/、目标仓两布局均未命中）——预检停止：fail-closed，不按空范围放行；按升级流程落位后重跑"
+    die1 "目录 README 范围规则 dir-readme.rules 不可用（安装闭包缺失）: ${_dmdir}/dir-readme.rules 与 ${_dmdir}/../references/dir-readme.rules——${_closure_hint}；预检停止：fail-closed，不按空范围放行"
   printf 'ticket-ops: 目录 README 范围规则: %s\n' "${dirmap_rules}"
   # 两检都在取锁与任何写入之前完成，全程只读：结构 --check（仅含生成块的 README）与
   # 生成块 --freshness。任一失败即 exit 1 且本次 close／flip 零写入；收口链不调用
