@@ -168,11 +168,11 @@ trp_audit_run() {
 }
 
 suite_ticket_repair() {
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='ticket-repair'
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_START=$TOTAL
   D=$T/trepair
   mkdir -p "$D/tmp"
@@ -229,7 +229,8 @@ suite_ticket_repair() {
 
   trp_run "$MAIN" 90 repair "$MAIN" > "$D/r3.out" 2> "$D/r3.err"
   rc=$?
-  if [ "$rc" -eq 0 ] && grep -q '^ticket-run: repair: Review: missing$' "$D/r3.out" \
+  if require_out 'suite-ticket-repair 目标输出在场' "$D/r3.out" \
+    && [ "$rc" -eq 0 ] && grep -q '^ticket-run: repair: Review: missing$' "$D/r3.out" \
     && grep -q '^ticket-run: repair: 结果: pending-review$' "$D/r3.out" \
     && grep -q 'contract review' "$D/r3.out" \
     && [ ! -e "$WT/facts/requirements/tickets/90-repair-fixture.review-evidence.json" ] \
@@ -245,7 +246,8 @@ suite_ticket_repair() {
   trp_set_status "$MAIN" review_pass
   trp_run "$MAIN" 90 repair "$MAIN" > "$D/r4.out" 2> "$D/r4.err"
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^ticket-run: repair: 结果: decision-required$' "$D/r4.out" \
+  if require_out 'suite-ticket-repair 目标输出在场' "$D/r4.out" \
+    && [ "$rc" -eq 1 ] && grep -q '^ticket-run: repair: 结果: decision-required$' "$D/r4.out" \
     && grep -Eq 'review[-_]pass' "$D/r4.out" \
     && grep -q '90-repair-fixture.review-evidence.json' "$D/r4.out" \
     && [ ! -e "$WT/facts/requirements/tickets/90-repair-fixture.review-evidence.json" ] \
@@ -258,11 +260,12 @@ suite_ticket_repair() {
 
   # AC2c：无站 done 票＋主仓无收据 → decision-required，绝不 converged
   NS=$D/no-station
-  trp_build_fixture "$NS" done
+  trp_build_fixture "$NS" 'done'
   NSW=$(realpath "$D")/no-station-wt/wt90
   trp_run "$NS" 90 repair "$NS" > "$D/r5.out" 2> "$D/r5.err"
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-ticket-repair 目标输出在场' "$D/r5.out" \
+    && [ "$rc" -eq 1 ] \
     && grep -q '^ticket-run: repair: Review: blocked$' "$D/r5.out" \
     && grep -q '^ticket-run: repair: main 直提: 0 件$' "$D/r5.out" \
     && grep -q '^ticket-run: repair: 结果: decision-required$' "$D/r5.out" \
@@ -277,14 +280,15 @@ suite_ticket_repair() {
 
   # AC2d：无站＋main 直提 → 仍须检出并 decision-required（不依赖站或工作树）
   NSD=$D/no-station-direct
-  trp_build_fixture "$NSD" done
+  trp_build_fixture "$NSD" 'done'
   git -C "$NSD" branch ticket/90-repair-fixture
   printf 'direct main product\n' >> "$NSD/product.txt"
   trp_git_commit "$NSD" 'direct main product commit'
   nsd_main=$(git -C "$NSD" rev-parse refs/heads/main)
   trp_run "$NSD" 90 repair "$NSD" > "$D/r6.out" 2> "$D/r6.err"
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-ticket-repair 目标输出在场' "$D/r6.out" \
+    && [ "$rc" -eq 1 ] \
     && grep -q '^ticket-run: repair: main 直提: 1 件' "$D/r6.out" \
     && grep -q '^ticket-run: repair: 迁移建议: .*cherry-pick' "$D/r6.out" \
     && grep -q '拒绝执行 rebase/amend/force-push' "$D/r6.out" \

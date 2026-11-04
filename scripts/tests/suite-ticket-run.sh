@@ -161,11 +161,11 @@ tr_intent_state() {
 }
 
 suite_ticket_run() {
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='ticket-run'
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_START=$TOTAL
   D=$T/trun
   MAIN=$D/main
@@ -295,7 +295,8 @@ suite_ticket_run() {
       "commit=${commit_cp_commit:-<空>} committed_at=${commit_cp_at:-<空>} product=${product_head}"
   fi
 
-  if [ "$(git -C "$WT" log -1 --format=%s HEAD~1)" = 'test: ticket-run fixture' ] \
+  if require_out 'suite-ticket-run 目标输出在场' "$WT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md" \
+    && [ "$(git -C "$WT" log -1 --format=%s HEAD~1)" = 'test: ticket-run fixture' ] \
     && [ "$(git -C "$WT" show --name-only --format= HEAD~1 | grep -c '90-run-fixture-review-checkpoint.md')" -eq 1 ] \
     && ! grep -q 'User Review Checkpoint' "$WT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md"; then
     ok 'P4 产品提交收编既有独立 Review 文件且不伪造 User Review Checkpoint'
@@ -379,6 +380,7 @@ PY
 
   tr_run_in "$CONV" 90 start > "$D/c-start1.out" 2> "$D/c-start1.err"
   rc=$?
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if [ "$rc" -eq 0 ] && [ -d "$CWT" ] \
     && [ "$(git -C "$CWT" rev-parse --abbrev-ref HEAD 2>/dev/null)" = 'ticket/90-run-fixture' ] \
     && grep -q '"status": "in_progress"' "$CONV/facts/requirements/tickets/index.json" \
@@ -433,7 +435,8 @@ PY
   rc=$?
   tr_run_in "$D1B" 90 next > "$D/d1b-next.out" 2> "$D/d1b-next.err"
   rc2=$?
-  if [ "$_d1b_before" = 'started' ] && [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] \
+  if require_out 'suite-ticket-run 目标输出在场' "$D/d1b-next.out" \
+    && [ "$_d1b_before" = 'started' ] && [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] \
     && [ "$(tr_intent_state "$D1B" worktree)" = 'done' ] \
     && ! grep -q '恢复: 上次 worktree' "$D/d1b-next.out"; then
     ok 'D1b 建站后崩溃 → 重跑 start 补记 worktree done 且 next 不再报恢复'
@@ -525,7 +528,8 @@ EOS
   rc=$?
   _f1_files=$(git -C "$FWT" ls-files 2>/dev/null)
   _f1_d=$(git -C "$FWT" status --porcelain 2>/dev/null | grep -cE '^(D | D|DD)' || true)
-  if [ "$rc" -eq 1 ] && [ -z "$_f1_files" ] && [ "$_f1_d" -ge 1 ] \
+  if require_out 'suite-ticket-run 目标输出在场' "$D/d1f-start.err" \
+    && [ "$rc" -eq 1 ] && [ -z "$_f1_files" ] && [ "$_f1_d" -ge 1 ] \
     && grep -q 'decision-required' "$D/d1f-start.err" \
     && grep -q '站索引为空' "$D/d1f-start.err" \
     && ! grep -q '站内工作树不完整' "$D/d1f-start.err" \
@@ -588,6 +592,7 @@ EOS
   (cd "$FAULT" && TMPDIR="$D/tmp" TICKET_OPS_FAULT=after-index-write \
     sh "$FAULT/rules/implementation/scripts/ticket-run.sh" 90 start) > "$D/c-fault1.out" 2> "$D/c-fault1.err"
   rc=$?
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if [ "$rc" -eq 1 ] && [ -d "$FWT" ] \
     && grep -q '"status": "in_progress"' "$FAULT/facts/requirements/tickets/index.json" \
     && grep -q '`ready`' "$FAULT/facts/requirements/tickets/README.md" \
@@ -608,6 +613,7 @@ EOS
 
   tr_run_in "$FAULT" 90 start > "$D/c-fault2.out" 2> "$D/c-fault2.err"
   rc=$?
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if [ "$rc" -eq 0 ] \
     && [ "$(wc -l < "$FAULT/facts/project/changes.jsonl" | tr -d ' ')" -eq 2 ] \
     && grep -q '`in_progress`' "$FAULT/facts/requirements/tickets/README.md" \
@@ -641,7 +647,7 @@ EOS
   mv "$D/d2-intent.tmp" "$CONV/.git/ticket-run/90.intent"
   tr_run_in "$CONV" 90 next > "$D/d2-next.out" 2> "$D/d2-next.err"
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '恢复: 上次 record' "$D/d2-next.out"; then
+  if require_out 'suite-ticket-run 目标输出在场' "$D/d2-next.out" && [ "$rc" -eq 0 ] && ! grep -q '恢复: 上次 record' "$D/d2-next.out"; then
     ok 'D2a record 落位后崩溃 → next 按收据实态判已完成，不报 record 恢复'
   else
     bad 'D2a record 落位后崩溃 → next 按收据实态判已完成，不报 record 恢复' "exit=$rc $(cat "$D/d2-next.out" | tr '\n' '|')"
@@ -662,7 +668,7 @@ EOS
   rm -f "$D/c-receipt.json"
   tr_run_in "$CONV" 90 next > "$D/n2-next.out" 2> "$D/n2-next.err"
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '恢复: 上次 record' "$D/n2-next.out"; then
+  if require_out 'suite-ticket-run 目标输出在场' "$D/n2-next.out" && [ "$rc" -eq 0 ] && ! grep -q '恢复: 上次 record' "$D/n2-next.out"; then
     ok 'D2c 源收据被清理 → next 按目标证据＋intent kind 判 record 已完成'
   else
     bad 'D2c 源收据被清理 → next 按目标证据＋intent kind 判 record 已完成' "exit=$rc $(cat "$D/n2-next.out" | tr '\n' '|')"
@@ -921,11 +927,12 @@ PY
     printf 'take\tstarted\t2026-10-28T10:00:00Z\n' > "$1/.git/ticket-run/90.intent"
   }
   D6A=$D/d6a
-  tr_build_fixture "$D6A" done
+  tr_build_fixture "$D6A" 'done'
   tr_pending_take "$D6A"
   tr_run_in "$D6A" 90 next > "$D/d6a-next.out" 2> "$D/d6a-next.err"
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-ticket-run 目标输出在场' "$D/d6a-next.out" \
+    && [ "$rc" -eq 1 ] \
     && grep -q '^ticket-run: 下一步: decision-required$' "$D/d6a-next.out" \
     && ! grep -q '^ticket-run: 下一步: start$' "$D/d6a-next.out" \
     && grep -q 'next --clear-intent' "$D/d6a-next.out"; then
@@ -938,7 +945,8 @@ PY
   rc=$?
   tr_run_in "$D6A" 90 next > "$D/d6a-after.out" 2> "$D/d6a-after.err"
   rc2=$?
-  if [ "$rc" -eq 0 ] && [ ! -e "$D6A/.git/ticket-run/90.intent" ] \
+  if require_out 'suite-ticket-run 目标输出在场' "$D/d6a-after.out" \
+    && [ "$rc" -eq 0 ] && [ ! -e "$D6A/.git/ticket-run/90.intent" ] \
     && grep -q '将清除' "$D/d6a-clear.out" && grep -q 'take' "$D/d6a-clear.out" \
     && [ "$rc2" -eq 0 ] && grep -q '^ticket-run: 下一步: done$' "$D/d6a-after.out" \
     && ! grep -q '^ticket-run: 恢复:' "$D/d6a-after.out"; then
@@ -953,7 +961,8 @@ PY
   tr_pending_take "$D6C"
   tr_run_in "$D6C" 90 next > "$D/d6c-next.out" 2> "$D/d6c-next.err"
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-ticket-run 目标输出在场' "$D/d6c-next.out" \
+    && [ "$rc" -eq 1 ] \
     && grep -q '^ticket-run: 下一步: decision-required$' "$D/d6c-next.out" \
     && ! grep -qE '^ticket-run: 下一步: (start|commit)$' "$D/d6c-next.out"; then
     ok 'D6c 残留 take intent＋索引 review_pass（站已就位）→ next 判 decision-required（不提示 start/commit）'
@@ -1019,7 +1028,8 @@ PY
   rc=$?
   # 定位到本体才会取到索引条目（ready/in_progress）→ start；若误取收据，ticket_id 变成
   # 90-run-fixture.review-evidence，索引无条目只会给 open。
-  if [ "$rc" -eq 0 ] && ! grep -q '须恰一命中' "$D/d7-next.err" \
+  if require_out --allow-empty 'suite-ticket-run 目标输出在场' "$D/d7-next.err" \
+    && [ "$rc" -eq 0 ] && ! grep -q '须恰一命中' "$D/d7-next.err" \
     && grep -q '^ticket-run: 下一步: start$' "$D/d7-next.out"; then
     ok 'D7a 票本体旁有 <id>.review-evidence.json 时 next 仍定位票本体（不因多命中 FAIL）'
   else
@@ -1078,7 +1088,8 @@ PY
   fi
 
   # shellcheck disable=SC2016  # grep 模式刻意匹配 shell 源码字面量，不能在测试层展开
-  if ! grep -Eq '(^|[[:space:]])agent\(' "$SCRIPT_DIR/ticket-run.sh" \
+  if require_out 'suite-ticket-run 目标输出在场' "$SCRIPT_DIR/ticket-run.sh" "$SCRIPT_DIR/workflow-executor.sh" \
+    && ! grep -Eq '(^|[[:space:]])agent\(' "$SCRIPT_DIR/ticket-run.sh" \
     && ! grep -q 'workflow index-status' "$SCRIPT_DIR/workflow-executor.sh" \
     && ! grep -q 'get_current_status\|update_status' "$SCRIPT_DIR/workflow-executor.sh" \
     && grep -q 'sh "$_ds_ticket_ops" "$_ds_repo_root" flip-index' "$SCRIPT_DIR/workflow-executor.sh"; then
@@ -1088,7 +1099,8 @@ PY
   fi
 
   CHAIN="$PKG_ROOT/.."'/.zcode/workflows/ticket-chain.dwf.ts'
-  if ! grep -q 'rows=\[x for x in d.get' "$CHAIN" \
+  if require_out 'suite-ticket-run 目标输出在场' "$CHAIN" \
+    && ! grep -q 'rows=\[x for x in d.get' "$CHAIN" \
     && grep -q '"rules/implementation/scripts/json-validator.py", "json", "pick"' "$CHAIN"; then
     ok 'AC2b ticket-chain 无内嵌索引解析，状态读取经唯一 JSON 引擎'
   else

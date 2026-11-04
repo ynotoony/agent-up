@@ -149,8 +149,11 @@ sm_run() {
 }
 
 suite_merge() {
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='merge'
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_START=$TOTAL
   D=$T/sm
   mkdir -p "$D"
@@ -268,7 +271,8 @@ suite_merge() {
   n7_head=$(git -C "$D/n7" rev-parse HEAD)
   sm_run "$D/n7" "$D/n7.out" "$SM_BRANCH" "$SM_ID"
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q 'decision-required' "$D/n7.out" \
+  if require_out 'suite-merge 目标输出在场' "$D/n7.out" \
+    && [ "$rc" -eq 1 ] && grep -q 'decision-required' "$D/n7.out" \
     && grep -q 'ticket-audit: 判定: nonconformant' "$D/n7.out" \
     && grep -q 'PASS P02 evidence-committed:' "$D/n7.out" \
     && ! grep -q 'FAIL P02 ' "$D/n7.out" \

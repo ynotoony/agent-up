@@ -86,7 +86,7 @@ suite_check_artifacts() {
   rt_build_fixture "$D/p2"
   sh "$CA" "$D/p2" > "$D/p2.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '规范化 path 重复' "$D/p2.out"; then
+  if require_out 'suite-check-artifacts 目标输出在场' "$D/p2.out" && [ "$rc" -eq 0 ] && ! grep -q '规范化 path 重复' "$D/p2.out"; then
     ok '正例 P2 不同登记 id 的独立规范化路径 → exit 0'
   else
     bad '正例 P2 不同规范化路径 → exit 0' "exit=$rc $(grep '规范化 path 重复' "$D/p2.out" | head -n 1)"
@@ -126,7 +126,7 @@ suite_check_artifacts() {
   else
     bad '负例 N9 重复规范化 path → exit 2 并指名冲突项' "exit=$rc"
   fi
-  if grep -q 'SKIP: 条目 micro-ledger 登记目标暂缺（数据块懒创建许可）: facts/project/micro.jsonl' "$D/p1.out" && ! grep -q '^check-artifacts: FAIL' "$D/p1.out"; then
+  if require_out 'suite-check-artifacts 目标输出在场' "$D/p1.out" && grep -q 'SKIP: 条目 micro-ledger 登记目标暂缺（数据块懒创建许可）: facts/project/micro.jsonl' "$D/p1.out" && ! grep -q '^check-artifacts: FAIL' "$D/p1.out"; then
     ok '正例 P1 懒创建面登记暂缺 → SKIP 行且零 FAIL（豁免命中不报同证）'
   else
     bad '正例 P1 懒创建面登记暂缺 → SKIP 行且零 FAIL（豁免命中不报同证）' "$(head -n 3 "$D/p1.out" | tr '\n' '|')"
@@ -159,7 +159,7 @@ suite_check_artifacts() {
   printf 'x\n' > "$D/n3/facts/requirements/runs/extra.json"
   sh "$CA" "$D/n3" > "$D/n3.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '^check-artifacts: FAIL' "$D/n3.out"; then
+  if require_out 'suite-check-artifacts 目标输出在场' "$D/n3.out" && [ "$rc" -eq 0 ] && ! grep -q '^check-artifacts: FAIL' "$D/n3.out"; then
     ok '负例 N3 豁免目录内未登记文件命中豁免 → exit 0 不报'
   else
     bad '负例 N3 豁免目录内未登记文件命中豁免 → exit 0 不报' "exit=$rc"
@@ -173,7 +173,7 @@ suite_check_artifacts() {
   printf '# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n\ndp_artifact_exempt facts/project/architecture/generated/\n' > "$D/m1/delivery.rules"
   sh "$CA" "$D/m1" > "$D/m1.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '^check-artifacts: FAIL' "$D/m1.out"; then
+  if require_out 'suite-check-artifacts 目标输出在场' "$D/m1.out" && [ "$rc" -eq 0 ] && ! grep -q '^check-artifacts: FAIL' "$D/m1.out"; then
     ok '正例 M1 delivery.rules 声明校准豁免 → generated 内未登记文件不报 exit 0（票 72 迁移）'
   else
     bad '正例 M1 delivery.rules 声明校准豁免 → generated 内未登记文件不报 exit 0（票 72 迁移）' "exit=$rc"

@@ -87,7 +87,8 @@ suite_health() {
   : > "$D/n11/repo/facts/project/changes.jsonl"
   hs_run "$D/n11" > "$D/n11.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-health 目标输出在场' "$D/n11.out" \
+    && [ "$rc" -eq 1 ] \
     && grep -q '易腐断言扫描器报错（check-stale-claims gate exit 2' "$D/n11.out" \
     && grep -q 'delivery.rules 解析破坏' "$D/n11.out" \
     && grep -q '报警缺失≠健康' "$D/n11.out" \
@@ -113,7 +114,7 @@ EOF
   sh "$D/p6/repo/rules/implementation/scripts/generate-progress.sh" "$D/p6/repo" >/dev/null 2>&1
   hs_run "$D/p6" > "$D/p6.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && grep -q '（无 STALE 报警）' "$D/p6.out" && ! grep -q '扫描器报错' "$D/p6.out"; then
+  if require_out 'suite-health 目标输出在场' "$D/p6.out" && [ "$rc" -eq 0 ] && grep -q '（无 STALE 报警）' "$D/p6.out" && ! grep -q '扫描器报错' "$D/p6.out"; then
     ok '正例 P6 清洁仓（合法索引＋投影再生）→ 无报警 exit 0 不误报（票 150 AC2）'
   else
     bad '正例 P6 清洁仓（合法索引＋投影再生）→ 无报警 exit 0 不误报（票 150 AC2）' "exit=$rc $(head -c 150 "$D/p6.out")"

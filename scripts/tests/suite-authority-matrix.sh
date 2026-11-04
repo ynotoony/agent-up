@@ -97,6 +97,7 @@ suite_authority_matrix() {
   fi
   # 负例：消费者模板回填未安装手册指针 → 必须 fail 并指名悬空指针
   cp -R "$PKG_ROOT/references/templates" "$D/tpl-dangling"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '\n- 悬空指针夹具：见 `references/protocol/read-policy.md` §2.3.1 AW-04。\n' >> "$D/tpl-dangling/agents-review.md.tmpl"
   if authority_matrix_check "$MATRIX" "$D/tpl-dangling" >"$D/dang.out" 2>&1; then
     bad 'negative-dangling 负例：模板回填 read-policy 指针 → 必须拒绝' '变异模板意外通过'

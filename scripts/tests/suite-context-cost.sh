@@ -35,9 +35,11 @@ cc_make_sessions() {
 {"type":"agent.message.appended","message":{"message":{"role":"assistant","content":[],"toolCalls":[{"type":"function","id":"c2","name":"Read","arguments":"{}"},{"type":"function","id":"c3","name":"Read","arguments":"{}"}]},"meta":{}}}
 {"type":"agent.message.appended","message":{"message":{"role":"assistant","content":[],"toolCalls":[]},"meta":{}}}
 EOF
-  printf '%s' '{"type":"agent.message.appended","message":{"message":{"role":"tool","content":[{"type":"text","text":"' >> "$1/sessions/a/agents/main/wire.jsonl"
-  awk 'BEGIN { for (i = 0; i < 25001; i++) printf "x" }' >> "$1/sessions/a/agents/main/wire.jsonl"
-  printf '%s\n' '"}],"toolCallId":"c3"},"meta":{}}}' >> "$1/sessions/a/agents/main/wire.jsonl"
+  {
+    printf '%s' '{"type":"agent.message.appended","message":{"message":{"role":"tool","content":[{"type":"text","text":"'
+    awk 'BEGIN { for (i = 0; i < 25001; i++) printf "x" }'
+    printf '%s\n' '"}],"toolCallId":"c3"},"meta":{}}}'
+  } >> "$1/sessions/a/agents/main/wire.jsonl"
   cat > "$1/sessions/a/agents/sub/wire.jsonl" <<'EOF'
 {"type":"usage.record","agentId":"sub","model":"m","usage":{"inputOther":100,"output":50,"inputCacheRead":0,"inputCacheCreation":0},"usageScope":"turn","time":3}
 EOF

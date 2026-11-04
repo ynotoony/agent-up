@@ -36,11 +36,12 @@ gov_limit_for() {
 }
 
 suite_governance_size() {
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='governance-size'
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
+  # shellcheck disable=SC2153  # TOTAL 由 test-runner.sh 顶层赋值并在 ok/bad 累加（单文件视野误报），与本文件 total 字符计数无关
   SUITE_START=$TOTAL
   TPL="$PKG_ROOT/references/templates"
   total=0
@@ -127,9 +128,11 @@ suite_governance_size() {
   fi
 
   # 安装面零模糊措辞（与包检检查 12 同词表；此处只测安装面九件）
-  vague=$(grep -nE '尽量|适当|必要时|通常|原则上|酌情' $(
-    for f in $GOV_INSTALL_FILES; do printf '%s ' "$TPL/$f"; done
-  ) 2>/dev/null || true)
+  vague=$(
+    set --
+    for f in $GOV_INSTALL_FILES; do set -- "$@" "$TPL/$f"; done
+    grep -nE '尽量|适当|必要时|通常|原则上|酌情' "$@" 2>/dev/null || true
+  )
   if [ -z "$vague" ]; then
     ok '安装面九件零模糊措辞'
   else
@@ -160,7 +163,9 @@ suite_governance_size() {
   rm -rf "$_gur_fx"
   mkdir -p "$_gur_fx"
   for _gur_f in $GOV_INSTALL_FILES; do [ -f "$TPL/$_gur_f" ] && cp "$TPL/$_gur_f" "$_gur_fx/$_gur_f"; done
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '\n- 悬空指针夹具：写入边界见 `references/protocol/read-policy.md` §2.3.1。\n' >> "$_gur_fx/agents-triage.md.tmpl"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '\n- 悬空指针夹具：行型合同单源＝`references/schemas/ledger-row.schema.json`。\n' >> "$_gur_fx/agents-review.md.tmpl"
   _gur_neg=$(gov_uninstalled_refs "$_gur_fx")
   _gur_neg_ok=1
@@ -173,9 +178,11 @@ suite_governance_size() {
   fi
 
   # 安装面零待定标记与占位残留
-  pend=$(grep -nE '【待定|待补充|TODO' $(
-    for f in $GOV_INSTALL_FILES; do printf '%s ' "$TPL/$f"; done
-  ) 2>/dev/null || true)
+  pend=$(
+    set --
+    for f in $GOV_INSTALL_FILES; do set -- "$@" "$TPL/$f"; done
+    grep -nE '【待定|待补充|TODO' "$@" 2>/dev/null || true
+  )
   if [ -z "$pend" ]; then
     ok '安装面九件零待定/TODO 标记'
   else

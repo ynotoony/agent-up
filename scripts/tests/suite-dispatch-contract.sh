@@ -182,6 +182,9 @@ dcon_git_write_check() {
       fi
       ;;
     policy-only|pending|unavailable)
+      if ! require_out "$_gw_host 实现模板在场" "$_gw_impl"; then
+        return 1
+      fi
       if ! grep -q 'git_write_enforcement' "$_gw_impl"; then
         printf '%s 为 %s，但实现模板缺 git_write_enforcement 降级记录义务\n' "$_gw_host" "$_gw_val"
         return 1
@@ -357,7 +360,8 @@ okv = all(
 )
 sys.exit(0 if okv else 1)
 PYTHON
-  if [ $? -eq 0 ]; then
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
     ok '正例 键集单源 ticket-record dispatch 三阶段 required 集与 contract_fields 三阶段逐一相等'
   else
     bad '正例 键集单源 ticket-record dispatch 三阶段 required 集与 contract_fields 三阶段逐一相等' '两 schema 键集漂移'
@@ -387,7 +391,8 @@ PYTHON
     bad '正例 implementation 渲染 → exit 0 且 stdout 含全 16 {{KEY}} 行块' "exit=$rc blocks=$(grep -c '^{{' "$D/cb-impl.out")"
   fi
   sh "$DC" --check "$D/cb-impl.out" > "$D/cb-impl-check.out" 2>&1
-  if [ $? -eq 0 ]; then
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
     ok '正例 implementation 产物再过 check-dispatch-contract --check → exit 0（自校验闭环）'
   else
     bad '正例 implementation 产物再过 check-dispatch-contract --check → exit 0（自校验闭环）' "$(head -n 2 "$D/cb-impl-check.out" | tr '\n' '|')"

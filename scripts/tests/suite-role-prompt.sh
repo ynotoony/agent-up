@@ -128,6 +128,7 @@ rp_dedupe_check() {
 # 提取角色合同 required_capabilities（运行时）声明行的反引号基元名（逐名一行；
 # 只收纯小写字母/连字符 token，编排入口命令等含空格/点号的反引号串不纳入名单）。
 rp_decl_names() {
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   LC_ALL=C grep '^required_capabilities（运行时）：' "$1" | head -n 1 \
     | grep -o '`[a-z][a-z-]*`' | tr -d '`'
 }
@@ -359,6 +360,7 @@ suite_role_prompt() {
   fi
   # 安装面收敛后 Triage 模板零规则块：登记闭合改断三面——实物、清单 pm_template 数据行、
   # manifest 目录清单行；短码投影面改断安装面唯一带块件 CO（历史引用码不入人读短码表）。
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if [ -f "$TMPL/agents-triage.md.tmpl" ] \
     && LC_ALL=C grep -q '^pm_template agents-triage\.md\.tmpl$' "$MANIFEST" \
     && LC_ALL=C grep -q '^| `agents-triage\.md\.tmpl` |' "$TMPL/README.md" \
@@ -397,7 +399,9 @@ suite_role_prompt() {
   done
 
   # 正例 P7：结构模板不再复制规范正文——保留唯一权威指针句，不含规范等级表与降级路径枚举。
-  if grep -q '唯一权威＝`capability-contract.md`' "$TMPL/../adapters/adapter-template.md" \
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
+  if require_out 'suite-role-prompt 目标输出在场' "$TMPL/../adapters/adapter-template.md" \
+    && grep -q '唯一权威＝`capability-contract.md`' "$TMPL/../adapters/adapter-template.md" \
     && ! grep -q '^| 等级 | 定义 |' "$TMPL/../adapters/adapter-template.md" \
     && ! grep -q '依序尝试：(a)' "$TMPL/../adapters/adapter-template.md"; then
     ok '正例 P7 adapter-template.md 为结构基线（指针在位、规范正文不复述）'
@@ -627,6 +631,7 @@ EOF
     bad '负例 N10 Implementation 删 git_write_enforcement → 能力断言指名失败（降级义务缺失）' "$(cat "$D/n10.out")"
   fi
   cp "$TMPL"/agents-triage.md.tmpl "$TMPL"/agents-commit.md.tmpl "$D/tmpl-cap/"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '\n必须运行 `verify-contract.sh` 复核范围。\n' >> "$D/tmpl-cap/agents-commit.md.tmpl"
   if ! rp_capability_check "$D/tmpl-cap" > "$D/n11.out" 2>&1 && grep -q 'commit 需运行的脚本不在 execute 白名单: verify-contract.sh' "$D/n11.out"; then
     ok '负例 N11 Commit 引入白名单外脚本 → 能力断言指名失败（必须跑但不在 execute）'

@@ -59,7 +59,6 @@ suite_ledger_append() {
   SUITE_START=$TOTAL
   D=$T/la
   mkdir -p "$D"
-  LA="$SCRIPT_DIR/ledger-append.sh"
 
   la_build_fixture "$D/p1"
   FP1="$D/p1"

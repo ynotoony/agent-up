@@ -98,7 +98,8 @@ RULES
   sh "$D/p5/bin/worktree-add.sh" ../wt7 ticket/48-test >"$D/p5.out" 2>&1
   rc=$?
   cd "$SAVED_PWD" || exit 1
-  if [ "$rc" -eq 0 ] && [ -d "$D/p5/wt7" ] \
+  if require_out 'suite-worktree 目标输出在场' "$D/p5.out" \
+    && [ "$rc" -eq 0 ] && [ -d "$D/p5/wt7" ] \
      && grep -q '未随附' "$D/p5.out" && ! grep -q '请在该站独立准备' "$D/p5.out"; then
     ok '正例 P1e 同目录缺 worktree-deps.sh → 完成行提示「未随附」且 exit 0'
   else

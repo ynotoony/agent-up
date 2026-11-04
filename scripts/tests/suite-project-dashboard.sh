@@ -475,8 +475,11 @@ NODE_TEST
 }
 
 suite_project_dashboard() {
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='project-dashboard'
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_START=$TOTAL
   D=$T/pdash
   mkdir -p "$D"
@@ -490,7 +493,7 @@ suite_project_dashboard() {
   cp "$HTML" "$D/original.html"
 
   # ---- 静态面：单文件、零外部依赖、零写入、零网络 ----
-  if ! grep -q '<script src=' "$HTML" && ! grep -q '<link ' "$HTML" && ! grep -q '@import' "$HTML"; then
+  if require_out 'suite-project-dashboard 目标输出在场' "$HTML" && ! grep -q '<script src=' "$HTML" && ! grep -q '<link ' "$HTML" && ! grep -q '@import' "$HTML"; then
     ok '单一自包含文件：无外部脚本、样式或资源引用'
   else
     bad '单一自包含文件：无外部脚本、样式或资源引用' '发现外部引用'
@@ -541,7 +544,7 @@ suite_project_dashboard() {
       *) : ;;
     esac
   done < "$D/node.out"
-  if [ "$node_rc" -ne 0 ] && ! grep -q '^not ok: ' "$D/node.out"; then
+  if require_out 'suite-project-dashboard 目标输出在场' "$D/node.out" && [ "$node_rc" -ne 0 ] && ! grep -q '^not ok: ' "$D/node.out"; then
     bad 'Node 核心逻辑执行完成' "$(tail -n 3 "$D/node.out" | tr '\n' '|')"
   fi
 

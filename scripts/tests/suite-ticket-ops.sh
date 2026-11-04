@@ -366,6 +366,7 @@ tix243_count() {
 
 tix243_fault_marker() {
   # $1=注入点：该写点的行内标记片段（契约缺席时的兜底桩替换定位）
+  # shellcheck disable=SC2016  # case/for 分支里的注入桩原文含 ${...} 字样（单引号防展开），非缺陷
   case $1 in
     after-index-write) printf '%s' 'mv "${tmp_idx}" "${index_file}"' ;;
     after-ledger-write) printf '%s' '账本落行未过' ;;
@@ -1585,21 +1586,21 @@ EOF
   else
     bad '负例 N-228c flip-index status 越状态机 → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n3.log" | tr '\n' '|')"
   fi
-  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status done --updated-at '2026-10-26 08:30' >"$D/fi228n4.log" 2>&1
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status 'done' --updated-at '2026-10-26 08:30' >"$D/fi228n4.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '不合 ISO 8601 口径' "$D/fi228n4.log"; then
     ok '负例 N-228d flip-index updated_at 非 ISO 8601 → exit 1 零写入（fail-closed）'
   else
     bad '负例 N-228d flip-index updated_at 非 ISO 8601 → exit 1 零写入（fail-closed）' "exit=$rc $(head -n 2 "$D/fi228n4.log" | tr '\n' '|')"
   fi
-  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status done --updated-at '2026-10-26T08:30' --ledger-line '{"date": "2026-10-26", "kind": "scope", "scope": "s", "decision": "d", "evidence_ref": "e"}' >"$D/fi228n5.log" 2>&1
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 20-beta-second --status 'done' --updated-at '2026-10-26T08:30' --ledger-line '{"date": "2026-10-26", "kind": "scope", "scope": "s", "decision": "d", "evidence_ref": "e"}' >"$D/fi228n5.log" 2>&1
   rc=$?
   if [ "$rc" -eq 2 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '不得携带 --ledger-line' "$D/fi228n5.log"; then
     ok '负例 N-228e flip-index 携带 --ledger-line → exit 2 零写入（索引单写代理不落账本行，票 228 F1/F2）'
   else
     bad '负例 N-228e flip-index 携带 --ledger-line → exit 2 零写入（索引单写代理不落账本行，票 228 F1/F2）' "exit=$rc $(head -n 2 "$D/fi228n5.log" | tr '\n' '|')"
   fi
-  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 99-ghost-none --status done --updated-at '2026-10-26T08:30' >"$D/fi228n6.log" 2>&1
+  sh "$FN228/rules/implementation/scripts/ticket-ops.sh" "$FN228" flip-index --id 99-ghost-none --status 'done' --updated-at '2026-10-26T08:30' >"$D/fi228n6.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$SN228" = "$(tix_state "$FN228")" ] && grep -q '锚点命中 0 行' "$D/fi228n6.log"; then
     ok '负例 N-228f flip-index 锚点零命中 → exit 1 零写入（fail-closed）'
@@ -1762,7 +1763,7 @@ PYTHON
       if [ "$tix243_n30" = '0' ] || [ "$tix243_n40" = '0' ]; then
         tix243_lost=$((tix243_lost + 1))
       fi
-    elif ! grep -qi '冲突\|conflict' "$D/ac2-$tix243_round-a.log" "$D/ac2-$tix243_round-b.log"; then
+    elif require_out "AC2 并发 $TIX243_CONC_ROUNDS 轮零丢更新（双方 exit 0 时两条目并存）" "$D/ac2-$tix243_round-a.log" "$D/ac2-$tix243_round-b.log" && ! grep -qi '冲突\|conflict' "$D/ac2-$tix243_round-a.log" "$D/ac2-$tix243_round-b.log"; then
       tix243_no_conflict=$((tix243_no_conflict + 1))
     fi
     tix243_round=$((tix243_round + 1))
@@ -2013,6 +2014,7 @@ PROBE
 
   # ---- AC8：锁原语单点实现（两脚本无锁实现字样）＋三镜像件逐字节一致 ----
   tix246_impl=''
+  # shellcheck disable=SC2016  # case/for 分支里的注入桩原文含 ${...} 字样（单引号防展开），非缺陷
   for tix246_tok in 'agent-up-record' '.steal.' 'mkdir "${RECORD_LOCK_DIR}"' 'record_lock_new_token' 'rev-parse --git-common-dir'; do
     if grep -qF -- "$tix246_tok" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh"; then
       tix246_impl="$tix246_impl [$tix246_tok]"
@@ -2251,7 +2253,7 @@ PYTHON
   else
     bad '负例 N-237a close 无证据 → exit 1 decision-required 且零写入（P01 短路）' "exit=$rc $(head -n 2 "$D/a237n-close.log" | tr '\n' '|')"
   fi
-  sh "$FA237N/rules/implementation/scripts/ticket-ops.sh" "$FA237N" flip --id 42-audit-gate --status done --ledger-line "$LED237" >"$D/a237n-flip.log" 2>&1
+  sh "$FA237N/rules/implementation/scripts/ticket-ops.sh" "$FA237N" flip --id 42-audit-gate --status 'done' --ledger-line "$LED237" >"$D/a237n-flip.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S237N" = "$(tix_state "$FA237N")" ] \
     && grep -q 'decision-required' "$D/a237n-flip.log" \
@@ -2260,7 +2262,7 @@ PYTHON
   else
     bad '负例 N-237b flip 至 done 无证据 → exit 1 decision-required 且零写入（与 close 同判）' "exit=$rc $(head -n 2 "$D/a237n-flip.log" | tr '\n' '|')"
   fi
-  sh "$FA237N/rules/implementation/scripts/ticket-ops.sh" "$FA237N" flip-index --id 42-audit-gate --status done --updated-at '2026-10-04T10:00' >"$D/a237n-fi.log" 2>&1
+  sh "$FA237N/rules/implementation/scripts/ticket-ops.sh" "$FA237N" flip-index --id 42-audit-gate --status 'done' --updated-at '2026-10-04T10:00' >"$D/a237n-fi.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S237N" = "$(tix_state "$FA237N")" ] \
     && grep -q 'decision-required' "$D/a237n-fi.log" \
@@ -2288,7 +2290,7 @@ PYTHON
   tix_audit_fixture "$D/a237u" uncommitted
   FA237U=$D/a237u
   S237U=$(tix_state "$FA237U")
-  sh "$FA237U/rules/implementation/scripts/ticket-ops.sh" "$FA237U" flip --id 42-audit-gate --status done --ledger-line "$LED237" >"$D/a237u.log" 2>&1
+  sh "$FA237U/rules/implementation/scripts/ticket-ops.sh" "$FA237U" flip --id 42-audit-gate --status 'done' --ledger-line "$LED237" >"$D/a237u.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S237U" = "$(tix_state "$FA237U")" ] \
     && grep -q 'decision-required' "$D/a237u.log" \
@@ -2311,14 +2313,14 @@ PYTHON
   else
     bad '正例 P-237a close＋conformant 证据 → exit 0 索引/README 落 done 且证据门放行' "exit=$rc $(head -n 2 "$D/a237c-close.log" | tr '\n' '|')"
   fi
-  sh "$FA237C/rules/implementation/scripts/ticket-ops.sh" "$FA237C" flip --id 42-audit-gate --status done --ledger-line "$LED237" >"$D/a237c-flip.log" 2>&1
+  sh "$FA237C/rules/implementation/scripts/ticket-ops.sh" "$FA237C" flip --id 42-audit-gate --status 'done' --ledger-line "$LED237" >"$D/a237c-flip.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '证据门: flip 放行' "$D/a237c-flip.log"; then
     ok '正例 P-237b flip 至 done＋同一证据 → exit 0 且证据门放行（与 close 同判）'
   else
     bad '正例 P-237b flip 至 done＋同一证据 → exit 0 且证据门放行（与 close 同判）' "exit=$rc $(head -n 2 "$D/a237c-flip.log" | tr '\n' '|')"
   fi
-  sh "$FA237C/rules/implementation/scripts/ticket-ops.sh" "$FA237C" flip-index --id 42-audit-gate --status done --updated-at '2026-10-04T10:00' >"$D/a237c-fi.log" 2>&1
+  sh "$FA237C/rules/implementation/scripts/ticket-ops.sh" "$FA237C" flip-index --id 42-audit-gate --status 'done' --updated-at '2026-10-04T10:00' >"$D/a237c-fi.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '"id": "42-audit-gate", "status": "done", "complexity": "C1", "blocked_by": \[\], "updated_at": "2026-10-04T10:00"' "$FA237C/facts/requirements/tickets/index.json" \
     && grep -q '证据门: flip-index 放行' "$D/a237c-fi.log"; then
@@ -2355,7 +2357,8 @@ PYTHON
   FA237H=$D/a237h
   sh "$FA237H/rules/implementation/scripts/ticket-ops.sh" "$FA237H" close --id 42-audit-gate --ledger-line "$LED237" >"$D/a237h.log" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-ticket-ops 目标输出在场' "$D/a237h.log" \
+    && [ "$rc" -eq 0 ] \
     && grep -q '证据门: close 放行' "$D/a237h.log" \
     && ! grep -q '形态不符' "$D/a237h.log"; then
     ok '正例 P-237d 票面声明规范 Review Checkpoint＋审查后仅写该文件 → 允许集生效，close exit 0 放行'
@@ -2385,7 +2388,7 @@ PYTHON
   FA237T=$D/a237t
   tix_body "$FA237T/facts/requirements/tickets/42-audit-gate.json" 42-audit-gate
   S237T=$(tix_state "$FA237T")
-  sh "$FA237T/rules/implementation/scripts/ticket-ops.sh" "$FA237T" flip-index --id 42-audit-gate --status done --updated-at '2026-10-04T10:00' >"$D/a237t.log" 2>&1
+  sh "$FA237T/rules/implementation/scripts/ticket-ops.sh" "$FA237T" flip-index --id 42-audit-gate --status 'done' --updated-at '2026-10-04T10:00' >"$D/a237t.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S237T" = "$(tix_state "$FA237T")" ] \
     && grep -q 'actual_time' "$D/a237t.log"; then

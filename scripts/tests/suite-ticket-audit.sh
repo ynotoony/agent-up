@@ -146,6 +146,9 @@ ta_expect() {
     bad "$_te_name" "exit=$_te_rc 期望=$_te_want"
     return 0
   fi
+  if ! require_out "$_te_name" "$_te_out"; then
+    return 0
+  fi
   for _te_pat in "$@"; do
     if ! grep -qF -- "$_te_pat" "$_te_out"; then
       bad "$_te_name" "缺行: $_te_pat"
@@ -156,8 +159,11 @@ ta_expect() {
 }
 
 suite_ticket_audit() {
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='ticket-audit'
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_START=$TOTAL
   D=$T/ta
   mkdir -p "$D"

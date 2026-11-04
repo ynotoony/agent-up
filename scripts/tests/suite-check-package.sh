@@ -522,7 +522,8 @@ EOF
     && mv "$D/enf4.tmp" "$D/pkgenf4/references/adapters/zcode.md"
   sh "$D/pkgenf4/scripts/check-package.sh" "$D/pkgenf4" >"$D/act.n47" 2>&1
   rc=$?
-  if [ "$rc" -eq 2 ] && grep -q '检查 14 enforcement 目标解析失效（readonly-execute 行未命中，fail-closed）: references/adapters/zcode.md' "$D/act.n47" \
+  if require_out 'suite-check-package 目标输出在场' "$D/act.n47" \
+    && [ "$rc" -eq 2 ] && grep -q '检查 14 enforcement 目标解析失效（readonly-execute 行未命中，fail-closed）: references/adapters/zcode.md' "$D/act.n47" \
     && ! grep -q '^FAIL' "$D/act.n47" && ! grep -q '^check-package: PASS' "$D/act.n47" && ! grep -q '^check-package: FAIL' "$D/act.n47"; then
     ok '负例 N47 对照表删 readonly-execute 行 → exit 2 解析失效无结论（无 FAIL 行与汇总）'
   else
@@ -593,7 +594,8 @@ EOF
     esac
     sh "$D/pkgmal$cp_i/scripts/check-package.sh" "$D/pkgmal$cp_i" >"$D/act.n24_$cp_i" 2>&1
     rc=$?
-    if [ "$rc" -eq 2 ] && ! grep -q '^PASS' "$D/act.n24_$cp_i" && ! grep -q '^FAIL' "$D/act.n24_$cp_i" \
+    if require_out "$cp_desc" "$D/act.n24_$cp_i" \
+      && [ "$rc" -eq 2 ] && ! grep -q '^PASS' "$D/act.n24_$cp_i" && ! grep -q '^FAIL' "$D/act.n24_$cp_i" \
       && grep -q '非执行式解析不合预期' "$D/act.n24_$cp_i" \
       && { [ -z "$cp_probe" ] || [ ! -e "$cp_probe" ]; }; then
       ok "$cp_desc"
@@ -673,7 +675,7 @@ EOF
   cp -R "$PKG_ROOT" "$D/pkgcopy19"
   sh "$D/pkgcopy19/scripts/check-package.sh" "$D/pkgcopy19" >"$D/act.n22" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q 'scripts 节 mode 断言' "$D/act.n22"; then
+  if require_out 'suite-check-package 目标输出在场' "$D/act.n22" && [ "$rc" -eq 0 ] && ! grep -q 'scripts 节 mode 断言' "$D/act.n22"; then
     ok '负例 N22 非 git 语境（cp 副本）检查 19 静默跳过无输出行 → exit 0'
   else
     bad '负例 N22 非 git 语境（cp 副本）检查 19 静默跳过无输出行 → exit 0' "exit=$rc"
@@ -987,7 +989,8 @@ EOF
   printf "pm_layout_compat_exempt references/protocol/read-policy.md %d 'harness fixture 豁免范围断言（仅罩本行）'\n" "$n43_ln" >> "$D/pkgl6/scripts/package-manifest.rules"
   sh "$D/pkgl6/scripts/check-package.sh" "$D/pkgl6" >"$D/act.n43" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-check-package 目标输出在场' "$D/act.n43" \
+    && [ "$rc" -eq 1 ] \
     && grep -q 'references/protocol/governance-format.md:[0-9][0-9]* modern 布局面失效引用（分类 modern）: docs/issues/index.json' "$D/act.n43" \
     && ! grep -q 'references/protocol/read-policy.md:'"$n43_ln"' modern 布局面失效引用' "$D/act.n43"; then
     ok '负例 N43 豁免不外溢 → exit 1 且仅指名未豁免件（非全局替换等价断言）'
@@ -1053,7 +1056,8 @@ EOF
     && mv "$D/pm51.tmp" "$D/pkar1/scripts/package-manifest.rules"
   sh "$D/pkar1/scripts/check-package.sh" "$D/pkar1" >"$D/act.n51" 2>&1
   rc=$?
-  if [ "$rc" -eq 2 ] && grep -q 'platform 不在 platform-enum 节宿主值（neutral 平台无关不入注册表）: dsh' "$D/act.n51" \
+  if require_out 'suite-check-package 目标输出在场' "$D/act.n51" \
+    && [ "$rc" -eq 2 ] && grep -q 'platform 不在 platform-enum 节宿主值（neutral 平台无关不入注册表）: dsh' "$D/act.n51" \
     && ! grep -q '^PASS:' "$D/act.n51"; then
     ok '负例 N51 platform-enum 节删宿主值 → exit 2 fail-closed 且指名注册表平台值失据'
   else
@@ -1158,7 +1162,8 @@ EOF
   grep '^pm_adapter zcode ' "$PKG_ROOT/scripts/package-manifest.rules" >> "$D/pkar7/scripts/package-manifest.rules"
   sh "$D/pkar7/scripts/check-package.sh" "$D/pkar7" >"$D/act.n57" 2>&1
   rc=$?
-  if [ "$rc" -eq 2 ] && grep -q 'adapter-registry 节第 6 行: shortcode 跨行重复（短码全局唯一由本节单源验证）: ZC' "$D/act.n57" \
+  if require_out 'suite-check-package 目标输出在场' "$D/act.n57" \
+    && [ "$rc" -eq 2 ] && grep -q 'adapter-registry 节第 6 行: shortcode 跨行重复（短码全局唯一由本节单源验证）: ZC' "$D/act.n57" \
     && ! grep -q '^PASS:' "$D/act.n57"; then
     ok '负例 N57 注册表追加重复短码行 → exit 2 fail-closed 零部分结论且指名跨行短码'
   else
@@ -1222,7 +1227,8 @@ EOF
   grep '^pm_adapter_cap zcode inspect ' "$PKG_ROOT/references/adapters/adapter-diffs.rules" >> "$D/pkad4/references/adapters/adapter-diffs.rules"
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkad4" >"$D/act.ad4" 2>&1
   rc=$?
-  if [ "$rc" -eq 2 ] && grep -q 'adapter-diffs capability-map 节第 46 行: （platform, primitive）跨行重复: zcode inspect' "$D/act.ad4" \
+  if require_out 'suite-check-package 目标输出在场' "$D/act.ad4" \
+    && [ "$rc" -eq 2 ] && grep -q 'adapter-diffs capability-map 节第 46 行: （platform, primitive）跨行重复: zcode inspect' "$D/act.ad4" \
     && ! grep -q '^PASS:' "$D/act.ad4"; then
     ok '负例 AD4 差异数据表追加重复（platform, primitive）行 → exit 2 fail-closed 零部分结论且指名'
   else
@@ -1236,7 +1242,8 @@ EOF
     > "$D/pkad5/references/adapters/adapter-diffs.rules"
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkad5" >"$D/act.ad5" 2>&1
   rc=$?
-  if [ "$rc" -eq 2 ] && grep -q 'adapter-diffs executor-status 节: 缺平台行（每注册平台恰一行）: zcode' "$D/act.ad5" \
+  if require_out 'suite-check-package 目标输出在场' "$D/act.ad5" \
+    && [ "$rc" -eq 2 ] && grep -q 'adapter-diffs executor-status 节: 缺平台行（每注册平台恰一行）: zcode' "$D/act.ad5" \
     && ! grep -q '^PASS:' "$D/act.ad5"; then
     ok '负例 AD5 差异数据表删单平台 exec 行 → exit 2 fail-closed 且指名段与宿主'
   else
@@ -1250,7 +1257,8 @@ EOF
     > "$D/pkad6/references/adapters/adapter-diffs.rules"
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkad6" >"$D/act.ad6" 2>&1
   rc=$?
-  if [ "$rc" -eq 2 ] && grep -q 'adapter-diffs dialect-signature 节: 缺平台行（每注册平台至少一行）: zcode' "$D/act.ad6" \
+  if require_out 'suite-check-package 目标输出在场' "$D/act.ad6" \
+    && [ "$rc" -eq 2 ] && grep -q 'adapter-diffs dialect-signature 节: 缺平台行（每注册平台至少一行）: zcode' "$D/act.ad6" \
     && ! grep -q '^PASS:' "$D/act.ad6"; then
     ok '负例 AD6 差异数据表删单平台 dialect 行 → exit 2 fail-closed 且指名段与宿主'
   else

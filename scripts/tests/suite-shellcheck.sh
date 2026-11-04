@@ -29,9 +29,16 @@ suite_shellcheck() {
     return 0
   fi
 
-  # 被测清单：find 枚举（harness 顶层 set -f 禁 shell glob，不能用 *.sh 通配）
+  # 被测清单：find 枚举（harness 顶层 set -f 禁 shell glob，不能用 *.sh 通配）；
+  # 面＝产品脚本一级 ＋ 同目录 tests 一级（测试代码同受静态门禁；tests/ 不在场的
+  # 安装面夹具按在场枚举，不虚构缺口）
   _sh_list="$D/files.txt"
-  find "$SCRIPT_DIR" -maxdepth 1 -type f -name '*.sh' | LC_ALL=C sort > "$_sh_list"
+  {
+    find "$SCRIPT_DIR" -maxdepth 1 -type f -name '*.sh'
+    if [ -d "$SCRIPT_DIR/tests" ]; then
+      find "$SCRIPT_DIR/tests" -maxdepth 1 -type f -name '*.sh'
+    fi
+  } | LC_ALL=C sort > "$_sh_list"
   _sh_n=$(wc -l < "$_sh_list" | tr -d ' ')
   if [ "$_sh_n" -eq 0 ]; then
     bad '脚本全量 shellcheck 零告警' "被测目录无 .sh 文件: $SCRIPT_DIR"
@@ -82,6 +89,46 @@ suite_shellcheck() {
     ok "豁免有证（disable 指令 ${_sh_exempt_n} 处逐项带理由注释）"
   else
     bad '豁免有证（disable 指令逐项带理由注释）' "$(head -n 4 "$_sh_sc_diag" | tr '\n' '|')"
+  fi
+
+  # 覆盖面断言：tests/ 在场时清单须含测试脚本（防扫描面回缩为只扫产品一级）
+  if [ -d "$SCRIPT_DIR/tests" ]; then
+    _sh_t_n=$(grep -c '/tests/' "$_sh_list" || true)
+    if [ "$_sh_t_n" -gt 0 ]; then
+      ok "扫描面含测试脚本（tests/ ${_sh_t_n} 件）"
+    else
+      bad '扫描面含测试脚本（tests/ 成员须入清单）' "清单无 tests/ 成员: $_sh_list"
+    fi
+  fi
+
+  # 防空转自检：负例断言前置 require_out 的翻红能力必须可证——目标文件缺失时
+  # 裸 `! grep -q` 会空转通过（假绿），前置须记 FAIL；文件在场时前置不得误报。
+  _sh_av_missing="$D/vacuity-missing.out"
+  _sh_av_present="$D/vacuity-present.out"
+  rm -f "$_sh_av_missing"
+  printf 'present\n' > "$_sh_av_present"
+  if ! grep -q 'not-there' "$_sh_av_missing" 2>/dev/null; then
+    ok '防空转自检：缺前置的 ! grep -q 对缺失文件空转通过（前置必要性的反证）'
+  else
+    bad '防空转自检：缺前置的 ! grep -q 对缺失文件空转通过（前置必要性的反证）' '裸 grep 在缺失文件上未空转——环境口径变化'
+  fi
+  if (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_missing"; [ "$FAILS" -eq 1 ]) >/dev/null 2>&1; then
+    ok '防空转自检：目标文件缺失时负例前置记 FAIL（不得空转通过）'
+  else
+    bad '防空转自检：目标文件缺失时负例前置记 FAIL（不得空转通过）' 'require_out 对缺失文件未记 FAIL'
+  fi
+  if (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_present"; [ "$FAILS" -eq 0 ]) >/dev/null 2>&1; then
+    ok '防空转自检：目标文件在场时负例前置不误报（前置非恒假）'
+  else
+    bad '防空转自检：目标文件在场时负例前置不误报（前置非恒假）' 'require_out 对在场文件记了 FAIL'
+  fi
+  _sh_av_empty="$D/vacuity-empty.out"
+  : > "$_sh_av_empty"
+  if (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out --allow-empty '防空转自检' "$_sh_av_empty"; [ "$FAILS" -eq 0 ]) >/dev/null 2>&1 \
+    && (TOTAL=0; FAILS=0; SUITE_FAILS=0; CUR_SUITE='shellcheck'; require_out '防空转自检' "$_sh_av_empty"; [ "$FAILS" -eq 1 ]) >/dev/null 2>&1; then
+    ok '防空转自检：--allow-empty 只放宽空输出（在场即过），缺省口径仍把空文件判红'
+  else
+    bad '防空转自检：--allow-empty 只放宽空输出（在场即过），缺省口径仍把空文件判红' 'allow-empty 口径与缺省口径之一不符'
   fi
 
   suite_summary 'shellcheck'

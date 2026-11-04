@@ -15,11 +15,11 @@ fi
 # ============================================================
 
 suite_docs_generation() {
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='docs-generation'
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_START=$TOTAL
   D=$T/docsgen
   mkdir -p "$D"
@@ -48,7 +48,8 @@ suite_docs_generation() {
   rm -rf "$D/pkg"
   cp -R "$PKG_ROOT" "$D/pkg"
   cp "$D/pkg/references/templates/core.md.tmpl" "$D/pkg/references/templates/core.md.orig"
-  if [ $? -eq 0 ] && [ -f "$D/pkg/references/rules-index.md" ]; then
+  cp_rc=$?
+  if [ "$cp_rc" -eq 0 ] && [ -f "$D/pkg/references/rules-index.md" ]; then
     ok '夹具包首轮生成落盘'
   else
     bad '夹具包首轮生成落盘' "$(sed -n '1,6p' "$D/gen.log")"

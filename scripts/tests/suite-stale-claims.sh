@@ -68,7 +68,8 @@ suite_stale_claims() {
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p1/eng/dp-load-rules.sh"
   sc_run "$D/p1" > "$D/p1.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p1.out" \
+    && [ "$rc" -eq 0 ] \
     && grep -q 'SKIP: S1 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
     && grep -q 'SKIP: S2 — delivery.rules 未点亮（dp_stale_lit 缺登记）' "$D/p1.out" \
     && grep -q '登记表 6 条全部核对' "$D/p1.out" \
@@ -93,7 +94,8 @@ dp_stale_lit S2
 EOF
   sc_run "$D/p2" > "$D/p2.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p2.out" \
+    && [ "$rc" -eq 1 ] \
     && ! grep -q '^SKIP: S1' "$D/p2.out" \
     && ! grep -q '^SKIP: S2' "$D/p2.out" \
     && grep -q '^STALE: README.md' "$D/p2.out" \
@@ -129,7 +131,8 @@ EOF
   printf '# 调研夹具\n\n结论：采用方案 X（出处 file:facts/requirements/research/ref.md；轨:本仓自用）\n' > "$D/p3/repo/facts/requirements/research/2026-09-24-p3.md"
   sc_run "$D/p3" > "$D/p3.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p3.out" \
+    && [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/p3.out" \
     && grep -q '登记表 6 条全部核对' "$D/p3.out"; then
     ok '正例 P3 S5 新增面结论行标注齐（file:＋轨:）→ exit 0 零 STALE、登记表 6 条'
@@ -165,7 +168,7 @@ EOF
   sc_git_baseline "$D/p4/repo"
   sc_run "$D/p4" > "$D/p4.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p4.out"; then
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p4.out" && [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p4.out"; then
     ok '正例 P4 S5 存量已提交不回溯 → exit 0 零 STALE（向前生效）'
   else
     bad '正例 P4 S5 存量已提交不回溯 → exit 0 零 STALE（向前生效）' "exit=$rc $(tail -n 2 "$D/p4.out" | tr '\n' '|')"
@@ -183,7 +186,7 @@ EOF
   printf '\n结论：追加行未标注\n' >> "$D/n3/repo/facts/requirements/research/2026-09-24-n3.md"
   sc_run "$D/n3" > "$D/n3.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^STALE: facts/requirements/research/2026-09-24-n3.md:5' "$D/n3.out" && ! grep -q '^STALE: facts/requirements/research/2026-09-24-n3.md:3' "$D/n3.out"; then
+  if require_out 'suite-stale-claims 目标输出在场' "$D/n3.out" && [ "$rc" -eq 1 ] && grep -q '^STALE: facts/requirements/research/2026-09-24-n3.md:5' "$D/n3.out" && ! grep -q '^STALE: facts/requirements/research/2026-09-24-n3.md:3' "$D/n3.out"; then
     ok '负例 N3 S5 修改面追加行缺标注 → exit 1 且 STALE 指名追加行 :5（基线行 ：3 不报）'
   else
     bad '负例 N3 S5 修改面追加行缺标注 → exit 1 且 STALE 指名追加行 :5（基线行 ：3 不报）' "exit=$rc $(tail -n 2 "$D/n3.out" | tr '\n' '|')"
@@ -209,7 +212,8 @@ EOF
   sc_git_baseline "$D/p5/repo"
   sc_run "$D/p5" > "$D/p5.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p5.out" \
+    && [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/p5.out" \
     && ! grep -q 'S6 终态哨兵' "$D/p5.out"; then
     ok '正例 P5 S6 终态索引照旧（done/superseded 保持终态）→ exit 0 零 STALE（合法稳态）'
@@ -271,7 +275,8 @@ EOF
   printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | in_progress | - | 2026-09-28T01:00:00Z |\n' > "$D/p6/repo/facts/requirements/tickets/progress-current.md"
   sc_run "$D/p6" > "$D/p6.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p6.out" \
+    && [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/p6.out" \
     && ! grep -q 'S6 终态哨兵' "$D/p6.out"; then
     ok '正例 P6 S6 非终态流转（ready→in_progress）→ exit 0 零误报'
@@ -307,7 +312,8 @@ EOF
   sc_s7_write "$D/p7/repo" superseded 92-s7 'done'
   sc_run "$D/p7" > "$D/p7.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p7.out" \
+    && [ "$rc" -eq 0 ] \
     && ! grep -q 'S7 替代标记' "$D/p7.out" \
     && ! grep -q 'S7 收口顺序' "$D/p7.out"; then
     ok '正例 P7 S7 有效标记（superseded→done 在索引）→ exit 0 零 S7 输出'
@@ -345,7 +351,8 @@ EOF
   sc_s7_write "$D/p8/repo" superseded '' 'done'
   sc_run "$D/p8" > "$D/p8.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p8.out" \
+    && [ "$rc" -eq 0 ] \
     && ! grep -q 'S7 替代标记' "$D/p8.out" \
     && ! grep -q 'S7 收口顺序' "$D/p8.out"; then
     ok '正例 P8 S7 缺字段零回扫（存量形态无标记）→ exit 0 零 S7 输出'
@@ -364,7 +371,8 @@ EOF
   sc_s7_write "$D/n7/repo" superseded 92-s7 in_progress
   sc_run "$D/n7" > "$D/n7.out" 2>&1
   rc=$?
-  if ! grep -q 'S7 替代标记' "$D/n7.out" \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/n7.out" \
+    && ! grep -q 'S7 替代标记' "$D/n7.out" \
     && grep -q 'S7 收口顺序提醒：票 91-s7 的 superseded_by 指向 92-s7，替代票尚未收口（状态 in_progress）' "$D/n7.out"; then
     ok '负例 N7 S7 非终态指向 → WARN 提醒先标后收、零 S7 STALE'
   else
@@ -395,7 +403,7 @@ EOF
   sc_s8_write "$D/p9/repo" '沉淀到 rules/x.md#锚点文本在这里' rules 1
   sc_run "$D/p9" > "$D/p9.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q 'S8 复盘沉淀指针' "$D/p9.out"; then
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p9.out" && [ "$rc" -eq 0 ] && ! grep -q 'S8 复盘沉淀指针' "$D/p9.out"; then
     ok '正例 P9 S8 指针在位（文件＋锚点均在）→ exit 0 零 S8 STALE'
   else
     bad '正例 P9 S8 指针在位（文件＋锚点均在）→ exit 0 零 S8 STALE' "exit=$rc $(grep 'S8' "$D/p9.out" | head -1)"
@@ -443,7 +451,7 @@ EOF
   sc_s8_write "$D/p10/repo" '教训无沉淀指针' none 0
   sc_run "$D/p10" > "$D/p10.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q 'S8 复盘沉淀指针' "$D/p10.out" && grep -q 'S8 扫描面零命中' "$D/p10.out"; then
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p10.out" && [ "$rc" -eq 0 ] && ! grep -q 'S8 复盘沉淀指针' "$D/p10.out" && grep -q 'S8 扫描面零命中' "$D/p10.out"; then
     ok '正例 P10 S8 none 行跳过 → exit 0 零 S8 输出＋NOTE 零命中'
   else
     bad '正例 P10 S8 none 行跳过 → 零 S8 输出＋NOTE 零命中' "exit=$rc $(grep 'S8' "$D/p10.out" | head -1)"
@@ -475,7 +483,7 @@ EOF
   mkdir -p "$D/p11/repo/eng"
   sc_bare_run "$D/p11" rules/implementation/scripts/check-stale-claims.sh "$D/p11.explicit" "$D/p11.out"
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p11.out" && cmp -s "$D/p11.out" "$D/p11.explicit"; then
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p11.explicit" "$D/p11.out" && [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p11.out" && cmp -s "$D/p11.out" "$D/p11.explicit"; then
     ok '正例 P11 rules/ 落位无参裸跑 → exit 0 零 STALE，与显式传参输出逐字节一致'
   else
     bad '正例 P11 rules/ 落位无参裸跑 → exit 0 零 STALE，与显式传参输出逐字节一致' "exit=$rc $(tail -n 2 "$D/p11.out" | tr '\n' '|')"
@@ -493,7 +501,7 @@ EOF
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p12/repo/eng/dp-load-rules.sh"
   ( cd "$D/p12/repo" && sh agent-up/scripts/check-stale-claims.sh ) > "$D/p12.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p12.out"; then
+  if require_out 'suite-stale-claims 目标输出在场' "$D/p12.out" && [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p12.out"; then
     ok '正例 P12 包内落位无参裸跑 → exit 0 零 STALE'
   else
     bad '正例 P12 包内落位无参裸跑 → exit 0 零 STALE' "exit=$rc $(tail -n 2 "$D/p12.out" | tr '\n' '|')"
@@ -545,7 +553,8 @@ EOF
   sc_eng_setup "$D/s4t1"
   sc_run "$D/s4t1" > "$D/s4t1.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/s4t1.out" \
+    && [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/s4t1.out" \
     && ! grep -q 'STALE-prone' "$D/s4t1.out" \
     && ! grep -q 'S4 数量相等' "$D/s4t1.out"; then
@@ -604,7 +613,8 @@ EOF
   printf '根目录笔记：共 4 项\n' > "$D/s4fp1/repo/FP-ROOT.md"
   sc_run "$D/s4fp1" > "$D/s4fp1.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/s4fp1.out" \
+    && [ "$rc" -eq 0 ] \
     && ! grep -q 'STALE-prone' "$D/s4fp1.out" \
     && ! grep -q '^STALE' "$D/s4fp1.out"; then
     ok 'S4-FP1 排除面 prune/case 跳过、非 md、facts 外（rules 树/仓根）同文零报（false-positive 防线＋扫描范围声明）'
@@ -641,7 +651,8 @@ EOF
   printf '措辞行：必要时酌情\n计数行：共 4 项\n' > "$D/s4v1/repo/facts/project/notes/mixed.md"
   sc_run "$D/s4v1" > "$D/s4v1.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/s4v1.out" \
+    && [ "$rc" -eq 1 ] \
     && grep -qF 'STALE-prone: facts/project/notes/mixed.md:2 —' "$D/s4v1.out" \
     && ! grep -qF 'STALE-prone: facts/project/notes/vocab.md' "$D/s4v1.out" \
     && ! grep -qF 'STALE-prone: facts/project/notes/mixed.md:1 —' "$D/s4v1.out"; then
@@ -659,7 +670,8 @@ EOF
   printf '他行命中：4～6 共\n' > "$D/s4x1/repo/facts/other-fix.md"
   sc_run "$D/s4x1" > "$D/s4x1.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] \
+  if require_out 'suite-stale-claims 目标输出在场' "$D/s4x1.out" \
+    && [ "$rc" -eq 1 ] \
     && ! grep -qF 'STALE-prone: facts/exempt-fix.md:3 —' "$D/s4x1.out" \
     && grep -qF 'STALE-prone: facts/other-fix.md:1 —' "$D/s4x1.out"; then
     ok 'S4-X1 显式豁免（路径＋行号＋理由）恰行免报 exempt-fix.md:3、非豁免命中照报 other-fix.md:1'

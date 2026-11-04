@@ -52,6 +52,7 @@ suite_checkpoint_write() {
   printf '# 票 33\n\n**Status:** `in_progress`\n' > "$D/p1/facts/requirements/tickets/33-cw-ticket.md"
   cw_run "$D/p1" 'facts/requirements/tickets/33-cw-ticket.md' "$D/p1.out"
   rc=$?
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   p1_prefix=$(printf '# 票 33\n\n**Status:** `in_progress`')
   if [ "$rc" -eq 0 ] \
     && [ "$(head -n 3 "$D/p1/facts/requirements/tickets/33-cw-ticket.md")" = "$p1_prefix" ] \

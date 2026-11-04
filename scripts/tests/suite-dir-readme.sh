@@ -157,19 +157,23 @@ suite_dir_readme() {
 
   # N6 幽灵路径 → exit 2
   dr_base_readme "$R/docs/README.md"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   sed 's|`docs/a.md`|`docs/ghost.md`|' "$R/docs/README.md" > "$D/tmp" && mv "$D/tmp" "$R/docs/README.md"
   dr_expect_fail '负例 引用幽灵路径 → exit 2 指名 file:line' '引用路径不存在: docs/ghost.md'
 
   # N6b 幽灵单文件名（不含 /）：按 README 所在目录校验 → exit 2 且指名该文件名
   dr_base_readme "$R/docs/README.md"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf -- '- 参见 `missing-file.md`。\n' >> "$R/docs/README.md"
   dr_expect_fail '负例 引用幽灵单文件名 → exit 2 指名 file:line' '引用路径不存在: missing-file.md'
 
   # P5 同目录单文件名存在 → exit 0；裸标识符（true、--check）不按路径校验
   dr_base_readme "$R/docs/README.md"
   : > "$R/docs/real-file.md"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   {
     printf -- '- 参见 `real-file.md`。\n'
+    # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
     printf -- '- 状态 `true`，开关 `--check`。\n'
   } >> "$R/docs/README.md"
   sh "$G" --target "$R" --dir docs >"$D/out" 2>"$D/err"
@@ -182,8 +186,10 @@ suite_dir_readme() {
 
   # P6 N/A 例外（大小写不敏感，可带理由）→ exit 0
   dr_base_readme "$R/docs/README.md"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   {
     printf -- '- 状态 `N/A`。\n'
+    # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
     printf -- '- 兼容性 `n/a（不适用）`。\n'
   } >> "$R/docs/README.md"
   sh "$G" --target "$R" --dir docs >"$D/out" 2>"$D/err"
@@ -435,6 +441,8 @@ EOF
   fi
 
   # 增行：新子目录自动出行，一句话取子目录 README 职责句；既有行两格原文复用
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if grep -qF '| `docs/alpha/` | 阿尔法职责句。 | — |' "$S/docs/README.md" \
     && grep -qF '| `docs/beta/` | 贝塔原句 | 贝塔原禁忌 |' "$S/docs/README.md"; then
     ok '正例 --sync 增行取子目录职责句且既有行两格原文复用'
@@ -456,7 +464,7 @@ EOF
   rm -rf "$S/docs/beta"
   sh "$G" --target "$S" --dir docs --sync >"$D/out" 2>"$D/err"
   rc=$?
-  if [ "$rc" -eq 0 ] && ! grep -qF 'beta' "$S/docs/README.md"; then
+  if require_out 'suite-dir-readme 目标输出在场' "$S/docs/README.md" && [ "$rc" -eq 0 ] && ! grep -qF 'beta' "$S/docs/README.md"; then
     ok '正例 --sync 子目录消失后整行删除 → exit 0'
   else
     bad '正例 --sync 子目录消失后整行删除 → exit 0' "exit=$rc remaining=$(grep -F 'beta' "$S/docs/README.md" | tr '\n' '|')"
@@ -590,6 +598,7 @@ EOF
   else
     bad '正例 --init 骨架四段齐全' "$(tr '\n' '|' < "$I/area/README.md")"
   fi
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if grep -qF '<!-- dir-readme: generated dir=area -->' "$I/area/README.md" \
     && grep -qF '| `area/child/` | 子目录职责。 | — |' "$I/area/README.md"; then
     ok '正例 --init 生成块包住自动子目录表'
@@ -682,6 +691,7 @@ PY
   mkdir -p "$PH/docs/sub"
   : > "$PH/docs/a.md"
   dr_base_readme "$PH/docs/README.md"
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '文档里以行内代码引用占位写法 `【填写：…】`，不是待填判断位。\n' >> "$PH/docs/README.md"
   sh "$G" --target "$PH" --check >"$D/out" 2>"$D/err"
   rc=$?
@@ -690,6 +700,7 @@ PY
   else
     bad '正例 行内代码段内【填写：】不误伤 → exit 0 零输出' "exit=$rc stderr=$(tr '\n' '|' < "$D/err")"
   fi
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '```text\n【填写：围栏内占位】\n```\n' >> "$PH/docs/README.md"
   sh "$G" --target "$PH" --check >"$D/out" 2>"$D/err"
   rc=$?
@@ -756,7 +767,8 @@ EOF
 
   # F4 模板首格与根相对路径口径一致
   TMPL="$SCRIPT_DIR/../references/templates/dir-README.md.tmpl"
-  if grep -qF '| `notes/sub/` |' "$TMPL" && ! grep -qF '【一级子目录名】' "$TMPL"; then
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
+  if require_out 'suite-dir-readme 目标输出在场' "$TMPL" && grep -qF '| `notes/sub/` |' "$TMPL" && ! grep -qF '【一级子目录名】' "$TMPL"; then
     ok '正例 模板首格为根相对示例（无「一级子目录名」占位）'
   else
     bad '正例 模板首格为根相对示例（无「一级子目录名」占位）' "$(grep -n 'notes/sub/\|一级子目录名' "$TMPL" | tr '\n' '|')"
@@ -785,6 +797,7 @@ EOF
 EOF
   sh "$G" --target "$PP" --dir docs --sync >"$D/out" 2>"$D/err"
   rc=$?
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if [ "$rc" -eq 0 ] && grep -qF '| `docs/a\|b/` | 管道职责。 | — |' "$PP/docs/README.md"; then
     ok '正例 --sync 子目录名含 | → 首格转义 \|'
   else
@@ -1012,7 +1025,8 @@ PY
   fi
 
   # M2 普通两列表（检查项｜依据文件）不得判成 member-table
-  if grep -qF 'MIGRATE: two-col/README.md: no-table:' "$D/migrate-all.out" \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/migrate-all.out" \
+    && grep -qF 'MIGRATE: two-col/README.md: no-table:' "$D/migrate-all.out" \
     && ! grep -qF 'MIGRATE: two-col/README.md: member-table:' "$D/migrate-all.out"; then
     ok '正例 普通两列表不误判 member-table → no-table'
   else
@@ -1053,7 +1067,8 @@ PY
   else
     bad 'AC2 超限 40 行判断文字 → NOTE 点名行数且不截断（建议行数＝NOTE 行数）' "note=${over_note:-无} $probe"
   fi
-  if grep -qF 'NOTE: over/README.md: 原文缺职责句' "$D/migrate-over.out" \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/migrate-over.out" \
+    && grep -qF 'NOTE: over/README.md: 原文缺职责句' "$D/migrate-over.out" \
     || ! grep -qF '【填写：一句话职责】' "$D/migrate-over.out"; then
     ok '正例 已有职责句时不再插职责占位'
   else
@@ -1062,6 +1077,7 @@ PY
 
   # M6 丢弃段：成员表与手册节各有 DROP 行且行范围覆盖原文
   hdr=$(grep -n '^| 名字' "$MG/repo/member/README.md" | cut -d: -f1)
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   last=$(grep -n '^| `a\.md`' "$MG/repo/member/README.md" | cut -d: -f1)
   if grep -qF "DROP: member/README.md: $hdr-$last 行: 成员表（表头 名字｜地位｜功能）" "$D/migrate-member.out"; then
     ok 'AC2 成员表逐段 DROP 且行范围覆盖表头至末行'
@@ -1092,7 +1108,8 @@ PY
   sh "$G" --target "$MG/repo" --migrate-dry-run >"$D/migrate-summary.out" 2>"$D/migrate-summary.err"
   rc=$?
   sum_lines=$(wc -l <"$D/migrate-summary.out" | tr -d ' ')
-  if [ "$rc" -eq 0 ] && [ "$sum_lines" -le 15 ] && [ ! -s "$D/migrate-summary.err" ] \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/migrate-summary.out" \
+    && [ "$rc" -eq 0 ] && [ "$sum_lines" -le 15 ] && [ ! -s "$D/migrate-summary.err" ] \
     && grep -qF 'SUMMARY: 迁移 4 件（member-table 1／four-column 1／no-table 2）' "$D/migrate-summary.out" \
     && grep -qF 'ZERO-WRITE: 4/4 sha256 一致' "$D/migrate-summary.out" \
     && ! grep -qF -- '--- a/' "$D/migrate-summary.out"; then
@@ -1127,7 +1144,8 @@ PY
   fi
   sh "$G" --target "$MG/repo" --diff --check >"$D/out" 2>"$D/err"
   dr_rc=$?
-  if [ "$dr_rc" -eq 2 ] \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/err" \
+    && [ "$dr_rc" -eq 2 ] \
     && grep -qF '（与 --check 同用无效，用法见 --help）' "$D/err" \
     && ! grep -qE '用法见 --help）check$' "$D/err"; then
     ok '负例 --diff --check 模式名嵌入句内且行尾无裸模式名'
@@ -1155,7 +1173,9 @@ PY
   for dr_mode in '--check' '--sync' '--init member'; do
     # shellcheck disable=SC2086  # 三个模式串按空格拆成参数，--init 需带目录值
     sh "$G" --target "$MG/repo" --migrate-dry-run $dr_mode >"$D/out" 2>"$D/err"
-    if [ "$?" -ne 2 ] || ! grep -qF '互斥' "$D/err"; then
+    dr_mutex_rc=$?
+    if ! require_out '负例 --migrate-dry-run 与 --check／--sync／--init 互斥 → exit 2' "$D/err" \
+      || [ "$dr_mutex_rc" -ne 2 ] || ! grep -qF '互斥' "$D/err"; then
       dr_mutex=0
     fi
   done
@@ -1166,7 +1186,8 @@ PY
   fi
 
   # M10 --dir 限定生效
-  if grep -qF 'MIGRATE: member/README.md:' "$D/migrate-member.out" \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/migrate-member.out" \
+    && grep -qF 'MIGRATE: member/README.md:' "$D/migrate-member.out" \
     && ! grep -qF 'MIGRATE: four/README.md:' "$D/migrate-member.out"; then
     ok '正例 --dir 限定只输出指定目录的迁移建议'
   else
@@ -1262,6 +1283,8 @@ EOF
   else
     bad '正例 --brief 输出四节固定标题且 exit 0' "exit=$dr_brief_rc $(grep '^## BRIEF' "$D/brief.out" | tr '\n' '|')"
   fi
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if grep -qF -- '- 目标目录：`docs`（一级成员 3 个）' "$D/brief.out" \
     && grep -qF -- '- d `sub/`（README.md：无）' "$D/brief.out" \
     && grep -qF -- '- f `a.md`（0 行，0 字节）' "$D/brief.out"; then
@@ -1270,7 +1293,9 @@ EOF
     bad '正例 --brief 目录清单列一级成员、文件行数与字节数' "$(sed -n '2,6p' "$D/brief.out" | tr '\n' '|')"
   fi
   # AC1 目录清单＝目标目录一级成员集合（`ls -1` 口径），正文里的成员不得混入
+  # shellcheck disable=SC2012  # 对照口径必须与被测 brief 的 `ls -1` 输出同形（find 会改变非字母名与排序口径），非缺陷
   dr_docs_ls=$(CDPATH='' cd -- "$B/repo/docs" && LC_ALL=C ls -1 | LC_ALL=C sort)
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   dr_docs_listed=$(sed -n '/^## BRIEF 目录清单$/,/^## BRIEF 判断证据$/p' "$D/brief.out" \
     | sed -n 's/^- [dfol] `\([^`]*\)`.*$/\1/p' | sed 's|/$||' | LC_ALL=C sort)
   dr_docs_n=$(printf '%s\n' "$dr_docs_ls" | grep -c .)
@@ -1281,6 +1306,8 @@ EOF
   else
     bad 'AC1 --brief 目录清单集合等于目标目录一级成员（不含目录外成员）' "ls=$(printf '%s' "$dr_docs_ls" | tr '\n' ',') listed=$(printf '%s' "$dr_docs_listed" | tr '\n' ',')"
   fi
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   if grep -qF -- '- [目录] 条目 docs-dir：`docs`' "$D/brief.out" \
     && grep -qF -- '- [成员] 条目 docs-a：`docs/a.md`' "$D/brief.out" \
     && grep -qF -- '- [子目录内] 条目 docs-sub-doc：`docs/sub/inner.md`' "$D/brief.out"; then
@@ -1296,7 +1323,8 @@ EOF
   else
     bad '正例 --brief 证据字段为 artifacts 原文且标注 authority 不可照抄' "$(grep -F '  authority:' "$D/brief.out" | tr '\n' '|')"
   fi
-  if ! grep -qF 'other-secret' "$D/brief.out" \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/brief.out" \
+    && ! grep -qF 'other-secret' "$D/brief.out" \
     && ! grep -qF 'other/secret.md' "$D/brief.out"; then
     ok '正例 --brief 不带出目录外 artifacts 条目'
   else
@@ -1352,7 +1380,8 @@ PY
     bad 'AC1 --brief 判断证据条目 id 可回查且路径作用域在本目录' "$(printf '%s' "$dr_scope" | tr '\n' '|')"
   fi
   # AC1 回归钉：authority／read_when 原文照录，目录外指针逐字保留，不再出现屏蔽记号
-  if grep -qF '规则权威＝rules/project.md §15.1' "$D/brief.out" \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/brief.out" \
+    && grep -qF '规则权威＝rules/project.md §15.1' "$D/brief.out" \
     && grep -qF '另见 ../SKILL.md' "$D/brief.out" \
     && ! grep -qF '〈目录外〉' "$D/brief.out" \
     && ! grep -qF 'MASKED' "$D/brief.out"; then
@@ -1365,7 +1394,8 @@ PY
   dr_brief_rc=$(cat "$D/brief.rc")
   cp "$D/brief.out" "$D/brief-refs.out"
   dr_brief "$B/repo" docs
-  if [ "$dr_brief_rc" -eq 0 ] \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/brief-refs.out" \
+    && [ "$dr_brief_rc" -eq 0 ] \
     && grep -qF '引用路径不存在: other/missing.md' "$D/brief-refs.out" \
     && grep -qF '引用路径越出目标根: ../' "$D/brief-refs.out" \
     && ! grep -qF '〈目录外〉' "$D/brief-refs.out" \
@@ -1385,7 +1415,8 @@ PY
   # B2 降级：artifacts 缺失／缺 artifacts 段 → exit 0、一行 DEGRADED、仍出目录清单与约定
   dr_brief "$B/nofacts" docs
   dr_brief_rc=$(cat "$D/brief.rc")
-  if [ "$dr_brief_rc" -eq 0 ] \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/brief.out" \
+    && [ "$dr_brief_rc" -eq 0 ] \
     && grep -qE '^DEGRADED: artifacts 索引缺失；本次仅输出目录清单与生成约定$' "$D/brief.out" \
     && ! grep -q '^## BRIEF 判断证据' "$D/brief.out" \
     && grep -qxF '## BRIEF 目录清单' "$D/brief.out" \
@@ -1396,7 +1427,8 @@ PY
   fi
   dr_brief "$B/badfacts" docs
   dr_brief_rc=$(cat "$D/brief.rc")
-  if [ "$dr_brief_rc" -eq 0 ] \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/brief.out" \
+    && [ "$dr_brief_rc" -eq 0 ] \
     && grep -qE '^DEGRADED: artifacts 索引不可解析（缺 artifacts 段）' "$D/brief.out" \
     && ! grep -q '^## BRIEF 判断证据' "$D/brief.out"; then
     ok '正例 --brief artifacts 不可解析降级且不静默'
@@ -1406,7 +1438,8 @@ PY
   # 条目边界按任意 `  - ` 行切分：任一条目缺 id／path 都整索引降级，不部分采用
   dr_brief "$B/badentry" docs
   dr_brief_rc=$(cat "$D/brief.rc")
-  if [ "$dr_brief_rc" -eq 0 ] \
+  if require_out 'suite-dir-readme 目标输出在场' "$D/brief.out" \
+    && [ "$dr_brief_rc" -eq 0 ] \
     && grep -qE '^DEGRADED: artifacts 索引条目缺 id 或 path' "$D/brief.out" \
     && ! grep -q '^## BRIEF 判断证据' "$D/brief.out" \
     && ! grep -qF 'docs/b.md' "$D/brief.out"; then

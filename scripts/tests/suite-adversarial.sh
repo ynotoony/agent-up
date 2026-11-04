@@ -79,6 +79,9 @@ adv_want() {
     bad "$_aw_name" "exit=$_aw_rc 期望=$_aw_want 输出=$(tr '\n' '|' < "$_aw_out" | cut -c1-400)"
     return 0
   fi
+  if ! require_out "$_aw_name" "$_aw_out"; then
+    return 0
+  fi
   while [ $# -gt 0 ]; do
     _aw_pat=$1
     shift
@@ -155,9 +158,8 @@ adv_close_dir_readmes() {
   # $1=项目根 $2=场景标签：安装后给新建治理目录补 README 骨架（新目录收口流程；
   # upgrade-check 的 manifest README 面只核存在性，缺口由本步闭合）
   _acdr_gen="$1/rules/implementation/scripts/generate-dir-readmes.sh"
-  for _acdr_d in rules/implementation/scripts; do
-    [ -d "$1/$_acdr_d" ] || continue
-    [ -f "$1/$_acdr_d/README.md" ] && continue
+  _acdr_d='rules/implementation/scripts'
+  if [ -d "$1/$_acdr_d" ] && [ ! -f "$1/$_acdr_d/README.md" ]; then
     if [ -s "$_acdr_gen" ] \
       && sh "$_acdr_gen" --target "$1" --init "$_acdr_d" > "$D/close.out" 2>&1; then
       ok "$2 新目录 README 骨架经生成器落位（${_acdr_d}）"
@@ -165,7 +167,7 @@ adv_close_dir_readmes() {
       bad "$2 新目录 README 骨架经生成器落位（${_acdr_d}）" \
         "$(tail -n 2 "$D/close.out" 2>/dev/null | tr '\n' '|')"
     fi
-  done
+  fi
 }
 
 adv_pkg_fixture() {
@@ -345,6 +347,7 @@ adv_ticket_run_fixture() {
     > "$_atr/delivery.rules"
   printf 'implemented\n' > "$_atr/product.txt"
   adv_index_one "$_atr" '90-run-fixture' ready
+  # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '| `90-run-fixture.json` | 任务票 90；`ready` | fixture |\n' > "$_atr/facts/requirements/tickets/README.md"
   printf '%s\n' '{"date":"2026-10-29","kind":"change","scope":"90","decision":"fixture seed","evidence_ref":"facts/requirements/tickets/90-run-fixture.json"}' \
     > "$_atr/facts/project/changes.jsonl"
@@ -993,8 +996,11 @@ PY
 # ---- 套件入口 ----
 
 suite_adversarial() {
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   CUR_SUITE='adversarial'
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_FAILS=0
+  # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
   SUITE_START=$TOTAL
   D=$T/adv
   mkdir -p "$D" "$D/tmp"

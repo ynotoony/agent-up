@@ -135,7 +135,7 @@ suite_json_engine() {
     bad 'json pick 零命中 exit 3' "expected=3 actual=$rc"
   fi
 
-  result=$(python3 "$ENGINE" json pick "$D/index.json" issues id a-first status done)
+  result=$(python3 "$ENGINE" json pick "$D/index.json" issues id a-first status 'done')
   case $result in
     '{"id": "a-first", "status": "done"}') ok 'json pick 多键全等命中输出整元素 JSON' ;;
     *) bad 'json pick 多键全等命中输出整元素 JSON' "actual=$result" ;;

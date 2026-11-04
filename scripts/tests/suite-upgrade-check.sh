@@ -228,7 +228,8 @@ suite_upgrade_check() {
   cp "$D/p6/pkg/scripts/generate-progress.sh" "$D/p6/repo/rules/implementation/scripts/generate-progress.sh"
   printf '# scripts README\n' > "$D/p6/repo/rules/implementation/scripts/README.md"
   sh "$UC" "$D/p6/pkg" "$D/p6/repo" > "$D/p6.out" 2>&1; rc=$?
-  if [ "$rc" -eq 0 ] && grep -q 'N/A delivery.rules（未启用快道）' "$D/p6.out" \
+  if require_out 'suite-upgrade-check 目标输出在场' "$D/p6.out" \
+    && [ "$rc" -eq 0 ] && grep -q 'N/A delivery.rules（未启用快道）' "$D/p6.out" \
     && grep -q '同步  rules/implementation/scripts/generate-progress.sh' "$D/p6.out" \
     && ! grep -q '配置面（delivery.rules 条件产物）' "$D/p6.out"; then
     ok '正例 P6 票务道安装共享脚本不点亮快道 → delivery.rules N/A 且 exit 0'
