@@ -201,9 +201,9 @@ repo_root=$_rr
 repo_root=$(CDPATH='' cd -- "$repo_root" && pwd -P) || die2 '仓库根物理路径不可解析'
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P) || die2 '脚本目录不可解析'
 
-_engine="${repo_root}/agent-up/scripts/json-validator.py"
-[ -f "$_engine" ] || _engine="${script_dir}/json-validator.py"
-[ -f "$_engine" ] || die2 "唯一 JSON 引擎缺失: ${repo_root}/agent-up/scripts/json-validator.py 与 ${script_dir}/json-validator.py"
+# 票 269：唯一 JSON 引擎只认安装闭包同目录，不读包工作树副本；缺失 fail-closed
+_engine="${script_dir}/json-validator.py"
+[ -f "$_engine" ] || die2 "唯一 JSON 引擎缺失（安装闭包缺失）: ${_engine}——运行时依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑"
 contract_build="${script_dir}/contract-build.sh"
 [ -r "$contract_build" ] || die2 "原子层缺失: ${contract_build}"
 

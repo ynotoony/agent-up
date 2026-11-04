@@ -79,22 +79,22 @@ EOF
 }
 
 tix_build_fixture() {
-  # $1=夹具项目根（生成项目语境：rules/implementation/scripts/ 落位两件，facts/requirements/tickets
+  # $1=夹具项目根（生成项目语境：rules/implementation/scripts/ 落位脚本件＋
+  # rules/implementation/references/schemas/ 落位安装闭包数据件，facts/requirements/tickets
   # 三载体就绪＋facts/project 账本就绪——票 113 波④夹具翻值 rules/facts 新形态；
-  # 票 79 起另落位 schema 权威与被 open 票的本体文件）
+  # 票 79 起另落位 schema 权威与被 open 票的本体文件；票 269 起闭包数据件按安装布局
+  # 邻接 references/ 落位，不落包工作树副本）
   F=$1
   rm -rf "$F"
-  mkdir -p "$F/rules/implementation/scripts" "$F/facts/requirements/tickets" "$F/facts/project" "$F/agent-up/scripts"
+  mkdir -p "$F/rules/implementation/scripts" "$F/rules/implementation/references/schemas" "$F/facts/requirements/tickets" "$F/facts/project"
   cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/ticket-audit.sh" "$F/rules/implementation/scripts/"
-  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/agent-up/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
-  mkdir -p "$F/agent-up/references/schemas"
-  cp "$SCHEMA_SRC" "$F/agent-up/references/schemas/ticket-record.schema.json"
-  # 票 230：dispatch 节开票门的键集权威（open 时点双布局第二候选即包基线布局本件）
+  cp "$SCHEMA_SRC" "$F/rules/implementation/references/schemas/ticket-record.schema.json"
+  # 票 269：安装闭包数据件同落位（open 只认脚本邻接 references/，不读包工作树副本）
   DISPATCH_SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/dispatch-contract.schema.json"
-  [ -f "$DISPATCH_SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open dispatch 节键集权威）\n' "$DISPATCH_SCHEMA_SRC" >&2; exit 2; }
-  cp "$DISPATCH_SCHEMA_SRC" "$F/agent-up/references/schemas/dispatch-contract.schema.json"
+  [ -f "$DISPATCH_SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（安装闭包数据件）\n' "$DISPATCH_SCHEMA_SRC" >&2; exit 2; }
+  cp "$DISPATCH_SCHEMA_SRC" "$F/rules/implementation/references/schemas/dispatch-contract.schema.json"
   cat > "$F/facts/requirements/tickets/index.json" <<'EOF'
 {
   "issues": [
@@ -1177,8 +1177,8 @@ EOF
   fi
 
   # P207：存量 request 读取校验通过（读取面兼容，不传 --new-ticket）
-  VAL207="$F207/agent-up/scripts/json-validator.py"
-  SCHEMA207="$F207/agent-up/references/schemas/ticket-record.schema.json"
+  VAL207="$F207/rules/implementation/scripts/json-validator.py"
+  SCHEMA207="$F207/rules/implementation/references/schemas/ticket-record.schema.json"
   python3 "$VAL207" ticket "$SCHEMA207" "$BODY207_BOTH" >"$D/v207d.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ]; then
@@ -1295,8 +1295,8 @@ EOF
   "created_at": "2026-09-19"
 }
 EOF
-  VAL152="$F152/agent-up/scripts/json-validator.py"
-  SCHEMA152="$F152/agent-up/references/schemas/ticket-record.schema.json"
+  VAL152="$F152/rules/implementation/scripts/json-validator.py"
+  SCHEMA152="$F152/rules/implementation/references/schemas/ticket-record.schema.json"
   python3 "$VAL152" ticket "$SCHEMA152" "$F152/facts/requirements/tickets/REQ-20260919-001.json" >"$D/v152r.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ]; then

@@ -84,17 +84,17 @@ repo_root=$_rr
 [ -d "$repo_root" ] || die2 "仓库根不存在: ${repo_root}"
 
 _self_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+_closure_root=$(CDPATH='' cd -- "${_self_dir}/.." && pwd -P) || _closure_root="${_self_dir}/.."
+_closure_hint="运行时依赖只认安装闭包（脚本同目录与 ../references/），不回退包工作树副本；缺失即安装不到位——请按 Agent Up 包 references/upgrade.md 升级或运行 scripts/install.sh 修补安装后重跑"
 
-# 唯一 JSON 引擎与键集权威定位（安装闭包双布局：先包基线布局，缺失回退本脚本邻接）
-_engine="${repo_root}/agent-up/scripts/json-validator.py"
-[ -f "$_engine" ] || _engine="${_self_dir}/json-validator.py"
+# 唯一 JSON 引擎与键集权威定位（票 269：只认安装闭包——脚本同目录引擎与邻接
+# references/ 数据件，缺失 fail-closed）
+_engine="${_self_dir}/json-validator.py"
 [ -f "$_engine" ] || \
-  die2 "json-validator.py 不存在（安装闭包双布局定位均未命中: ${repo_root}/agent-up/scripts/ 与 ${_self_dir}/）"
-_dc_schema_pkg="${repo_root}/agent-up/references/schemas/dispatch-contract.schema.json"
-_dc_schema="$_dc_schema_pkg"
-[ -f "$_dc_schema" ] || _dc_schema="${_self_dir}/../references/schemas/dispatch-contract.schema.json"
+  die2 "json-validator.py 不存在（安装闭包缺失）: ${_engine}——${_closure_hint}"
+_dc_schema="${_closure_root}/references/schemas/dispatch-contract.schema.json"
 [ -f "$_dc_schema" ] || \
-  die2 "dispatch-contract.schema.json 不存在（安装闭包双布局定位均未命中: ${_dc_schema_pkg} 与 ${_self_dir}/../references/schemas/）"
+  die2 "dispatch-contract.schema.json 不存在（安装闭包缺失）: ${_dc_schema}——${_closure_hint}"
 _dc_checker="$_self_dir/check-dispatch-contract.sh"
 [ -f "$_dc_checker" ] && [ -r "$_dc_checker" ] || \
   die2 "自校验器 check-dispatch-contract.sh 不在本脚本同目录: ${_dc_checker}（安装闭包须随 contract-build 同落位）"
