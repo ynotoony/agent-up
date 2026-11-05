@@ -1,8 +1,8 @@
 #!/bin/sh
 # Input: 子命令与参数（[repo-root] open/take/flip/close + 选项）与三个票务面数据载体：
 #        facts/requirements/tickets/index.json（票状态真相源，单文件一条目一行，票 33 终裁 T2）、
-#        facts/requirements/tickets/README.md 目录清单状态列（`任务票 <NN>；` 后首个反引号状态 token，
-#        人工登记投影，票 37 口径）、facts/project/changes.jsonl 记录账本（键序
+#        facts/requirements/tickets/README.md 目录清单票表（票表生成块由 generate-progress
+#        从索引派生，本件不手写——票 277）、facts/project/changes.jsonl 记录账本（键序
 #        date,kind,scope,decision,evidence_ref，五键必备＋按 kind 条件键：lesson 必带
 #        第六键 promoted_to、replan 必带 replan_original/replan_replacement/replan_undone
 #        ——票 81，一行一事实，禁裸换行）。
@@ -19,11 +19,12 @@
 #         references/protocol/complexity-profile.md §2.2，与 verification 的
 #         record_only.reason 语义分立；读取面不要求本字段，存量零回扫）＋校验＋
 #         索引新增条目（status=ready；空索引 {"issues": []} 就地展开落首条目）＋
-#         README 追加目录清单行（`任务票 <NN>；` 锚点零命中方可追加，已在场即拒零写入）
-#         ＋账本追加行；dispatch 派发合同数据节不在开票门内（开票不预填未来证据，
+#         账本追加行；README 票表生成块与现役投影由 generate-progress 从索引重算
+#         （本件不追加行，票 277）；dispatch 派发合同数据节不在开票门内（开票不预填未来证据，
 #         派发阶段由 contract-build.sh 做完整性门）；
-#         take/flip＝索引 id 锚点整行替换（status+updated_at）＋README
-#         状态 token 替换＋账本追加行；take 另做 blocked_by 领取完整性门（task 票本体
+#         take/flip＝索引 id 锚点整行替换（status+updated_at）＋账本追加行；README 票表
+#         生成块与现役投影随索引重算（本件不替换状态 token，票 277）；
+#         take 另做 blocked_by 领取完整性门（task 票本体
 #         blocked_by 逐项须在索引登记且 status=done，缺失或未完成即 exit 1 指名 blocker
 #         id 与其状态，零写入；request 无 blocked_by 不校验）；flip 至 done 另做 task 票
 #         actual_time 收口硬拦（票 100：票 JSON 本体 actual_time 须已填且非空，缺项即
@@ -37,7 +38,8 @@
 #         条目 id，账本行形状校验先于写入，仅账本落行，不触索引/README/投影）；
 #         flip-index＝索引单写代理（票 228：快道收尾 lane-commit 的索引条目翻转经此
 #         承载——--id/--status/--updated-at 三项必选，锚点整行替换仅改 status/updated_at
-#         两值＋投影再生＋--check 收尾；不触 README/账本/票本体，不落账本行；票 237
+#         两值＋投影再生＋--check 收尾；不触账本/票本体，不落账本行（README 票表生成块与
+#         现役投影经生成器派生，票 277）；票 237
 #         起目标 task 票 done 同口径要求 actual_time＋审计 conformant 双证）。
 #         open/take/flip/close/flip-index 收尾调 rules/implementation/scripts/generate-progress.sh 再生 facts/requirements/tickets/progress-current.md
 #         现役状态投影并 --check 核对（再生调用全仓仅本件承载；ledger 无索引面改动，
@@ -50,8 +52,7 @@
 #      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
 #      零外部依赖（仅 POSIX 标准工具与内建，无 jq；票 79 起 open 本体 schema 校验另用
 #      python3 标准库）；fail-closed：校验先于写入，
-#      索引排版破坏、README 行缺失或锚点不唯一（含 open 锚点已存在——追加语义要求
-#      零命中）、账本行不合键序、同 NN 异 slug 撞号
+#      索引排版破坏、账本行不合键序、同 NN 异 slug 撞号
 #      （票 77）即停止不写；收尾生成器
 #      （投影再生与目录 README）缺失或 --check／--freshness 不过即整体失败退出非零，
 #      已写部分如实报告。运行时依赖定位（安装闭包，票 269）：open 的 schema 权威与
@@ -137,20 +138,20 @@ usage() {
                  complexity-profile.md §2.2；dispatch 派发合同数据节不属开票门——开票
                  不预填未来证据，本节由派发方在派发时点落位、contract-build.sh 在派发
                  阶段做完整性门）；缺本体或校验不过即 fail-closed 零写入），
-                 再写索引条目
-                 （status=ready；空索引 {"issues": []} 可就地展开落首条目）＋
-                 issues-README 目录清单追加行（`任务票 <NN>；` 锚点已在场即拒——追加
-                 语义要求零命中，不制造重复锚点；空表只有表头时插在表头之后）＋账本
-                 追加行，收尾投影再生＋--check。
-                 幂等：同一 id 已在索引且状态为 ready 时走幂等重放——只补齐 README 行、
-                 账本行与投影后 exit 0，不重写索引、不重复落账本行；索引已是其他状态
-                 则 exit 1 冲突（改状态须走 flip），零写入。
+                  再写索引条目
+                  （status=ready；空索引 {"issues": []} 可就地展开落首条目）＋账本
+                  追加行；README 票表生成块与现役投影由生成器从索引重算（本件不追加行，
+                  票 277），收尾投影再生＋--check＋票表生成块 --check-readme。
+                  幂等：同一 id 已在索引且状态为 ready 时走幂等重放——只补齐账本行、
+                  投影与票表生成块后 exit 0，不重写索引、不重复落账本行；索引已是其他状态
+                  则 exit 1 冲突（改状态须走 flip），零写入。
                  选项（前四必选）:
                    --id <NN-slug>            票 id（^[0-9]{2,}-[a-z0-9-]+$；须不在索引中且 NN 段未被
                              占用——同 NN 异 slug 撞号拒开，票 77）
                    --complexity <C0-C3>      复杂度档位
-                   --title <text>            票标题（用作 README 行功能列文本；不得含
-                                             竖线/反引号/换行/制表符）
+                    --title <text>            票标题（开票契约字段；票表功能列改由票本体
+                                              title 派生，票 277；不得含竖线/反引号/
+                                              换行/制表符）
                    --ledger-line <json>      完整 JSONL 账本行（键序 date,kind,scope,
                                              decision,evidence_ref 五键必备＋按 kind 条件
                                              键，票 81：lesson 必带第六键 promoted_to（枚
@@ -175,13 +176,13 @@ usage() {
                  request 票不校验。done 另过证据门（票 237）：调同目录 ticket-audit.sh
                  --operation merge，只认 conformant；未提交、提交后改动、diff 失配、
                  unknown 一律 exit 1 报 decision-required 并零写入（不采信自报 PASS）。
-                 take/flip 语义: 索引 id 锚点整行替换（仅改 status/updated_at 两值）→
-                 README 状态行锚定 `任务票 <NN>；` 后首个反引号状态 token 替换（行内其余
-                 文本不动）→ 账本追加行 → 投影再生＋--check；仅 flip 至 done 另在取锁
-                 与写入前做目录 README 两检——结构 --check（仅含生成块的 README）＋
-                 生成块 --freshness，失败即 exit 1 指名 path:line 与断言且本次零写入
-                 （旧格式无生成块不阻断；收口链不调 --sync）。索引或 README
-                 行缺失、锚点不唯一、账本行非法即停止（fail-closed，写入前预检）。
+                  take/flip 语义: 索引 id 锚点整行替换（仅改 status/updated_at 两值）→
+                  账本追加行 → 投影再生＋--check＋README 票表生成块 --check-readme（票 277：
+                  README 不再手工替换状态 token，由生成器派生）；仅 flip 至 done 另在取锁
+                  与写入前做目录 README 两检——结构 --check（仅含生成块的 README）＋
+                  生成块 --freshness，失败即 exit 1 指名 path:line 与断言且本次零写入
+                  （旧格式无生成块不阻断；收口链不调 --sync）。索引排版破坏、账本行非法
+                  即停止（fail-closed，写入前预检）。
   close          done 收口入口（票 237）：--id --ledger-line 两项必选，status 固定 done
                  （不得携带 --status）；写入链与证据判定与 flip 至 done 完全一致
                  （actual_time + ticket-audit --operation merge conformant 双证），只多
@@ -196,8 +197,8 @@ usage() {
   flip-index     索引单写代理（票 228 F1/F2，快道收尾 lane-commit 专用）：--id --status
                  --updated-at 三项必选（--status 为状态机裸值，--updated-at 为 ISO 8601
                  YYYY-MM-DDTHH:MM[:SS]）；索引 id 锚点整行替换（仅改 status/updated_at
-                 两值）→ 投影再生＋--check；不触 README/账本/票本体（README 状态列与
-                 账本行归各自治道承载，票 35/37 口径），不得携带 --ledger-line。目标
+                  两值）→ 投影再生＋--check＋README 票表生成块 --check-readme（票 277：
+                  状态列由索引派生，本件不手写）；不触账本/票本体，不得携带 --ledger-line。目标
                  task 票 done 同过 actual_time＋证据门双证（票 237）；收尾另经目录
                  README 结构 --check／生成块 --freshness 两检（取锁前预检，同 close
                  口径；票 266）；request
@@ -226,10 +227,8 @@ USAGE
 }
 
 tmp_idx=''
-tmp_readme=''
 cleanup() {
   if [ -n "${tmp_idx}" ]; then rm -f "${tmp_idx}"; tmp_idx=''; fi
-  if [ -n "${tmp_readme}" ]; then rm -f "${tmp_readme}"; tmp_readme=''; fi
   # 票 271：按所有权释放——继承父进程锁时只清本地标记，绝不删除父锁
   record_lock_release_owned
 }
@@ -473,7 +472,7 @@ schema_file="${_closure_root}/references/schemas/ticket-record.schema.json"
 case ${cmd} in
   ledger) ;;
   flip-index)
-    # 索引单写代理（票 228 F1/F2）：只触索引，不要求 README/票本体在位
+    # 索引单写代理（票 228 F1/F2）：只触索引（README 票表生成块由生成器派生），不要求票本体在位
     [ -f "${index_file}" ] || die1 "索引文件不存在: ${index_file}（票状态真相源缺失，fail-closed）"
     [ -r "${index_file}" ] || die1 "索引文件不可读: ${index_file}"
     ;;
@@ -541,15 +540,6 @@ index_entry_state() {
       exit 0
     }
   ' "${index_file}"
-}
-
-readme_anchor_count() {
-  # `任务票 <NN>；` 锚点行数（幂等判定：0＝缺失待插、1＝已在场、>1＝漂移拒写）
-  RD_NN_ANCHOR="任务票 ${nn}；" awk '
-    BEGIN { anchor = ENVIRON["RD_NN_ANCHOR"] }
-    index($0, anchor) > 0 { hits++ }
-    END { print hits + 0 }
-  ' "${readme_file}"
 }
 
 ledger_row_exists() {
@@ -743,70 +733,6 @@ index_nn_check() {
   ' "${index_file}"
 }
 
-readme_row_check() {
-  # open 预检：目录清单表须在场——表头分隔行（^\| ---）或数据行（^\| `）至少一项；
-  # 票 243 起空表（仅表头、无数据行＝新项目首开形态）合法，新行插在表头之后。
-  awk '
-    /^\| `/ { rows++ }
-    /^\| ---/ { head++ }
-    END {
-      if (rows == 0 && head == 0) {
-        printf "ticket-ops: FAIL: issues-README 未找到目录清单表（^| --- 表头与 ^| ` 数据行均零命中）\n" > "/dev/stderr"
-        exit 1
-      }
-      exit 0
-    }
-  ' "${readme_file}"
-}
-
-readme_nn_check() {
-  # open 预检：`任务票 <NN>；` 锚点须零命中——open 是追加新行语义，锚点已在场即索引↔README
-  # 漂移（或号段复用残留行），照追加将制造重复锚点（take/flip 预检要求恰 1 行，重复后该票
-  # 永久卡死），故开票即拒零写入（fail-closed 前置，与 index_nn_check 同为 NN 唯一性门；
-  # 锚点不唯一时不猜测更新对象，先核对漂移或改号；多字节位置运算只用 index，口径同
-  # readme_token_check 注记）。
-  RD_NN_ANCHOR="任务票 ${nn}；" awk '
-    BEGIN { anchor = ENVIRON["RD_NN_ANCHOR"] }
-    index($0, anchor) > 0 { hits++ }
-    END {
-      if (hits > 0) {
-        printf "ticket-ops: FAIL: issues-README 锚点行已存在（open 追加语义要求零命中，命中 %d 行——先核对索引与 README 漂移或改号，不静默叠行）: %s\n", hits, anchor > "/dev/stderr"
-        exit 1
-      }
-      exit 0
-    }
-  ' "${readme_file}"
-}
-
-readme_token_check() {
-  # take/flip 预检：`任务票 <NN>；` 锚点恰 1 行，且其后存在闭合的反引号状态 token
-  # 实现注记：位置运算只用 index/substr（同一单位），不用 length——macOS awk 对多字节
-  # 字符串 index 回字符位、length 回字节数，混用会错位（票 41 夹具实证）。
-  RD_ANCHOR="任务票 ${nn}；" awk '
-    BEGIN { anchor = ENVIRON["RD_ANCHOR"] }
-    index($0, anchor) > 0 {
-      hits++
-      p = index($0, anchor)
-      s = substr($0, p)
-      j = index(s, "`")
-      s2 = ""
-      if (j > 0) s2 = substr(s, j + 1)
-      k = 0
-      if (j > 0) k = index(s2, "`")
-      if (j == 0 || k == 0) {
-        printf "ticket-ops: FAIL: issues-README 第 %d 行锚点后反引号状态 token 缺失或未闭合\n", FNR > "/dev/stderr"
-        bad = 1
-      }
-    }
-    END {
-      rc = 0
-      if (hits != 1) { printf "ticket-ops: FAIL: issues-README 状态行锚点命中 %d 行（须恰 1 行）: %s\n", hits, anchor > "/dev/stderr"; rc = 1 }
-      if (bad) rc = 1
-      exit rc
-    }
-  ' "${readme_file}"
-}
-
 ticket_body_check() {
   # open 专属预检（票 79 起）：新票 JSON 本体过 ticket-record.schema.json 校验＋理由非空
   # 断言——票 152 起全量执行 schema 约束（不再只提取 required）：type/pattern/enum/oneOf/
@@ -955,12 +881,10 @@ if [ "${cmd}" = 'open' ]; then
     absent)
       ticket_body_check || die1 "新票本体校验未通过: ${issues_dir_rel}/${id}.json——未产生任何写入"
       index_nn_check || die1 "NN 段预检未通过: ${issues_index_rel}——未产生任何写入"
-      readme_row_check || die1 "issues-README 预检未通过: ${issues_readme_rel}——未产生任何写入"
-      readme_nn_check || die1 "issues-README 锚点预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
       ;;
     'present ready')
       # 票 243 幂等：崩溃后重跑同一 open 命令即走此路径——索引已在目标状态，只补齐
-      # README 行、账本行与投影，不重写索引、不重复落行（AC3 收敛的实现基础）。
+      # 账本行、投影与 README 票表生成块，不重写索引、不重复落行（AC3 收敛的实现基础）。
       replay=1
       printf 'ticket-ops: 幂等重放: 索引已是目标状态 ready（%s）——补齐记录面与投影，不重写索引\n' "${id}"
       ;;
@@ -972,13 +896,9 @@ if [ "${cmd}" = 'open' ]; then
       ;;
   esac
 elif [ "${cmd}" = 'ledger' ]; then
-  : # 无票面：账本行形状校验已于公共段完成（票 100），无索引/README 预检
+  : # 无票面：账本行形状校验已于公共段完成（票 100），无索引预检
 else
   index_check flip || die1 "索引预检未通过: ${issues_index_rel}（${id}）——未产生任何写入"
-  # flip-index（票 228 F1/F2 索引单写代理）不触 README，不做 README 锚点预检
-  if [ "${cmd}" != 'flip-index' ]; then
-    readme_token_check || die1 "issues-README 预检未通过: ${issues_readme_rel}（任务票 ${nn}）——未产生任何写入"
-  fi
   if [ "${cmd}" = 'take' ]; then
     blocked_by_check || die1 "blocked_by 领取预检未通过: ${issues_dir_rel}/${id}.json——未产生任何写入（blocked_by 完整性门 fail-closed）"
   fi
@@ -1008,16 +928,14 @@ else
     fi
   fi
 fi
-# ---- 写入（锁内单写路径：索引 → README → 账本 → 投影；票 243） ----
+# ---- 写入（锁内单写路径：索引 → 账本 → 派生投影；README 票表生成块与 progress 由生成器重算；票 243/277） ----
 # 写序固定；每个写点先在同目录临时件上生成全文再 mv 原子替换（同文件系统 rename 原子：
 # 崩溃只留完整旧版或完整新版，不留半行/半文件）；写点后设故障注入检查点
 # （TICKET_OPS_FAULT，票 243 AC3）；索引已处目标状态时走幂等重放——只补齐派生面与
 # 记录面，不重写索引、不重复落账本行，故崩溃后重跑同一命令无需编辑任何文件。
 
 now_ua=$(date +%Y-%m-%dT%H:%M)
-today=$(date +%F)
 index_dir=$(dirname -- "${index_file}")
-readme_dir=$(dirname -- "${readme_file}")
 
 if [ "${cmd}" = 'open' ] && [ "${replay}" -eq 0 ]; then
   new_entry="    {\"id\": \"${id}\", \"status\": \"ready\", \"complexity\": \"${complexity}\", \"blocked_by\": [${blocked_json}], \"updated_at\": \"${now_ua}\"}"
@@ -1138,80 +1056,9 @@ elif [ "${cmd}" != 'open' ] && [ "${cmd}" != 'ledger' ] && [ "${replay}" -eq 0 ]
   fault_point after-index-write
 fi
 
-# ---- README 同步（open 追加目录行；take/flip 替换状态 token） ----
-
-if [ "${cmd}" = 'open' ]; then
-  row="| \`${id}.json\` | 任务票 ${nn}；\`ready\`（${today} 开票） | ${title} |"
-  readme_rows=$(readme_anchor_count)
-  case ${readme_rows} in
-    0)
-      tmp_readme=$(mktemp "${readme_dir}/.tix-tmp.readme.XXXXXX")
-      RD_ROW=${row} awk '
-        BEGIN { row = ENVIRON["RD_ROW"] }
-        { lines[++n] = $0; if ($0 ~ /^\| `/) last = n; if ($0 ~ /^\| ---/) head = n }
-        END {
-          if (last == 0) last = head
-          if (last == 0) {
-            printf "ticket-ops: FAIL: issues-README 未找到目录清单表行或表头锚点——拒绝插入\n" > "/dev/stderr"
-            exit 1
-          }
-          for (i = 1; i <= n; i++) { print lines[i]; if (i == last) print row }
-        }
-      ' "${readme_file}" > "${tmp_readme}" || {
-        rm -f "${tmp_readme}"; tmp_readme=''
-        die1 "issues-README 行插入未通过校验——索引已写入（${id}），README 未写入；重跑同一命令即收敛"
-      }
-      record_write "${repo_root}" tickets-readme "${tmp_readme}"
-      rm -f "${tmp_readme}"
-      tmp_readme=''
-      printf "ticket-ops: README 追加目录清单行: ${issues_readme_rel}（任务票 %s；\`ready\`）\n" "${nn}"
-      ;;
-    1)
-      printf 'ticket-ops: README 行已在场（幂等跳过插入）: 任务票 %s\n' "${nn}"
-      ;;
-    *)
-      die1 "issues-README 锚点行命中 ${readme_rows} 行（须恰 1 行）: 任务票 ${nn}；——先核对索引与 README 漂移，不静默叠行（索引已写入 ${id}）"
-      ;;
-  esac
-elif [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ] || [ "${cmd}" = 'close' ]; then
-  tmp_readme=$(mktemp "${readme_dir}/.tix-tmp.readme.XXXXXX")
-  RD_ANCHOR="任务票 ${nn}；" RD_STATUS=${status} awk '
-    BEGIN { anchor = ENVIRON["RD_ANCHOR"]; nstatus = ENVIRON["RD_STATUS"] }
-    index($0, anchor) > 0 {
-      hits++
-      p = index($0, anchor)
-      s = substr($0, p)
-      j = index(s, "`")
-      s2 = ""
-      if (j > 0) s2 = substr(s, j + 1)
-      k = 0
-      if (j > 0) k = index(s2, "`")
-      if (j == 0 || k == 0) {
-        printf "ticket-ops: FAIL: issues-README 第 %d 行锚点后反引号状态 token 缺失或未闭合——拒绝改写\n", FNR > "/dev/stderr"
-        bad = 1
-        print
-        next
-      }
-      print substr($0, 1, p - 1) substr(s, 1, j) nstatus substr(s2, k)
-      next
-    }
-    { print }
-    END {
-      rc = 0
-      if (hits != 1) { printf "ticket-ops: FAIL: issues-README 状态行锚点命中 %d 行（须恰 1 行）: %s\n", hits, anchor > "/dev/stderr"; rc = 1 }
-      if (bad) rc = 1
-      exit rc
-    }
-  ' "${readme_file}" > "${tmp_readme}" || {
-    rm -f "${tmp_readme}"; tmp_readme=''
-    die1 "README 状态 token 替换未通过校验——索引已单写（${id} → ${status}），README 未写入；重跑同一命令即收敛"
-  }
-  record_write "${repo_root}" tickets-readme "${tmp_readme}"
-  rm -f "${tmp_readme}"
-  tmp_readme=''
-  printf "ticket-ops: README 状态列替换: ${issues_readme_rel}（任务票 %s → \`%s\`，行内其余文本不动）\n" "${nn}" "${status}"
-fi
-
+# ---- 票表生成块：README 状态列不再由本脚本手写（票 277）----
+# 索引单写后统一经同目录 generate-progress.sh 从索引重算票表生成块（块外逐字节不动）；
+# 开票不再追加行、take/flip/close 不再替换状态 token，两条人工写路径退役。
 # ---- 账本落行（票 228 F7 唯一写入方＝同目录 ledger-append.sh；票 243 状态操作幂等） ----
 # 行形校验已于公共段经其 --check 零写入模式预检（fail-closed 时序：校验先于票务面任何
 # 写入）。去重边界：只对状态操作（open/take/flip）判重——同一操作重跑不重复落行；
@@ -1243,10 +1090,11 @@ fi
 # ---- 投影再生＋核对（唯一派生面；票 246 失败即非零退出，重跑幂等收敛） ----
 
 record_lock_assert
-sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引与 README 与账本均已写入、投影未刷新；按生成器报因处理后重跑同一命令即收敛"
+sh "${gen_cmd}" "${repo_root}" || die1 "投影再生失败（生成器 exit 非 0）——已写部分如实报告：索引、账本已写入；投影与票表生成块未刷新；按生成器报因处理后重跑同一命令即收敛"
 fault_point after-projection-write
-sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引、README、账本与投影均已写入；投影与索引不一致，重跑同一命令即收敛"
-printf 'ticket-ops: 投影已再生并核对: %s\n' "$progress_current_rel"
+sh "${gen_cmd}" --check "${repo_root}" || die1 "投影一致性核对未过（--check exit 非 0）——已写部分如实报告：索引、账本与投影均已写入；投影与索引不一致，重跑同一命令即收敛"
+sh "${gen_cmd}" --check-readme "${repo_root}" || die1 "票表生成块核对未过（--check-readme exit 非 0）——已写部分如实报告：索引、账本与投影已写入，README 票表生成块未对齐；按生成器报因处理后重跑同一命令即收敛"
+printf 'ticket-ops: 投影已再生并核对: %s；票表生成块已核对: %s\n' "$progress_current_rel" "$issues_readme_rel"
 
 replay_note=''
 if [ "${replay}" -eq 1 ]; then
@@ -1257,7 +1105,7 @@ if [ "${dir_readme_gate}" -eq 1 ]; then
   _dr_pass_note='＋目录 README --check/--freshness 预检'
 fi
 if [ "${cmd}" = 'flip-index' ]; then
-  printf 'ticket-ops: PASS（flip-index 完成：索引单写＋投影 --check%s 落地；不触 README/账本/票本体——票 228 F1/F2 索引单写代理）\n' "${_dr_pass_note}"
+  printf 'ticket-ops: PASS（flip-index 完成：索引单写＋投影 --check＋README 票表生成块 --check-readme%s 落地；不触账本/票本体——票 228 F1/F2 索引单写代理）\n' "${_dr_pass_note}"
 else
-  printf 'ticket-ops: PASS（%s 完成%s：索引、issues-README、账本、投影 --check%s 全部落地）\n' "${cmd}" "${replay_note}" "${_dr_pass_note}"
+  printf 'ticket-ops: PASS（%s 完成%s：索引、账本、投影 --check、README 票表生成块 --check-readme%s 全部落地）\n' "${cmd}" "${replay_note}" "${_dr_pass_note}"
 fi

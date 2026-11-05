@@ -42,8 +42,18 @@ EOF
   ]
 }
 EOF
+  # 票表生成块形态（票 277 起 README 票表由索引派生）：take/flip 走「索引改→生成器重算」
+  # 真实路径；块外标题与空行保持不动。
   cat > "$R/facts/requirements/tickets/README.md" <<EOF
+# 票据索引（fixture）
+
+## 目录清单
+
+<!-- tickets-readme: generated from=facts/requirements/tickets/index.json -->
+| 名字 | 地位 | 功能 |
+| --- | --- | --- |
 | \`90-run-fixture.json\` | 任务票 90；\`${status}\` | fixture |
+<!-- /tickets-readme -->
 EOF
   printf '%s\n' '{"date":"2026-10-28","kind":"change","scope":"90","decision":"fixture seed","evidence_ref":"facts/requirements/tickets/90-run-fixture.json"}' > "$R/facts/project/changes.jsonl"
   python3 - "$R" <<'PY'
@@ -370,10 +380,22 @@ PYS
     bad 'P5 commit 阶段不渲染合同文件，临时目录无 commit 孤儿' "commit 临时文件 ${commit_temp} 件"
   fi
 
+  # 票表生成块随记录提交入库后，旧审查证据的 head..target 会包含记录面变更（README），
+  # flip 至 done 的审计边界即不干净。按 P3 同法先造一条产品实现提交、把审查证据重绑到
+  # 当前历史，再走存量结论格式的二次收口；断言不放宽（仍要求 exit 0、产品提交行与两段
+  # 提交计数——比原来多出的 1 次提交即本条重绑用的人工实现提交）。
+  printf 'legacy re-review\n' >> "$WT/product.txt"
+  git -C "$WT" add product.txt
+  git -C "$WT" -c user.email=fixture@example.com -c user.name=fixture commit -qm 'product implementation legacy redo'
+  tr_p6_base=$(git -C "$WT" rev-parse HEAD~1)
+  tr_p6_head=$(git -C "$WT" rev-parse HEAD)
+  tr_audit_receipt "$WT" "$tr_p6_base" "$tr_p6_head"
+  git -C "$WT" config user.email reviewer@example.com
+  git -C "$WT" config user.name reviewer
   printf -- '- 评审结论：**pass**（2026-10-29，存量格式兼容夹具）\n' > "$WT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md"
   tr_run 90 commit "$MAIN" > "$D/commit-legacy.out" 2> "$D/commit-legacy.err"
   rc=$?
-  if [ "$rc" -eq 0 ] && [ "$(git -C "$WT" rev-list --count HEAD)" -eq 6 ] \
+  if [ "$rc" -eq 0 ] && [ "$(git -C "$WT" rev-list --count HEAD)" -eq 7 ] \
     && grep -q 'ticket-run: 产品提交:' "$D/commit-legacy.out"; then
     ok 'P6 存量格式「- 评审结论：**pass**（注记）」被采信并完成两段提交'
   else

@@ -712,7 +712,7 @@ PYTHON
   fi
 
   # ---- 票 108 断言：user-review 道 .json 票体全链 ----
-  # 正例 P-json：.json 票 user-review 全链收口（索引翻转 done＋issues-README 行翻转＋
+  # 正例 P-json：.json 票 user-review 全链收口（索引翻转 done＋README 票表生成块随索引派生＋
   # checkpoint 落独立 facts/requirements/tickets/33-lc-ticket-review-checkpoint.md＋正文
   # Status 回写跳过说明行＋投影再生）→ exit 0；JSON 票体逐字节零追加（前后 cksum）；
   # 记录提交落地（checkpoint md 入第二段提交）。预期值独立重建。
@@ -737,8 +737,7 @@ PYTHON
     printf 'verdict_quote: OK（fixture json 全链裁决）\n'
     printf 'verdict_at: 2026-09-30T12:00\n'
     printf 'flips: facts/requirements/tickets/index.json:index:33-lc-ticket:done:2026-09-30T12:00\n'
-    # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
-    printf 'flips: facts/requirements/tickets/README.md:任务票 33；`in_progress`:| `33-lc-ticket.json` | 任务票 33；`done`（2026-09-29 开票） | LC json fixture |\n'
+    # README 票表为索引派生生成块（票 277 起）：不再注入通用行翻转，状态随 flip-index 重算
   } > "$D/pj.contract"
   sh "$LC" "$D/pj" "$D/pj.contract" >"$D/pj.out" 2>&1
   rc=$?
@@ -752,9 +751,9 @@ PYTHON
     && grep -q 'ticket-ops: PASS（flip-index 完成' "$D/pj.out" \
     && grep -q '目录 README 收口预检通过' "$D/pj.out" \
     && grep -q '跳过正文 Status 回写' "$D/pj.out"; then
-    ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋证据门 conformant＋README 替换＋投影落行＋回写跳过说明行（票 108/237）'
+    ok '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋证据门 conformant＋README 票表生成块派生＋投影落行＋回写跳过说明行（票 108/237）'
   else
-    bad '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋证据门 conformant＋README 替换＋投影落行＋回写跳过说明行（票 108/237）' "exit=$rc $(tail -n 3 "$D/pj.out" | tr '\n' '|')"
+    bad '正例 P-json .json 票 user-review 全链 → exit 0 且索引翻转（经 ticket-ops flip-index 代理，票 228）＋证据门 conformant＋README 票表生成块派生＋投影落行＋回写跳过说明行（票 108/237）' "exit=$rc $(tail -n 3 "$D/pj.out" | tr '\n' '|')"
   fi
 
   if grep -q '^# 票 33-lc-ticket User Review Checkpoint（用户即 Review 道）$' "$D/pj/facts/requirements/tickets/33-lc-ticket-review-checkpoint.md" \

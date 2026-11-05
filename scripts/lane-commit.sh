@@ -34,8 +34,8 @@
 #      与投影再生单点在 ticket-ops）与 R-RC-003（先产品提交后纯记录提交）；POSIX sh、零外部依赖、
 #      fail-closed（门禁不过、合同格式不合预期、索引/生成器/记录写入方缺失即停止报告，不写
 #      不补；预检先于产品提交，停止时零提交零写入）。脚本权限边界 = 提交合同白名单，不执行
-#      白名单外任何写入；facts/requirements/tickets/README.md 与 facts/project/archive/progress.md
-#      状态行不属本脚本写入面（README 状态列为人工登记投影，票 35/37 口径）。写入面路径
+#      白名单外任何写入；facts/project/archive/progress.md
+#      状态行不属本脚本写入面（票表生成块由 generate-progress 从索引派生、随记录提交收编，本件不手写）。写入面路径
 #      边界（票 144）：whitelist 条目、flips 目标与 ticket 票文件须为仓库根内普通相对文件，
 #      ..、绝对路径、symlink 与 realpath 越出仓库根一律在写入前 fail-closed 拒绝。
 #      记录提交入口（票 247）写入面＝显式记录路径（须在 facts/ 下）＋私有索引 CAS 提交；锁＝
@@ -48,6 +48,7 @@
 
 FACTS_TICKETS_INDEX='facts/requirements/tickets/index.json'
 FACTS_TICKETS_PROGRESS='facts/requirements/tickets/progress-current.md'
+FACTS_TICKETS_README='facts/requirements/tickets/README.md'
 FACTS_PROJECT_MICRO='facts/project/micro.jsonl'
 RULES_SCRIPTS_DIR='rules/implementation/scripts'
 
@@ -1099,6 +1100,13 @@ for flip in ${flips}; do
     case "${NL}${record_files}" in
       *"${fneedle}"*) : ;;
       *) record_files="${record_files}${proj_file}${NL}" ;;
+    esac
+    # 票 277：票表生成块随索引翻转由生成器重算，作为记录面一并收编（不改写其内容文本）
+    readme_file=${FACTS_TICKETS_README}
+    rneedle="${NL}${readme_file}${NL}"
+    case "${NL}${record_files}" in
+      *"${rneedle}"*) : ;;
+      *) record_files="${record_files}${readme_file}${NL}" ;;
     esac
   else
     f_rest=${flip#*"${TAB}"}

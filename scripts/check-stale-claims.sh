@@ -206,12 +206,14 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；
 #      生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明。
 #      （2026-09-18 票 37 修订：原"docs/issues/README.md（现 facts/requirements/tickets/README.md）表行逐票对照票面状态"实现退役
-#      ——README 状态列已定位为人工登记投影（票 35 起），与索引冲突时以索引为准。）
-# S4 计数漂移句 | facts/requirements/tickets/README.md 目录清单锚点行 + facts/requirements/tickets/index.json 任务条目
+#      ——README 票表为索引派生生成块（一致性由 S4 生成块新鲜度核对承载），与索引冲突时以索引为准。）
+# S4 计数漂移句 | facts/requirements/tickets/README.md 票表生成块 + facts/requirements/tickets/index.json
 #               | facts/ 树 md + facts/project/artifacts.yaml 现行面计数措辞
-#    | machine：两断言（票 65）——①数量相等：README「任务票 NN；」锚点行数与 index
-#      「"id": "NN-…"」条目行数机械相等，不等 STALE 指名两侧计数（ticket-ops 双写
-#      锁定面漂移）；README/索引缺失或锚点零命中 WARN 跳过不硬猜。②计数模式扫描：
+#    | machine：两断言（票 277 收敛）——①生成块新鲜度：README 票表已改为索引派生生成块，
+#      原「锚点行数 vs 索引条目数」数量相等断言退役，改调 generate-progress.sh
+#      --check-readme 只读核对派生一致（派生口径唯一实现＝生成器，本件零副本）；不一致
+#      或未迁移即 STALE 指名生成器报因，README/索引缺失或生成器不可用 WARN 跳过不硬猜。
+#      ②计数模式扫描：
 #      「N～M 共」「共 N 量词」命中 STALE-prone 指名 file:line、计入过期断言计数
 #      （gate exit 1 / session 只警告）；排除面与豁免表见 S4 数据节（票 65 阻塞→
 #      协调层 2026-09-21 裁决 O3：历史真陈述/机器生成面收窄出扫描面，现行面全数字
@@ -459,12 +461,11 @@ check_s3() {
 
 # ---- S4 计数漂移哨兵（票 65）------------------------------------------------
 #
-# S4-① 数量相等：facts/requirements/tickets/README.md 目录清单锚点行「任务票 <NN>；」（ticket-ops
-#      写入锚）行数与 facts/requirements/tickets/index.json 任务条目行（"id": "<NN>-…" 形态）行数
-#      机械相等；不等即 STALE 指名两侧计数（ticket-ops 双写锁定面漂移，手工删行/
-#      加行即报）。README 或索引缺失、锚点零命中 → WARN 跳过不硬猜（对齐 S1 非 Git
-#      退化语义）。比对对象是「README 里的票行」与「index 里的条目」，两文件自身
-#      不入计数。
+# S4-① 生成块新鲜度：facts/requirements/tickets/README.md 票表为索引派生生成块，调同目录
+#      generate-progress.sh --check-readme 只读核对现行块是否等于索引派生结果（派生口径唯一
+#      实现＝生成器，本件零副本、不按实现猜）；漂移或块缺失但目录清单表在场（未迁移）即
+#      STALE 指名生成器报因。README 或索引缺失、生成器不可用 → WARN 跳过不硬猜（对齐 S1
+#      非 Git 退化语义）。原「锚点行数 ↔ 索引条目数」数量相等断言随票表生成化退役。
 #
 # S4-② 计数模式扫描（推数字免费化，票 61 先例）：扫描面＝facts/ 树 *.md ＋
 #      facts/project/artifacts.yaml，命中下述任一模式即 STALE-prone 指名 file:line，
@@ -549,23 +550,35 @@ S4_EXEMPT_INNER
   S4_EXEMPT_KEYS=$_keys
 }
 
-check_s4_count() {
-  # S4-① 数量相等：README 锚点行数 ↔ index 任务条目行数；缺失/锚点零命中 WARN 跳过。
+check_s4_block() {
+  # S4-① 生成块新鲜度（票 277）：README 票表改为索引派生生成块——原「锚点行数 ↔ 索引条目数」
+  # 数量相等断言退役，改为调用 generate-progress.sh --check-readme 只读核对（token/派生
+  # 口径唯一实现＝生成器，本件零副本；不按实现猜）。README/索引缺失或生成器不可用 →
+  # WARN 跳过不硬猜（对齐 S1/S3 退化语义）。
   _rf="$repo_root/$issues_readme_rel"
   _idx="$repo_root/$issues_index_rel"
   if [ ! -f "$_rf" ] || [ ! -f "$_idx" ]; then
-    emit_warn "$issues_readme_rel" "S4 数量相等断言跳过：$issues_readme_rel 或 $issues_index_rel 缺失，按退化语义不硬猜"
+    emit_warn "$issues_readme_rel" "S4 生成块新鲜度断言跳过：$issues_readme_rel 或 $issues_index_rel 缺失，按退化语义不硬猜"
     return 0
   fi
-  _rn=$(LC_ALL=C grep -c '任务票 [0-9][0-9]*；' "$_rf") || _rn=0
-  _in=$(LC_ALL=C grep -c '"id": "[0-9][0-9]*-' "$_idx") || _in=0
-  if [ "$_rn" -eq 0 ]; then
-    emit_warn "$issues_readme_rel" 'S4 锚点零命中：README 中无「任务票 NN；」锚点行（ticket-ops 写入锚失效），数量相等断言跳过不硬猜'
+  _s4_gen=''
+  if [ -f "$script_dir/generate-progress.sh" ] && [ -r "$script_dir/generate-progress.sh" ]; then
+    _s4_gen="$script_dir/generate-progress.sh"
+  elif [ -f "$repo_root/$repo_scripts_dir_rel/generate-progress.sh" ] && [ -r "$repo_root/$repo_scripts_dir_rel/generate-progress.sh" ]; then
+    _s4_gen="$repo_root/$repo_scripts_dir_rel/generate-progress.sh"
+  fi
+  if [ -z "$_s4_gen" ]; then
+    emit_warn "$issues_readme_rel" 'S4 生成块新鲜度断言跳过：generate-progress.sh 不可用（脚本同目录与仓库 scripts 目录均未找到），不按实现猜派生口径'
     return 0
   fi
-  if [ "$_rn" -ne "$_in" ]; then
-    emit_stale "$issues_readme_rel" "S4 数量相等断言失效：README「任务票 NN；」锚点行 $_rn 行 vs $issues_index_rel 任务条目 $_in 条——ticket-ops 双写锁定面漂移，核对缺失侧"
-  fi
+  _s4_rc=0
+  _s4_out=$(sh "$_s4_gen" --check-readme "$repo_root" 2>&1) || _s4_rc=$?
+  case $_s4_rc in
+    0) : ;;
+    1) emit_stale "$issues_readme_rel" "票表生成块与索引派生不一致（stale）——运行生成器（无参数）刷新：${_s4_out:-（生成器无输出）}" ;;
+    2) emit_stale "$issues_readme_rel" "票表生成块结构异常（generate-progress --check-readme exit 2）：${_s4_out:-（生成器无输出）}" ;;
+    *) emit_stale "$issues_readme_rel" "票表生成块核对异常（generate-progress --check-readme exit ${_s4_rc}）：${_s4_out:-（生成器无输出）}" ;;
+  esac
   return 0
 }
 
@@ -611,7 +624,7 @@ check_s4_scan() {
 }
 
 check_s4() {
-  check_s4_count
+  check_s4_block
   check_s4_scan
 }
 

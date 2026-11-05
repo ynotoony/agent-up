@@ -13,9 +13,11 @@
 #        realpath containment（绝对路径／.. 段／symlink 与父目录逃逸 fail-closed）、
 #        同目录 mktemp＋mv 原子替换与追加前缀断言。本库不打印业务进度行（caller 自报）。
 # Pos: agent-up 记录层写面 module（票 272）：六类记录路径字面量只在本表出现（派生投影
-#      progress-current 与 flips 协议串属既有面，不在本表），写互斥与锁语义
-#      同源于 common-helpers.sh 的 record_lock_*／record_prefix_ok；ticket-ops.sh（索引与
-#      issues-README 四处写点）、ledger-append.sh（changes／micro 两账本行）、
+#      progress-current 与 flips 协议串属既有面，不在本表）；`tickets-readme` 键保留为已登记
+#      记录路径——当前无写入方（README 票表生成块由 generate-progress.sh 独占派生，不再经
+#      本库写动词），消费方仍可经 record_path 解析该路径，勿误判为漏接。写互斥与锁语义
+#      同源于 common-helpers.sh 的 record_lock_*／record_prefix_ok；ticket-ops.sh（索引写点；
+#      README 票表已改由生成器派生）、ledger-append.sh（changes／micro 两账本行）、
 #      checkpoint-write.sh（User Review Checkpoint 记录块）与 ticket-run.sh
 #      （票本体 checkpoint.commit）只经本库写入，零手写 mktemp＋mv／锁断言副本。
 #      一旦我被更新，务必同步 rules/implementation/scripts/ 镜像件与同目录 README.md。

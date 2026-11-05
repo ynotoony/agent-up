@@ -537,6 +537,21 @@ EOF
   cp "$SCRIPT_DIR/common-helpers.sh" "$1/eng/common-helpers.sh"
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/eng/dp-load-rules.sh"
   }
+  sc_eng_setup_full() {
+    # $1=夹具目录：追加生成器与唯一 JSON 引擎副本（S4 生成块新鲜度断言语境——生成器在位）
+    sc_eng_setup "$1"
+    cp "$SCRIPT_DIR/generate-progress.sh" "$1/eng/generate-progress.sh"
+    cp "$SCRIPT_DIR/json-validator.py" "$1/eng/json-validator.py"
+  }
+  sc_build_ticket_table_fixture() {
+    # $1=夹具目录：票表（无生成块）在位，供生成器迁移为票表生成块
+    sc_build_fixture "$1"
+    sc_eng_setup_full "$1"
+    # shellcheck disable=SC2016  # 反引号是 README 表格字面串的一部分（非命令替换）
+    printf '# issues\n\n| 名字 | 地位 | 功能 |\n| --- | --- | --- |\n| `90-fixture.json` | 任务票 90；`ready` | fixture row |\n' \
+      > "$1/repo/facts/requirements/tickets/README.md"
+    sh "$1/eng/generate-progress.sh" "$1/repo" >/dev/null 2>&1
+  }
   sc_s4_exempt_inject() {
     # $1=夹具目录 $2=注入豁免行（s4_exempt 路径 行号 理由 形态，空串不注入）；
     # 注入点＝副本 s4_load_exempts heredoc 闭标行前（恰整行匹配 S4_EXEMPT_DATA
@@ -547,35 +562,36 @@ EOF
     mv "$1/eng/csc.injected" "$1/eng/check-stale-claims.sh"
   }
 
-  # S4-T1（target-count 正向）：计数陈述与实际相等（README 锚点 1↔index 条目 1）
-  # → exit 0、零 S4 报文（等值零误报）
-  sc_build_fixture "$D/s4t1"
-  sc_eng_setup "$D/s4t1"
+  # S4-T1（生成块新鲜度正向）：README 票表生成块＝索引派生 → exit 0、零 S4 报文
+  sc_build_ticket_table_fixture "$D/s4t1"
   sc_run "$D/s4t1" > "$D/s4t1.out" 2>&1
   rc=$?
   if require_out 'suite-stale-claims 目标输出在场' "$D/s4t1.out" \
     && [ "$rc" -eq 0 ] \
     && ! grep -q '^STALE' "$D/s4t1.out" \
     && ! grep -q 'STALE-prone' "$D/s4t1.out" \
-    && ! grep -q 'S4 数量相等' "$D/s4t1.out"; then
-    ok 'S4-T1 计数陈述与实际相等（锚点 1↔条目 1）→ exit 0 零 S4 报文（target-count 正向）'
+    && ! grep -q '票表生成块' "$D/s4t1.out"; then
+    ok 'S4-T1 生成块与索引派生一致 → exit 0 零 S4 报文（生成块新鲜度正向）'
   else
-    bad 'S4-T1 计数陈述与实际相等（锚点 1↔条目 1）→ exit 0 零 S4 报文（target-count 正向）' "exit=$rc $(tail -n 2 "$D/s4t1.out" | tr '\n' '|')"
+    bad 'S4-T1 生成块与索引派生一致 → exit 0 零 S4 报文（生成块新鲜度正向）' "exit=$rc $(tail -n 2 "$D/s4t1.out" | tr '\n' '|')"
   fi
 
-  # S4-T2（target-count 反向）：计数陈述与实际漂移（锚点 2↔条目 1）→ exit 1 且
-  # STALE 指名双侧计数（报文含两侧计数文本，非出现性 grep）
-  sc_build_fixture "$D/s4t2"
-  sc_eng_setup "$D/s4t2"
-  printf '# issues\n\n任务票 1；\n任务票 2；\n' > "$D/s4t2/repo/facts/requirements/tickets/README.md"
+  # S4-T2（生成块新鲜度反向）：手工改块内状态 token（ready→done）→ exit 1 且 STALE 指名
+  # 生成块与索引派生不一致（人工编辑随即被哨兵抓住，路径关闭）
+  sc_build_ticket_table_fixture "$D/s4t2"
+  # shellcheck disable=SC2016  # 反引号/状态 token 是 sed 表达式里的字面串（非命令替换）
+  sc_s4t2_mutate='s/；`ready`/；`done`/'
+  sed "$sc_s4t2_mutate" "$D/s4t2/repo/facts/requirements/tickets/README.md" \
+    > "$D/s4t2/repo/rd.tmp" && mv "$D/s4t2/repo/rd.tmp" "$D/s4t2/repo/facts/requirements/tickets/README.md"
   sc_run "$D/s4t2" > "$D/s4t2.out" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -qF 'S4 数量相等断言失效：README「任务票 NN；」锚点行 2 行 vs facts/requirements/tickets/index.json 任务条目 1 条' "$D/s4t2.out"; then
-    ok 'S4-T2 计数陈述与实际漂移（锚点 2↔条目 1）→ exit 1 STALE 指名双侧计数'
+    && grep -qF '票表生成块与索引派生不一致' "$D/s4t2.out"; then
+    ok 'S4-T2 手工改票表状态 token → exit 1 STALE 指名生成块与索引派生不一致'
   else
-    bad 'S4-T2 计数陈述与实际漂移（锚点 2↔条目 1）→ exit 1 STALE 指名双侧计数' "exit=$rc $(tail -n 2 "$D/s4t2.out" | tr '\n' '|')"
+    bad 'S4-T2 手工改票表状态 token → exit 1 STALE 指名生成块与索引派生不一致' "exit=$rc $(tail -n 2 "$D/s4t2.out" | tr '\n' '|')"
   fi
+
 
   # S4-OM1（omission 防线：应扫未扫即抓）：扫描面深层路径（排除面外嵌套目录）与
   # artifacts.yaml 单件各布命中 → exit 1 且逐行指名（声明为扫描面即必达）

@@ -1291,7 +1291,8 @@ if [ -n "$record_flips" ]; then
     die1 "checkpoint.commit 写入失败——产品提交 ${product_commit} 已创建、记录提交未创建"
   printf 'ticket-run: checkpoint.commit: %s\n' "$product_commit"
   _commit_ticket_rel=$(record_path "ticket:${ticket_id}")
-  git -C "$worktree" add -- "$_commit_ticket_rel" "$(record_path index)" facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
+  # 票 277：README 票表生成块由生成器从索引重算，作为记录面一并暂存（不手写其内容）
+  git -C "$worktree" add -- "$_commit_ticket_rel" "$(record_path index)" "$(record_path tickets-readme)" facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
   git -C "$worktree" commit -m "chore(ticket): 记录翻转 — ${commit_message}" || die1 '纯记录提交创建失败'
   record_commit=$(git -C "$worktree" rev-parse HEAD)
   printf 'ticket-run: 记录提交: %s\n' "$record_commit"
