@@ -34,7 +34,10 @@
 #                   站内票本体，并与索引/投影一起收编进纯记录提交。记录收口段（票 271）
 #                   经共享库 record_lock_ensure 自取记录层写锁，覆盖「flip-index →
 #                   checkpoint.commit → 记录提交」全段；flip-index 以继承标记接管同一把
-#                   锁（不再自行取锁），段末按所有权释放。
+#                   锁（不再自行取锁），段末按所有权释放。票 272 起 checkpoint.commit 的字段级
+#                   改写经记录写入 module record-store.sh 的 record_set_json（唯一 JSON 引擎
+#                   json set 序列化＝ensure_ascii=False＋indent=2＋末尾换行，形态与拆出前
+#                   逐字节一致；票本体与索引路径经其路径表 ticket:<id>／index 解析）。
 # Pos: 主 agent 唯一编排入口（可恢复协调器）；只组合 contract-build/worktree-add/
 #      ticket-ops 原子层，不读取或改写票状态逻辑，不直接写 index/README/账本/投影；
 #      状态写入唯一经 ticket-ops（票 243 核心）。intent 日志只落 Git 公共目录，不进
@@ -54,6 +57,18 @@ if [ -f "$_helper_script" ]; then
   . "$_helper_script"
 else
   printf 'ticket-run: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
+  exit 2
+fi
+
+# 记录写入 module（票 272）：票本体与索引路径经其路径表解析，checkpoint.commit 字段级
+# 改写经 record_set_json（同一把记录层写锁＋唯一 JSON 引擎序列化）；缺失即 fail-closed。
+_record_store=$(dirname "$0")/record-store.sh
+if [ -f "$_record_store" ]; then
+  # shellcheck source=agent-up/scripts/record-store.sh  # 动态同目录加载
+  # shellcheck disable=SC1091  # 共享库由运行时同目录定位，单文件分析无法跟随动态路径
+  . "$_record_store"
+else
+  printf 'ticket-run: FAIL: 记录写入 module 缺失: %s\n' "$_record_store" >&2
   exit 2
 fi
 
@@ -210,7 +225,7 @@ _engine="${script_dir}/json-validator.py"
 contract_build="${script_dir}/contract-build.sh"
 [ -r "$contract_build" ] || die2 "原子层缺失: ${contract_build}"
 
-issues_dir="${repo_root}/facts/requirements/tickets"
+issues_dir="${repo_root}/$(dirname -- "$(record_path index)")"
 [ -d "$issues_dir" ] || die1 "票目录不存在: ${issues_dir}"
 # 票本体口径：<NN>-<slug>.json，slug 仅 [a-z0-9-]（与 ticket-record.schema.json 的 id
 # 口径同源），故票本体文件名不含点号；派生件（独立审查收据 <id>.review-evidence.json、
@@ -243,7 +258,7 @@ worktree="${repo_parent}/${repo_name}-wt/wt${nn}"
 
 # ---- 协调器共享辅助（只读状态推导＋intent 操作记录）----
 
-index_file="${repo_root}/facts/requirements/tickets/index.json"
+index_file="${repo_root}/$(record_path index)"
 
 index_status() {
   # 打印索引中该票的 status；索引缺失或该票无条目返回非 0（调用方按空串处理）
@@ -1266,36 +1281,17 @@ if [ -n "$record_flips" ]; then
       sh "$ticket_ops" "$worktree" flip-index --id "$flip_id" --status "$flip_status" --updated-at "$flip_updated" || \
       die1 "索引翻转代理失败——产品提交 ${product_commit} 已创建、记录提交未创建"
   done
-  checkpoint_ticket="${worktree}/facts/requirements/tickets/$(basename "$ticket_file")"
+  checkpoint_ticket="${worktree}/$(record_path "ticket:${ticket_id}")"
   [ -f "$checkpoint_ticket" ] || die1 "站内票文件不存在，无法写入 checkpoint.commit: ${checkpoint_ticket}"
   committed_at=$(date -u +%Y-%m-%d)
-  # 同一锁窗口内写入 checkpoint.commit（票 271：与 flip-index 同段，写入前核对令牌归属）
-  record_lock_assert
-  python3 - "$checkpoint_ticket" "$product_commit" "$committed_at" <<'PY' || die1 "checkpoint.commit 写入失败——产品提交 ${product_commit} 已创建、记录提交未创建"
-import json, os, sys, tempfile
-path, commit_id, committed_at = sys.argv[1:4]
-with open(path, encoding='utf-8') as handle:
-    data = json.load(handle)
-checkpoint = data.get('checkpoint')
-if not isinstance(checkpoint, dict):
-    checkpoint = {}
-checkpoint['commit'] = {'committed_at': committed_at, 'commit': commit_id}
-data['checkpoint'] = checkpoint
-mode = os.stat(path).st_mode & 0o777
-fd, tmp = tempfile.mkstemp(prefix='.ticket-checkpoint.', dir=os.path.dirname(path))
-try:
-    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
-        handle.write('\n')
-    os.chmod(tmp, mode)
-    os.replace(tmp, path)
-except BaseException:
-    os.unlink(tmp)
-    raise
-PY
+  # 同一锁窗口内写入 checkpoint.commit（票 271／272：与 flip-index 同段，写点前由
+  # record-store 核对令牌归属；字段级改写经唯一 JSON 引擎序列化，形态与拆出前逐字节一致）
+  checkpoint_doc_set="checkpoint.commit={\"committed_at\": \"${committed_at}\", \"commit\": \"${product_commit}\"}"
+  record_set_json "$worktree" "ticket:${ticket_id}" --doc-set "$checkpoint_doc_set" || \
+    die1 "checkpoint.commit 写入失败——产品提交 ${product_commit} 已创建、记录提交未创建"
   printf 'ticket-run: checkpoint.commit: %s\n' "$product_commit"
-  _commit_ticket_rel="facts/requirements/tickets/$(basename "$ticket_file")"
-  git -C "$worktree" add -- "$_commit_ticket_rel" facts/requirements/tickets/index.json facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
+  _commit_ticket_rel=$(record_path "ticket:${ticket_id}")
+  git -C "$worktree" add -- "$_commit_ticket_rel" "$(record_path index)" facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
   git -C "$worktree" commit -m "chore(ticket): 记录翻转 — ${commit_message}" || die1 '纯记录提交创建失败'
   record_commit=$(git -C "$worktree" rev-parse HEAD)
   printf 'ticket-run: 记录提交: %s\n' "$record_commit"

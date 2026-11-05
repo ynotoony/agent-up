@@ -15,8 +15,12 @@
 #      README 与投影。记录层写锁（票 271）：写入前经共享库 record_lock_ensure 取锁——独立
 #      调用自取并在退出时按所有权释放，RECORD_LOCK_INHERITED=1 时继承父进程锁且不释放；
 #      每个写入点前经 record_lock_assert 核对令牌归属，被夺即 fail-closed 零写入（被夺前
-#      已完成的写入不回收，如实报告）。POSIX sh、零外部依赖、fail-closed（参数不合、票文件
-#      不存在、末段 symlink 或父目录 realpath 越界即停止，停止时零写入）。
+#      已完成的写入不回收，如实报告）。票 272 起记录块写入经记录写入 module record-store.sh：
+#      .json 票目标路径经其路径表 checkpoint:<id>，.md 票传显式记录路径；首建经 record_write
+#      （整文件原子替换）、追加经 record_append（追加＋字节前缀断言）——容器与通道校验后
+#      的路径解析、锁断言、realpath containment 与原子替换零副本。POSIX sh、零外部依赖、
+#      fail-closed（参数不合、票文件不存在、末段 symlink 或父目录 realpath 越界即停止，
+#      停止时零写入）。
 
 # 用法、输入/输出契约与退出码见同目录 README.md checkpoint-write 专节。
 
@@ -33,7 +37,17 @@ else
   exit 2
 fi
 
-TICKETS_DIR='facts/requirements/tickets'
+# 记录写入 module（票 272）：checkpoint md 路径经其路径表解析，创建/追加快插件分别经
+# record_write／record_append（同一把记录层写锁、前缀断言与原子替换）；缺失即 fail-closed。
+_record_store=$(dirname "$0")/record-store.sh
+if [ -f "$_record_store" ]; then
+  # shellcheck source=agent-up/scripts/record-store.sh  # 动态同目录加载
+  # shellcheck disable=SC1091  # 共享库由运行时同目录定位，单文件分析无法跟随动态路径
+  . "$_record_store"
+else
+  printf 'checkpoint-write: FAIL: 记录写入 module 缺失: %s\n' "$_record_store" >&2
+  exit 2
+fi
 
 usage() {
   cat <<'USAGE'
@@ -186,23 +200,51 @@ emit_checkpoint_block() {
 }
 
 if [ "${ticket_is_json}" -eq 1 ]; then
-  ck_target="${TICKETS_DIR}/${t_stem}-review-checkpoint.md"
+  ck_key="checkpoint:${t_stem}"
+  ck_target=$(record_path "${ck_key}")
   cw_in_repo_parent "${ck_target}" 'User Review Checkpoint 目标'
+  ck_payload=$(mktemp "${TMPDIR:-/tmp}/checkpoint-write.XXXXXX") || \
+    die1 '记录块暂存件创建失败（零写入）'
   if [ ! -f "${repo_root}/${ck_target}" ]; then
-    record_lock_assert
-    { printf '# 票 %s User Review Checkpoint（用户即 Review 道）\n' "${t_stem}"
+    if ! { printf '# 票 %s User Review Checkpoint（用户即 Review 道）\n' "${t_stem}"
       emit_checkpoint_block
-    } > "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 文件创建失败: ${ck_target}"
+    } > "${ck_payload}"; then
+      rm -f "${ck_payload}"
+      die1 "User Review Checkpoint 记录块生成失败: ${ck_target}"
+    fi
+    record_write "${repo_root}" "${ck_key}" "${ck_payload}" || {
+      rm -f "${ck_payload}"
+      die1 "User Review Checkpoint 文件创建失败: ${ck_target}"
+    }
   else
-    [ ! -h "${repo_root}/${ck_target}" ] || die1 "User Review Checkpoint 目标不得为 symlink: ${ck_target}"
-    record_lock_assert
-    emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
+    [ ! -h "${repo_root}/${ck_target}" ] || {
+      rm -f "${ck_payload}"
+      die1 "User Review Checkpoint 目标不得为 symlink: ${ck_target}"
+    }
+    if ! emit_checkpoint_block > "${ck_payload}"; then
+      rm -f "${ck_payload}"
+      die1 "User Review Checkpoint 记录块生成失败: ${ck_target}"
+    fi
+    record_append "${repo_root}" "${ck_key}" "${ck_payload}" || {
+      rm -f "${ck_payload}"
+      die1 "User Review Checkpoint 追加失败: ${ck_target}"
+    }
   fi
+  rm -f "${ck_payload}"
   printf 'checkpoint-write: User Review Checkpoint 已追加: %s（.json 票体零追加，独立 checkpoint md 承载）\n' "${ck_target}"
 else
   ck_target=${ticket}
-  record_lock_assert
-  emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
+  ck_payload=$(mktemp "${TMPDIR:-/tmp}/checkpoint-write.XXXXXX") || \
+    die1 '记录块暂存件创建失败（零写入）'
+  if ! emit_checkpoint_block > "${ck_payload}"; then
+    rm -f "${ck_payload}"
+    die1 "User Review Checkpoint 记录块生成失败: ${ck_target}"
+  fi
+  record_append "${repo_root}" "${ck_target}" "${ck_payload}" || {
+    rm -f "${ck_payload}"
+    die1 "User Review Checkpoint 追加失败: ${ck_target}"
+  }
+  rm -f "${ck_payload}"
   printf 'checkpoint-write: User Review Checkpoint 已追加: %s\n' "${ck_target}"
 fi
 

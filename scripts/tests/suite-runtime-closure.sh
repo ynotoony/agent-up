@@ -30,7 +30,7 @@ rc_build_repo() {
     "$RC_REPO/rules/implementation/references/prompts" \
     "$RC_REPO/facts/requirements/tickets" "$RC_REPO/facts/project" \
     "$RC_REPO/facts/requirements/runs" || return 1
-  for rc_f in ticket-ops.sh ledger-append.sh generate-progress.sh generate-dir-readmes.sh \
+  for rc_f in ticket-ops.sh ledger-append.sh record-store.sh generate-progress.sh generate-dir-readmes.sh \
               dir-readme.rules common-helpers.sh json-validator.py ticket-audit.sh \
               contract-build.sh check-dispatch-contract.sh ticket-run.sh worktree-add.sh \
               dp-load-rules.sh check-gates.sh run-record.sh test-checkpoint-recovery.sh \

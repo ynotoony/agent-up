@@ -23,7 +23,7 @@ la_build_fixture() {
   F=$1
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/facts/project"
-  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/rules/implementation/scripts/"
   printf '%s\n' '{"date": "2026-10-26", "kind": "scope", "scope": "facts/project", "decision": "fixture seed", "evidence_ref": "facts/project/changes.jsonl"}' > "$F/facts/project/changes.jsonl"
 }
 
@@ -142,7 +142,7 @@ suite_ledger_append() {
   la_build_fixture "$D/p8"
   FP8="$D/p8"
   mkdir -p "$FP8/agent-up/scripts"
-  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$FP8/agent-up/scripts/"
+  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$FP8/agent-up/scripts/"
   rm -rf "$FP8/rules"
   ( cd "$FP8" && sh agent-up/scripts/ledger-append.sh --ledger-line '{"date": "2026-10-26", "kind": "change", "scope": "s", "decision": "pkg-layout", "evidence_ref": "e"}' ) >"$D/p8.log" 2>&1
   rc=$?

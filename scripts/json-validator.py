@@ -830,6 +830,45 @@ def json_count_key(args):
     return 0
 
 
+def json_set(args):
+    """json set <src|-> <dotted.path> <json-value>
+    Print the document with <json-value> (parsed as JSON) set at the dotted
+    path; missing or non-object intermediate segments are replaced by empty
+    objects (last segment is created/overwritten). Serialization is the
+    record-layer canonical form: ensure_ascii=False, indent=2, trailing
+    newline. Pure function: no file is written, callers own the atomic
+    replace (record-store.sh record_set_json). Exits 0 on success, 2 on
+    usage / invalid value / non-standard JSON, 1 on unreadable source."""
+    if len(args) != 3:
+        print('用法: json-validator.py json set <src|-> <dotted.path> <json-value>', file=sys.stderr)
+        sys.exit(2)
+    src, path, raw = args[0], args[1], args[2]
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f'json-validator: FAIL: json set 值不合 JSON: {raw}（{exc}）', file=sys.stderr)
+        sys.exit(2)
+    parts = [part for part in path.split('.') if part != '']
+    if not parts:
+        print('用法: json-validator.py json set <src|-> <dotted.path> <json-value>', file=sys.stderr)
+        sys.exit(2)
+    data = _load_json(src)
+    node = data
+    if not isinstance(node, dict):
+        print(f'json-validator: FAIL: json set 要求顶层为对象: {src}', file=sys.stderr)
+        return 2
+    for part in parts[:-1]:
+        child = node.get(part)
+        if not isinstance(child, dict):
+            child = {}
+            node[part] = child
+        node = child
+    node[parts[-1]] = value
+    sys.stdout.write(json.dumps(data, ensure_ascii=False, indent=2))
+    sys.stdout.write('\n')
+    return 0
+
+
 # ============================================================
 # Workflow operations (票 227 F3：workflow-executor.sh 内嵌 python heredoc 收敛承载；
 # 各操作与原 heredoc 逐行等价迁移，报文与退出码为执行器合同，勿改写)
@@ -1675,8 +1714,11 @@ def print_usage():
 
   json get <src|-> <path> [default] | json type <src|-> <path> |
   json fields <src|-> <field>... | json len <src|-> <path> [default] |
-  json pick <src|-> <array_path> <k> <v> [...] [field] | json count-key <src|-> <key>
-      通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin）
+  json pick <src|-> <array_path> <k> <v> [...] [field] | json count-key <src|-> <key> |
+  json set <src|-> <dotted.path> <json-value>
+      通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin；json set 为
+      记录层字段级改写序列化面：输出 ensure_ascii=False＋indent=2＋末尾换行，
+      纯函数零写入，原子替换归 record-store.sh）
       退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
 
   workflow <steps|state-machine|map-status|check-status|check-conditions|
@@ -1774,7 +1816,7 @@ def main():
 
     elif mode == 'json':
         if len(sys.argv) < 3:
-            print("用法: python3 json-validator.py json <get|type|fields|len|pick|count-key> [args]", file=sys.stderr)
+            print("用法: python3 json-validator.py json <get|type|fields|len|pick|count-key|set> [args]", file=sys.stderr)
             sys.exit(2)
         op = sys.argv[2]
         if op == 'get':
@@ -1789,6 +1831,8 @@ def main():
             sys.exit(json_pick(sys.argv[3:]))
         elif op == 'count-key':
             sys.exit(json_count_key(sys.argv[3:]))
+        elif op == 'set':
+            sys.exit(json_set(sys.argv[3:]))
         else:
             print(f"未知 json 子命令: {op}", file=sys.stderr)
             print_usage()

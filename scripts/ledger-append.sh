@@ -18,7 +18,9 @@
 #         懒创建仅限账本文件本体与 facts/project/ 父目录；原有六键行只追加不改写，道脚本
 #         lane-commit.sh 零微账本写入面）。票 246 起写模式独立调用时自取记录层写锁
 #         （共享库 record_lock_*），被 ticket-ops 嵌套调用时按继承标记跳过取锁与释放；
-#         --check 模式不取锁。
+#         --check 模式不取锁。票 272 起两账本落行经记录写入 module record-store.sh 的
+#         record_append（路径表解析、懒创建、锁断言、追加字节前缀断言与失败报因零副本；
+#         追加仍保持既有 inode 与权限，仅尾部增长）。
 # Pos: 记录层账本单写方脚本（changes.jsonl 与 micro.jsonl 两账本）。行型合同＝agent-up
 #      公开包 references/schemas/ledger-row.schema.json 的 changes_* 与 micro_* 行族（文档级
 #      单源，不运行时读取，安装闭包不含此件）；行族形状校验链（键集/键序/条件键/值域，逐条
@@ -28,13 +30,12 @@
 #      mkdir -p）；校验先于写入，零外部依赖（JSON 解析门另用 python3 标准库与引擎件）。
 #      微账本行族由 shell 层校验字段并生成固定键序行（不新增解释器依赖，保持 lane-commit
 #      微任务道原有运行面）。写互斥经共享库记录层写锁原语承载（票 246：本件不复制锁代码，
-#      独立调用自取锁、嵌套调用识别继承、写前令牌归属校验）。
+#      独立调用自取锁、嵌套调用识别继承、写前令牌归属校验）；实际落行与追加前缀断言经
+#      记录写入 module record-store.sh 的 record_append（票 272：记录路径字面量只在 module
+#      路径表，本件零 mktemp＋mv/前缀判定的手写副本）。
 
 # 用法、行型合同与退出码见同目录 README.md。
 # ledger-rowtype-version: 3（五键/lesson 六键九键/replan 八键；机制版本注记，票 133 行型）
-
-changes_ledger_rel='facts/project/changes.jsonl'
-micro_ledger_rel='facts/project/micro.jsonl'
 
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -48,6 +49,21 @@ else
   printf 'ledger-append: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
   exit 2
 fi
+
+# 记录写入 module（票 272）：两账本路径经其路径表解析，追加与前缀断言经 record_append；
+# 缺失即 fail-closed（零写入）。
+_record_store=$(dirname "$0")/record-store.sh
+if [ -f "$_record_store" ]; then
+  # shellcheck source=agent-up/scripts/record-store.sh  # 动态同目录加载
+  # shellcheck disable=SC1091  # 共享库由运行时同目录定位，单文件分析无法跟随动态路径
+  . "$_record_store"
+else
+  printf 'ledger-append: FAIL: 记录写入 module 缺失: %s\n' "$_record_store" >&2
+  exit 2
+fi
+
+changes_ledger_rel=$(record_path changes)
+micro_ledger_rel=$(record_path micro)
 
 NL='
 '
@@ -184,14 +200,23 @@ if [ "${micro_mode}" -eq 1 ]; then
   lock_for_write
   record_lock_assert
   micro_ledger_file="${repo_root}/${micro_ledger_rel}"
-  if [ ! -f "${micro_ledger_file}" ]; then
-    mkdir -p "${repo_root}/$(dirname "${micro_ledger_rel}")"
-    : > "${micro_ledger_file}" || die1 "微账本懒创建失败: ${micro_ledger_file}"
+  if [ -f "${micro_ledger_file}" ]; then
+    [ -w "${micro_ledger_file}" ] || die1 "微账本不可写: ${micro_ledger_file}"
+    micro_lineno=$(( $(wc -l < "${micro_ledger_file}" | tr -d ' ') + 1 ))
+  else
+    micro_lineno=1
   fi
-  [ -w "${micro_ledger_file}" ] || die1 "微账本不可写: ${micro_ledger_file}"
-  micro_lineno=$(( $(wc -l < "${micro_ledger_file}" | tr -d ' ') + 1 ))
-  record_lock_assert
-  printf '%s\n' "${micro_line}" >> "${micro_ledger_file}" || die1 "微账本落行失败: ${micro_ledger_file}"
+  micro_payload=$(mktemp "${TMPDIR:-/tmp}/ledger-append-micro.XXXXXX") || \
+    die1 '微账本落行暂存件创建失败（零写入）'
+  if ! printf '%s\n' "${micro_line}" > "${micro_payload}"; then
+    rm -f "${micro_payload}"
+    die1 "微账本落行暂存件写入失败（零写入）: ${micro_ledger_file}"
+  fi
+  record_append "${repo_root}" micro "${micro_payload}" || {
+    rm -f "${micro_payload}"
+    die1 "微账本落行失败: ${micro_ledger_file}"
+  }
+  rm -f "${micro_payload}"
   printf "ledger-append: 微账本落行: ${micro_ledger_rel}（第 %d 行）\n" "${micro_lineno}"
   exit 0
 fi
@@ -283,12 +308,21 @@ fi
 lock_for_write
 record_lock_assert
 ledger_file="${repo_root}/${changes_ledger_rel}"
-if [ ! -f "${ledger_file}" ]; then
-  mkdir -p "${repo_root}/$(dirname "${changes_ledger_rel}")"
-  : > "${ledger_file}" || die1 "账本懒创建失败: ${ledger_file}"
+if [ -f "${ledger_file}" ]; then
+  [ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}"
+  ledger_lineno=$(( $(wc -l < "${ledger_file}" | tr -d ' ') + 1 ))
+else
+  ledger_lineno=1
 fi
-[ -w "${ledger_file}" ] || die1 "账本不可写: ${ledger_file}"
-ledger_lineno=$(( $(wc -l < "${ledger_file}" | tr -d ' ') + 1 ))
-record_lock_assert
-printf '%s\n' "${ledger_line}" >> "${ledger_file}" || die1 "账本落行失败: ${ledger_file}"
+ledger_payload=$(mktemp "${TMPDIR:-/tmp}/ledger-append-changes.XXXXXX") || \
+  die1 '账本落行暂存件创建失败（零写入）'
+if ! printf '%s\n' "${ledger_line}" > "${ledger_payload}"; then
+  rm -f "${ledger_payload}"
+  die1 "账本落行暂存件写入失败（零写入）: ${ledger_file}"
+fi
+record_append "${repo_root}" changes "${ledger_payload}" || {
+  rm -f "${ledger_payload}"
+  die1 "账本落行失败: ${ledger_file}"
+}
+rm -f "${ledger_payload}"
 printf "ledger-append: 账本落行: ${changes_ledger_rel}（第 %d 行）\n" "${ledger_lineno}"

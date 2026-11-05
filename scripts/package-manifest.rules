@@ -182,14 +182,15 @@ pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾（
 pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（票收口拦截＋会话启动警告）'
 pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/warn 函数，另提供记录层写锁原语 record_lock_*——ticket-ops 与 ledger-append 及 lane-commit 记录提交门共用；只追加前缀语义原语 record_append_only_path/record_prefix_ok/record_first_bad_line 与账本清单——check-append-only 与记录提交门共用）'
 pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_load_rules 唯一实现＋DP_PARSER_VERSION 单一版本来源；四消费件同目录 source，缺件与版本漂移 fail-closed；文法说明 references/delivery-rules.md）'
-pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
+pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作（get/type/fields/len/pick/count-key/set，set 为记录层字段级改写序列化面）＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-docs-index.sh script '规则索引生成器（扫描包内规则块→references/rules-index.md；--check 零漂移核对，零写入）'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/generate-dir-readmes.sh script '目录 README 校验／同步／骨架生成器（四段齐全／总行数上限 25／无成员表／无计数与状态句／正文反引号相对路径存在／正文裸露占位【填写：…】（HTML 注释、行内代码段与围栏代码块内不算）／生成块标记成对（围栏代码块内标记不算块）；--check 零写入；--sync 只重建生成块内子目录表、块外逐字节不动且幂等，子目录名含 | 时首格转义，无生成块输出 SKIP；--init 新目录四段骨架留占位；--init 与 --sync --dir 路径含空白 exit 2 零写入；三模式互斥；范围规则可 --rules 覆盖）'
 pm_script scripts/generate-adapter-diffs.sh script '适配器宿主差异段生成器与生成漂移核对器（数据表四节机器数据行→Markdown 差异段；check-package 检查 28 经其 --check 指名宿主与段）'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/close/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理；close/flip/flip-index 至 done 需 actual_time＋ticket-audit conformant 双证，缺证据 decision-required 零写入；记录层写锁经共享库原语 record_lock_* 承载）'
-pm_script scripts/ledger-append.sh script '账本唯一写入方（changes.jsonl 行族形状校验＋唯一 JSON 引擎解析门＋追加单点，ticket-ops 账本落行与写前预检经其承载；--micro 微账本行族 facts/project/micro.jsonl 写入，lane-commit 微道落行经其承载；写模式自取记录层写锁、嵌套调用按继承标记跳过）'
+pm_script scripts/ledger-append.sh script '账本唯一写入方（changes.jsonl 行族形状校验＋唯一 JSON 引擎解析门＋追加单点，ticket-ops 账本落行与写前预检经其承载；--micro 微账本行族 facts/project/micro.jsonl 写入，lane-commit 微道落行经其承载；写模式自取记录层写锁、嵌套调用按继承标记跳过；追加经 record-store record_append 承载）'
+pm_script scripts/record-store.sh script '记录层写面 module（记录层写面收敛票：六类记录路径唯一承载表 index/changes/micro/tickets-readme/ticket:<id>/checkpoint:<id>＋三写动词 record_write/record_append/record_set_json；内部包办 record_lock_ensure 与令牌归属断言、realpath containment（绝对路径/.. 段/symlink 外指 fail-closed）、同目录 mktemp＋mv 原子替换、追加前缀断言与经唯一 JSON 引擎 json set 的字段级改写；ticket-ops/ledger-append/checkpoint-write/ticket-run 共用——六类记录路径字面量收敛到本表（派生投影与 flips 协议串属既有面），锁断言与原子替换机制零副本）'
 pm_script scripts/checkpoint-write.sh script 'User Review Checkpoint 唯一写入方（review-checkpoint 子命令：.md 票追加票尾／.json 票落独立 checkpoint md；stdout 末行目标文件机器契约供 lane-commit 登记记录提交面）'
 pm_script scripts/run-record.sh script 'run record 生成器（new/seal/stats；本仓交付后存量清算入包采纳）'
 pm_script scripts/ticket-grade.sh script '票定级建议器（建议不裁决；本仓交付后存量清算入包采纳）'
@@ -322,6 +323,10 @@ pm_mirror ledger-append.sh mirror
 # 记录写入职责拆分：User Review Checkpoint 唯一写入方 checkpoint-write.sh 新册 mirror
 # （byte 纪律同族；lane-commit 收尾代理运行依赖，三落位同步——包内／仓侧镜像／安装闭包）。
 pm_mirror checkpoint-write.sh mirror
+# 记录层写面收敛：record-store.sh 记录写入 module 新册 mirror（byte 纪律同族；
+# ticket-ops／ledger-append／checkpoint-write／ticket-run 运行依赖，三落位同步——
+# 包内／仓侧镜像／安装闭包双门控）。
+pm_mirror record-store.sh mirror
 # 解析器单源化收敛：仓侧三份内嵌解析副本收编为同目录加载 dp-load-rules.sh（仓侧落位
 # 与包侧 cmp 零差），两消费件复册 mirror、共享解析库新册 mirror；check-payload-boundary.sh
 # 为镜像预册——仓侧同名件在场、包侧同名件落位前由检查 13 包侧缺件分支跳过不计数

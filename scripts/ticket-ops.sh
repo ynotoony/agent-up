@@ -70,7 +70,9 @@
 # 自取；mkdir 原子语义，锁目录由仓库根的 Git 公共目录推导，主检与全部 worktree 共享；
 # 陈旧锁只诊断，显式 --break-stale-lock 才夺；等待超时即 exit 1 并发冲突），锁区间覆盖
 # 预检读取到投影收尾；四个写点前经 record_lock_assert 核对令牌归属（被夺锁即拒绝写入）；
-# 释放按所有权判定（继承时不动父锁）；每个写点先生成同目录临时件再 mv 原子替换（崩溃只留
+# 释放按所有权判定（继承时不动父锁）；每个写点的路径解析、锁断言与同目录 mktemp＋mv
+# 原子替换统一经记录写入 module record-store.sh 的 record_write 落地（票 272：索引新增／
+# 索引更新／README 行／README token 四个写点零锁代码与零记录路径字面量副本，崩溃只留
 # 完整旧版或完整新版）；嵌套调用 ledger-append.sh 时传继承标记，不重复取锁；索引已达
 # 目标状态时走幂等重放（补齐 README/账本/投影后 exit 0，不重复落账本行），故崩溃后
 # 重跑同一命令即可收敛，无需手工编辑任何状态文件。
@@ -82,10 +84,8 @@
 # references/schemas/ledger-row.schema.json（本脚本行校验与其 rows[].keys/值域逐条
 # 对齐；文档级单源，不运行时读取，安装闭包不含此件）。
 
-# ---- 路径常量区（票 113 波④：值翻 rules/facts 新形态，映射见 rules-facts-layout-spec §2 R11/R13/R15/R19）----
-issues_index_rel='facts/requirements/tickets/index.json'
-issues_readme_rel='facts/requirements/tickets/README.md'
-issues_dir_rel='facts/requirements/tickets'
+# ---- 路径常量区（票 113 波④：值翻 rules/facts 新形态；票 272 起记录路径不再手写字面量，
+#      索引／issues-README／账本三类统一经 record-store 路径表解析——字面量只在该 module）----
 progress_current_rel='facts/requirements/tickets/progress-current.md'
 scripts_dir_rel='rules/implementation/scripts'
 
@@ -101,6 +101,21 @@ else
   printf 'ticket-ops: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
   exit 2
 fi
+
+# 记录写入 module（票 272）：记录路径表与三个写动词的唯一来源；缺失即 fail-closed
+_record_store=$(dirname "$0")/record-store.sh
+if [ -f "$_record_store" ]; then
+  # shellcheck source=agent-up/scripts/record-store.sh  # 动态同目录加载
+  # shellcheck disable=SC1091  # 共享库由运行时同目录定位，单文件分析无法跟随动态路径
+  . "$_record_store"
+else
+  printf 'ticket-ops: FAIL: 记录写入 module 缺失: %s\n' "$_record_store" >&2
+  exit 2
+fi
+
+issues_index_rel=$(record_path index)
+issues_readme_rel=$(record_path tickets-readme)
+issues_dir_rel=$(dirname -- "$(record_path index)")
 
 NL='
 '
@@ -295,7 +310,7 @@ case ${cmd} in
       open-REQ-*) die1 "REQ-* 格式 id 已退役（2026-10-23）：新需求一律走任务票 <NN>-<slug> 格式；存量 REQ 冻结只读" ;;
     esac
     printf '%s' "${id}" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
-      die1 "id 不合口径（^[0-9]{2,}-[a-z0-9-]+$）: ${id}"
+      die1 "id 不合口径（^[0-9]{2,}-[a-z0-9-]+\$）: ${id}"
     ;;
 esac
 # flip-index＝索引单写代理，不落账本行，不要求 --ledger-line（票 228 F1/F2）
@@ -1067,8 +1082,8 @@ if [ "${cmd}" = 'open' ] && [ "${replay}" -eq 0 ]; then
       die1 "空索引首开插入未通过校验: ${issues_index_rel}——未产生任何写入"
     }
   fi
-  record_lock_assert
-  mv "${tmp_idx}" "${index_file}"
+  record_write "${repo_root}" index "${tmp_idx}"
+  rm -f "${tmp_idx}"
   tmp_idx=''
   printf "ticket-ops: 索引新增条目: ${issues_index_rel}（%s → ready，updated_at %s）\n" "${id}" "${now_ua}"
   fault_point after-index-write
@@ -1116,8 +1131,8 @@ elif [ "${cmd}" != 'open' ] && [ "${cmd}" != 'ledger' ] && [ "${replay}" -eq 0 ]
     rm -f "${tmp_idx}"; tmp_idx=''
     die1 "索引单写未通过校验: ${issues_index_rel}（${id}）——未产生任何写入"
   }
-  record_lock_assert
-  mv "${tmp_idx}" "${index_file}"
+  record_write "${repo_root}" index "${tmp_idx}"
+  rm -f "${tmp_idx}"
   tmp_idx=''
   printf "ticket-ops: 索引单写: ${issues_index_rel}（%s → %s，updated_at %s）\n" "${id}" "${status}" "${idx_ua}"
   fault_point after-index-write
@@ -1146,8 +1161,8 @@ if [ "${cmd}" = 'open' ]; then
         rm -f "${tmp_readme}"; tmp_readme=''
         die1 "issues-README 行插入未通过校验——索引已写入（${id}），README 未写入；重跑同一命令即收敛"
       }
-      record_lock_assert
-      mv "${tmp_readme}" "${readme_file}"
+      record_write "${repo_root}" tickets-readme "${tmp_readme}"
+      rm -f "${tmp_readme}"
       tmp_readme=''
       printf "ticket-ops: README 追加目录清单行: ${issues_readme_rel}（任务票 %s；\`ready\`）\n" "${nn}"
       ;;
@@ -1191,8 +1206,8 @@ elif [ "${cmd}" = 'take' ] || [ "${cmd}" = 'flip' ] || [ "${cmd}" = 'close' ]; t
     rm -f "${tmp_readme}"; tmp_readme=''
     die1 "README 状态 token 替换未通过校验——索引已单写（${id} → ${status}），README 未写入；重跑同一命令即收敛"
   }
-  record_lock_assert
-  mv "${tmp_readme}" "${readme_file}"
+  record_write "${repo_root}" tickets-readme "${tmp_readme}"
+  rm -f "${tmp_readme}"
   tmp_readme=''
   printf "ticket-ops: README 状态列替换: ${issues_readme_rel}（任务票 %s → \`%s\`，行内其余文本不动）\n" "${nn}" "${status}"
 fi
