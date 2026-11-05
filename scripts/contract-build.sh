@@ -71,7 +71,7 @@ case $stage in
   *) die2 "stage 须为 implementation|review|commit 之一: ${stage}" ;;
 esac
 printf '%s' "$nn" | LC_ALL=C grep -Eq '^[0-9]{2,}$' || \
-  die2 "NN 不合口径（^[0-9]{2,}$）: ${nn}"
+  die2 "NN 不合口径（^[0-9]{2,}\$）: ${nn}"
 
 # 仓库根推导统一经 resolve_repo_root（显式参数 > 落位分派两布局，同 ticket-ops）
 if [ -n "$repo_root" ]; then

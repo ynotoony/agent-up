@@ -311,7 +311,7 @@ if [ "$cmd" = 'new' ]; then
     '') die2 '缺少 --ticket' ;;
   esac
   printf '%s' "$ticket" | LC_ALL=C grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
-    die2 "ticket 不合口径（^[0-9]{2,}-[a-z0-9-]+$）: $ticket"
+    die2 "ticket 不合口径（^[0-9]{2,}-[a-z0-9-]+\$）: $ticket"
   [ -n "$phase" ] || phase='implementation'
   case $phase in
     implementation) phase_sfx='impl' ;;
