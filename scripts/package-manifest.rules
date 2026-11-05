@@ -19,15 +19,13 @@
 #           references/protocol/governance-format.md R-GF-010 原文列举六词，引擎零词表硬编码）；
 #         pm_vague_exempt <pkg-rel-path> <行号> <理由>（检查 12 行级豁免：命中行无法安全换词
 #           时登记，理由必填；登记行无命中即失效豁免 FAIL，行号漂移须复核更新）；
-#         pm_mirror <filename> <ownership>（跨树同名脚本所有权登记，检查 13：单段文件名＋
-#           所有权类别；类别 ∈ mirror（包侧 scripts/<filename> 与仓侧 scripts/ 或
-#           rules/implementation/scripts/ 下同名件互为镜像，逐对 cmp，byte 差异或仓侧
-#           两落位皆无同名件即 FAIL）/package-only（包侧为唯一维护权威，不 cmp；仓侧
-#           同名实例在场属待升级流程同步的过渡态，升级主链见 references/upgrade.md）/
-#           repo-only（仅仓侧存在、包侧明确不收录，包内出现同名件即 FAIL，仓侧两落位
-#           皆无同名件即 FAIL）；登记域＝两侧 scripts/ 树的跨树同名脚本全集（main-only
-#           件归 delivery.rules dp_mainonly 管辖不入本节）；仓根无镜像落位目录
-#           （scripts/ 与 rules/implementation/scripts/ 皆无＝消费项目）整项静默跳过）；
+#         pm_mirror <filename> <ownership>（镜像生成规则，检查 13：单段文件名＋类别；
+#           包侧 agent-up/scripts/ 为唯一手写源，仓侧 rules/implementation/scripts/ 下同名件
+#           为生成物（生成入口 scripts/generate-mirrors.sh，幂等、逐件 cmp 自证）。类别 ∈
+#           mirror（须由包侧源生成；检查 13 核对仓侧生成物存在且 byte 全等，缺件/漂移 FAIL
+#           指名；生成物不得手工编辑）/package-only（包侧独有，不生成不核对；仓侧同名实例
+#           非生成物，不判差异不判存在）；main-only 件归 delivery.rules dp_mainonly 管辖不入
+#           本节；仓根无 rules/implementation/scripts/（消费项目）整项静默跳过）；
 #         pm_capability <name>（能力基元名单项：九基元名自 references/adapters/
 #           capability-contract.md §2.1 权威表现场提取登记，不自造基元，检查 14）；
 #         pm_capability_authority <pkg-rel-path>（能力权威表文件，恰一行；引擎以窄锚点
@@ -105,7 +103,7 @@
 #      允许多行 owner 登记多件所属文件），owner 须 references/ 前缀；platform 值须小写
 #      token；pm_vague_word 词须非空且跨行唯一；pm_vague_exempt
 #      行号须正整数、理由非空、路径+行号跨行唯一；pm_mirror 须单段文件名、所有权类别
-#      ∈ mirror/package-only/repo-only 且文件名跨行唯一；
+#      ∈ mirror/package-only 且文件名跨行唯一；
 #      pm_capability 名须小写 token 且跨行唯一；pm_capability_authority 跨行恰一行；
 #      pm_capability_target 目标路径跨行唯一、kind ∈ decl/table、预期名单逐名 ⊆
 #      pm_capability 名单且并集 ⊇ 名单；pm_enforcement_level 值须小写 token 且跨行
@@ -215,6 +213,7 @@ pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh
 pm_script scripts/project-dashboard.html rules '本地项目仪表盘（单文件只读 HTML：Chrome/Edge 目录授权后读 module-map.json、票索引与全部卡片，页面打开期间轮询刷新；零网络零写入；kind=rules 意为非可执行数据件）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
 pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋tests/suite-*.sh 全部套件，套件数以文件系统实计数为唯一真源，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
+pm_script scripts/generate-mirrors.sh script '镜像生成器：从包侧 scripts/ 手写源幂等生成仓侧 rules/implementation/scripts/ 生成物（--check 只读核对；写模式逐件 cmp 自证；package-only 不生成）'
 pm_script scripts/checks dir '包检引擎检查件目录（registry.rules 注册表＋每检查一件 NN-slug.sh；统一 interface：引擎传入包根，检查件只判定与报告问题，不生成 PASS/FAIL 行与汇总；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
@@ -299,16 +298,17 @@ pm_vague_word '酌情'
 pm_vague_exempt references/protocol/governance-format.md 82 'R-GF-003 Forbidden 字段枚举禁用措辞——禁令条款内引述词表本身，换词即丢失枚举语义（R-GF-010 Evidence 明示禁令条款内引述除外）'
 pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden 字段＝词表权威列举处（vague-words 节依据），禁令条款内引述除外'
 
-# ==== mirrors：跨树同名脚本所有权登记（检查 13；每名恰一类别，登记域＝包侧 scripts/
-#      与仓侧 scripts/、rules/implementation/scripts/ 的跨树同名脚本全集）：
-#      mirror＝两侧同名件互为镜像逐对 cmp（byte 纪律，仓侧缺同名件即 FAIL）；
-#      package-only＝包侧为唯一维护权威，不 cmp；仓侧同名实例在场属待升级流程同步的
-#      过渡态（升级主链见 references/upgrade.md），不判差异不判存在；
-#      repo-only＝仅仓侧存在、包侧明确不收录，包内出现同名件即 FAIL（防未决策采纳）。
-#      仓根无镜像落位目录（scripts/ 与 rules/implementation/scripts/ 皆无＝消费项目）
-#      整项静默跳过。main-only 件归 delivery.rules dp_mainonly 管辖不入本节。====
+# ==== mirrors：镜像生成规则（检查 13；包侧唯一手写源 + 仓侧生成物）====
+#      包侧 agent-up/scripts/ 是唯一手写源；仓侧 rules/implementation/scripts/ 下同名件
+#      为生成物，由 scripts/generate-mirrors.sh 幂等生成（写模式逐件 cmp 自证；--check
+#      只读核对）。每行 pm_mirror <文件名> <类别>，类别两值：
+#      mirror＝该件须由包侧源生成，检查 13 核对仓侧生成物存在且与包侧源 byte 全等
+#      （缺件/漂移即 FAIL 指名；生成物不得手工编辑）；
+#      package-only＝包侧独有，不生成不核对（仓侧同名实例非生成物，不判差异不判存在）。
+#      源仓语境＝包根父目录存在 rules/implementation/scripts/；消费项目整项静默跳过。
+#      main-only 件归 delivery.rules dp_mainonly 管辖不入本节。
 
-# -- mirror：两侧同名件互为镜像 --
+# -- mirror：包侧源 → 仓侧生成物（检查 13 逐件核对） --
 pm_mirror generate-progress.sh mirror
 pm_mirror ticket-ops.sh mirror
 pm_mirror absorption-trigger.sh mirror
@@ -322,44 +322,21 @@ pm_mirror dp-load-rules.sh mirror
 pm_mirror check-stale-claims.sh mirror
 pm_mirror worktree-add.sh mirror
 pm_mirror worktree-deps.sh mirror
-# die 兜底清零后仓侧脚本同目录加载 common-helpers.sh 为硬依赖：仓侧 rules/implementation/scripts/
-# 补落镜像件并册 mirror（byte 纪律同族；消费项目仓根无镜像落位目录时整项静默跳过）。
 pm_mirror common-helpers.sh mirror
-# 账本写入单点化：changes.jsonl 唯一写入方 ledger-append.sh 新册 mirror（byte 纪律同族；
-# ticket-ops 账本落行与写前预检经其承载，三落位同步——包内／仓侧镜像／安装闭包）。
 pm_mirror ledger-append.sh mirror
-# 记录写入职责拆分：User Review Checkpoint 唯一写入方 checkpoint-write.sh 新册 mirror
-# （byte 纪律同族；lane-commit 收尾代理运行依赖，三落位同步——包内／仓侧镜像／安装闭包）。
 pm_mirror checkpoint-write.sh mirror
-# 记录层写面收敛：record-store.sh 记录写入 module 新册 mirror（byte 纪律同族；
-# ticket-ops／ledger-append／checkpoint-write／ticket-run 运行依赖，三落位同步——
-# 包内／仓侧镜像／安装闭包双门控）。
 pm_mirror record-store.sh mirror
-# 解析器单源化收敛：仓侧三份内嵌解析副本收编为同目录加载 dp-load-rules.sh（仓侧落位
-# 与包侧 cmp 零差），两消费件复册 mirror、共享解析库新册 mirror；check-payload-boundary.sh
-# 为镜像预册——仓侧同名件在场、包侧同名件落位前由检查 13 包侧缺件分支跳过不计数
-# （逐对 cmp 自包侧落位起自动生效），repo-only 撤册＝包侧收录方向已决。
-pm_mirror check-payload-boundary.sh mirror
-# 派发合同渲染器：包侧新建即两侧同步落位（仓侧 rules/implementation/scripts/
-# 补镜像件，byte 纪律同族）。
 pm_mirror contract-build.sh mirror
-# 规则索引生成器：包侧专用（目标项目无 references/ 树，索引不随安装落位），
-# package-only＝包侧唯一维护权威，不 cmp。
-pm_mirror generate-docs-index.sh package-only
-# 编排入口（legacy 三阶段＋可恢复协调器）：包侧新建即两侧同步落位（仓侧 rules/implementation/scripts/ 补镜像件）。
 pm_mirror ticket-run.sh mirror
-# -- package-only：包侧唯一维护权威（仓侧同名实例待升级流程同步的过渡态） --
+pm_mirror merge-ticket.sh mirror
+
+# -- package-only：包侧独有（不生成不核对） --
+pm_mirror generate-docs-index.sh package-only
 pm_mirror check-dispatch-contract.sh package-only
 pm_mirror test-checkpoint-recovery.sh package-only
 pm_mirror verify-contract.sh package-only
 pm_mirror workflow-executor.sh package-only
 pm_mirror ticket-audit.sh package-only
-# 合并站能力入包（done/merge 证据门）：仓侧基线迁入包内后两侧同步落位，册 mirror（byte 纪律；
-# 合并前证据门随包件同款生效，仓侧旧件不再单独演化）。
-pm_mirror merge-ticket.sh mirror
-# -- repo-only：仅仓侧存在，包侧明确不收录 --
-pm_mirror check-derived-freshness.sh repo-only
-pm_mirror check-role-permissions.sh repo-only
 
 # ==== capability-primitives：能力基元名单与检查目标（检查 14）====
 # 九基元名自 references/adapters/capability-contract.md §2.1 权威表逐行现场提取登记

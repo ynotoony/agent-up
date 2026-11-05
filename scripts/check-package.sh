@@ -699,7 +699,7 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
   {
     if (NF != 2) { bad("字段数 " NF "（预期 2：文件名、所有权类别）"); next }
     if ($1 !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) { bad("须为单段文件名: " $1); next }
-    if ($2 != "mirror" && $2 != "package-only" && $2 != "repo-only") { bad("所有权类别不合预期（mirror|package-only|repo-only）: " $2); next }
+    if ($2 != "mirror" && $2 != "package-only") { bad("所有权类别不合预期（mirror|package-only）: " $2); next }
     if ($1 in seen) { bad("文件名跨行重复: " $1) } else { seen[$1] = 1 }
   }
   END { if (n > 0) exit 1 }

@@ -289,7 +289,7 @@ EOF
   done
   if [ "${cp_n_entries}" -gt 0 ] && [ "${cp_n_scripts}" -gt 0 ] && [ "${cp_n_templates}" -gt 0 ] \
     && [ "${cp_exp_21}" -gt 0 ]; then
-    ok "清单查询：入口 ${cp_n_entries} 件、scripts 节 ${cp_n_scripts} 件（现存 ${cp_n_scripts_present}）、templates ${cp_n_templates} 件 → 检查 13 期望 ${cp_mirror_pairs} 对、检查 20 期望 ${cp_exp_20}、检查 21 期望 ${cp_exp_21}"
+    ok "清单查询：入口 ${cp_n_entries} 件、scripts 节 ${cp_n_scripts} 件（现存 ${cp_n_scripts_present}）、templates ${cp_n_templates} 件 → 检查 13 期望 ${cp_mirror_pairs} 件、检查 20 期望 ${cp_exp_20}、检查 21 期望 ${cp_exp_21}"
   else
     bad '清单查询：package-manifest.rules 各节可解析且非空' \
       "入口=${cp_n_entries} scripts=${cp_n_scripts} templates=${cp_n_templates} 来源=${cp_manifest}"
@@ -430,37 +430,32 @@ EOF
     bad '负例 N6 豁免登记行无命中 → exit 1 且 FAIL: 12 报失效豁免' "exit=$rc"
   fi
 
-  # 票 58 检查 13 负例 N7：仓根 scripts/ 同名件单处篡改 → FAIL: 13 指名文件。
-  # 票 190：夹具仓根复制清单 mirror 类全集（仅复制部分会令检查 13 对缺件报
-  # 镜像登记悬空、噪声淹没篡改信号——全集在位才只报篡改单点）＋仓侧 repo-only
-  # 落位（消费项目语境无仓侧目录时 repo-only 行报登记悬空，不影响本负例指名断言）。
-  # 票 203：mirror 类 9→12 对（dp-load-rules/check-stale-claims/worktree-add 三件入
-  # 清单；check-payload-boundary 镜像预册、包侧落位前检查 13 不计数不查仓侧）。
-  mkdir -p "$D/mrepo/scripts" "$D/mrepo/rules/implementation/scripts"
+  # 票 276 检查 13 负例 N7：仓侧生成物被手改（与包侧手写源漂移）→ FAIL: 13 指名文件。
+  # 夹具＝源仓语境：包副本（世界构建动词 pkg_copy）＋仓侧 rules/implementation/scripts/
+  # 全量生成物（按清单 mirrors 节 mirror 类逐件从包侧源复制），仅篡改单件隔离漂移信号。
+  mkdir -p "$D/mrepo/rules/implementation/scripts"
   pkg_copy "$PKG_ROOT" "$D/mrepo/agent-up"
-  for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh record-store.sh ticket-run.sh; do
-    cp "$PKG_ROOT/scripts/$m" "$D/mrepo/scripts/$m"
+  # shellcheck disable=SC2013  # 清单 pm_mirror 文件名为单 token，词分隔循环安全
+  for m in $(LC_ALL=C awk '$1 == "pm_mirror" && $3 == "mirror" { print $2 }' "$PKG_ROOT/scripts/package-manifest.rules"); do
+    if [ -f "$PKG_ROOT/scripts/$m" ]; then
+      cp "$PKG_ROOT/scripts/$m" "$D/mrepo/rules/implementation/scripts/$m"
+    fi
   done
-  if [ -d "$REPO_SIDE" ]; then
-    for m in merge-ticket.sh check-derived-freshness.sh check-payload-boundary.sh check-role-permissions.sh; do
-      cp "$REPO_SIDE/$m" "$D/mrepo/rules/implementation/scripts/$m"
-    done
-  fi
-  printf '# harness fixture 镜像篡改\n' >> "$D/mrepo/scripts/ticket-ops.sh"
+  printf '# harness fixture 生成物篡改\n' >> "$D/mrepo/rules/implementation/scripts/ticket-ops.sh"
   sh "$SCRIPT_DIR/check-package.sh" "$D/mrepo/agent-up" >"$D/act.n7" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 13 镜像脚本与仓根同名件一致' "$D/act.n7" && grep -q 'scripts/ticket-ops.sh 与仓根 scripts/ticket-ops.sh 不一致' "$D/act.n7"; then
-    ok '负例 N7 仓根镜像同名件篡改 → exit 1 且 FAIL: 13 指名文件'
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 13 镜像生成物与包侧源一致' "$D/act.n7" && grep -q 'rules/implementation/scripts/ticket-ops.sh 与包侧 scripts/ticket-ops.sh 不一致' "$D/act.n7"; then
+    ok '负例 N7 仓侧生成物被手改（与包侧源漂移）→ exit 1 且 FAIL: 13 指名文件'
   else
-    bad '负例 N7 仓根镜像同名件篡改 → exit 1 且 FAIL: 13 指名文件' "exit=$rc"
+    bad '负例 N7 仓侧生成物被手改（与包侧源漂移）→ exit 1 且 FAIL: 13 指名文件' "exit=$rc"
   fi
 
-  # 票 58 检查 13 负例 N8：仓根无 scripts/（pkgcopy 语境）→ 检查 13 静默跳过无输出行
-  # （消费项目语义，--pkg-root 参数化语境同样跳过）。
+  # 检查 13 负例 N8：非源仓语境（cp 副本，父目录无 rules/implementation/scripts/）
+  # → 检查 13 静默跳过无输出行（消费项目语义，--pkg-root 参数化语境同口径）。
   if grep -q ': 13 ' "$D/act.negative"; then
-    bad '负例 N8 仓根无 scripts/ 时检查 13 静默跳过（无输出行）' '意外出现检查 13 输出行'
+    bad '负例 N8 非源仓语境时检查 13 静默跳过（无输出行）' '意外出现检查 13 输出行'
   else
-    ok '负例 N8 仓根无 scripts/ 时检查 13 静默跳过（无输出行）'
+    ok '负例 N8 非源仓语境时检查 13 静默跳过（无输出行）'
   fi
 
   # 协调层 Review 改判随票修（尾锚）：负例 N9——governance-format.md 在 R-GF-010
@@ -855,63 +850,65 @@ EOF
     bad '负例 N31 一级新增目录未入 README 投影 → exit 1 且 FAIL: 21 双报（未登记条目＋投影缺名）' "exit=$rc"
   fi
 
-  # 票 190 检查 13 所有权三分类夹具组（源仓语境＝仓侧 rules/implementation/scripts/ 在场；
-  # 消费项目语境该目录不存在，整组显式 SKIP 不计数，覆盖归源仓；全部夹具 mktemp 纪律）。
+  # 票 276 检查 13 生成物核对夹具组（源仓语境＝仓侧 rules/implementation/scripts/
+  # 在场；消费项目语境该目录不存在，整组显式 SKIP 不计数，覆盖归源仓；全部夹具 mktemp 纪律）。
   if [ -d "$REPO_SIDE" ]; then
-    # 负例 N32：mirror 登记悬空（仓侧少复制一件 health-summary.sh）→ exit 1 且 FAIL: 13
-    # 指名悬空件（mirror 类登记须两落位在场，缺件不得静默；票 203 复制清单随 mirror
-    # 类 12 对随动——check-payload-boundary 包侧缺件不计数不入清单）。
-    mkdir -p "$D/mrepo2/scripts" "$D/mrepo2/rules/implementation/scripts"
+    # 负例 N32：仓侧生成物缺失（少生成一件 health-summary.sh）→ exit 1 且 FAIL: 13 指名缺件。
+    mkdir -p "$D/mrepo2/rules/implementation/scripts"
     pkg_copy "$PKG_ROOT" "$D/mrepo2/agent-up"
-    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh record-store.sh contract-build.sh ticket-run.sh; do
-      cp "$PKG_ROOT/scripts/$m" "$D/mrepo2/scripts/$m"
+    # shellcheck disable=SC2013  # 清单 pm_mirror 文件名为单 token，词分隔循环安全
+    for m in $(LC_ALL=C awk '$1 == "pm_mirror" && $3 == "mirror" { print $2 }' "$PKG_ROOT/scripts/package-manifest.rules"); do
+      if [ -f "$PKG_ROOT/scripts/$m" ] && [ "$m" != "health-summary.sh" ]; then
+        cp "$PKG_ROOT/scripts/$m" "$D/mrepo2/rules/implementation/scripts/$m"
+      fi
     done
-    for m in merge-ticket.sh check-derived-freshness.sh check-payload-boundary.sh check-role-permissions.sh; do
-      cp "$REPO_SIDE/$m" "$D/mrepo2/rules/implementation/scripts/$m"
-    done
-    sh "$D/mrepo2/agent-up/scripts/check-package.sh" "$D/mrepo2/agent-up" >"$D/act.n32" 2>&1
+    sh "$SCRIPT_DIR/check-package.sh" "$D/mrepo2/agent-up" >"$D/act.n32" 2>&1
     rc=$?
-    if [ "$rc" -eq 1 ] && grep -q '^FAIL: 13 镜像脚本与仓根同名件一致' "$D/act.n32" \
-      && grep -q 'scripts/health-summary.sh 登记 mirror 但仓侧两落位皆无同名件' "$D/act.n32"; then
-      ok '负例 N32 mirror 登记悬空（仓侧缺同名件）→ exit 1 且 FAIL: 13 指名悬空件'
+    if [ "$rc" -eq 1 ] && grep -q '^FAIL: 13 镜像生成物与包侧源一致' "$D/act.n32" \
+      && grep -q 'rules/implementation/scripts/health-summary.sh 生成物缺失' "$D/act.n32"; then
+      ok '负例 N32 仓侧生成物缺失 → exit 1 且 FAIL: 13 指名缺件'
     else
-      bad '负例 N32 mirror 登记悬空（仓侧缺同名件）→ exit 1 且 FAIL: 13 指名悬空件' "exit=$rc"
+      bad '负例 N32 仓侧生成物缺失 → exit 1 且 FAIL: 13 指名缺件' "exit=$rc"
     fi
 
-    # 负例 N33：repo-only 件被投放包内（check-derived-freshness.sh 复制入 scripts/）→ exit 1 且
-    # FAIL: 13 指名（防未决策采纳；夹具继承 N32 仓侧缺件缺陷，指名断言逐字独立）。
-    cp -R "$D/mrepo2" "$D/mrepo3"
-    cp "$REPO_SIDE/check-derived-freshness.sh" "$D/mrepo3/agent-up/scripts/check-derived-freshness.sh"
-    sh "$D/mrepo3/agent-up/scripts/check-package.sh" "$D/mrepo3/agent-up" >"$D/act.n33" 2>&1
+    # 负例 N33（改判）：package-only 件在仓侧的同名实例非生成物 → 不判差异（exit 0）。
+    mkdir -p "$D/mrepo3/rules/implementation/scripts"
+    cp -R "$PKG_ROOT" "$D/mrepo3/agent-up"
+    # shellcheck disable=SC2013  # 清单 pm_mirror 文件名为单 token，词分隔循环安全
+    for m in $(LC_ALL=C awk '$1 == "pm_mirror" && $3 == "mirror" { print $2 }' "$PKG_ROOT/scripts/package-manifest.rules"); do
+      if [ -f "$PKG_ROOT/scripts/$m" ]; then
+        cp "$PKG_ROOT/scripts/$m" "$D/mrepo3/rules/implementation/scripts/$m"
+      fi
+    done
+    printf '# stale package-only fixture\n' > "$D/mrepo3/rules/implementation/scripts/verify-contract.sh"
+    sh "$SCRIPT_DIR/check-package.sh" "$D/mrepo3/agent-up" >"$D/act.n33" 2>&1
     rc=$?
-    if [ "$rc" -eq 1 ] && grep -q 'scripts/check-derived-freshness.sh 登记 repo-only 但包内出现同名件' "$D/act.n33"; then
-      ok '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）'
+    if [ "$rc" -eq 0 ] && grep -q "^PASS: 13 镜像生成物与包侧源一致（核对 ${cp_mirror_pairs} 件）" "$D/act.n33"; then
+      ok '负例 N33 package-only 仓侧同名实例非生成物 → exit 0 不判差异'
     else
-      bad '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）' "exit=$rc"
+      bad '负例 N33 package-only 仓侧同名实例非生成物 → exit 0 不判差异' "exit=$rc"
     fi
 
-    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：mirror 类现存件全 cmp＋
-    # 4 件 package-only 不判差异＋3 件 repo-only 包侧缺席；票 203 后 check-payload-boundary
-    # 为镜像预册——包侧落位前检查 13 包侧缺件分支跳过不计数）→ exit 0 且
-    # PASS: 13 比对对数＝清单 mirror 现存件数（三分类登记与两侧实物全恰，含检查 21 同过）。
-    mkdir -p "$D/porepo/scripts" "$D/porepo/rules/implementation/scripts"
+    # 正例 P1：全量生成物 + package-only 过渡态同名实例 → exit 0 且 PASS: 13 核对 N 件。
+    mkdir -p "$D/porepo/rules/implementation/scripts"
     pkg_copy "$PKG_ROOT" "$D/porepo/agent-up"
-    for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh record-store.sh contract-build.sh ticket-run.sh; do
-      cp "$PKG_ROOT/scripts/$m" "$D/porepo/scripts/$m"
+    # shellcheck disable=SC2013  # 清单 pm_mirror 文件名为单 token，词分隔循环安全
+    for m in $(LC_ALL=C awk '$1 == "pm_mirror" && $3 == "mirror" { print $2 }' "$PKG_ROOT/scripts/package-manifest.rules"); do
+      if [ -f "$PKG_ROOT/scripts/$m" ]; then
+        cp "$PKG_ROOT/scripts/$m" "$D/porepo/rules/implementation/scripts/$m"
+      fi
     done
-    for m in merge-ticket.sh check-derived-freshness.sh check-role-permissions.sh; do
-      cp "$REPO_SIDE/$m" "$D/porepo/rules/implementation/scripts/$m"
-    done
-    sh "$D/porepo/agent-up/scripts/check-package.sh" "$D/porepo/agent-up" >"$D/act.p1" 2>&1
+    printf '# stale transition copy\n' > "$D/porepo/rules/implementation/scripts/test-checkpoint-recovery.sh"
+    sh "$SCRIPT_DIR/check-package.sh" "$D/porepo/agent-up" >"$D/act.p1" 2>&1
     rc=$?
-    if [ "$rc" -eq 0 ] && grep -q "^PASS: 13 镜像脚本与仓根同名件一致（比对 ${cp_mirror_pairs} 对）" "$D/act.p1" \
+    if [ "$rc" -eq 0 ] && grep -q "^PASS: 13 镜像生成物与包侧源一致（核对 ${cp_mirror_pairs} 件）" "$D/act.p1" \
       && grep -q '^PASS: 21 references 树成员闭合与导航' "$D/act.p1"; then
-      ok "正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 ${cp_mirror_pairs} 对"
+      ok "正例 P1 全量生成物 + package-only 过渡态同名实例 → exit 0 且 PASS: 13 核对 ${cp_mirror_pairs} 件"
     else
-      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对对数＝清单 mirror 现存件数' "exit=$rc"
+      bad '正例 P1 全量生成物 + package-only 过渡态同名实例 → exit 0 且 PASS: 13 核对件数' "exit=$rc"
     fi
   else
-    printf 'SKIP  [check-package] 仓侧 rules/implementation/scripts 不在场（消费项目语境）——检查 13 所有权三分类夹具组跳过，覆盖归源仓\n'
+    printf 'SKIP  [check-package] 仓侧 rules/implementation/scripts 不在场（消费项目语境）——检查 13 生成物核对夹具组跳过，覆盖归源仓\n'
   fi
 
   # 检查 22 组（规则块九字段格式；夹具全 mktemp，负例每组单点缺陷，FAIL 指名字段或 ID

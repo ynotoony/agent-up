@@ -52,6 +52,7 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
 
 - 规则权威＝目标项目 `rules/project.md` 的对齐更新节（发现被改过即停、写入前备份、重复执行结果一致），本手册不复制判据，只定顺序：
   1. 先更新脚本（`install.sh --target <repo-root> <门控>`：已一致的自动跳过、复制新增件、发现被改过即停）。**源仓语境**：源仓/含包副本的仓安装目的地（`rules/implementation/scripts/`）与复制基线（`agent-up/scripts/`）是不同目录，安装器的包内误运行守卫只拦"目标即包根本体／目标＝脚本所在目录／落位目录＝脚本所在目录"三类自写自毁场景，源仓经 `install.sh` 正常安装，无须绕开脚本手工搬文件；
+     - **源仓镜像面（本仓维护语境）**：源仓 `rules/implementation/scripts/` 下 mirror 类件是包侧 `agent-up/scripts/` 的生成物，不手工复制；改动包侧源后运行 `sh agent-up/scripts/generate-mirrors.sh`（幂等、逐件 cmp 自证），只读核对用 `--check`（漂移/缺件 exit 1）；消费者逐件对齐仍走上一条 `install.sh`。package-only 件不生成；生成物不得手工编辑（check-package 检查 13 拦截）。
   2. 再配置面（`delivery.rules` 按模板生成或按 diff 逐节对齐——锚点行逐字匹配，禁手抄）；
   3. 后更新模板生成的文件（逐件：备份现件 → 按新模板重生成 → 项目自有条款与【按项目填写】值按现件回填 → 你确认关键条款 diff）；
   4. 每件更新后重跑该件配套验证（脚本 `sh -n`＋家族夹具；条款件过包对账器）。
