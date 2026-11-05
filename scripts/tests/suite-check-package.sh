@@ -108,7 +108,108 @@ fi
 # 不可分档宿主角色级模型键待实测、降级记录格式 model_tier）；四处金样各补 PASS: 37 行、
 # 汇总 36→37、N16 注入项号 37+1→38、检查 17 自述总数 36→37；补正例 P37（PASS 行逐字在场）与
 # 负例 N72（删一档行）/N73（清空档位取值）。
+# 票 274 金样串废止随票修（本次）：四块金样串（exp.positive 两形态、exp.negative、exp.cc，
+# 153 行、402 个数字 token）改为清单派生的属性断言——①引擎注册表＝每项检查在
+# 引擎内的声明行「# 检查 N：」（36 项；退役项自然不出现）；②每个注册检查恰一行 PASS/FAIL；
+# ③PASS 行数＝检查项数、正例零 FAIL；④行内计数＝清单现查值（检查 1 入口件数＝entry-files、
+# 8/19＝scripts 节、20＝scripts 节现存件∪引擎∪成员表∪清单件、21＝references 登记∪templates）；
+# ⑤首行与汇总行逐字（字段值由清单查询填装，固定文本逐字）。两形态差异（worktree SKIP 行、
+# 13/19 静默跳过面）由语境现算收敛为一组断言；负例以「FAIL 行集合＋指名详情＋汇总行」断言，
+# N4/N7/N16/N23/N29 等既有负例原样保留。
 # ============================================================
+
+# ---- 票 274：清单派生属性断言的解析与比对原语（文件级；套件专用 cp_ 前缀） ----
+# 断言数据源只有两处：引擎注册表（每项检查在引擎内的声明行）与包清单
+# package-manifest.rules；套件不再持有任何检查行/计数金样串。
+
+cp_pass_ids() {
+  # $1=check-package 输出文件 → PASS 行的检查号（升序）
+  LC_ALL=C sed -n 's/^PASS: \([0-9][0-9]*\) .*/\1/p' "$1" | LC_ALL=C sort -n
+}
+
+cp_fail_ids() {
+  # $1=check-package 输出文件 → FAIL 行的检查号（升序）
+  LC_ALL=C sed -n 's/^FAIL: \([0-9][0-9]*\) .*/\1/p' "$1" | LC_ALL=C sort -n
+}
+
+cp_line_ids() {
+  # $1=check-package 输出文件 → PASS/FAIL 行的检查号（升序，含重复，供「恰一行」比对）
+  LC_ALL=C sed -n -e 's/^PASS: \([0-9][0-9]*\) .*/\1/p' -e 's/^FAIL: \([0-9][0-9]*\) .*/\1/p' "$1" | LC_ALL=C sort -n
+}
+
+cp_active_ids() {
+  # $1=注册表 ids 文件 $2=包根 → 注册表减去当前语境的静默跳过检查：
+  #   13＝包根父目录无 scripts/ 与 rules/implementation/scripts/ 两落位（消费项目语境）；
+  #   19＝包根非 git 仓库（index mode 无从核对）。
+  # 跳过面由语境现算，不手抄清单。
+  _cp_skip=''
+  _cp_mr=$(CDPATH='' cd -- "$2/.." 2>/dev/null && pwd) || _cp_mr=''
+  if [ -z "${_cp_mr}" ] || { [ ! -d "${_cp_mr}/scripts" ] && [ ! -d "${_cp_mr}/rules/implementation/scripts" ]; }; then
+    _cp_skip="${_cp_skip} 13"
+  fi
+  if ! git -C "$2" rev-parse --git-dir >/dev/null 2>&1; then
+    _cp_skip="${_cp_skip} 19"
+  fi
+  LC_ALL=C awk -v sk="${_cp_skip} " 'BEGIN { n = split(sk, a, " "); for (i = 1; i <= n; i++) if (a[i] != "") s[a[i]] = 1 } !($0 in s)' "$1"
+}
+
+cp_assert_ids() {
+  # $1=断言标签 $2=预期 ids 文件 $3=实际 ids 文件
+  if cmp -s "$2" "$3"; then
+    ok "$1（逐一相等）"
+  else
+    bad "$1" "$(diff "$2" "$3" 2>/dev/null | sed -n '2,7p' | tr '\n' '|')"
+  fi
+}
+
+cp_assert_num() {
+  # $1=断言标签 $2=实际值 $3=期望值（逐值断言，独立失败并指名两侧值）
+  if [ "$2" = "$3" ]; then
+    ok "$1（$3）"
+  else
+    bad "$1" "实际=$2 期望=$3"
+  fi
+}
+
+cp_assert_verbatim() {
+  # $1=断言标签 $2=实际行 $3=期望行（固定文本逐字；字段值由清单查询填装后逐字）
+  if [ "$2" = "$3" ]; then
+    ok "$1：$3"
+  else
+    bad "$1：$3" "实际=[$2]"
+  fi
+}
+
+cp_assert_positive() {
+  # $1=标签前缀 $2=包根 $3=实跑输出：正例属性断言组（每注册检查恰一行、PASS 行数、
+  # 零 FAIL、行前缀格式、首尾逐字、行内计数＝清单查询值）。
+  _cpl=$1
+  _cpr=$2
+  _cpo=$3
+  cp_active_ids "${cp_registry}" "${_cpr}" > "${D}/exp.ids"
+  cp_line_ids "${_cpo}" > "${D}/act.ids"
+  _cp_expect_n=$(wc -l < "${D}/exp.ids" | tr -d ' ')
+  cp_assert_ids "${_cpl}每注册检查恰一行 PASS/FAIL（检查项数=${_cp_expect_n}，注册表=${cp_reg_n}）" "${D}/exp.ids" "${D}/act.ids"
+  cp_pass_ids "${_cpo}" > "${D}/act.pass.ids"
+  cp_assert_ids "${_cpl}行前缀为 PASS 且覆盖全部检查项" "${D}/exp.ids" "${D}/act.pass.ids"
+  _cp_pass_n=$(wc -l < "${D}/act.pass.ids" | tr -d ' ')
+  cp_assert_num "${_cpl}PASS 行数＝检查项数（注册表项数）" "${_cp_pass_n}" "${_cp_expect_n}"
+  _cp_fail_n=$(grep -c '^FAIL: ' "${_cpo}" 2>/dev/null || true)
+  cp_assert_num "${_cpl}无 FAIL 行" "${_cp_fail_n}" 0
+  _cp_badfmt=$(LC_ALL=C grep -E '^(PASS|FAIL|SKIP): ' "${_cpo}" 2>/dev/null | LC_ALL=C grep -vcE '^(PASS|FAIL|SKIP): [0-9]+ [^[:space:]]' || true)
+  cp_assert_num "${_cpl}检查行前缀格式（PASS/FAIL/SKIP: 号 非空描述）" "${_cp_badfmt}" 0
+  cp_assert_verbatim "${_cpl}首行逐字（检查行前缀＋清单入口件数）" \
+    "$(sed -n '1p' "${_cpo}")" "PASS: 1 必需入口存在（${cp_n_entries} 个文件）"
+  cp_assert_verbatim "${_cpl}末行逐字（汇总行）" "$(tail -n 1 "${_cpo}")" 'check-package: PASS'
+  cp_assert_num "${_cpl}行内计数：检查 8 脚本件数＝清单 scripts 节" \
+    "$(LC_ALL=C sed -n 's/^PASS: 8 .*（\([0-9][0-9]*\) 个文件.*$/\1/p' "${_cpo}" | head -1)" "${cp_n_scripts}"
+  cp_assert_num "${_cpl}行内计数：检查 19 脚本件数＝清单 scripts 节" \
+    "$(LC_ALL=C sed -n 's/^PASS: 19 scripts 节 mode 断言（\([0-9][0-9]*\) 件，kind 数据驱动）$/\1/p' "${_cpo}" | head -1)" "${cp_n_scripts}"
+  cp_assert_num "${_cpl}行内计数：检查 20 scripts 一级项数＝清单登记件∪引擎∪成员表∪清单件" \
+    "$(LC_ALL=C sed -n 's/^PASS: 20 .*（scripts 一级 \([0-9][0-9]*\) 项，symlink [0-9][0-9]* 个）$/\1/p' "${_cpo}" | head -1)" "${cp_exp_20}"
+  cp_assert_num "${_cpl}行内计数：检查 21 references 成员数＝清单 references 登记∪templates" \
+    "$(LC_ALL=C sed -n 's/^PASS: 21 .*（成员 \([0-9][0-9]*\) 件，链接 [0-9][0-9]* 个）$/\1/p' "${_cpo}" | head -1)" "${cp_exp_21}"
+}
 
 suite_check_package() {
   # shellcheck disable=SC2034  # 套件计数器由 sourced 的 test-helpers.sh suite_summary 使用（单文件视野误报）
@@ -123,218 +224,165 @@ suite_check_package() {
   mkdir -p "$D"
 
   # 栅栏环境跳过（R-DP-036：worktree 内 main-only 件 install.sh/export-payload.sh 物理不在场，
-  # 正例活树与 cp -R 夹具副本均缺件，金样串为完整包语境独立重建，无法在栅栏环境逐一相等；
+  # cp -R 夹具副本随之缺件，检查 8 在副本上会因 main-only 缺件假红——夹具无法在栅栏内成立；
   # 口径同 check-package 自身检查 8/9 的 worktree SKIP）：整套显式 SKIP 不计数，覆盖归主检出全量；
   # 检查器本体仍由 pre-commit 门禁 2 在真实树上以 worktree 模式执行。
+  # 票 274 起正例不再有形态金样串，本跳过只为夹具完整性，不为预期串对齐。
   if [ ! -f "$SCRIPT_DIR/install.sh" ]; then
     printf 'SKIP  [check-package] main-only 件不在场（worktree 栅栏）——检查器自检套件整套跳过，覆盖归主检出；门禁 2 仍跑真实树\n'
     suite_summary 'check-package'
     return 0
   fi
 
-  # 票 177 worktree 变体：check-package 在 worktree 包根对 main-only 检查（8/9）输出
-  # SKIP＋变体 PASS 行；黄金串按 PKG_ROOT 同款 worktree 判定条件化（检测逻辑与
-  # check-package is_worktree 一致），否则 harness 在 worktree 内对此断言恒红。
-  _cp_in_wt=0
-  if git -C "$PKG_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-    _cp_gd=$(git -C "$PKG_ROOT" rev-parse --git-dir 2>/dev/null)
-    _cp_cd=$(git -C "$PKG_ROOT" rev-parse --git-common-dir 2>/dev/null)
-    case $_cp_gd in /*) : ;; *) _cp_gd="$PKG_ROOT/$_cp_gd" ;; esac
-    case $_cp_cd in /*) : ;; *) _cp_cd="$PKG_ROOT/$_cp_cd" ;; esac
-    _cp_gd=$(cd "$_cp_gd" && pwd)
-    _cp_cd=$(cd "$_cp_cd" && pwd)
-    [ "$_cp_gd" != "$_cp_cd" ] && _cp_in_wt=1
+  # ============================================================
+  # 票 274：四块金样串废止——断言改为从包清单与引擎注册表现算的属性。
+  # 两形态（worktree/主检出）差异不再靠第二份金样承载：静默跳过面由 cp_active_ids
+  # 按语境现算、行内计数由清单现查，同一组断言对两形态一致生效。
+  # ============================================================
+  cp_engine="${SCRIPT_DIR}/check-package.sh"
+  cp_manifest="${PKG_ROOT}/scripts/package-manifest.rules"
+  cp_registry="${D}/registry.ids"
+  : > "${cp_registry}"
+  if [ -f "${cp_engine}" ]; then
+    LC_ALL=C grep -oE '^# 检查 [0-9]+：' "${cp_engine}" 2>/dev/null \
+      | LC_ALL=C sed -E 's/^# 检查 ([0-9]+)：/\1/' \
+      | LC_ALL=C sort -n > "${cp_registry}" || :
   fi
-  if [ "$_cp_in_wt" -eq 1 ]; then
-  cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（42 个文件）
-PASS: 2 SKILL.md frontmatter 为 name: agent-up
-PASS: 3 包内无旧标识残留
-PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 17 个且全部登记
-PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
-PASS: 7 根治理文件不在包内
-SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）
-PASS: 8 脚本必需件存在（42 个文件，worktree 跳过 main-only）
-SKIP: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）
-PASS: 9 scripts/README.md 成员表与数据 scripts 节一致（worktree 跳过 main-only）
-PASS: 10 规则块短码使用均在登记内
-PASS: 11 platform 枚举登记与数据一致
-PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
-PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
-PASS: 16 索引机制列受控词表（机制 3 值）
-PASS: 17 机械行点名出处存在（机械 9 行）
-PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（42 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 43 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
-PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
-PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
-PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
-PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
-PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
-PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
-PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
-PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
-PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
-PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
-PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
-check-package: PASS
-EOF
+  cp_reg_n=$(wc -l < "${cp_registry}" | tr -d ' ')
+  cp_reg_max=$(LC_ALL=C awk 'NF { n = $1 } END { print n + 0 }' "${cp_registry}")
+  cp_reg_dup=$(LC_ALL=C uniq -d "${cp_registry}" | tr '\n' ' ')
+  cp_reg_bad=$(LC_ALL=C awk 'NF && ($1 < 1 || $1 != int($1)) { print "bad" }' "${cp_registry}")
+  if [ "${cp_reg_n}" -gt 0 ] && [ -z "${cp_reg_dup}" ] && [ -z "${cp_reg_bad}" ]; then
+    ok "引擎注册表解析：注册检查 ${cp_reg_n} 项（引擎内「# 检查 N：」声明行，退役检查自然不出现）"
   else
-  cat > "$D/exp.positive" <<'EOF'
-PASS: 1 必需入口存在（42 个文件）
-PASS: 2 SKILL.md frontmatter 为 name: agent-up
-PASS: 3 包内无旧标识残留
-PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 17 个且全部登记
-PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
-PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（42 个文件）
-PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
-PASS: 10 规则块短码使用均在登记内
-PASS: 11 platform 枚举登记与数据一致
-PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 13 镜像脚本与仓根同名件一致（比对 21 对）
-PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
-PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
-PASS: 16 索引机制列受控词表（机制 3 值）
-PASS: 17 机械行点名出处存在（机械 9 行）
-PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 19 scripts 节 mode 断言（42 件，kind 数据驱动）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 45 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
-PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
-PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
-PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
-PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
-PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
-PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
-PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
-PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
-PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
-PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
-PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
-check-package: PASS
-EOF
+    bad '引擎注册表解析：声明行可解析、编号合法且唯一' \
+      "项数=${cp_reg_n} 重复=[${cp_reg_dup}] 非法=[${cp_reg_bad}] 来源=${cp_engine}"
+    suite_summary 'check-package'
+    return 0
   fi
-  sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" >"$D/act.positive" 2>&1
+
+  cp_n_entries=$(LC_ALL=C grep -c '^pm_entry ' "${cp_manifest}" 2>/dev/null || true)
+  cp_n_ref_entries=$(LC_ALL=C grep -c '^pm_entry references/' "${cp_manifest}" 2>/dev/null || true)
+  cp_n_templates=$(LC_ALL=C grep -c '^pm_template ' "${cp_manifest}" 2>/dev/null || true)
+  cp_n_scripts=$(LC_ALL=C grep -c '^pm_script ' "${cp_manifest}" 2>/dev/null || true)
+  cp_n_scripts_present=0
+  while IFS= read -r _cp_row; do
+    [ -n "${_cp_row}" ] || continue
+    _cp_rel=$(printf '%s\n' "${_cp_row}" | cut -d' ' -f2)
+    if [ -e "${PKG_ROOT}/${_cp_rel}" ]; then
+      cp_n_scripts_present=$((cp_n_scripts_present + 1))
+    fi
+  done <<EOF
+$(LC_ALL=C grep '^pm_script ' "${cp_manifest}" 2>/dev/null || true)
+EOF
+  # 检查 20 闭合面＝清单 scripts 节登记件（现存）∪ 引擎自身 ∪ 成员表 ∪ 清单数据件；
+  # 检查 21 成员面＝entry-files 中 references/ 登记件 ∪ templates 节 .tmpl。
+  cp_exp_20=$((cp_n_scripts_present + 3))
+  cp_exp_21=$((cp_n_ref_entries + cp_n_templates))
+  # 检查 13 比对对数＝mirrors 节 mirror 类且包侧现存件数（P1 夹具两侧全恰语境；
+  # 仓侧缺件场景由镜像悬空负例单独断言，不与之共用期望）。
+  cp_mirror_pairs=0
+  # shellcheck disable=SC2013  # manifest pm_mirror 文件名为单 token（清单加载段禁空白），词分隔循环安全
+  for _cp_m in $(LC_ALL=C awk '$1 == "pm_mirror" && $3 == "mirror" { print $2 }' "${cp_manifest}"); do
+    if [ -f "${PKG_ROOT}/scripts/${_cp_m}" ]; then
+      cp_mirror_pairs=$((cp_mirror_pairs + 1))
+    fi
+  done
+  if [ "${cp_n_entries}" -gt 0 ] && [ "${cp_n_scripts}" -gt 0 ] && [ "${cp_n_templates}" -gt 0 ] \
+    && [ "${cp_exp_21}" -gt 0 ]; then
+    ok "清单查询：入口 ${cp_n_entries} 件、scripts 节 ${cp_n_scripts} 件（现存 ${cp_n_scripts_present}）、templates ${cp_n_templates} 件 → 检查 13 期望 ${cp_mirror_pairs} 对、检查 20 期望 ${cp_exp_20}、检查 21 期望 ${cp_exp_21}"
+  else
+    bad '清单查询：package-manifest.rules 各节可解析且非空' \
+      "入口=${cp_n_entries} scripts=${cp_n_scripts} templates=${cp_n_templates} 来源=${cp_manifest}"
+    suite_summary 'check-package'
+    return 0
+  fi
+
+  # ---- 正例（活树主检出/worktree 两形态共用同一组属性断言）----
+  sh "${SCRIPT_DIR}/check-package.sh" "${PKG_ROOT}" >"${D}/act.positive" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ]; then
+  if [ "${rc}" -eq 0 ]; then
     ok "正例 exit 0（包根＝${PKG_ROOT}）"
   else
-    bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=$rc"
+    bad "正例 exit 0（包根＝${PKG_ROOT}）" "exit=${rc}"
   fi
-  assert_eq '正例输出逐行逐一相等（三十七项 PASS＋汇总，含检查 9/10/11、12/13 所有权三分类、14、15/16/17、18 票号禁令、19 mode 断言、20 闭合性、21 references 闭合导航、22 规则块九字段、25 待定规范声明检测、28 生成漂移、29～36 包级语义一致性八项与 37 模型档位契约结构）' "$D/act.positive" "$D/exp.positive"
+  cp_assert_positive '正例' "${PKG_ROOT}" "${D}/act.positive"
 
-  cp -R "$PKG_ROOT" "$D/pkgcopy"
-  rm -f "$D/pkgcopy/scripts/generate-progress.sh"
-  cat > "$D/exp.negative" <<'EOF'
-PASS: 1 必需入口存在（42 个文件）
-PASS: 2 SKILL.md frontmatter 为 name: agent-up
-PASS: 3 包内无旧标识残留
-PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 17 个且全部登记
-PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
-PASS: 7 根治理文件不在包内
-FAIL: 8 脚本必需件存在（42 个文件） —   - scripts/generate-progress.sh
-FAIL: 9 scripts/README.md 成员表与数据 scripts 节一致 —   - 成员表登记但无实际文件：generate-progress.sh
-PASS: 10 规则块短码使用均在登记内
-PASS: 11 platform 枚举登记与数据一致
-PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
-PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
-PASS: 16 索引机制列受控词表（机制 3 值）
-FAIL: 17 机械行点名出处存在（机械 9 行） —   - R-CO-007 机械行点名脚本不存在: generate-progress.sh
-PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 44 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
-PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
-PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
-PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
-PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
-PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
-PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
-PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
-PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
-PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
-PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
-PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
-check-package: FAIL（3 项未通过，共 37 项）
-EOF
-  sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy" >"$D/act.negative" 2>&1
+  # ---- 负例（原 exp.negative）：副本删必需件 generate-progress.sh ----
+  # 预期 FAIL 面＝该缺失件联动的检查 8（缺件）/9（成员表与实物漂移）/17（机械行点名脚本
+  # 不存在）；其余检查全 PASS。断言按「FAIL 行集合＋指名详情＋汇总行」重建，不复制整份输出。
+  cp -R "${PKG_ROOT}" "${D}/pkgcopy"
+  rm -f "${D}/pkgcopy/scripts/generate-progress.sh"
+  sh "${SCRIPT_DIR}/check-package.sh" "${D}/pkgcopy" >"${D}/act.negative" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ]; then
+  if [ "${rc}" -eq 1 ]; then
     ok '负例 exit 1（副本删必需件，mktemp 副本纪律）'
   else
-    bad '负例 exit 1（副本删必需件，mktemp 副本纪律）' "exit=$rc"
+    bad '负例 exit 1（副本删必需件，mktemp 副本纪律）' "exit=${rc}"
   fi
-  assert_eq '负例输出逐一相等（fail-closed 指名缺失件＋检查 9 表实漂移联动＋检查 17 机械行点名脚本缺失联动＋检查 18 同步，不因部分存在放宽）' "$D/act.negative" "$D/exp.negative"
+  cp_active_ids "${cp_registry}" "${D}/pkgcopy" > "${D}/exp.negative.ids"
+  cp_line_ids "${D}/act.negative" > "${D}/act.negative.ids"
+  cp_assert_ids '负例检查行集合＝注册表−语境静默跳过面（每注册检查恰一行 PASS/FAIL）' \
+    "${D}/exp.negative.ids" "${D}/act.negative.ids"
+  printf '8\n9\n17\n' > "${D}/exp.negative.fail.ids"
+  cp_fail_ids "${D}/act.negative" > "${D}/act.negative.fail.ids"
+  cp_assert_ids '负例 FAIL 行＝删必需件联动的检查 8/9/17（其余行全 PASS）' \
+    "${D}/exp.negative.fail.ids" "${D}/act.negative.fail.ids"
+  LC_ALL=C awk 'NR == FNR { fail[$0] = 1; next } !($0 in fail)' \
+    "${D}/exp.negative.fail.ids" "${D}/exp.negative.ids" > "${D}/exp.negative.pass.ids"
+  cp_pass_ids "${D}/act.negative" > "${D}/act.negative.pass.ids"
+  cp_assert_ids '负例 PASS 行＝注册表−失败项−静默跳过面' \
+    "${D}/exp.negative.pass.ids" "${D}/act.negative.pass.ids"
+  _cp_neg_fail_n=$(wc -l < "${D}/exp.negative.fail.ids" | tr -d ' ')
+  cp_assert_verbatim '负例末行逐字（汇总行：失败项数＝FAIL 行数，总数＝注册表最大号）' \
+    "$(tail -n 1 "${D}/act.negative")" "check-package: FAIL（${_cp_neg_fail_n} 项未通过，共 ${cp_reg_max} 项）"
+  for _cp_pat in \
+    'scripts/generate-progress.sh' \
+    '成员表登记但无实际文件：generate-progress.sh' \
+    'R-CO-007 机械行点名脚本不存在: generate-progress.sh'; do
+    if grep -qF -- "${_cp_pat}" "${D}/act.negative"; then
+      ok "负例 FAIL 明细指名：${_cp_pat}"
+    else
+      bad "负例 FAIL 明细指名：${_cp_pat}" "$(grep -m1 '^FAIL: 8 ' "${D}/act.negative" 2>/dev/null)"
+    fi
+  done
 
-  # 票 57 协调层改判随票修：检查 11 逐处全等——§2.5 单处删 pi（frontmatter 完整）
-  # 必须单独 FAIL 指名 :138（旧并集口径此场景漏检，回归钉死；行号随 capability-contract
-  # readonly_enforcement 扩写独立重建）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy2"
+  # ---- 负例（原 exp.cc）：capability-contract §2.5 单处删 pi（frontmatter 完整）----
+  # 预期 FAIL 面恰检查 11；行号由夹具现场提取（行号漂移不再造成假红，仍按行号指名缺值）。
+  cp -R "${PKG_ROOT}" "${D}/pkgcopy2"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
-  sed 's=`pi` / `dsh`（与=`dsh`（与=' "$D/pkgcopy2/references/adapters/capability-contract.md" >"$D/cc.tmp" && mv "$D/cc.tmp" "$D/pkgcopy2/references/adapters/capability-contract.md"
-  cat > "$D/exp.cc" <<'EOF'
-PASS: 1 必需入口存在（42 个文件）
-PASS: 2 SKILL.md frontmatter 为 name: agent-up
-PASS: 3 包内无旧标识残留
-PASS: 4 无绝对路径与根治理引用
-PASS: 5 templates 下 .tmpl 为 17 个且全部登记
-PASS: 6 文本契约头齐全（*.md 与 *.tmpl）
-PASS: 7 根治理文件不在包内
-PASS: 8 脚本必需件存在（42 个文件）
-PASS: 9 scripts/README.md 成员表与数据 scripts 节一致
-PASS: 10 规则块短码使用均在登记内
-FAIL: 11 platform 枚举登记与数据一致 —   - capability-contract.md :138 登记与数据不一致：缺少 pi
-PASS: 12 规则块体无模糊措辞（词表 6 词，豁免 2 行）
-PASS: 14 能力映射一致（基元 9 个，检查目标 9 个，enforcement 5 个）
-PASS: 15 生成索引与规则块全集全等且零漂移（索引 36 行，全集 36 ID）
-PASS: 16 索引机制列受控词表（机制 3 值）
-PASS: 17 机械行点名出处存在（机械 9 行）
-PASS: 18 包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 0 行）
-PASS: 20 包闭合性与符号链接防护（scripts 一级 45 项，symlink 0 个）
-PASS: 21 references 树成员闭合与导航（成员 56 件，链接 2 个）
-PASS: 22 规则块九字段格式（块 36 个，字段 7 项，级 4 值）
-PASS: 24 布局引用分类与失效检测（面 32 件，modern 失效 0 处，legacy 13 处，compatibility 52 处，modern 链接 4 个）
-PASS: 25 待定规范声明检测（MUST 块【待定】命中 0 处，豁免 1 行）
-PASS: 26 适配器注册表闭合（注册 5 行，投影 2 面）
-PASS: 27 适配差异数据表一致性（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 28 宿主差异段生成漂移零差异（宿主 5 个，cap 45 行，role 15 行，exec 5 行，dialect 5 行）
-PASS: 29 退役能力不在活动创建路径（面 3 个，命中 0 处）
-PASS: 30 workflow transition endpoint 存在（工作流 2 件，状态 12 个，转换 11 条）
-PASS: 31 状态写票前有合法映射（工作流 2 件，映射 12 条，票状态词表 8 值）
-PASS: 32 readonly-execute 声明有 enforcement level（声明面 9 个，level 5 个，词表 5 值）
-PASS: 33 MUST 不引用待定规范事实（MUST 块【待定】命中 0 处，豁免 0 行；面＝adapters 外）
-PASS: 34 README 非唯一执行契约（登记指针 1 条，自带指针 1 行）
-PASS: 35 平台短码注册表闭合（注册 5 行，短码节 19 行，平台短码 5 个）
-PASS: 36 fixture workflow 不标 production executable（工作流 2 件，fixture 2 件，production 0 件）
-PASS: 37 模型档位契约结构（宿主 5 个，模板 1 件，档位 3 个）
-check-package: FAIL（1 项未通过，共 37 项）
-EOF
-  sh "$SCRIPT_DIR/check-package.sh" "$D/pkgcopy2" >"$D/act.cc" 2>&1
+  sed 's=`pi` / `dsh`（与=`dsh`（与=' \
+    "${D}/pkgcopy2/references/adapters/capability-contract.md" > "${D}/cc.tmp" \
+    && mv "${D}/cc.tmp" "${D}/pkgcopy2/references/adapters/capability-contract.md"
+  cc_ln=$(grep -n '^platform 取值描述产物' "${D}/pkgcopy2/references/adapters/capability-contract.md" | head -1 | cut -d: -f1)
+  sh "${SCRIPT_DIR}/check-package.sh" "${D}/pkgcopy2" >"${D}/act.cc" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ]; then
+  if [ "${rc}" -eq 1 ]; then
     ok '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）'
   else
-    bad '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' "exit=$rc"
+    bad '负例 exit 1（capability-contract §2.5 单处删 pi，frontmatter 完整）' "exit=${rc}"
   fi
-  assert_eq '负例输出逐一相等（检查 11 逐处全等，FAIL 行按行号指名 :138 缺少 pi）' "$D/act.cc" "$D/exp.cc"
+  cp_active_ids "${cp_registry}" "${D}/pkgcopy2" > "${D}/exp.cc.ids"
+  cp_line_ids "${D}/act.cc" > "${D}/act.cc.ids"
+  cp_assert_ids '负例检查行集合＝注册表−语境静默跳过面（每注册检查恰一行 PASS/FAIL）' \
+    "${D}/exp.cc.ids" "${D}/act.cc.ids"
+  printf '11\n' > "${D}/exp.cc.fail.ids"
+  cp_fail_ids "${D}/act.cc" > "${D}/act.cc.fail.ids"
+  cp_assert_ids '负例 FAIL 行＝检查 11（逐处全等：单处删 pi 即报）' \
+    "${D}/exp.cc.fail.ids" "${D}/act.cc.fail.ids"
+  LC_ALL=C awk 'NR == FNR { fail[$0] = 1; next } !($0 in fail)' \
+    "${D}/exp.cc.fail.ids" "${D}/exp.cc.ids" > "${D}/exp.cc.pass.ids"
+  cp_pass_ids "${D}/act.cc" > "${D}/act.cc.pass.ids"
+  cp_assert_ids '负例 PASS 行＝注册表−失败项−静默跳过面' "${D}/exp.cc.pass.ids" "${D}/act.cc.pass.ids"
+  _cp_cc_fail_n=$(wc -l < "${D}/exp.cc.fail.ids" | tr -d ' ')
+  cp_assert_verbatim '负例末行逐字（汇总行：失败项数＝FAIL 行数，总数＝注册表最大号）' \
+    "$(tail -n 1 "${D}/act.cc")" "check-package: FAIL（${_cp_cc_fail_n} 项未通过，共 ${cp_reg_max} 项）"
+  if [ -n "${cc_ln}" ] && grep -qF "capability-contract.md :${cc_ln} 登记与数据不一致：缺少 pi" "${D}/act.cc"; then
+    ok "负例 FAIL 明细按夹具行号指名：capability-contract.md :${cc_ln} 缺少 pi"
+  else
+    bad '负例 FAIL 明细按夹具行号指名：capability-contract.md :<行号> 缺少 pi' \
+      "$(grep -m1 '^FAIL: 11 ' "${D}/act.cc" 2>/dev/null)"
+  fi
 
   # 票 58 检查 12 负例 N4：词表首词（自夹具包 manifest 词表节提取，harness 零词面字面量）
   # 注入 governance-format.md 首个规则块 Authority 字段之后 → FAIL: 12 指名文件:行号；
@@ -605,14 +653,15 @@ EOF
   done
   rm -f /tmp/trp145cp1 /tmp/trp145cp2 /tmp/trp145cp3
 
-  # 检查 17 负例 N16：机械行点名检查项号超界（R-CO-004 出处改「检查 38」）→ exit 1 且
-  # FAIL: 17 指名 ID 与项号（引擎自述上限 37；注入 38＝超界一位，随检查上限同步）。
+  # 检查 17 负例 N16：机械行点名检查项号超界（R-CO-004 出处改「检查 <注册表最大号+1>」）→
+  # exit 1 且 FAIL: 17 指名 ID 与项号（上限由注册表现算；注入＝超界一位，随检查上限同步）。
+  n16_over=$((cp_reg_max + 1))
   cp -R "$PKG_ROOT" "$D/pkgcopy13"
-  sed '/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |$/| 机械（检查 38） |/' "$D/pkgcopy13/references/rules-index.md" > "$D/tmpl13.tmp" \
+  sed "/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |\$/| 机械（检查 ${n16_over}） |/" "$D/pkgcopy13/references/rules-index.md" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/rules-index.md"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q 'R-CO-004 机械行点名检查项号超界（当前共 37 项）: 检查 38' "$D/act.n16"; then
+  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 17 机械行点名出处存在' "$D/act.n16" && grep -q "R-CO-004 机械行点名检查项号超界（当前共 ${cp_reg_max} 项）: 检查 ${n16_over}" "$D/act.n16"; then
     ok '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号'
   else
     bad '负例 N16 机械行点名检查项号超界 → exit 1 且 FAIL: 17 指名 ID 与项号' "exit=$rc"
@@ -698,7 +747,7 @@ EOF
   sh "$D/pkgcopy20/scripts/check-package.sh" "$D/pkgcopy20" >"$D/act.n23" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] \
-    && grep -q '^FAIL: 19 scripts 节 mode 断言（42 件，kind 数据驱动）' "$D/act.n23" \
+    && grep -q "^FAIL: 19 scripts 节 mode 断言（${cp_n_scripts} 件，kind 数据驱动）" "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh index mode 为 100644（期望 100755，kind=script）' "$D/act.n23" \
     && grep -q 'scripts/generate-progress.sh 盘上不可执行（kind=script 须可执行，chmod 755 修复）' "$D/act.n23" \
     && grep -q 'scripts/module-map.rules index mode 为 100755（期望 100644，kind=rules）' "$D/act.n23" \
@@ -772,7 +821,7 @@ EOF
   rm -f "$D/pkgcopy25/references/workflows/triage.yaml"
   sh "$D/pkgcopy25/scripts/check-package.sh" "$D/pkgcopy25" >"$D/act.n29" 2>&1
   rc=$?
-  if [ "$rc" -eq 1 ] && grep -q '^FAIL: 1 必需入口存在（42 个文件）' "$D/act.n29" \
+  if [ "$rc" -eq 1 ] && grep -q "^FAIL: 1 必需入口存在（${cp_n_entries} 个文件）" "$D/act.n29" \
     && grep -q '  - references/workflows/triage.yaml' "$D/act.n29"; then
     ok '负例 N29 删除已登记 references 成员 → exit 1 且 FAIL: 1 指名缺件'
   else
@@ -842,10 +891,10 @@ EOF
       bad '负例 N33 repo-only 件投放包内 → exit 1 且 FAIL: 13 指名（防未决策采纳）' "exit=$rc"
     fi
 
-    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：mirror 全对（21 对）全 cmp＋
+    # 正例 P1：package-only 过渡态临时夹具（全 mktemp 源仓语境：mirror 类现存件全 cmp＋
     # 4 件 package-only 不判差异＋3 件 repo-only 包侧缺席；票 203 后 check-payload-boundary
     # 为镜像预册——包侧落位前检查 13 包侧缺件分支跳过不计数）→ exit 0 且
-    # PASS: 13 比对 21 对（三分类登记与两侧实物全恰，含检查 21 同过）。
+    # PASS: 13 比对对数＝清单 mirror 现存件数（三分类登记与两侧实物全恰，含检查 21 同过）。
     mkdir -p "$D/porepo/scripts" "$D/porepo/rules/implementation/scripts"
     cp -R "$PKG_ROOT" "$D/porepo/agent-up"
     for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh record-store.sh contract-build.sh ticket-run.sh; do
@@ -856,11 +905,11 @@ EOF
     done
     sh "$D/porepo/agent-up/scripts/check-package.sh" "$D/porepo/agent-up" >"$D/act.p1" 2>&1
     rc=$?
-    if [ "$rc" -eq 0 ] && grep -q '^PASS: 13 镜像脚本与仓根同名件一致（比对 21 对）' "$D/act.p1" \
+    if [ "$rc" -eq 0 ] && grep -q "^PASS: 13 镜像脚本与仓根同名件一致（比对 ${cp_mirror_pairs} 对）" "$D/act.p1" \
       && grep -q '^PASS: 21 references 树成员闭合与导航' "$D/act.p1"; then
-      ok '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 21 对'
+      ok "正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 ${cp_mirror_pairs} 对"
     else
-      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对 21 对' "exit=$rc"
+      bad '正例 P1 package-only 过渡态临时夹具（全 mktemp，三分类与两侧实物全恰）→ exit 0 且 PASS: 13 比对对数＝清单 mirror 现存件数' "exit=$rc"
     fi
   else
     printf 'SKIP  [check-package] 仓侧 rules/implementation/scripts 不在场（消费项目语境）——检查 13 所有权三分类夹具组跳过，覆盖归源仓\n'
