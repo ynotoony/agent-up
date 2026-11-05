@@ -196,33 +196,9 @@ tix_audit_commit() {
 }
 
 tix_audit_write_receipt() {
-  # $1=夹具根 $2=base $3=head：重算 diff 指纹写审查收据（ticket 42-audit-gate）
-  python3 - "$1/facts/requirements/tickets/42-audit-gate.review-evidence.json" "$2" "$3" "$1" <<'PYTHON'
-import json, subprocess, sys
-path, base, head, repo = sys.argv[1:5]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-receipt = {
-    'schema_version': 1,
-    'receipt_kind': 'review',
-    'ticket_id': '42-audit-gate',
-    'created_at': '2026-10-03T08:00:00Z',
-    'actor': 'reviewer',
-    'base_sha': base,
-    'head_sha': head,
-    'diff_sha': diff_sha,
-    'reviewer_identity': 'reviewer@example.com',
-    'reviewed_at': '2026-10-02T10:00:00Z',
-    'verdict': 'PASS',
-    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'product.txt:1'}],
-}
-with open(path, 'w') as fh:
-    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PYTHON
+  # $1=夹具根 $2=base $3=head：审查收据经 receipt 落位（固定时间戳保持断言稳定）
+  receipt "$1/facts/requirements/tickets/42-audit-gate.review-evidence.json" "$1" "$2" "$3" 42-audit-gate \
+    --created-at '2026-10-03T08:00:00Z' --reviewed-at '2026-10-02T10:00:00Z'
 }
 
 tix_audit_fixture() {
@@ -1995,7 +1971,7 @@ PYTHON
   F246G_WT=$D/fix246git-wt
   rm -rf "$F246G" "$F246G_WT"
   mkdir -p "$F246G"
-  git -C "$F246G" init -q
+  git_repo "$F246G"
   git -C "$F246G" -c user.email=fixture@example.com -c user.name=fixture commit -q --allow-empty -m init
   git -C "$F246G" worktree add -q --detach "$F246G_WT" HEAD
   cat > "$D/probe-lock-git.sh" <<'PROBE'

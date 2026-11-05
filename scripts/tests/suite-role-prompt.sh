@@ -484,7 +484,7 @@ EOF
   fi
 
   # 负例 N3：duplicate-rule 角色合同夹具（整块复制 R-RT-001）→ check-package 检查 22 失败指名角色（triage）
-  cp -R "$PKG_ROOT" "$D/pkg-duprule"
+  pkg_copy "$PKG_ROOT" "$D/pkg-duprule"
   sed -n '/^#### R-CO-001/,/^#### R-CO-002/p' "$TMPL/core.md.tmpl" | sed '$d' >> "$D/pkg-duprule/references/templates/agents-triage.md.tmpl"
   sh "$D/pkg-duprule/scripts/check-package.sh" "$D/pkg-duprule" > "$D/n3-cp.out" 2>&1
   _n3rc=$?
@@ -495,7 +495,7 @@ EOF
   fi
 
   # 负例 N4：missing-permission 角色合同夹具（删 readonly-execute）→ check-package 检查 14 失败指名角色（review）
-  cp -R "$PKG_ROOT" "$D/pkg-noperm"
+  pkg_copy "$PKG_ROOT" "$D/pkg-noperm"
   # shellcheck disable=SC2016  # 反引号为 sed 字面删除模式（decl 行权限基元），非命令替换
   sed 's/、`readonly-execute`//' "$D/pkg-noperm/references/templates/agents-review.md.tmpl" > "$D/review.tmp" && mv "$D/review.tmp" "$D/pkg-noperm/references/templates/agents-review.md.tmpl"
   sh "$D/pkg-noperm/scripts/check-package.sh" "$D/pkg-noperm" > "$D/n4-cp.out" 2>&1

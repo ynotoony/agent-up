@@ -84,43 +84,17 @@ with open(root + '/facts/requirements/tickets/90-run-fixture.json', 'w', encodin
     json.dump(ticket, handle, ensure_ascii=False, indent=2)
     handle.write('\n')
 PY
-  git -C "$R" init -q
+  git_repo "$R"
   tr_git_commit "$R" init
 }
 
 tr_audit_receipt() {
-  # $1=仓库根（worktree）$2=base $3=head：按重算 diff 指纹写审查收据（reviewer 身份）
-  python3 - "$1/facts/requirements/tickets/90-run-fixture.review-evidence.json" "$2" "$3" "$1" <<'PY'
-import json, subprocess, sys, datetime
-path, base, head, repo = sys.argv[1:5]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-receipt = {
-    'schema_version': 1,
-    'receipt_kind': 'review',
-    'ticket_id': '90-run-fixture',
-    'created_at': now,
-    'actor': 'reviewer',
-    'base_sha': base,
-    'head_sha': head,
-    'diff_sha': diff_sha,
-    'reviewer_identity': 'reviewer@example.com',
-    'reviewed_at': now,
-    'verdict': 'PASS',
-    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'product.txt:1'}],
-}
-with open(path, 'w') as fh:
-    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PY
+  # $1=仓库根（worktree）$2=base $3=head：审查收据经 receipt 落位（reviewer 身份）
+  receipt "$1/facts/requirements/tickets/90-run-fixture.review-evidence.json" "$1" "$2" "$3" 90-run-fixture
 }
 
 tr_run() {
-  (cd "$MAIN" && TMPDIR="$D/tmp" sh "$MAIN/rules/implementation/scripts/ticket-run.sh" "$@")
+  run_in_fixture "$MAIN" env TMPDIR="$D/tmp" sh "$MAIN/rules/implementation/scripts/ticket-run.sh" "$@"
 }
 
 tr_carrier_rels='facts/requirements/tickets/index.json facts/requirements/tickets/README.md facts/project/changes.jsonl facts/requirements/tickets/progress-current.md'
@@ -415,7 +389,7 @@ PYS
     # $1=夹具仓库根；其余参数透传 ticket-run.sh
     _r=$1
     shift
-    (cd "$_r" && TMPDIR="$D/tmp" sh "$_r/rules/implementation/scripts/ticket-run.sh" "$@")
+    run_in_fixture "$_r" env TMPDIR="$D/tmp" sh "$_r/rules/implementation/scripts/ticket-run.sh" "$@"
   }
   tr_receipt() {
     # $1=输出文件 $2=verdict $3=可选：删除键名／EXTRA／NOTES_NUMBER／AC_EXTRA／SCHEMA_STR

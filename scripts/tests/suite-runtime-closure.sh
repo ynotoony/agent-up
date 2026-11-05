@@ -60,7 +60,7 @@ EOF
 | `20-beta-second.json` | 任务票 20；`ready`（2026-09-19 开票） | Beta fixture ticket |
 EOF
   printf '%s\n' '{"date": "2026-09-19", "kind": "scope", "scope": "facts/requirements/tickets", "decision": "fixture seed", "evidence_ref": "facts/requirements/tickets/index.json"}' > "$RC_REPO/facts/project/changes.jsonl" || return 1
-  git -C "$RC_REPO" init -q && \
+  git_repo "$RC_REPO" && \
     git -C "$RC_REPO" -c user.email=fixture@t -c user.name=fixture add -A && \
     git -C "$RC_REPO" -c user.email=fixture@t -c user.name=fixture commit -qm 'runtime-closure fixture seed' || return 1
   return 0

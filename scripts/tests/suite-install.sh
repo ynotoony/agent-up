@@ -373,7 +373,7 @@ EOF
       3) ii_dep='references/protocol/complexity-profile.md'; ii_desc='闭包负例 N13 包副本删 complexity-profile.md → check-package exit 1 指名缺失路径' ;;
     esac
     rm -rf "$D/pkgc$ii_i"
-    cp -R "$SCRIPT_DIR/.." "$D/pkgc$ii_i"
+    pkg_copy "$SCRIPT_DIR/.." "$D/pkgc$ii_i"
     rm "$D/pkgc$ii_i/$ii_dep"
     sh "$D/pkgc$ii_i/scripts/check-package.sh" >"$D/pkgc$ii_i.out" 2>&1
     rc=$?

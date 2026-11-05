@@ -46,7 +46,7 @@ suite_docs_generation() {
 
   # 夹具包：整包副本（机制登记表覆盖包内全部块，缩面夹具会触发「登记条目无对应块」）
   rm -rf "$D/pkg"
-  cp -R "$PKG_ROOT" "$D/pkg"
+  pkg_copy "$PKG_ROOT" "$D/pkg"
   cp "$D/pkg/references/templates/core.md.tmpl" "$D/pkg/references/templates/core.md.orig"
   cp_rc=$?
   if [ "$cp_rc" -eq 0 ] && [ -f "$D/pkg/references/rules-index.md" ]; then

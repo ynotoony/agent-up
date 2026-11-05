@@ -226,7 +226,7 @@ adv_lane_fixture() {
   adv_index_one "$_alf" '50-lane-fixture' in_progress
   printf 'seed\n' > "$_alf/a.txt"
   printf 'base\n' > "$_alf/b.txt"
-  git -C "$_alf" init -q
+  git_repo "$_alf"
   adv_commit "$_alf" seed
   printf 'changed\n' > "$_alf/a.txt"
 }
@@ -247,7 +247,7 @@ adv_audit_fixture() {
   _aaf=$1
   rm -rf "$_aaf"
   mkdir -p "$_aaf/facts/requirements/tickets"
-  git -C "$_aaf" init -q
+  git_repo "$_aaf"
   printf 'seed\n' > "$_aaf/a.txt"
   printf '{"id":"41-fixture","kind":"task","title":"fixture","created_at":"2026-10-01T00:00:00Z"}\n' \
     > "$_aaf/facts/requirements/tickets/41-fixture.json"
@@ -259,32 +259,9 @@ adv_audit_fixture() {
   printf 'product\n' >> "$_aaf/a.txt"
   adv_commit "$_aaf" 'product change' fixture@example.com 2026-10-02T00:00:00Z
   _aaf_head=$(adv_head "$_aaf")
-  python3 - "$_aaf/facts/requirements/tickets/41-fixture.review-evidence.json" "$_aaf_base" "$_aaf_head" "$_aaf" "$2" <<'PY'
-import json, subprocess, sys
-path, base, head, repo, reviewer = sys.argv[1:6]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-receipt = {
-    'schema_version': 1,
-    'receipt_kind': 'review',
-    'ticket_id': '41-fixture',
-    'created_at': '2026-10-02T12:00:00Z',
-    'actor': 'reviewer',
-    'base_sha': base,
-    'head_sha': head,
-    'diff_sha': diff_sha,
-    'reviewer_identity': reviewer,
-    'reviewed_at': '2026-10-02T12:00:00Z',
-    'verdict': 'PASS',
-    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'a.txt:1'}],
-}
-with open(path, 'w', encoding='utf-8') as fh:
-    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PY
+  receipt "$_aaf/facts/requirements/tickets/41-fixture.review-evidence.json" "$_aaf" "$_aaf_base" "$_aaf_head" \
+    41-fixture --reviewer "$2" --ac-evidence 'a.txt:1' \
+    --created-at '2026-10-02T12:00:00Z' --reviewed-at '2026-10-02T12:00:00Z'
   adv_commit "$_aaf" 'review evidence' "$3" 2026-10-03T00:00:00Z
 }
 
@@ -380,7 +357,7 @@ with open(root + '/facts/requirements/tickets/90-run-fixture.json', 'w', encodin
     json.dump(ticket, fh, ensure_ascii=False, indent=2)
     fh.write('\n')
 PY
-  git -C "$_atr" init -q
+  git_repo "$_atr"
   adv_commit "$_atr" init
 }
 
@@ -507,10 +484,10 @@ adv_c7() {
   adv_need "$_repo_scripts/ticket-run.sh" 'C7' || return 0
   R=$D/c7
   rm -rf "$R"; mkdir -p "$R/rules/implementation/scripts" "$R/facts/requirements/tickets"
-  cp -R "$_repo_scripts/." "$R/rules/implementation/scripts/"
+  pkg_copy "$_repo_scripts/." "$R/rules/implementation/scripts/"
   printf '{"issues": []}\n' > "$R/facts/requirements/tickets/index.json"
   adv_ticket_doc "$R/facts/requirements/tickets/43-c7.json" '43-c7'
-  git -C "$R" init -q
+  git_repo "$R"
   adv_commit "$R" seed
   _before=$(adv_sig "$R/facts/requirements/tickets/index.json")
   (cd "$R" && TMPDIR="$D/tmp" sh "$R/rules/implementation/scripts/ticket-run.sh" 43 start "$R") \
@@ -543,7 +520,7 @@ adv_c9() {
   R=$D/c9
   rm -rf "$R"; mkdir -p "$R/facts/project"
   printf 'l1\nl2\nl3\n' > "$R/facts/project/changes.jsonl"
-  git -C "$R" init -q
+  git_repo "$R"
   adv_commit "$R" seed
   awk 'NR==2{print "REWRITTEN"} {print}' "$R/facts/project/changes.jsonl" > "$D/c9.tmp"
   mv "$D/c9.tmp" "$R/facts/project/changes.jsonl"
@@ -563,7 +540,7 @@ adv_c10() {
   mkdir -p "$R/rules/implementation/scripts" "$R/rules/implementation/roles"
   cp "$_rp_script" "$R/rules/implementation/scripts/check-role-permissions.sh"
   cp "$_rp_perm" "$R/rules/implementation/roles/role-permissions.json"
-  git -C "$R" init -q
+  git_repo "$R"
   adv_commit "$R" seed
   cat > "$D/c10-cross.patch" <<'EOF'
 diff --git a/facts/requirements/tickets/44-c10.json b/facts/requirements/tickets/44-c10.json
@@ -719,7 +696,7 @@ adv_normal_path() {
   mkdir -p "$D/normal/tmp"
   adv_ticket_run_fixture "$MAIN"
   WT=$(realpath "$D/normal")/main-wt/wt90
-  _tr() { (cd "$MAIN" && TMPDIR="$D/normal/tmp" sh "$MAIN/rules/implementation/scripts/ticket-run.sh" "$@"); }
+  _tr() { run_in_fixture "$MAIN" env TMPDIR="$D/normal/tmp" sh "$MAIN/rules/implementation/scripts/ticket-run.sh" "$@"; }
   _tr 90 start "$MAIN" > "$D/np-start.out" 2>&1
   _rc=$?
   if [ "$_rc" -eq 0 ] && [ -d "$WT" ] \
@@ -753,26 +730,9 @@ adv_normal_path() {
   printf '%s\n' 'facts/requirements/audit-policy.json' >> "$_excl"
   printf '{"schema_version":1,"policy_id":"normal-path-fixture","effective_from":"2026-01-01","baseline_sha":"%s","release_baseline":"none","trusted_reviewers":["reviewer@example.com"],"implementation_identities":["fixture@example.com"]}\n' \
     "$_base" > "$WT/facts/requirements/audit-policy.json"
-  python3 - "$WT/facts/requirements/tickets/90-run-fixture.review-evidence.json" "$_base" "$_head" "$WT" \
-    "$(date -u +%Y-%m-%d)T12:00:00Z" <<'PY'
-import json, subprocess, sys
-path, base, head, repo, reviewed_at = sys.argv[1:6]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-receipt = {
-    'schema_version': 1, 'receipt_kind': 'review', 'ticket_id': '90-run-fixture',
-    'created_at': reviewed_at, 'actor': 'reviewer',
-    'base_sha': base, 'head_sha': head, 'diff_sha': diff_sha,
-    'reviewer_identity': 'reviewer@example.com', 'reviewed_at': reviewed_at,
-    'verdict': 'PASS', 'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'product.txt:1'}],
-}
-with open(path, 'w', encoding='utf-8') as fh:
-    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PY
+  receipt "$WT/facts/requirements/tickets/90-run-fixture.review-evidence.json" "$WT" "$_base" "$_head" \
+    90-run-fixture --created-at "$(date -u +%Y-%m-%d)T12:00:00Z" \
+    --reviewed-at "$(date -u +%Y-%m-%d)T12:00:00Z"
   git -C "$WT" config user.email reviewer@example.com
   git -C "$WT" config user.name reviewer
   _count=$(git -C "$WT" rev-list --count HEAD)
@@ -808,7 +768,7 @@ adv_install_surface() {
   SEED=$D/install/seed
   mkdir -p "$D/install"
   adv_seed_governance "$SEED"
-  git -C "$SEED" init -q
+  git_repo "$SEED"
   adv_commit "$SEED" seed
   (cd "$D/install" && sh "$INST" --target "$SEED" --ticket-ops) > "$D/ac2-install.out" 2>&1
   _rc=$?
@@ -869,9 +829,9 @@ adv_upgrade_switch() {
   cp "$SCRIPT_DIR/generate-progress.sh" "$OLD/scripts/generate-progress.sh"
   _adv_repo_root=$(CDPATH='' cd -- "$PKG_ROOT/.." && pwd) || _adv_repo_root=''
   if [ -n "$_adv_repo_root" ] && [ -d "$_adv_repo_root/.zcode" ]; then
-    cp -R "$_adv_repo_root/.zcode" "$OLD/.zcode"
+    pkg_copy "$_adv_repo_root/.zcode" "$OLD/.zcode"
   fi
-  git -C "$OLD" init -q
+  git_repo "$OLD"
   adv_commit "$OLD" 'old project baseline'
   _source_commit=$(adv_head "$OLD")
   _zcode_before=$(adv_tree_sig "$OLD/.zcode")
@@ -900,7 +860,7 @@ adv_upgrade_switch() {
       "手工改动 ${_manual} 处:${_manual_list}"
   fi
   adv_seed_governance "$FRESH"
-  git -C "$FRESH" init -q
+  git_repo "$FRESH"
   adv_commit "$FRESH" fresh
   (cd "$D/upgrade" && sh "$INST" --target "$FRESH" --ticket-ops --fast-lane) > "$D/ac3-fresh.out" 2>&1
   _rc=$?
@@ -948,7 +908,7 @@ adv_doc_seed() {
   rm -rf "$D/doc"; mkdir -p "$DOC/docs"
   printf '# 纯文档项目\n' > "$DOC/README.md"
   printf '说明\n' > "$DOC/docs/note.md"
-  git -C "$DOC" init -q
+  git_repo "$DOC"
   adv_commit "$DOC" doc
   sh "$SCRIPT_DIR/generate-module-map.sh" "$DOC" > "$D/ac4-doc.out" 2>&1
   _rc=$?

@@ -41,7 +41,7 @@ lc_build_fixture() {
   cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/checkpoint-write.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/ticket-audit.sh" "$R/rules/implementation/scripts/"
   printf '{"date": "2026-09-28", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' > "$R/facts/project/micro.jsonl"
   printf 'seed\n' > "$R/a.txt"
-  git -C "$R" init -q
+  git_repo "$R"
   lc_git_commit "$R"
   printf 'change\n' > "$R/a.txt"
 }
@@ -93,35 +93,8 @@ EOF
 }
 
 lc_audit_receipt() {
-  # $1=夹具根 $2=base $3=head：按重算 diff 指纹写审查收据（33-lc-ticket，作者身份由
-  # 后续提交固定为 reviewer@example.com）
-  python3 - "$1/facts/requirements/tickets/33-lc-ticket.review-evidence.json" "$2" "$3" "$1" <<'PY'
-import json, subprocess, sys, datetime
-path, base, head, repo = sys.argv[1:5]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-receipt = {
-    'schema_version': 1,
-    'receipt_kind': 'review',
-    'ticket_id': '33-lc-ticket',
-    'created_at': now,
-    'actor': 'reviewer',
-    'base_sha': base,
-    'head_sha': head,
-    'diff_sha': diff_sha,
-    'reviewer_identity': 'reviewer@example.com',
-    'reviewed_at': now,
-    'verdict': 'PASS',
-    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'a.txt:1'}],
-}
-with open(path, 'w') as fh:
-    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PY
+  # $1=夹具根 $2=base $3=head：审查收据经 harness 世界构建动词 receipt 落位（世界构建缝隙票）
+  receipt "$1/facts/requirements/tickets/33-lc-ticket.review-evidence.json" "$1" "$2" "$3" 33-lc-ticket --ac-evidence 'a.txt:1'
 }
 
 tix_lc_status() {
@@ -1243,7 +1216,7 @@ PYTHON
     printf 'l1\nl2\nl3\n' > "$R/facts/project/changes.jsonl"
     printf 'o1\n' > "$R/facts/project/other.jsonl"
     printf 'product\n' > "$R/a.txt"
-    git -C "$R" init -q
+    git_repo "$R"
     lc_git_commit "$R"
   }
 

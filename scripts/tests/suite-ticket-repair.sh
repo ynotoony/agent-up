@@ -92,7 +92,7 @@ with open(root + '/facts/requirements/tickets/90-repair-fixture.json', 'w', enco
     json.dump(ticket, handle, ensure_ascii=False, indent=2)
     handle.write('\n')
 PY
-  git -C "$R" init -q
+  git_repo "$R"
   trp_git_commit "$R" init
   sh "$R/rules/implementation/scripts/generate-progress.sh" "$R" >/dev/null 2>&1 || return 1
 }
@@ -132,34 +132,8 @@ trp_carrier_sum() {
 }
 
 trp_audit_receipt() {
-  # $1=站根 $2=base $3=head：按 base..head 重算 diff 指纹写审查收据
-  python3 - "$1/facts/requirements/tickets/90-repair-fixture.review-evidence.json" "$2" "$3" "$1" <<'PY'
-import datetime, json, subprocess, sys
-path, base, head, repo = sys.argv[1:5]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-receipt = {
-    'schema_version': 1,
-    'receipt_kind': 'review',
-    'ticket_id': '90-repair-fixture',
-    'created_at': now,
-    'actor': 'reviewer',
-    'base_sha': base,
-    'head_sha': head,
-    'diff_sha': diff_sha,
-    'reviewer_identity': 'reviewer@example.com',
-    'reviewed_at': now,
-    'verdict': 'PASS',
-    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'product.txt:1'}],
-}
-with open(path, 'w', encoding='utf-8') as handle:
-    handle.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PY
+  # $1=站根 $2=base $3=head：审查收据经 receipt 落位
+  receipt "$1/facts/requirements/tickets/90-repair-fixture.review-evidence.json" "$1" "$2" "$3" 90-repair-fixture
 }
 
 trp_audit_run() {

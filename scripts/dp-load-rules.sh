@@ -24,6 +24,31 @@
 # shellcheck disable=SC2034  # 单一版本来源：消费件 source 后断言最低版，本件内不自用
 DP_PARSER_VERSION=2
 
+# ---- 只读输出缝隙（测试用；未设 DP_DUMP_FILE 时零副作用）----
+# 把本次调用后的解析结论（含错误返回态）按 K=V 逐行写入 $DP_DUMP_FILE，供 harness 读取。
+# 用途：回归套件不再用「sed 改名实现体＋包装函数」探针改写代码来采集 DP_*；本函数只读
+# 全局量、不写业务载体，生产路径（未设 DP_DUMP_FILE）行为与输出零变化。
+dp_dump_state() {
+  [ -n "${DP_DUMP_FILE:-}" ] || return 0
+  {
+    printf 'version=%s\n' "${DP_PARSER_VERSION:-}"
+    printf 'rc=%s\n' "${1:-0}"
+    printf 'PRESENT=%s\n' "${DP_PRESENT-}"
+    printf 'HAS_PAYLOAD=%s\n' "${DP_HAS_PAYLOAD-}"
+    printf 'ROOT=%s\n' "${DP_ROOT-}"
+    printf 'REMOTE=%s\n' "${DP_REMOTE-}"
+    printf 'TARGET=%s\n' "${DP_TARGET-}"
+    printf 'LOCAL_REF=%s\n' "${DP_LOCAL_REF-}"
+    printf 'FORBID=%s\n' "${DP_FORBID-}"
+    printf 'EXEMPT=%s\n' "${DP_EXEMPT-}"
+    printf 'STALE_LIT=%s\n' "${DP_STALE_LIT-}"
+    printf 'HAS_MAINONLY=%s\n' "${DP_HAS_MAINONLY-}"
+    printf 'MAINONLY=%s\n' "${DP_MAINONLY-}"
+    printf 'MAINONLY_DECLARED=%s\n' "${DP_MAINONLY_DECLARED-}"
+  } > "$DP_DUMP_FILE" 2>/dev/null || true
+  return 0
+}
+
 dp_load_rules() {
   DP_PRESENT=0
   DP_HAS_PAYLOAD=0
@@ -33,10 +58,10 @@ dp_load_rules() {
   DP_FORBID=''; DP_EXEMPT=''; DP_STALE_LIT=''
   _dp_prefix=$2
   _dp_file="$1/delivery.rules"
-  [ -f "$_dp_file" ] || return 0
+  [ -f "$_dp_file" ] || { dp_dump_state 0; return 0; }
   # shellcheck disable=SC2034  # DP 引擎统一解析产出字段（全集同构契约；调用方未消费≠冗余，禁删）
   DP_PRESENT=1
-  _dp_stream=$(mktemp "${TMPDIR:-/tmp}/dprules.XXXXXX") || return 2
+  _dp_stream=$(mktemp "${TMPDIR:-/tmp}/dprules.XXXXXX") || { dp_dump_state 2; return 2; }
   _dp_rc=0
   _dp_err=$(LC_ALL=C awk -v out="$_dp_stream" '
     function bad(msg) { printf "第 %d 行: %s\n", FNR, msg; n++ }
@@ -117,6 +142,7 @@ dp_load_rules() {
     if [ -n "$_dp_err" ]; then
       printf '%s\n' "$_dp_err" >&2
     fi
+    dp_dump_state 2
     return 2
   fi
   while IFS="$(printf '\t')" read -r _dp_d _dp_v; do
@@ -138,5 +164,6 @@ dp_load_rules() {
     esac
   done < "$_dp_stream"
   rm -f "$_dp_stream"
+  dp_dump_state 0
   return 0
 }

@@ -288,7 +288,7 @@ suite_ledger_append() {
   la_build_fixture "$D/c7"
   FC7="$D/c7"
   SFC7="$FC7/rules/implementation/scripts/ledger-append.sh"
-  git -C "$FC7" init -q
+  git_repo "$FC7"
   git -C "$FC7" add -A
   git -C "$FC7" -c user.email=fixture@example.com -c user.name=fixture commit -q -m seed
   cp "$FC7/facts/project/changes.jsonl" "$D/c7.seed"
@@ -318,7 +318,7 @@ suite_ledger_append() {
   # 账本 cksum 不变、报文含锁目录路径与持有者 pid，锁目录与令牌原样。
   la_build_fixture "$D/locklive"
   FPL=$D/locklive
-  git -C "$FPL" init -q
+  git_repo "$FPL"
   SPL="$FPL/rules/implementation/scripts/ledger-append.sh"
   la_lockdir_live=$(la_lock_dir "$FPL")
   rm -rf "${la_lockdir_live}"
@@ -347,7 +347,7 @@ suite_ledger_append() {
   # 必须 exit 1、账本不变、报文含锁路径与「陈旧写锁…仅诊断」，锁目录与令牌原样（未被夺）。
   la_build_fixture "$D/lockstale"
   FPS=$D/lockstale
-  git -C "$FPS" init -q
+  git_repo "$FPS"
   SPS="$FPS/rules/implementation/scripts/ledger-append.sh"
   la_lockdir_stale=$(la_lock_dir "$FPS")
   rm -rf "${la_lockdir_stale}"

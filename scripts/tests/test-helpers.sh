@@ -99,8 +99,8 @@ self_check_injection() {
   _si_targets='module-map ticket-ops ticket-run check-package'
   for _si_t in $_si_targets; do
     mkdir -p "$D/$_si_t"
-    cp -R "$SCRIPT_DIR" "$D/$_si_t/scripts"
-    cp -R "$PKG_ROOT/references" "$D/$_si_t/references"
+    pkg_copy "$SCRIPT_DIR" "$D/$_si_t/scripts"
+    pkg_copy "$PKG_ROOT/references" "$D/$_si_t/references"
   done
   # 缺陷一：规则表边集破坏（module-map 既有注入面）
   sed 's/~python-import~/~python-importX~/' "$D/module-map/scripts/module-map.rules" \
@@ -138,8 +138,8 @@ self_check_injection() {
   done
   # 未注入对照：同一副本照常通过——证明上面的红灯来自注入而非副本语境
   mkdir -p "$D/control"
-  cp -R "$SCRIPT_DIR" "$D/control/scripts"
-  cp -R "$PKG_ROOT/references" "$D/control/references"
+  pkg_copy "$SCRIPT_DIR" "$D/control/scripts"
+  pkg_copy "$PKG_ROOT/references" "$D/control/references"
   sh "$0" --suite module-map --script-dir "$D/control/scripts" --pkg-root "$PKG_ROOT" \
     >"$D/control.log" 2>&1
   _si_rc=$?
@@ -186,6 +186,160 @@ self_check_injection() {
     bad '套件名自检：用法行 ⊆ ALL_SUITES∪{all,fast}' "用法名单=${_si_usage:-<空>}${_si_bad}"
   fi
   suite_summary 'self-check'
+}
+
+
+# ============================================================
+# 世界构建四动词（票 275：夹具世界构建缝隙）
+# 所有套件共用同一实现，逐套件差异经 override 钩子承接——套件定义同名
+# `world_<动词>` 函数即整体接管该动词（拿到同样参数与返回码），未定义则走默认实现。
+# 约定：动词只做世界构建（复制/初始化/落收据/在夹具内跑），不写断言、不改计数器。
+# ============================================================
+
+world_has_override() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+pkg_copy() {
+  # pkg_copy <src> <dst>：包/夹具目录整树复制（等价 cp -R，符号链接按原样复制）
+  if world_has_override world_pkg_copy; then
+    world_pkg_copy "$@"
+    return $?
+  fi
+  cp -R "$1" "$2"
+}
+
+git_repo() {
+  # git_repo <dir> [--branch <name>]：Git 夹具初始化（幂等；已有 .git 不重复 init；
+  # --branch 在分支不存在时创建并检出）。提交身份仍由调用方按场景固定。
+  if world_has_override world_git_repo; then
+    world_git_repo "$@"
+    return $?
+  fi
+  _gr_dir=$1
+  shift
+  _gr_branch=''
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --branch)
+        if [ $# -lt 2 ]; then printf 'git_repo: --branch 缺值\n' >&2; return 2; fi
+        _gr_branch=$2
+        shift 2
+        ;;
+      *)
+        printf 'git_repo: 未知参数: %s\n' "$1" >&2
+        return 2
+        ;;
+    esac
+  done
+  mkdir -p "$_gr_dir" || return 1
+  if [ ! -d "$_gr_dir/.git" ]; then
+    git -C "$_gr_dir" init -q || return 1
+  fi
+  if [ -n "$_gr_branch" ]; then
+    if ! git -C "$_gr_dir" show-ref --verify --quiet "refs/heads/$_gr_branch"; then
+      git -C "$_gr_dir" checkout -q -b "$_gr_branch" || return 1
+    fi
+  fi
+  return 0
+}
+
+receipt() {
+  # receipt <out> <repo> <base> <head> <ticket-id> [选项]：按 base..head 重算 diff 指纹
+  # 写审查收据（七套件同源实现：schema_version/receipt_kind/ticket_id/created_at/actor/
+  # base_sha/head_sha/diff_sha/reviewer_identity/reviewed_at/verdict/acceptance）。
+  # 选项：--reviewer <email>（缺省 reviewer@example.com）、--actor <name>（缺省 reviewer）、
+  #       --verdict <值>（缺省 PASS）、--ac-id/--ac-result/--ac-evidence（缺省 AC1/pass/
+  #       product.txt:1）、--created-at/--reviewed-at <UTC 秒粒度>（缺省当前时间）。
+  if world_has_override world_receipt; then
+    world_receipt "$@"
+    return $?
+  fi
+  if [ $# -lt 5 ]; then
+    printf 'receipt: 参数不足（需要 <out> <repo> <base> <head> <ticket-id>）\n' >&2
+    return 2
+  fi
+  _r_out=$1
+  _r_repo=$2
+  _r_base=$3
+  _r_head=$4
+  _r_tid=$5
+  shift 5
+  _r_reviewer='reviewer@example.com'
+  _r_actor='reviewer'
+  _r_verdict='PASS'
+  _r_ac_id='AC1'
+  _r_ac_result='pass'
+  _r_ac_ev='product.txt:1'
+  _r_created=''
+  _r_reviewed=''
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --reviewer | --actor | --verdict | --ac-id | --ac-result | --ac-evidence | --created-at | --reviewed-at)
+        if [ $# -lt 2 ]; then printf 'receipt: %s 缺值\n' "$1" >&2; return 2; fi
+        case $1 in
+          --reviewer) _r_reviewer=$2 ;;
+          --actor) _r_actor=$2 ;;
+          --verdict) _r_verdict=$2 ;;
+          --ac-id) _r_ac_id=$2 ;;
+          --ac-result) _r_ac_result=$2 ;;
+          --ac-evidence) _r_ac_ev=$2 ;;
+          --created-at) _r_created=$2 ;;
+          --reviewed-at) _r_reviewed=$2 ;;
+        esac
+        shift 2
+        ;;
+      *)
+        printf 'receipt: 未知参数: %s\n' "$1" >&2
+        return 2
+        ;;
+    esac
+  done
+  python3 - "$_r_out" "$_r_repo" "$_r_base" "$_r_head" "$_r_tid" "$_r_reviewer" \
+    "$_r_actor" "$_r_verdict" "$_r_ac_id" "$_r_ac_result" "$_r_ac_ev" \
+    "$_r_created" "$_r_reviewed" <<'PY'
+import json, subprocess, sys, datetime
+path, repo, base, head, ticket_id, reviewer, actor, verdict, ac_id, ac_result, ac_ev, created, reviewed = sys.argv[1:14]
+diff = subprocess.run(
+    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
+     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
+diff_sha = subprocess.run(
+    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
+    stdout=subprocess.PIPE).stdout.decode().strip()
+now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+if not created:
+    created = now
+if not reviewed:
+    reviewed = now
+payload = {
+    'schema_version': 1,
+    'receipt_kind': 'review',
+    'ticket_id': ticket_id,
+    'created_at': created,
+    'actor': actor,
+    'base_sha': base,
+    'head_sha': head,
+    'diff_sha': diff_sha,
+    'reviewer_identity': reviewer,
+    'reviewed_at': reviewed,
+    'verdict': verdict,
+    'acceptance': [{'ac_id': ac_id, 'result': ac_result, 'evidence': ac_ev}],
+}
+with open(path, 'w', encoding='utf-8') as handle:
+    handle.write(json.dumps(payload, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+
+run_in_fixture() {
+  # run_in_fixture <dir> <命令...>：在夹具目录内执行命令（子 shell，不改变调用方 cwd；
+  # 需要环境变量时以 `env VAR=值` 前缀显式传入）。stdout/stderr 由调用方重定向。
+  if world_has_override world_run_in_fixture; then
+    world_run_in_fixture "$@"
+    return $?
+  fi
+  _rif_dir=$1
+  shift
+  ( cd "$_rif_dir" && "$@" )
 }
 
 # ---- 汇总 ----

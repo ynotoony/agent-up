@@ -387,7 +387,7 @@ EOF
   # 注入 governance-format.md 首个规则块 Authority 字段之后 → FAIL: 12 指名文件:行号；
   # 注入行同时使既有豁免行号漂移（未豁免命中与失效豁免同报），行级豁免漂移即 FAIL 的
   # fail-closed 行为随之钉死。
-  cp -R "$PKG_ROOT" "$D/pkgcopy3"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy3"
   w=$(LC_ALL=C awk -F"'" '/^pm_vague_word/{print $2; exit}' "$D/pkgcopy3/scripts/package-manifest.rules")
   gf="$D/pkgcopy3/references/protocol/governance-format.md"
   ln=$(grep -n '^\- \*\*Authority\*\*' "$gf" | head -1 | cut -d: -f1)
@@ -403,7 +403,7 @@ EOF
 
   # 票 58 检查 12 正例 N5：同一注入落在 read-policy.md（无既有豁免引用文件，豁免行号
   # 零漂移）并在夹具包 manifest 登记行级豁免 → 该行不报，exit 0（豁免生效）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy4"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy4"
   rp="$D/pkgcopy4/references/protocol/read-policy.md"
   rln=$(grep -n '^\- \*\*Authority\*\*' "$rp" | head -1 | cut -d: -f1)
   { head -n "$rln" "$rp"; printf -- '- harness fixture 注入行（词表首词：%s）\n' "$w"; tail -n +"$((rln + 1))" "$rp"; } > "$D/rp.tmp"
@@ -420,7 +420,7 @@ EOF
   fi
 
   # 票 58 检查 12 负例 N6：豁免登记行无命中（999 行）→ 失效豁免 FAIL（防漂移静默失效）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy5"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy5"
   printf "pm_vague_exempt references/protocol/governance-format.md 999 'harness fixture 失效豁免负例'\n" >> "$D/pkgcopy5/scripts/package-manifest.rules"
   sh "$D/pkgcopy5/scripts/check-package.sh" "$D/pkgcopy5" >"$D/act.n6" 2>&1
   rc=$?
@@ -437,7 +437,7 @@ EOF
   # 票 203：mirror 类 9→12 对（dp-load-rules/check-stale-claims/worktree-add 三件入
   # 清单；check-payload-boundary 镜像预册、包侧落位前检查 13 不计数不查仓侧）。
   mkdir -p "$D/mrepo/scripts" "$D/mrepo/rules/implementation/scripts"
-  cp -R "$PKG_ROOT" "$D/mrepo/agent-up"
+  pkg_copy "$PKG_ROOT" "$D/mrepo/agent-up"
   for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh record-store.sh ticket-run.sh; do
     cp "$PKG_ROOT/scripts/$m" "$D/mrepo/scripts/$m"
   done
@@ -468,7 +468,7 @@ EOF
   # 的豁免（820 的字符串超集）：尾锚缺失时 "path\t820" 误配 "path\t8200\t..." 豁免行、
   # 命中被罩（旧缺陷方向）；尾锚生效 = :820 命中必须报出（exit 1 且 FAIL: 12 指名
   # :820）。既有 :82 豁免同文件在位，一并验证不误罩 :820 命中。
-  cp -R "$PKG_ROOT" "$D/pkgcopy6"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy6"
   gf6="$D/pkgcopy6/references/protocol/governance-format.md"
   aln=$(grep -n '^\- \*\*Authority\*\*' "$gf6" | tail -1 | cut -d: -f1)
   pad=$((820 - aln - 1))
@@ -488,7 +488,7 @@ EOF
 
   # 票 59 检查 14 负例 N10：向 agents-implementation.md.tmpl 的 required_capabilities 行
   # 注入未登记基元名 → exit 1 且 FAIL: 14 指名文件（多出＝不在名单）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy7"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy7"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's/`execute`；治理写入许可/`execute`、`harness-fixture-cap`；治理写入许可/' \
     "$D/pkgcopy7/references/templates/agents-implementation.md.tmpl" > "$D/tmpl7.tmp" \
@@ -503,7 +503,7 @@ EOF
 
   # 票 59 检查 14 负例 N11：自同一声明行删除一基元名（edit）→ exit 1 且 FAIL: 14 指名
   # 文件（缺少＝相对登记预期名单）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy8"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy8"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's/、`edit`//' "$D/pkgcopy8/references/templates/agents-implementation.md.tmpl" > "$D/tmpl8.tmp" \
     && mv "$D/tmpl8.tmp" "$D/pkgcopy8/references/templates/agents-implementation.md.tmpl"
@@ -519,7 +519,7 @@ EOF
   # 词表外自造值（三方向 FAIL 指名文件与值）＋ readonly-execute 行删除 fail-closed exit 2。
   # 负例 N44：声明翻合法词表值但与登记预期不符（policy-only → host-enforced）→ exit 1 且
   # FAIL: 14 指名 zcode.md 与不一致两值。
-  cp -R "$PKG_ROOT" "$D/pkgenf1"
+  pkg_copy "$PKG_ROOT" "$D/pkgenf1"
   sed 's/readonly_enforcement: policy-only/readonly_enforcement: host-enforced/' \
     "$D/pkgenf1/references/adapters/zcode.md" > "$D/enf1.tmp" \
     && mv "$D/enf1.tmp" "$D/pkgenf1/references/adapters/zcode.md"
@@ -533,7 +533,7 @@ EOF
   fi
 
   # 负例 N45：readonly-execute 行删 readonly_enforcement 声明 → exit 1 且 FAIL: 14 缺声明。
-  cp -R "$PKG_ROOT" "$D/pkgenf2"
+  pkg_copy "$PKG_ROOT" "$D/pkgenf2"
   # shellcheck disable=SC2016  # sed 程序刻意字面（等级声明片段删除，非命令替换）
   sed 's/；readonly_enforcement: policy-only[^|]*//' \
     "$D/pkgenf2/references/adapters/zcode.md" > "$D/enf2.tmp" \
@@ -548,7 +548,7 @@ EOF
   fi
 
   # 负例 N46：等级写词表外自造值（sandboxed，非四级＋pending）→ exit 1 且 FAIL: 14 指名值。
-  cp -R "$PKG_ROOT" "$D/pkgenf3"
+  pkg_copy "$PKG_ROOT" "$D/pkgenf3"
   sed 's/readonly_enforcement: policy-only/readonly_enforcement: sandboxed/' \
     "$D/pkgenf3/references/adapters/zcode.md" > "$D/enf3.tmp" \
     && mv "$D/enf3.tmp" "$D/pkgenf3/references/adapters/zcode.md"
@@ -564,7 +564,7 @@ EOF
   # 负例 N47：对照表整行删 readonly-execute → enforcement 目标解析失效 exit 2 不静默过
   # （fail-closed 同款；检查 1～13 先行 PASS 行照常输出，但零 FAIL 行、无汇总结论——
   # 基元维度的缺行问题不产出部分结论）。
-  cp -R "$PKG_ROOT" "$D/pkgenf4"
+  pkg_copy "$PKG_ROOT" "$D/pkgenf4"
   grep -v '^| readonly-execute ' "$D/pkgenf4/references/adapters/zcode.md" > "$D/enf4.tmp" \
     && mv "$D/enf4.tmp" "$D/pkgenf4/references/adapters/zcode.md"
   sh "$D/pkgenf4/scripts/check-package.sh" "$D/pkgenf4" >"$D/act.n47" 2>&1
@@ -579,7 +579,7 @@ EOF
 
   # 检查 15 负例 N12：生成索引删一行（删 R-CO-001 行）→ exit 1 且 FAIL: 15 指名缺行。
   # 索引对象＝生成投影 references/rules-index.md（模板 §16 手写索引已退役）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy9"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy9"
   grep -v '^| R-CO-001 ' "$D/pkgcopy9/references/rules-index.md" > "$D/tmpl9.tmp" \
     && mv "$D/tmpl9.tmp" "$D/pkgcopy9/references/rules-index.md"
   sh "$D/pkgcopy9/scripts/check-package.sh" "$D/pkgcopy9" >"$D/act.n12" 2>&1
@@ -592,7 +592,7 @@ EOF
 
   # 检查 15 负例 N13：生成索引表尾加全集外 ID 行（R-CO-999，短码 CO 已登记、序号不存在）
   # → exit 1 且 FAIL: 15 指名多行（检查 10 不误伤：短码在册）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy10"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy10"
   printf '| R-CO-999 | harness fixture 全集外 ID 负例 | references/templates/core.md.tmpl | MUST | 约定 |\n' >> "$D/pkgcopy10/references/rules-index.md"
   sh "$D/pkgcopy10/scripts/check-package.sh" "$D/pkgcopy10" >"$D/act.n13" 2>&1
   rc=$?
@@ -604,7 +604,7 @@ EOF
 
   # 检查 16 负例 N14：机制列写未登记值（R-CO-001 门禁→自动）→ exit 1 且 FAIL: 16 指名
   # ID 与值（受控词表外置 manifest；注入值「自动」为场景固定负例字面量，非词表成员）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy11"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy11"
   sed '/^| R-CO-001 /s/| 门禁 |$/| 自动 |/' "$D/pkgcopy11/references/rules-index.md" > "$D/tmpl11.tmp" \
     && mv "$D/tmpl11.tmp" "$D/pkgcopy11/references/rules-index.md"
   sh "$D/pkgcopy11/scripts/check-package.sh" "$D/pkgcopy11" >"$D/act.n14" 2>&1
@@ -617,7 +617,7 @@ EOF
 
   # 检查 17 负例 N15：机械行点名不存在脚本（R-CO-004 出处改 harness-fixture.sh）
   # → exit 1 且 FAIL: 17 指名 ID 与脚本。
-  cp -R "$PKG_ROOT" "$D/pkgcopy12"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy12"
   sed '/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |$/| 机械（harness-fixture.sh） |/' "$D/pkgcopy12/references/rules-index.md" > "$D/tmpl12.tmp" \
     && mv "$D/tmpl12.tmp" "$D/pkgcopy12/references/rules-index.md"
   sh "$D/pkgcopy12/scripts/check-package.sh" "$D/pkgcopy12" >"$D/act.n15" 2>&1
@@ -632,7 +632,7 @@ EOF
   # exit 2 fail-closed 不产生部分结论（零 PASS/FAIL 检查行输出）——命令替换、反引号、
   # 引号外重定向、未知指令四形态；探针文件断言承载零执行（解析期无任何求值面）。
   for cp_i in 1 2 3 4; do
-    cp -R "$PKG_ROOT" "$D/pkgmal$cp_i"
+    pkg_copy "$PKG_ROOT" "$D/pkgmal$cp_i"
     case $cp_i in
       1) printf "pm_entry SKILL.md\npm_vague_word 'x\$(touch /tmp/trp145cp1)x'\n" >> "$D/pkgmal1/scripts/package-manifest.rules"; cp_desc='负例 N24 manifest 命令替换注入（引号内美元括号）→ exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp1 ;;
       2) printf "pm_vague_word 'x\`touch /tmp/trp145cp2\`x'\n" >> "$D/pkgmal2/scripts/package-manifest.rules"; cp_desc='负例 N25 manifest 反引号注入 → exit 2 不产生部分结论'; cp_probe=/tmp/trp145cp2 ;;
@@ -655,7 +655,7 @@ EOF
   # 检查 17 负例 N16：机械行点名检查项号超界（R-CO-004 出处改「检查 <注册表最大号+1>」）→
   # exit 1 且 FAIL: 17 指名 ID 与项号（上限由注册表现算；注入＝超界一位，随检查上限同步）。
   n16_over=$((cp_reg_max + 1))
-  cp -R "$PKG_ROOT" "$D/pkgcopy13"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy13"
   sed "/^| R-CO-004 /s/| 机械（check-gates.sh、lane-commit.sh） |\$/| 机械（检查 ${n16_over}） |/" "$D/pkgcopy13/references/rules-index.md" > "$D/tmpl13.tmp" \
     && mv "$D/tmpl13.tmp" "$D/pkgcopy13/references/rules-index.md"
   sh "$D/pkgcopy13/scripts/check-package.sh" "$D/pkgcopy13" >"$D/act.n16" 2>&1
@@ -668,7 +668,7 @@ EOF
 
   # 票 60 负例 N18：manifest mechanism-vocab 词表损坏（重复行）→ 引擎结构校验 exit 2
   # fail-closed（受控词表是检查 16 比对基准，损坏不产生部分结论）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy15"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy15"
   printf 'pm_mechanism 机械\n' >> "$D/pkgcopy15/scripts/package-manifest.rules"
   sh "$D/pkgcopy15/scripts/check-package.sh" "$D/pkgcopy15" >"$D/act.n18" 2>&1
   rc=$?
@@ -680,7 +680,7 @@ EOF
 
   # 票 82 检查 18 负例 N19：向包内 .md 文档面注入票号引用（「票 41」形态）→ exit 1 且
   # FAIL: 18 指名文件:行号（禁令断言只查模式不判语义）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy16"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy16"
   printf '\n- harness fixture 票号注入行（引用本仓票 41 联动收口）\n' >> "$D/pkgcopy16/references/protocol/read-policy.md"
   sh "$D/pkgcopy16/scripts/check-package.sh" "$D/pkgcopy16" >"$D/act.n19" 2>&1
   rc=$?
@@ -693,7 +693,7 @@ EOF
 
   # 票 82 检查 18 正例 N20：同一注入行经夹具 manifest 登记行级豁免 → 该行不报 exit 0
   # （豁免语境不报；夹具包自带引擎读取自身 manifest——检查 12 N5 同款口径）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy17"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy17"
   printf '\n- harness fixture 票号注入行（引用本仓票 41 联动收口）\n' >> "$D/pkgcopy17/references/protocol/read-policy.md"
   n20_ln=$(wc -l < "$D/pkgcopy17/references/protocol/read-policy.md" | tr -d ' ')
   printf "pm_cite_exempt references/protocol/read-policy.md %d 'harness fixture 票号豁免正例（登记后该行不报）'\n" "$n20_ln" >> "$D/pkgcopy17/scripts/package-manifest.rules"
@@ -707,7 +707,7 @@ EOF
 
   # 票 82 检查 18 负例 N21：豁免登记行无命中（999 行）→ 失效豁免 FAIL
   # （防漂移静默失效，检查 12 N6 同款口径）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy18"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy18"
   printf "pm_cite_exempt references/protocol/read-policy.md 999 'harness fixture 票号失效豁免负例'\n" >> "$D/pkgcopy18/scripts/package-manifest.rules"
   sh "$D/pkgcopy18/scripts/check-package.sh" "$D/pkgcopy18" >"$D/act.n21" 2>&1
   rc=$?
@@ -720,7 +720,7 @@ EOF
   # 票 95 检查 19 负例 N22：夹具副本（cp -R 落位＝非 git 语境）检查 19 静默跳过——
   # 全部既有负例输出零检查 19 行的语境前提钉死（git 不可用则 index mode 无从核对，
   # 静默跳过不误报，检查 13 静默语义同款）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy19"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy19"
   sh "$D/pkgcopy19/scripts/check-package.sh" "$D/pkgcopy19" >"$D/act.n22" 2>&1
   rc=$?
   if require_out 'suite-check-package 目标输出在场' "$D/act.n22" && [ "$rc" -eq 0 ] && ! grep -q 'scripts 节 mode 断言' "$D/act.n22"; then
@@ -733,7 +733,7 @@ EOF
   # 可执行件置 644 与 kind=rules 数据件置 755 同夹具各一，双断言（index mode＋盘上 -x）
   # 同报且逐件指名期望 mode；git add 后 index 才承载翻转，零布线的纯盘上 chmod 不得
   # 令 index 断言误判。
-  cp -R "$PKG_ROOT" "$D/pkgcopy20"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy20"
   (
     cd "$D/pkgcopy20" || exit 1
     git init -q
@@ -758,7 +758,7 @@ EOF
 
   # 票 149 检查 20 负例 N24：scripts/ 一级未登记额外文件（恶意投放面）→ exit 1 且
   # FAIL: 20 指名条目；隐藏条目（. 开头）同入条目面一并拦截。
-  cp -R "$PKG_ROOT" "$D/pkgcopy21"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy21"
   printf '# harness fixture 未登记额外件\n' > "$D/pkgcopy21/scripts/harness-fixture-extra.sh"
   printf 'x' > "$D/pkgcopy21/scripts/harness-fixture-extra.txt"
   printf 'y' > "$D/pkgcopy21/scripts/.harness-fixture-hidden"
@@ -774,7 +774,7 @@ EOF
   # 票 149 检查 20 负例 N25：symlink 混合面——scripts 下外指 symlink（AC2 面：脚本
   # symlink 被拒）与 references 下断链外指同夹具，外指面＋别名面双报（readlink 原始
   # 目标＋词法折叠，不依赖 GNU readlink -f）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy22"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy22"
   ln -sf /etc/passwd "$D/pkgcopy22/scripts/harness-fixture-ro.sh"
   ln -sf ../../../../../../etc/hosts "$D/pkgcopy22/references/templates/harness-fixture-dead.md"
   sh "$D/pkgcopy22/scripts/check-package.sh" "$D/pkgcopy22" >"$D/act.n25" 2>&1
@@ -790,7 +790,7 @@ EOF
 
   # 票 149 检查 20 负例 N26：非 git 语境（cp 副本，N22 同款）检查 20 照常运行零静默
   # ——闭合性不依赖 git（find 条目面＋readlink），与检查 19 静默跳过语义相区分。
-  cp -R "$PKG_ROOT" "$D/pkgcopy23"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy23"
   sh "$D/pkgcopy23/scripts/check-package.sh" "$D/pkgcopy23" >"$D/act.n26" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && grep -q '^PASS: 20 包闭合性与符号链接防护' "$D/act.n26"; then
@@ -802,7 +802,7 @@ EOF
   # 票 190 检查 21 负例组（references 树成员闭合与导航；cp 副本 mktemp 纪律，断言独立
   # 重建：每组夹具只注入单点缺陷，FAIL 指名逐字断言）。
   # 负例 N28：references 子树新增未登记文件 → exit 1 且 FAIL: 21 指名条目（成员增漏登记）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy24"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy24"
   printf 'x' > "$D/pkgcopy24/references/workflows/harness-fixture-extra.txt"
   sh "$D/pkgcopy24/scripts/check-package.sh" "$D/pkgcopy24" >"$D/act.n28" 2>&1
   rc=$?
@@ -816,7 +816,7 @@ EOF
 
   # 负例 N29：删除已登记 references 成员（triage.yaml）→ exit 1 且 FAIL: 1 指名缺件
   # （成员删漏销登记＝登记与实物漂移的第一拦截面，检查 1 必需入口口径）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy25"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy25"
   rm -f "$D/pkgcopy25/references/workflows/triage.yaml"
   sh "$D/pkgcopy25/scripts/check-package.sh" "$D/pkgcopy25" >"$D/act.n29" 2>&1
   rc=$?
@@ -829,7 +829,7 @@ EOF
 
   # 负例 N30：坏相对链接（目标不存在）注入 README → exit 1 且 FAIL: 21 指名文件:行号
   # 与目标（链接检查锚点＝行内 ](target)，外链与纯锚点不在口径）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy26"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy26"
   printf '\nharness fixture 坏链接注入行：见 [gone](harness-fixture-gone.md)。\n' >> "$D/pkgcopy26/references/README.md"
   sh "$D/pkgcopy26/scripts/check-package.sh" "$D/pkgcopy26" >"$D/act.n30" 2>&1
   rc=$?
@@ -842,7 +842,7 @@ EOF
 
   # 负例 N31：一级新增目录未入 README 目录清单投影 → exit 1 且 FAIL: 21 双报
   # （全树未登记条目＋一级条目未在投影登记——数据/实物＝机器真相、README 表＝人读投影）。
-  cp -R "$PKG_ROOT" "$D/pkgcopy27"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy27"
   mkdir -p "$D/pkgcopy27/references/harness-fixture-dir"
   printf 'x' > "$D/pkgcopy27/references/harness-fixture-dir/extra.txt"
   sh "$D/pkgcopy27/scripts/check-package.sh" "$D/pkgcopy27" >"$D/act.n31" 2>&1
@@ -862,7 +862,7 @@ EOF
     # 指名悬空件（mirror 类登记须两落位在场，缺件不得静默；票 203 复制清单随 mirror
     # 类 12 对随动——check-payload-boundary 包侧缺件不计数不入清单）。
     mkdir -p "$D/mrepo2/scripts" "$D/mrepo2/rules/implementation/scripts"
-    cp -R "$PKG_ROOT" "$D/mrepo2/agent-up"
+    pkg_copy "$PKG_ROOT" "$D/mrepo2/agent-up"
     for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh record-store.sh contract-build.sh ticket-run.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/mrepo2/scripts/$m"
     done
@@ -895,7 +895,7 @@ EOF
     # 为镜像预册——包侧落位前检查 13 包侧缺件分支跳过不计数）→ exit 0 且
     # PASS: 13 比对对数＝清单 mirror 现存件数（三分类登记与两侧实物全恰，含检查 21 同过）。
     mkdir -p "$D/porepo/scripts" "$D/porepo/rules/implementation/scripts"
-    cp -R "$PKG_ROOT" "$D/porepo/agent-up"
+    pkg_copy "$PKG_ROOT" "$D/porepo/agent-up"
     for m in generate-progress.sh ticket-ops.sh absorption-trigger.sh health-summary.sh run-record.sh ticket-grade.sh lane-commit.sh check-gates.sh upgrade-check.sh dp-load-rules.sh check-stale-claims.sh worktree-add.sh worktree-deps.sh common-helpers.sh json-validator.py ledger-append.sh checkpoint-write.sh record-store.sh contract-build.sh ticket-run.sh; do
       cp "$PKG_ROOT/scripts/$m" "$D/porepo/scripts/$m"
     done
@@ -918,7 +918,7 @@ EOF
   # 逐字断言）。检查 23（索引节序言短指针）已随模板 §16 退役，无宿主即无断言面。
   # 负例 N34：缺九字段——core.md.tmpl R-CO-001 块体删 Forbidden 行 → exit 1 且
   # FAIL: 22 指名 ID 与缺失字段名（目标块无既有豁免联动，其余 35 块照旧）。
-  cp -R "$PKG_ROOT" "$D/pkgrb1"
+  pkg_copy "$PKG_ROOT" "$D/pkgrb1"
   grep -v '^\- \*\*Forbidden\*\*：未经确认写文件' "$D/pkgrb1/references/templates/core.md.tmpl" > "$D/rb1.tmp" \
     && mv "$D/rb1.tmp" "$D/pkgrb1/references/templates/core.md.tmpl"
   sh "$D/pkgrb1/scripts/check-package.sh" "$D/pkgrb1" >"$D/act.n34" 2>&1
@@ -932,7 +932,7 @@ EOF
 
   # 负例 N35：非法 Level——R-CO-001 标题 Level 改自造值 SHALL → exit 1 且 FAIL: 22 指名
   # ID 与标题原文（受控四值 MUST/MUST NOT/SHOULD/MAY 外零容忍）。
-  cp -R "$PKG_ROOT" "$D/pkgrb2"
+  pkg_copy "$PKG_ROOT" "$D/pkgrb2"
   # shellcheck disable=SC2016  # sed 程序刻意字面（反引号为文本字面量，wiki 长尾误报）
   sed 's/^#### R-CO-001 授权先于写入（G1） `MUST`$/#### R-CO-001 授权先于写入（G1） `SHALL`/' "$D/pkgrb2/references/templates/core.md.tmpl" > "$D/rb2.tmp" \
     && mv "$D/rb2.tmp" "$D/pkgrb2/references/templates/core.md.tmpl"
@@ -947,7 +947,7 @@ EOF
 
   # 负例 N36：重复 ID——core.md.tmpl 整块复制 R-CO-001（标题＋七字段体，双块均合法，
   # 单点只触发 ID 唯一性）→ exit 1 且 FAIL: 22 指名 ID 与两处文件:行号。
-  cp -R "$PKG_ROOT" "$D/pkgrb3"
+  pkg_copy "$PKG_ROOT" "$D/pkgrb3"
   awk '{ print } /^#### R-CO-001 / { inblk = 1; buf = $0 "\n"; next } inblk { buf = buf $0 "\n" } inblk && /^- \*\*Authority\*\*：/ { printf "%s", buf; inblk = 0 }' \
     "$D/pkgrb3/references/templates/core.md.tmpl" > "$D/rb3.tmp" \
     && mv "$D/rb3.tmp" "$D/pkgrb3/references/templates/core.md.tmpl"
@@ -962,7 +962,7 @@ EOF
 
   # 正例 P3：modern 相对链接正例——AGENTS.md.tmpl 注入生成布局全集内目标（rules/project.md
   # ∈ artifacts-yaml.tmpl path 行）→ exit 0 且 PASS: 24、modern 链接计数 9→10。
-  cp -R "$PKG_ROOT" "$D/pkgl1"
+  pkg_copy "$PKG_ROOT" "$D/pkgl1"
   printf '\nharness fixture 注入行：见 [项目协议](rules/project.md)。\n' >> "$D/pkgl1/references/templates/AGENTS.md.tmpl"
   sh "$D/pkgl1/scripts/check-package.sh" "$D/pkgl1" >"$D/act.p3" 2>&1
   rc=$?
@@ -975,7 +975,7 @@ EOF
 
   # 负例 N41：modern 坏链——注入全集外 modern 目标 → exit 1 且 FAIL: 24 指名文件:行号、
   # 目标与分类（modern）。
-  cp -R "$PKG_ROOT" "$D/pkgl2"
+  pkg_copy "$PKG_ROOT" "$D/pkgl2"
   printf '\nharness fixture 坏链接注入行：见 [不存在件](rules/harness-fixture-gone.md)。\n' >> "$D/pkgl2/references/templates/AGENTS.md.tmpl"
   sh "$D/pkgl2/scripts/check-package.sh" "$D/pkgl2" >"$D/act.n41" 2>&1
   rc=$?
@@ -988,7 +988,7 @@ EOF
 
   # 负例 N42：modern-stale-reference——modern 面（read-policy.md）注入旧布局路径引用 →
   # exit 1 且 FAIL: 24 指名文件:行号与命中 token（分类 modern）。
-  cp -R "$PKG_ROOT" "$D/pkgl3"
+  pkg_copy "$PKG_ROOT" "$D/pkgl3"
   printf '\nharness fixture 失效引用注入行 docs/development-process.md\n' >> "$D/pkgl3/references/protocol/read-policy.md"
   sh "$D/pkgl3/scripts/check-package.sh" "$D/pkgl3" >"$D/act.n42" 2>&1
   rc=$?
@@ -1001,7 +1001,7 @@ EOF
 
   # 正例 P4：legacy 合法保留——old-project.md（layout-legacy-file 登记件）注入旧布局
   # 路径引用 → exit 0（legacy 只计数不判罚，计数 13→14）。
-  cp -R "$PKG_ROOT" "$D/pkgl4"
+  pkg_copy "$PKG_ROOT" "$D/pkgl4"
   printf '\nharness fixture legacy 注入行 docs/development-process.md\n' >> "$D/pkgl4/references/old-project.md"
   sh "$D/pkgl4/scripts/check-package.sh" "$D/pkgl4" >"$D/act.p4" 2>&1
   rc=$?
@@ -1014,7 +1014,7 @@ EOF
   # 正例 P5：显式兼容豁免——modern 面注入行经夹具 manifest 登记行级豁免 → 该行不报、
   # exit 0（豁免生效，compatibility 计数随动）；并以哨兵 cmp 断言非目标文件未被改动
   # （检查器只读；等价语义＝兼容豁免不伴随任何文件改写，非全局替换）。
-  cp -R "$PKG_ROOT" "$D/pkgl5"
+  pkg_copy "$PKG_ROOT" "$D/pkgl5"
   cp "$D/pkgl5/references/upgrade.md" "$D/pkgl5.upgrade.sentinel"
   printf '\nharness fixture 兼容注入行 docs/agent/artifacts.yaml\n' >> "$D/pkgl5/references/protocol/read-policy.md"
   p5_ln=$(wc -l < "$D/pkgl5/references/protocol/read-policy.md" | tr -d ' ')
@@ -1030,7 +1030,7 @@ EOF
 
   # 负例 N43：豁免不外溢（非全局替换断言）——两 modern 面各注入一行，只豁免其一 →
   # exit 1 且 FAIL: 24 仅指名未豁免件，被豁免件不报（豁免逐行显式，无隐式全局忽略）。
-  cp -R "$PKG_ROOT" "$D/pkgl6"
+  pkg_copy "$PKG_ROOT" "$D/pkgl6"
   printf '\nharness fixture 已豁免注入行 docs/agent/artifacts.yaml\n' >> "$D/pkgl6/references/protocol/read-policy.md"
   n43_ln=$(wc -l < "$D/pkgl6/references/protocol/read-policy.md" | tr -d ' ')
   printf '\nharness fixture 未豁免注入行 docs/issues/index.json\n' >> "$D/pkgl6/references/protocol/governance-format.md"
@@ -1051,7 +1051,7 @@ EOF
   # 结构模板 R-AT-001 的 Authority 行（MUST 块内注入，行号现场提取）。
   # 负例 N48：MUST 块内注入【待定】来源行（R-AT-001 Authority 行后）→ exit 1 且
   # FAIL: 25 指名文件:行号（规范事实不得依赖未定来源）。
-  cp -R "$PKG_ROOT" "$D/pkpd1"
+  pkg_copy "$PKG_ROOT" "$D/pkpd1"
   pdln=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-005、SPEC-05 §4（R-05-003）。$' "$D/pkpd1/references/adapters/adapter-template.md" | head -1 | cut -d: -f1)
   { head -n "$pdln" "$D/pkpd1/references/adapters/adapter-template.md"; printf -- '- harness fixture 待定注入行：官方依据【待定】\n'; tail -n +"$((pdln + 1))" "$D/pkpd1/references/adapters/adapter-template.md"; } > "$D/zc.tmp" \
     && mv "$D/zc.tmp" "$D/pkpd1/references/adapters/adapter-template.md"
@@ -1066,7 +1066,7 @@ EOF
 
   # 正例 N49：同一注入行带 <!-- pending-decl-exempt: 理由 --> 行级豁免 → 该行不报
   # exit 0（写入指引豁免生效；豁免计数 1→2 随注入行随动，R-AT-001 在册豁免不受扰）。
-  cp -R "$PKG_ROOT" "$D/pkpd2"
+  pkg_copy "$PKG_ROOT" "$D/pkpd2"
   pdln2=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-005、SPEC-05 §4（R-05-003）。$' "$D/pkpd2/references/adapters/adapter-template.md" | head -1 | cut -d: -f1)
   { head -n "$pdln2" "$D/pkpd2/references/adapters/adapter-template.md"; printf -- '- harness fixture 待定注入行：官方依据【待定】<!-- pending-decl-exempt: harness fixture 写入指引豁免正例 -->\n'; tail -n +"$((pdln2 + 1))" "$D/pkpd2/references/adapters/adapter-template.md"; } > "$D/zc2.tmp" \
     && mv "$D/zc2.tmp" "$D/pkpd2/references/adapters/adapter-template.md"
@@ -1080,7 +1080,7 @@ EOF
 
   # 负例 N50：失效豁免——标记行无【待定】命中 → exit 1 且 FAIL: 25 报失效豁免
   # （防漂移静默失效，检查 12/18/24 同款口径）。
-  cp -R "$PKG_ROOT" "$D/pkpd3"
+  pkg_copy "$PKG_ROOT" "$D/pkpd3"
   pdln3=$(grep -n '^\- \*\*Authority\*\*：capability-contract R-CC-005、SPEC-05 §4（R-05-003）。$' "$D/pkpd3/references/adapters/adapter-template.md" | head -1 | cut -d: -f1)
   { head -n "$pdln3" "$D/pkpd3/references/adapters/adapter-template.md"; printf -- '- harness fixture 失效豁免注入行（无待定命中）<!-- pending-decl-exempt: harness fixture 失效豁免负例 -->\n'; tail -n +"$((pdln3 + 1))" "$D/pkpd3/references/adapters/adapter-template.md"; } > "$D/zc3.tmp" \
     && mv "$D/zc3.tmp" "$D/pkpd3/references/adapters/adapter-template.md"
@@ -1099,7 +1099,7 @@ EOF
   # 负例 N51（①枚举闭合加载段）：platform-enum 节删 dsh 宿主值 → 注册表 dsh 行
   # ∈ 枚举宿主值核验失败 → exit 2 fail-closed 零部分结论（stdout 零 PASS 行）且错误
   # 指名跨节失据行（先例＝pm_enforcement_target 预期等级 ∈ 词表加载段同款）。
-  cp -R "$PKG_ROOT" "$D/pkar1"
+  pkg_copy "$PKG_ROOT" "$D/pkar1"
   grep -v '^pm_platform dsh$' "$D/pkar1/scripts/package-manifest.rules" > "$D/pm51.tmp" \
     && mv "$D/pm51.tmp" "$D/pkar1/scripts/package-manifest.rules"
   sh "$D/pkar1/scripts/check-package.sh" "$D/pkar1" >"$D/act.n51" 2>&1
@@ -1117,7 +1117,7 @@ EOF
   # 票 222 起差异数据表 platform ∈ 注册表在加载段 fail-closed——注册行删除须同批同步
   # 差异数据表 dsh 四节行（两处漂移分别由加载段与检查 26① 指名），本负例同步删除使
   # 检查段 ① 方向可达。
-  cp -R "$PKG_ROOT" "$D/pkar8"
+  pkg_copy "$PKG_ROOT" "$D/pkar8"
   grep -v '^pm_adapter dsh ' "$D/pkar8/scripts/package-manifest.rules" > "$D/pm58.tmp" \
     && mv "$D/pm58.tmp" "$D/pkar8/scripts/package-manifest.rules"
   sed -e '/^pm_adapter_cap dsh /d' -e '/^pm_adapter_role dsh /d' -e '/^pm_adapter_exec dsh /d' -e '/^pm_adapter_dialect dsh /d' \
@@ -1134,7 +1134,7 @@ EOF
 
   # 负例 N52（②文件在位）：删注册表 adapter_file 实物 references/adapters/dsh.md →
   # exit 1 且 FAIL: 26 指名（检查 1/21 对入口与树闭合联动 FAIL 不断言，归各自口径）。
-  cp -R "$PKG_ROOT" "$D/pkar2"
+  pkg_copy "$PKG_ROOT" "$D/pkar2"
   rm "$D/pkar2/references/adapters/dsh.md"
   sh "$D/pkar2/scripts/check-package.sh" "$D/pkar2" >"$D/act.n52" 2>&1
   rc=$?
@@ -1147,7 +1147,7 @@ EOF
 
   # 负例 N53（③shortcodes 闭合）：shortcodes 节删 DS 镜像行 →（短码, 所属文件）对
   # 不在册 → exit 1 且 FAIL: 26 指名（检查 10 对使用面联动 FAIL 不断言，归票 57 口径）。
-  cp -R "$PKG_ROOT" "$D/pkar3"
+  pkg_copy "$PKG_ROOT" "$D/pkar3"
   grep -v '^pm_shortcode DS references/adapters/dsh.md$' "$D/pkar3/scripts/package-manifest.rules" > "$D/pm53.tmp" \
     && mv "$D/pm53.tmp" "$D/pkar3/scripts/package-manifest.rules"
   sh "$D/pkar3/scripts/check-package.sh" "$D/pkar3" >"$D/act.n53" 2>&1
@@ -1161,7 +1161,7 @@ EOF
 
   # 负例 N54（④capability targets 镜像）：capability targets 节删 dsh kind=table 行 →
   # 注册表（适配文件, coverage）对失镜像 → exit 1 且 FAIL: 26 指名（互为镜像双向闭合）。
-  cp -R "$PKG_ROOT" "$D/pkar4"
+  pkg_copy "$PKG_ROOT" "$D/pkar4"
   grep -v '^pm_capability_target references/adapters/dsh.md table ' "$D/pkar4/scripts/package-manifest.rules" > "$D/pm54.tmp" \
     && mv "$D/pm54.tmp" "$D/pkar4/scripts/package-manifest.rules"
   sh "$D/pkar4/scripts/check-package.sh" "$D/pkar4" >"$D/act.n54" 2>&1
@@ -1175,7 +1175,7 @@ EOF
 
   # 负例 N55（⑤父 README 投影，AC3 钉死）：references/README.md adapters 行删 `dsh`
   # 平台 token → 投影缺平台 → exit 1 且 FAIL: 26 指名（父 README 不得漏列平台）。
-  cp -R "$PKG_ROOT" "$D/pkar5"
+  pkg_copy "$PKG_ROOT" "$D/pkar5"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's=`pi`/`dsh`，=`pi`，=' "$D/pkar5/references/README.md" > "$D/rr55.tmp" \
     && mv "$D/rr55.tmp" "$D/pkar5/references/README.md"
@@ -1190,7 +1190,7 @@ EOF
 
   # 负例 N56（⑤目录 README 投影）：adapters/README.md 目录清单 zcode 行短码格清空 →
   # 投影缺短码 → exit 1 且 FAIL: 26 指名（投影不另立登记事实，漂移即 FAIL）。
-  cp -R "$PKG_ROOT" "$D/pkar6"
+  pkg_copy "$PKG_ROOT" "$D/pkar6"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's/| `ZC` |/|  |/' "$D/pkar6/references/adapters/README.md" > "$D/ar56.tmp" \
     && mv "$D/ar56.tmp" "$D/pkar6/references/adapters/README.md"
@@ -1206,7 +1206,7 @@ EOF
   # 负例 N57（加载段结构校验，AC4 钉死）：adapter-registry 节追加重复 ZC 短码行 →
   # 短码全局唯一由单一数据源加载段验证 → exit 2 fail-closed 零部分结论（stdout 零
   # PASS 行），错误信息指名跨行短码。
-  cp -R "$PKG_ROOT" "$D/pkar7"
+  pkg_copy "$PKG_ROOT" "$D/pkar7"
   grep '^pm_adapter zcode ' "$PKG_ROOT/scripts/package-manifest.rules" >> "$D/pkar7/scripts/package-manifest.rules"
   sh "$D/pkar7/scripts/check-package.sh" "$D/pkar7" >"$D/act.n57" 2>&1
   rc=$?
@@ -1223,7 +1223,7 @@ EOF
   # 运行，manifest 零夹具改动；cp 副本 mktemp 纪律，断言独立重建）。
   # 负例 AD1（数据侧漂移，改数据不改文档）：capability-map 节 zcode inspect 行工具串
   # 单处篡改 → exit 1 且 FAIL: 27 指名宿主与段（九行能力表）与首个差异行号。
-  cp -R "$PKG_ROOT" "$D/pkad1"
+  pkg_copy "$PKG_ROOT" "$D/pkad1"
   sed "s/pm_adapter_cap zcode inspect 'Glob + Read'/pm_adapter_cap zcode inspect 'Glob + ReadX'/" \
     "$D/pkad1/references/adapters/adapter-diffs.rules" > "$D/ad1.tmp" \
     && mv "$D/ad1.tmp" "$D/pkad1/references/adapters/adapter-diffs.rules"
@@ -1238,7 +1238,7 @@ EOF
 
   # 负例 AD2（文档侧漂移，改文档不改数据）：宿主 zcode.md 对照表 search 行工具串单处
   # 篡改 → exit 1 且 FAIL: 27 指名宿主与段（行序敏感全等的反方向；首个差异行 2）。
-  cp -R "$PKG_ROOT" "$D/pkad2"
+  pkg_copy "$PKG_ROOT" "$D/pkad2"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's/| search | Grep、Glob | 文件名与内容检索 |/| search | Grep、GlobX | 文件名与内容检索 |/' \
     "$D/pkad2/references/adapters/zcode.md" > "$D/ad2.tmp" \
@@ -1255,7 +1255,7 @@ EOF
   # 负例 AD3（锚语漂移）：宿主 zcode.md 删三处 frontmatter tools 方言签名行（锚语原文
   # 只在 §2.3 模板块行首）→ exit 1 且 FAIL: 27 指名方言锚语失据（④在场断言方向；
   # role-map 表行不含行首 tools: 形态不受扰）。
-  cp -R "$PKG_ROOT" "$D/pkad3"
+  pkg_copy "$PKG_ROOT" "$D/pkad3"
   # shellcheck disable=SC2016  # sed 程序刻意字面（方括号为字面锚语片段，非字符类）
   grep -v '^tools: \[Read, Grep, Glob, Edit, Write, Bash\]$' \
     "$D/pkad3/references/adapters/zcode.md" > "$D/ad3.tmp" \
@@ -1271,7 +1271,7 @@ EOF
 
   # 负例 AD4（加载段结构校验，fail-closed 钉死）：capability-map 节追加重复
   # （platform, primitive）行 → exit 2 零部分结论（stdout 零 PASS 行）且指名跨行重复。
-  cp -R "$PKG_ROOT" "$D/pkad4"
+  pkg_copy "$PKG_ROOT" "$D/pkad4"
   grep '^pm_adapter_cap zcode inspect ' "$PKG_ROOT/references/adapters/adapter-diffs.rules" >> "$D/pkad4/references/adapters/adapter-diffs.rules"
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkad4" >"$D/act.ad4" 2>&1
   rc=$?
@@ -1285,7 +1285,7 @@ EOF
 
   # 负例 AD5（executor-status 平台全集，R1 删除方向）：删 pm_adapter_exec zcode 整行 →
   # 加载段平台集合 ↔ 注册平台集双向全等失败 → exit 2 fail-closed 零部分结论且指名段与宿主。
-  cp -R "$PKG_ROOT" "$D/pkad5"
+  pkg_copy "$PKG_ROOT" "$D/pkad5"
   grep -v '^pm_adapter_exec zcode ' "$PKG_ROOT/references/adapters/adapter-diffs.rules" \
     > "$D/pkad5/references/adapters/adapter-diffs.rules"
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkad5" >"$D/act.ad5" 2>&1
@@ -1300,7 +1300,7 @@ EOF
 
   # 负例 AD6（dialect-signature 平台全集，R1 删除方向）：删 pm_adapter_dialect zcode 整行
   # → 加载段平台集合 ↔ 注册平台集双向全等失败 → exit 2 fail-closed 零部分结论且指名段与宿主。
-  cp -R "$PKG_ROOT" "$D/pkad6"
+  pkg_copy "$PKG_ROOT" "$D/pkad6"
   grep -v '^pm_adapter_dialect zcode ' "$PKG_ROOT/references/adapters/adapter-diffs.rules" \
     > "$D/pkad6/references/adapters/adapter-diffs.rules"
   sh "$SCRIPT_DIR/check-package.sh" "$D/pkad6" >"$D/act.ad6" 2>&1
@@ -1333,7 +1333,7 @@ EOF
 
   # 负例 G3（数据侧漂移，经生成器直核）：capability-map 节 zcode inspect 工具串单处篡改
   # → 生成器 --check exit 1，指名宿主文件、段与首个差异行。
-  cp -R "$PKG_ROOT" "$D/pkgad7"
+  pkg_copy "$PKG_ROOT" "$D/pkgad7"
   sed "s/pm_adapter_cap zcode inspect 'Glob + Read'/pm_adapter_cap zcode inspect 'Glob + ReadX'/" \
     "$D/pkgad7/references/adapters/adapter-diffs.rules" > "$D/gd7.tmp" \
     && mv "$D/gd7.tmp" "$D/pkgad7/references/adapters/adapter-diffs.rules"
@@ -1358,7 +1358,7 @@ EOF
 
   # 负例 G5（文档侧漂移，改文档不改数据）：宿主 zcode.md 对照表 search 行单处篡改
   # → 生成器 --check exit 1，首个差异行 2（反方向同口径）。
-  cp -R "$PKG_ROOT" "$D/pkgad8"
+  pkg_copy "$PKG_ROOT" "$D/pkgad8"
   # shellcheck disable=SC2016  # fixture 文本/反引号字面量（刻意单引号，wiki 长尾误报）
   sed 's/| search | Grep、Glob | 文件名与内容检索 |/| search | Grep、GlobX | 文件名与内容检索 |/' \
     "$D/pkgad8/references/adapters/zcode.md" > "$D/gd8.tmp" \
@@ -1373,7 +1373,7 @@ EOF
 
   # 负例 G6（锚语失据）：宿主 zcode.md 删三处 frontmatter tools 方言签名行 → 生成器
   # --check exit 1 指名 dialect-signature 段。
-  cp -R "$PKG_ROOT" "$D/pkgad9"
+  pkg_copy "$PKG_ROOT" "$D/pkgad9"
   # shellcheck disable=SC2016  # sed 程序刻意字面（方括号为字面锚语片段，非字符类）
   grep -v '^tools: \[Read, Grep, Glob, Edit, Write, Bash\]$' \
     "$D/pkgad9/references/adapters/zcode.md" > "$D/gd9.tmp" \
@@ -1388,7 +1388,7 @@ EOF
 
   # 正例 G7（无假阳）：数据与文档同批同步（两侧同改 inspect 工具串）→ 生成器 --check
   # exit 0（同步变更不误报，防「改两侧即红」的假阳性）。
-  cp -R "$PKG_ROOT" "$D/pkgad10"
+  pkg_copy "$PKG_ROOT" "$D/pkgad10"
   sed "s/pm_adapter_cap zcode inspect 'Glob + Read'/pm_adapter_cap zcode inspect 'Glob + ReadX'/" \
     "$D/pkgad10/references/adapters/adapter-diffs.rules" > "$D/gd10a.tmp" \
     && mv "$D/gd10a.tmp" "$D/pkgad10/references/adapters/adapter-diffs.rules"
@@ -1414,7 +1414,7 @@ EOF
 
   # 负例 G9（数据侧强调记号丢失）：数据表 claude-code execute constraint 去掉两处反引号
   # （文档仍带）→ 生成器 --check exit 1，指名 claude-code.md 与 capability-map 段。
-  cp -R "$PKG_ROOT" "$D/pkgad11"
+  pkg_copy "$PKG_ROOT" "$D/pkgad11"
   # shellcheck disable=SC2016  # sed 程序刻意字面（反引号为被删字符，非命令替换）
   sed 's/受 `permissions` 规则约束/受 permissions 规则约束/' \
     "$D/pkgad11/references/adapters/adapter-diffs.rules" > "$D/gd11.tmp" \
@@ -1429,7 +1429,7 @@ EOF
 
   # 负例 G10（文档侧强调记号丢失，检查 28 接通方向）：宿主 claude-code.md execute 行去掉
   # 两处反引号（数据仍带）→ check-package exit 1 且 FAIL: 28 指名宿主与段。
-  cp -R "$PKG_ROOT" "$D/pkgad12"
+  pkg_copy "$PKG_ROOT" "$D/pkgad12"
   # shellcheck disable=SC2016  # sed 程序刻意字面（反引号为被删字符，非命令替换）
   sed 's/受 `permissions` 规则约束/受 permissions 规则约束/' \
     "$D/pkgad12/references/adapters/claude-code.md" > "$D/gd12.tmp" \
@@ -1446,7 +1446,7 @@ EOF
   # 负例 G11（宿主 role 行列数守卫，生成器侧）：zcode.md 角色映射表首行追加第 4 单元格
   # → 生成器 --check exit 1 且指名 role-map 段（列数非 3 的行原样输出＝漂移，不静默截断
   # 多余列）。
-  cp -R "$PKG_ROOT" "$D/pkgad13"
+  pkg_copy "$PKG_ROOT" "$D/pkgad13"
   sed '/^| <role-contract-dir>\/implementation.md | inspect, search, read, edit, write, execute |/s/ |$/ extra |/' \
     "$D/pkgad13/references/adapters/zcode.md" > "$D/gd13.tmp" \
     && mv "$D/gd13.tmp" "$D/pkgad13/references/adapters/zcode.md"
@@ -1520,7 +1520,7 @@ EOF
 
   # 负例 N64（检查 29）：活动创建路径面注入未标注退役 token 行 → exit 1 且 FAIL: 29
   # 指名文件:行号、token 与冲突类型。
-  cp -R "$PKG_ROOT" "$D/pksem1"
+  pkg_copy "$PKG_ROOT" "$D/pksem1"
   printf -- '- harness fixture 新需求经 create-request 路径开票\n' >> "$D/pksem1/references/templates/assessment.md.tmpl"
   n64_ln=$(wc -l < "$D/pksem1/references/templates/assessment.md.tmpl" | tr -d ' ')
   sh "$D/pksem1/scripts/check-package.sh" "$D/pksem1" >"$D/act.n64" 2>&1
@@ -1533,7 +1533,7 @@ EOF
   fi
 
   # 负例 N65（检查 30）：transition 目标改未声明 state → exit 1 且 FAIL: 30 指名端点。
-  cp -R "$PKG_ROOT" "$D/pksem2"
+  pkg_copy "$PKG_ROOT" "$D/pksem2"
   sed 's/^      to: failed$/      to: missing-state/' "$D/pksem2/references/workflows/triage.yaml" > "$D/sem2.tmp" \
     && mv "$D/sem2.tmp" "$D/pksem2/references/workflows/triage.yaml"
   sh "$D/pksem2/scripts/check-package.sh" "$D/pksem2" >"$D/act.n65" 2>&1
@@ -1547,7 +1547,7 @@ EOF
 
   # 负例 N66（检查 31）：删除一个 state 的票状态映射行 → exit 1 且 FAIL: 31 指名 state
   # （状态写票前无合法映射）。
-  cp -R "$PKG_ROOT" "$D/pksem3"
+  pkg_copy "$PKG_ROOT" "$D/pksem3"
   grep -v '^    failed: blocked$' "$D/pksem3/references/workflows/triage.yaml" > "$D/sem3.tmp" \
     && mv "$D/sem3.tmp" "$D/pksem3/references/workflows/triage.yaml"
   sh "$D/pksem3/scripts/check-package.sh" "$D/pksem3" >"$D/act.n66" 2>&1
@@ -1561,7 +1561,7 @@ EOF
 
   # 负例 N67（检查 32）：enforcement 目标声明面降级为 reference（不再声明等级）→ 双向
   # 闭合缺口 → exit 1 且 FAIL: 32 指名该文件与冲突类型。
-  cp -R "$PKG_ROOT" "$D/pksem4"
+  pkg_copy "$PKG_ROOT" "$D/pksem4"
   sed 's/^pm_readonly_site references\/adapters\/zcode.md level$/pm_readonly_site references\/adapters\/zcode.md reference/' \
     "$D/pksem4/scripts/package-manifest.rules" > "$D/sem4.tmp" \
     && mv "$D/sem4.tmp" "$D/pksem4/scripts/package-manifest.rules"
@@ -1576,7 +1576,7 @@ EOF
 
   # 负例 N68（检查 33）：非适配面 MUST 块注入【待定】行 → exit 1 且 FAIL: 33 指名
   # 文件:行号与冲突类型（适配面归检查 25，本项覆盖其余整包面）。
-  cp -R "$PKG_ROOT" "$D/pksem5"
+  pkg_copy "$PKG_ROOT" "$D/pksem5"
   n68_f="$D/pksem5/references/protocol/read-policy.md"
   n68_ln=$(grep -n '^#### R-RP-00[0-9] ' "$n68_f" | head -1 | cut -d: -f1)
   { head -n "$n68_ln" "$n68_f"; printf -- '- harness fixture 【待定】宿主面待核验\n'; tail -n +"$((n68_ln + 1))" "$n68_f"; } > "$D/sem5.tmp"
@@ -1592,7 +1592,7 @@ EOF
 
   # 负例 N69（检查 34）：README 追加自任唯一契约行 → exit 1 且 FAIL: 34 指名文件:行号
   # 与冲突类型（执行契约正文须落在 schema／协议件）。
-  cp -R "$PKG_ROOT" "$D/pksem6"
+  pkg_copy "$PKG_ROOT" "$D/pksem6"
   printf -- '\n唯一声明处＝本 README（harness fixture 自任契约负例）\n' >> "$D/pksem6/scripts/README.md"
   n69_ln=$(wc -l < "$D/pksem6/scripts/README.md" | tr -d ' ')
   sh "$D/pksem6/scripts/check-package.sh" "$D/pksem6" >"$D/act.n69" 2>&1
@@ -1606,7 +1606,7 @@ EOF
 
   # 负例 N70（检查 35）：shortcodes 节为适配器文件另立未注册短码行 → 归属短码未入注册表
   # → exit 1 且 FAIL: 35 指名短码行与冲突类型。
-  cp -R "$PKG_ROOT" "$D/pksem7"
+  pkg_copy "$PKG_ROOT" "$D/pksem7"
   printf "pm_shortcode ZZ references/adapters/zcode.md\n" >> "$D/pksem7/scripts/package-manifest.rules"
   sh "$D/pksem7/scripts/check-package.sh" "$D/pksem7" >"$D/act.n70" 2>&1
   rc=$?
@@ -1619,7 +1619,7 @@ EOF
 
   # 负例 N71（检查 36）：fixture 工作流 description 去掉非生产标记词 → 标成生产流程即
   # exit 1 且 FAIL: 36 指名文件与冲突类型。
-  cp -R "$PKG_ROOT" "$D/pksem8"
+  pkg_copy "$PKG_ROOT" "$D/pksem8"
   sed 's/参考 fixture（非生产）/生产流程/' "$D/pksem8/references/workflows/triage.yaml" > "$D/sem8.tmp" \
     && mv "$D/sem8.tmp" "$D/pksem8/references/workflows/triage.yaml"
   sh "$D/pksem8/scripts/check-package.sh" "$D/pksem8" >"$D/act.n71" 2>&1
@@ -1633,7 +1633,7 @@ EOF
 
   # 负例 N72（检查 37）：宿主 §2.6 删一档行 → 档位表行数不足即 exit 1 且 FAIL: 37
   # 指名文件与档位表行数。
-  cp -R "$PKG_ROOT" "$D/pksem9"
+  pkg_copy "$PKG_ROOT" "$D/pksem9"
   sed '/^| standard |/d' "$D/pksem9/references/adapters/codex.md" > "$D/sem9.tmp" \
     && mv "$D/sem9.tmp" "$D/pksem9/references/adapters/codex.md"
   sh "$D/pksem9/scripts/check-package.sh" "$D/pksem9" >"$D/act.n72" 2>&1
@@ -1647,7 +1647,7 @@ EOF
 
   # 负例 N73（检查 37）：宿主 §2.6 清空档位取值 → 取值非空断言即 exit 1 且 FAIL: 37
   # 指名文件与档位。
-  cp -R "$PKG_ROOT" "$D/pksem10"
+  pkg_copy "$PKG_ROOT" "$D/pksem10"
   sed '/^| small |/s/^| small |.*|$/| small |  |/' "$D/pksem10/references/adapters/pi.md" > "$D/sem10.tmp" \
     && mv "$D/sem10.tmp" "$D/pksem10/references/adapters/pi.md"
   sh "$D/pksem10/scripts/check-package.sh" "$D/pksem10" >"$D/act.n73" 2>&1
@@ -1727,7 +1727,7 @@ EOF
 
   # 票 273 P2 守卫回归 R4：输出完整性守卫双向（缺号/多余号）不得 fail-open。
   # R4a 缺号：检查 12 提前 return 0（不产行、不设描述）→ exit 2、stdout 0 字节、stderr 指名缺失号 12。
-  cp -R "$PKG_ROOT" "$D/pkgreg4"
+  pkg_copy "$PKG_ROOT" "$D/pkgreg4"
   LC_ALL=C awk '{ print } /^check_12\(\) \{$/ { print "  return 0" }' \
     "$D/pkgreg4/scripts/checks/12-vague-words.sh" > "$D/reg4.a"
   mv "$D/reg4.a" "$D/pkgreg4/scripts/checks/12-vague-words.sh"
@@ -1741,7 +1741,7 @@ EOF
   grep -q '缺失号' "$D/err.reg4a" || r4_bad="$r4_bad 缺号未指名"
   grep -qE '(^|[^0-9])12([^0-9]|$)' "$D/err.reg4a" || r4_bad="$r4_bad 缺号未指名12"
   # R4b 多余号：检查 12 额外向输出号账本追加 999（多出不属于自己的行）→ exit 2、stdout 0 字节、stderr 指名多余号。
-  cp -R "$PKG_ROOT" "$D/pkgreg5"
+  pkg_copy "$PKG_ROOT" "$D/pkgreg5"
   LC_ALL=C awk '{ print } /^check_12\(\) \{$/ { print "  echo 999 >> \"$chk_emitted_ids\"" }' \
     "$D/pkgreg5/scripts/checks/12-vague-words.sh" > "$D/reg5.a"
   mv "$D/reg5.a" "$D/pkgreg5/scripts/checks/12-vague-words.sh"

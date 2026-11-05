@@ -31,33 +31,9 @@ sm_commit() {
 }
 
 sm_write_evidence() {
-  # $1=仓库根 $2=base $3=head：按重算 diff 指纹写审查收据（作者身份由调用方提交时固定）
-  python3 - "$1/${SM_EVIDENCE_REL}" "$2" "$3" "$1" <<'PY'
-import json, subprocess, sys
-path, base, head, repo = sys.argv[1:5]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-receipt = {
-    'schema_version': 1,
-    'receipt_kind': 'review',
-    'ticket_id': '41-merge-fixture',
-    'created_at': '2026-10-03T08:00:00Z',
-    'actor': 'reviewer',
-    'base_sha': base,
-    'head_sha': head,
-    'diff_sha': diff_sha,
-    'reviewer_identity': 'reviewer@example.com',
-    'reviewed_at': '2026-10-02T10:00:00Z',
-    'verdict': 'PASS',
-    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'a.txt:1'}],
-}
-with open(path, 'w') as fh:
-    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PY
+  # $1=仓库根 $2=base $3=head：审查收据经 receipt 落位（固定时间戳；作者身份由调用方提交时固定）
+  receipt "$1/${SM_EVIDENCE_REL}" "$1" "$2" "$3" "$SM_ID" --ac-evidence 'a.txt:1' \
+    --created-at '2026-10-03T08:00:00Z' --reviewed-at '2026-10-02T10:00:00Z'
 }
 
 sm_make_fixture() {
@@ -69,7 +45,7 @@ sm_make_fixture() {
   variant=${4:-}
   rm -rf "$R" "$WT"
   mkdir -p "$R/facts/requirements/tickets"
-  git -C "$R" init -q
+  git_repo "$R"
   if [ "$variant" = 'actual-on-branch' ]; then
     cat > "$R/facts/requirements/tickets/${SM_ID}.json" <<'EOF'
 {

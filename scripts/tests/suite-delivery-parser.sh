@@ -85,38 +85,11 @@ RULES
 }
 
 dp_probe_build() {
-  # $1=布局目录：消费件副本＋探针化解析器副本（sed 改名原实现＋包装函数采集 DP_*）
-  # ＋common-helpers 副本；DP_PROBE_OUT 环境变量指向采集文件
+  # $1=布局目录：消费件副本＋解析器原样副本＋common-helpers 副本；DP_DUMP_FILE 环境变量
+  # 指向采集文件。解析器不再改名实现体做探针——采集经只读输出缝隙 dp_dump_state 承载。
   mkdir -p "$1"
   cp "$SCRIPT_DIR/common-helpers.sh" "$1/"
-  sed 's/^dp_load_rules() {/dp_load_rules_impl() {/' "$SCRIPT_DIR/$DP_LIB_NAME" > "$1/$DP_LIB_NAME"
-  cat >> "$1/$DP_LIB_NAME" <<'PROBE'
-
-# ---- 探针包装（harness 夹具注入，非包内物）：采集 dp_load_rules 调用后的 DP_* 全态 ----
-dp_load_rules() {
-  dp_load_rules_impl "$@"
-  _dpp_rc=$?
-  if [ -n "${DP_PROBE_OUT:-}" ]; then
-    {
-      printf 'version=%s\n' "${DP_PARSER_VERSION:-}"
-      printf 'rc=%s\n' "$_dpp_rc"
-      printf 'PRESENT=%s\n' "${DP_PRESENT-}"
-      printf 'HAS_PAYLOAD=%s\n' "${DP_HAS_PAYLOAD-}"
-      printf 'ROOT=%s\n' "${DP_ROOT-}"
-      printf 'REMOTE=%s\n' "${DP_REMOTE-}"
-      printf 'TARGET=%s\n' "${DP_TARGET-}"
-      printf 'LOCAL_REF=%s\n' "${DP_LOCAL_REF-}"
-      printf 'FORBID=%s\n' "${DP_FORBID-}"
-      printf 'EXEMPT=%s\n' "${DP_EXEMPT-}"
-      printf 'STALE_LIT=%s\n' "${DP_STALE_LIT-}"
-      printf 'HAS_MAINONLY=%s\n' "${DP_HAS_MAINONLY-}"
-      printf 'MAINONLY=%s\n' "${DP_MAINONLY-}"
-      printf 'MAINONLY_DECLARED=%s\n' "${DP_MAINONLY_DECLARED-}"
-    } > "$DP_PROBE_OUT"
-  fi
-  return "$_dpp_rc"
-}
-PROBE
+  cp "$SCRIPT_DIR/$DP_LIB_NAME" "$1/$DP_LIB_NAME"
   cp "$SCRIPT_DIR/check-artifacts.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/worktree-add.sh" "$1/" 2>/dev/null
   if [ -f "$SCRIPT_DIR/export-payload.sh" ]; then
     cp "$SCRIPT_DIR/export-payload.sh" "$1/"
@@ -127,22 +100,24 @@ PROBE
   return 0
 }
 
+
 dp_run_consumer() {
-  # $1=布局目录 $2=消费件 $3=探针输出 $4=夹具仓根 $5=场景名
-  # stdout+stderr 落 $D/run.<场景>.<消费件>.log；退出码经 return 传出
+  # $1=布局目录 $2=消费件 $3=缝隙采集文件 $4=夹具仓根 $5=场景名
+  # stdout+stderr 落 $D/run.<场景>.<消费件>.log；退出码经 return 传出；
+  # 在夹具目录内执行经世界构建动词 run_in_fixture，采集经解析器只读输出缝隙 DP_DUMP_FILE。
   _rc_layout=$1; _rc_c=$2; _rc_probe=$3; _rc_repo=$4
   case $_rc_c in
     worktree-add.sh)
-      ( cd "$_rc_repo" && DP_PROBE_OUT="$_rc_probe" sh "$_rc_layout/$_rc_c" ../wt-probe ticket/97-probe ) > "$D/run.$5.$_rc_c.log" 2>&1
+      run_in_fixture "$_rc_repo" env DP_DUMP_FILE="$_rc_probe" sh "$_rc_layout/$_rc_c" ../wt-probe ticket/97-probe > "$D/run.$5.$_rc_c.log" 2>&1
       ;;
     check-artifacts.sh)
-      ( cd "$_rc_repo" && DP_PROBE_OUT="$_rc_probe" sh "$_rc_layout/$_rc_c" "$_rc_repo" ) > "$D/run.$5.$_rc_c.log" 2>&1
+      run_in_fixture "$_rc_repo" env DP_DUMP_FILE="$_rc_probe" sh "$_rc_layout/$_rc_c" "$_rc_repo" > "$D/run.$5.$_rc_c.log" 2>&1
       ;;
     check-stale-claims.sh)
-      ( cd "$_rc_repo" && DP_PROBE_OUT="$_rc_probe" sh "$_rc_layout/$_rc_c" "$_rc_repo" gate ) > "$D/run.$5.$_rc_c.log" 2>&1
+      run_in_fixture "$_rc_repo" env DP_DUMP_FILE="$_rc_probe" sh "$_rc_layout/$_rc_c" "$_rc_repo" gate > "$D/run.$5.$_rc_c.log" 2>&1
       ;;
     export-payload.sh)
-      ( cd "$_rc_repo" && DP_PROBE_OUT="$_rc_probe" sh "$_rc_layout/$_rc_c" --dry-run "$_rc_repo" ) > "$D/run.$5.$_rc_c.log" 2>&1
+      run_in_fixture "$_rc_repo" env DP_DUMP_FILE="$_rc_probe" sh "$_rc_layout/$_rc_c" --dry-run "$_rc_repo" > "$D/run.$5.$_rc_c.log" 2>&1
       ;;
   esac
   return $?

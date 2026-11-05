@@ -30,7 +30,7 @@ ao_build_fixture() {
   printf 'l1\nl2\nl3\n' > "$R/facts/project/changes.jsonl"
   printf '{"date": "2026-09-21", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "x"}\n' > "$R/facts/project/micro.jsonl"
   printf '# 冻结历史档案（fixture）\n' > "$R/facts/project/archive/progress.md"
-  git -C "$R" init -q
+  git_repo "$R"
   ao_git_commit "$R"
 }
 

@@ -28,7 +28,7 @@ cg_make_repo() {
   _cg_r=$1
   rm -rf "$_cg_r"
   mkdir -p "$_cg_r"
-  git -C "$_cg_r" init -q
+  git_repo "$_cg_r"
   printf 'seed\n' > "$_cg_r/a.txt"
   cg_git "$_cg_r" add a.txt
   cg_git "$_cg_r" commit -qm fixture

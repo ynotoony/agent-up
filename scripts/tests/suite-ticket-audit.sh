@@ -50,33 +50,9 @@ ta_amend_author() {
 }
 
 ta_write_evidence() {
-  # $1=夹具仓根：按 .base/.head 文件写审查收据（多行 JSON，字段行号可定位）
-  python3 - "$1/${TA_EVIDENCE_REL}" "$(cat "$1.base")" "$(cat "$1.head")" "$1" <<'PY'
-import json, subprocess, sys
-path, base, head, repo = sys.argv[1:5]
-diff = subprocess.run(
-    ['git', '-C', repo, 'diff', '--no-color', '--no-ext-diff', '--no-textconv',
-     '--binary', base, head], check=True, stdout=subprocess.PIPE).stdout
-diff_sha = subprocess.run(
-    ['git', '-C', repo, 'hash-object', '--stdin'], input=diff, check=True,
-    stdout=subprocess.PIPE).stdout.decode().strip()
-receipt = {
-    'schema_version': 1,
-    'receipt_kind': 'review',
-    'ticket_id': '07-fixture',
-    'created_at': '2026-10-03T08:00:00Z',
-    'actor': 'reviewer',
-    'base_sha': base,
-    'head_sha': head,
-    'diff_sha': diff_sha,
-    'reviewer_identity': 'reviewer@example.com',
-    'reviewed_at': '2026-10-03T08:00:00Z',
-    'verdict': 'PASS',
-    'acceptance': [{'ac_id': 'AC1', 'result': 'pass', 'evidence': 'a.txt:1'}],
-}
-with open(path, 'w') as fh:
-    fh.write(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
-PY
+  # $1=夹具仓根：按 .base/.head 文件写审查收据（字段行号可定位，经 receipt 落位）
+  receipt "$1/${TA_EVIDENCE_REL}" "$1" "$(cat "$1.base")" "$(cat "$1.head")" 07-fixture --ac-evidence 'a.txt:1' \
+    --created-at '2026-10-03T08:00:00Z' --reviewed-at '2026-10-03T08:00:00Z'
 }
 
 ta_make_fixture() {
@@ -86,7 +62,7 @@ ta_make_fixture() {
   _ta_patch=${2:-}
   rm -rf "$_ta_d" "$_ta_d.base" "$_ta_d.head"
   mkdir -p "$_ta_d/facts/requirements/tickets"
-  git -C "$_ta_d" init -q
+  git_repo "$_ta_d"
   printf 'seed\n' > "$_ta_d/a.txt"
   printf '{"id":"07-fixture","kind":"task","title":"fixture","created_at":"2026-10-01T00:00:00Z"}\n' \
     > "$_ta_d/facts/requirements/tickets/07-fixture.json"
@@ -178,7 +154,7 @@ ta_make_batch_fixture() {
   esac
   rm -rf "$_tb_d"
   mkdir -p "$_tb_d/facts/requirements/tickets"
-  git -C "$_tb_d" init -q
+  git_repo "$_tb_d"
   printf 'seed\n' > "$_tb_d/a.txt"
   printf '{"id":"07-fixture","kind":"task","title":"fixture","created_at":"2026-10-01T00:00:00Z"}\n' \
     > "$_tb_d/facts/requirements/tickets/07-fixture.json"
@@ -196,7 +172,7 @@ ta_make_ambiguous_fixture() {
   _ta_d=$1
   rm -rf "$_ta_d"
   mkdir -p "$_ta_d/facts/requirements/tickets"
-  git -C "$_ta_d" init -q
+  git_repo "$_ta_d"
   printf 'seed\n' > "$_ta_d/a.txt"
   printf '{"id":"07-alpha","kind":"task","title":"alpha","created_at":"2026-10-01T00:00:00Z"}\n' \
     > "$_ta_d/facts/requirements/tickets/07-alpha.json"

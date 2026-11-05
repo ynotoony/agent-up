@@ -85,7 +85,7 @@ suite_authority_matrix() {
   fi
 
   # 负例：消费者模板删去 §12.5 指针 → 必须 fail 并指名缺指针件
-  cp -R "$PKG_ROOT/references/templates" "$D/tpl-no125"
+  pkg_copy "$PKG_ROOT/references/templates" "$D/tpl-no125"
   grep -v '§12.5' "$D/tpl-no125/agents-triage.md.tmpl" > "$D/no125.tmp" \
     && mv "$D/no125.tmp" "$D/tpl-no125/agents-triage.md.tmpl"
   if authority_matrix_check "$MATRIX" "$D/tpl-no125" >"$D/no125.out" 2>&1; then
@@ -96,7 +96,7 @@ suite_authority_matrix() {
     bad 'negative-no-pointer 负例：消费者模板缺 §12.5 指针 → 必须拒绝' "$(head -n 2 "$D/no125.out" | tr '\n' '|')"
   fi
   # 负例：消费者模板回填未安装手册指针 → 必须 fail 并指名悬空指针
-  cp -R "$PKG_ROOT/references/templates" "$D/tpl-dangling"
+  pkg_copy "$PKG_ROOT/references/templates" "$D/tpl-dangling"
   # shellcheck disable=SC2016  # 单引号字面量内的 markdown 反引号／$ 是断言原文（双引号会触发命令替换），非缺陷
   printf '\n- 悬空指针夹具：见 `references/protocol/read-policy.md` §2.3.1 AW-04。\n' >> "$D/tpl-dangling/agents-review.md.tmpl"
   if authority_matrix_check "$MATRIX" "$D/tpl-dangling" >"$D/dang.out" 2>&1; then

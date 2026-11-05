@@ -317,7 +317,7 @@ suite_dispatch_contract() {
   fi
 
   # 负例 N5：包副本删已登记 schema 件 → 包闭合检查 exit 1 指名缺失件
-  cp -R "$PKG_ROOT" "$D/pkgcopy-schema"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy-schema"
   rm -f "$D/pkgcopy-schema/references/schemas/dispatch-contract.schema.json"
   sh "$D/pkgcopy-schema/scripts/check-package.sh" "$D/pkgcopy-schema" > "$D/neg-pkg-schema.out" 2>&1
   rc=$?
@@ -329,7 +329,7 @@ suite_dispatch_contract() {
   fi
 
   # 负例 N6：包副本删已登记校验器 → 包闭合检查 exit 1 指名缺失件
-  cp -R "$PKG_ROOT" "$D/pkgcopy-script"
+  pkg_copy "$PKG_ROOT" "$D/pkgcopy-script"
   rm -f "$D/pkgcopy-script/scripts/check-dispatch-contract.sh"
   sh "$D/pkgcopy-script/scripts/check-package.sh" "$D/pkgcopy-script" > "$D/neg-pkg-script.out" 2>&1
   rc=$?
