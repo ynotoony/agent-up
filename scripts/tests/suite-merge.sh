@@ -11,7 +11,8 @@ fi
 #         清理，被测仓库只读零改动（合并成功路径的清场以 worktree/分支实际状态断言）。
 # Pos: 合并站证据门回归（票 237）：正例 conformant 证据下 ff 合并放行并清场；actual_time
 #      仅在票分支（主检出缺失）时仍放行（票体读票分支 tip）；分支 tip 含规范 Review
-#      Checkpoint md 时允许集与 done 门同源放行；负例缺证据/未提交证据拒绝
+#      Checkpoint md 时允许集与 done 门同源放行；证据后仅记录面派生件（changes.jsonl＋
+#      tickets/README.md）提交时 P04 放行（记录面允许集，C0 修复）；负例缺证据/未提交证据拒绝
 #      （decision-required，worktree 与分支保留）、审查后产品又提交（P04）、head 重绑但
 #      diff_sha 未重算（P05）、无绑定 worktree、主仓不干净、分支不存在与参数形态；安装
 #      闭包 fast-lane 真跑（merge-ticket 与 ticket-audit 落位且与包基线字节一致）。
@@ -184,6 +185,28 @@ suite_merge() {
     ok '正例 P1c 分支 tip 含合法 Review Checkpoint md → merge exit 0 放行并清场（与 done 门同源）'
   else
     bad '正例 P1c 分支 tip 含合法 Review Checkpoint md → merge exit 0 放行并清场（与 done 门同源）' "exit=$rc $(tail -n 3 "$D/p1c.out" | tr '\n' '|')"
+  fi
+
+  # ---- 正例 P1d：审查后仅提交记录面派生件（changes.jsonl＋tickets/README.md）→ P04 放行 ----
+  # 记录面派生件随每次票务操作必然变动（账本行追加、README 状态列同步），不属被审阅的
+  # 实现面；允许集补入两件后，主线在分支期间落记录面提交不再被 P04 误判污染（C0 修复）。
+  sm_make_fixture "$D/p1d" "$D/p1d-wt" committed
+  mkdir -p "$D/p1d-wt/facts/project"
+  printf '%s\n' '{"date":"2026-10-04","kind":"change","scope":"41","decision":"fixture 记录面行","evidence_ref":"facts/requirements/tickets/41-merge-fixture.json"}' >> "$D/p1d-wt/facts/project/changes.jsonl"
+  # shellcheck disable=SC2016  # fixture 记录面文本刻意含字面反引号（单引号防命令替换），非缺陷
+  printf '| `41-merge-fixture.json` | 任务票 41；`review_ready` | fixture |\n' > "$D/p1d-wt/facts/requirements/tickets/README.md"
+  sm_commit "$D/p1d-wt" impl@example.com '2026-10-04T00:00:00Z' 'record face commit'
+  p1d_tip=$(git -C "$D/p1d-wt" rev-parse HEAD)
+  sm_run "$D/p1d" "$D/p1d.out" "$SM_BRANCH" "$SM_ID"
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q 'PASS P04 review-boundary-clean:' "$D/p1d.out" \
+    && grep -q 'merge-ticket: PASS（模式 fast-forward' "$D/p1d.out" \
+    && [ "$(git -C "$D/p1d" rev-parse HEAD)" = "$p1d_tip" ] \
+    && [ ! -d "$D/p1d-wt" ]; then
+    ok '正例 P1d 证据后仅记录面派生件提交（changes.jsonl＋tickets/README.md）→ P04 放行并合并'
+  else
+    bad '正例 P1d 证据后仅记录面派生件提交（changes.jsonl＋tickets/README.md）→ P04 放行并合并' "exit=$rc $(grep -E '^(PASS P04|FAIL P0[0-9])' "$D/p1d.out" | tr '\n' '|')"
   fi
 
   # ---- 负例 N1：缺证据 → decision-required，零合并、worktree/分支保留 ----

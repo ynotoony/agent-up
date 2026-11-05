@@ -18,6 +18,10 @@
 #      空白不受理（家族先例 S4 同款口径）。行为语义变化经 Review 门禁。
 #      票 237 补正：actual_time 预检读被合并票分支 tip（主检出仅回退）；证据允许集与
 #      done 门同源（含票面声明的规范 Review Checkpoint md，判定在 common-helpers）。
+#      记录面允许集（C0 修复）：P04 允许集除索引/投影/票面 cp md 外，另纳入
+#      facts/project/changes.jsonl 与 facts/requirements/tickets/README.md——两者是随
+#      每次票务操作必然变动的记录面派生件（账本行追加、README 状态列同步），不是被
+#      审阅的实现面；主线在分支期间落记录面提交不应被 P04 判成「审阅边界被污染」。
 
 # 用法见同目录 README.md「merge-ticket.sh」节。
 
@@ -193,11 +197,15 @@ if [ -n "${_audit_cp}" ]; then
   sh "${audit_cmd}" "${nn}" --repo "${wt}" --operation merge \
     --allow-after 'facts/requirements/tickets/index.json' \
     --allow-after 'facts/requirements/tickets/progress-current.md' \
+    --allow-after 'facts/project/changes.jsonl' \
+    --allow-after 'facts/requirements/tickets/README.md' \
     --allow-after "${_audit_cp}" || audit_rc=$?
 else
   sh "${audit_cmd}" "${nn}" --repo "${wt}" --operation merge \
     --allow-after 'facts/requirements/tickets/index.json' \
-    --allow-after 'facts/requirements/tickets/progress-current.md' || audit_rc=$?
+    --allow-after 'facts/requirements/tickets/progress-current.md' \
+    --allow-after 'facts/project/changes.jsonl' \
+    --allow-after 'facts/requirements/tickets/README.md' || audit_rc=$?
 fi
 case ${audit_rc} in
   0) printf 'merge-ticket: 证据门: ticket-audit --operation merge 允许（conformant）\n' ;;

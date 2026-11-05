@@ -995,7 +995,7 @@ for flip in ${flips}; do
     f_status=$(printf '%s' "${flip}" | cut -f 4)
     f_updated=$(printf '%s' "${flip}" | cut -f 5)
     printf '%s' "${f_id}" | grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
-      die1 "索引条目 id 不合 issue-index schema 口径（^[0-9]{2,}-[a-z0-9-]+$）: ${f_id}"
+      die1 "索引条目 id 不合 issue-index schema 口径（^[0-9]{2,}-[a-z0-9-]+\$）: ${f_id}"
     printf '%s' "${f_status}" | grep -Eq '^(ready|in_progress|blocked|review_ready|review_pass|review_fail|done|superseded)$' || \
       die1 "索引条目 status 不合状态机取值（裸值，不带冒号后缀）: ${f_status}"
     printf '%s' "${f_updated}" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?$' || \
