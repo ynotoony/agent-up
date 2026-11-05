@@ -30,13 +30,16 @@ suite_shellcheck() {
   fi
 
   # 被测清单：find 枚举（harness 顶层 set -f 禁 shell glob，不能用 *.sh 通配）；
-  # 面＝产品脚本一级 ＋ 同目录 tests 一级（测试代码同受静态门禁；tests/ 不在场的
-  # 安装面夹具按在场枚举，不虚构缺口）
+  # 面＝产品脚本一级 ＋ 同目录 tests 一级 ＋ checks 一级检查件分片（测试代码与检查件
+  # 同受静态门禁；不在场的安装面夹具按在场枚举，不虚构缺口）
   _sh_list="$D/files.txt"
   {
     find "$SCRIPT_DIR" -maxdepth 1 -type f -name '*.sh'
     if [ -d "$SCRIPT_DIR/tests" ]; then
       find "$SCRIPT_DIR/tests" -maxdepth 1 -type f -name '*.sh'
+    fi
+    if [ -d "$SCRIPT_DIR/checks" ]; then
+      find "$SCRIPT_DIR/checks" -maxdepth 1 -type f -name '*.sh'
     fi
   } | LC_ALL=C sort > "$_sh_list"
   _sh_n=$(wc -l < "$_sh_list" | tr -d ' ')

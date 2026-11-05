@@ -19,6 +19,7 @@
 # 路径常量区（票 111 波②批次 1/6）：治理路径字面量唯一收拢点；值＝原字面量，零翻值，
 # 数据区外禁再写游离治理路径字面量（注释同）；正则内转义形态与检查 3/4 自命中规避
 # 构造豁免（见头部注记与各检查内注记）。
+# shellcheck disable=SC2034  # 跨件共享常量/状态（checks/*.sh 检查件消费、引擎分发面赋值），单文件视野误报
 docs_dir='docs'
 rules_dir='rules'
 facts_dir='facts'
@@ -49,7 +50,8 @@ is_worktree() {
 }
 
 pass() {
-  printf 'PASS: %s %s\n' "$1" "$2"
+  printf 'PASS: %s %s\n' "$1" "$2" >> "$chk_out_buf"
+  printf '%s\n' "$1" >> "$chk_emitted_ids"
 }
 
 fail() {
@@ -60,29 +62,30 @@ fail() {
   case $_detail in
     *'
 '*)
-      printf 'FAIL: %s %s 详情：\n' "$_n" "$_desc"
-      printf '%s\n' "$_detail" | sed 's/^/  /'
+      printf 'FAIL: %s %s 详情：\n' "$_n" "$_desc" >> "$chk_out_buf"
+      printf '%s\n' "$_detail" | sed 's/^/  /' >> "$chk_out_buf"
       ;;
     '')
-      printf 'FAIL: %s %s\n' "$_n" "$_desc"
+      printf 'FAIL: %s %s\n' "$_n" "$_desc" >> "$chk_out_buf"
       ;;
     *)
-      printf 'FAIL: %s %s — %s\n' "$_n" "$_desc" "$_detail"
+      printf 'FAIL: %s %s — %s\n' "$_n" "$_desc" "$_detail" >> "$chk_out_buf"
       ;;
   esac
+  printf '%s\n' "$_n" >> "$chk_emitted_ids"
   failures=$((failures + 1))
 }
 
 usage() {
-  cat <<'USAGE'
+  cat <<USAGE
 用法: sh check-package.sh [package-root]
 参数:
   package-root  待检包根目录（含 SKILL.md 的目录）；缺省时取本脚本所在目录的父目录。
 退出码:
-  0  三十七项检查全部通过
+  0  ${n_total_checks} 项检查全部通过
   1  存在未通过项（逐项 FAIL 行见输出）
   2  用法或环境错误（参数过多、包根不存在、包清单数据缺失或损坏等）
-三十七项检查说明、例外登记与输出格式见同目录 README.md。
+${n_total_checks} 项检查说明、例外登记与输出格式见同目录 README.md。
 USAGE
 }
 
@@ -97,6 +100,13 @@ header_window() {
 }
 
 script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
+# ---- 检查注册表上界派生（用法文本与汇总行同一来源）----
+chk_registry_file="$script_dir/checks/registry.rules"
+n_total_checks=''
+if [ -f "$chk_registry_file" ]; then
+  n_total_checks=$(LC_ALL=C awk '$1 == "chk_total" { print $2; exit }' "$chk_registry_file")
+fi
+n_total_checks=${n_total_checks:-37}
 if [ $# -gt 1 ]; then
   printf 'check-package: 错误：至多接受一个参数\n' >&2
   usage >&2
@@ -161,6 +171,19 @@ pm_prodclaims=''
 pm_tstatus=''
 pm_rosites=''
 pm_cptrs=''
+pm_checks=''
+pm_checktotal=''
+pm_checkretired=''
+chk_parsed=''
+chk_rows=''
+chk_retired=''
+chk_total_rows=''
+chk_out_buf=''
+chk_state_desc=''
+chk_state_skip=''
+chk_state_problems=''
+chk_state_stdout=''
+chk_emitted_ids=''
 pm_cleanup() {
   rm -f "$pm_entries" "$pm_scripts" "$pm_templates" "$pm_codes" "$pm_platforms" \
     "$pm_words" "$pm_exempts" "$pm_mirrors" "$pm_caps" "$pm_capauth" "$pm_captargets" \
@@ -169,7 +192,11 @@ pm_cleanup() {
     "$pm_enf" "$pm_enfvocab" "$pm_adapters" \
     "$pm_adcap" "$pm_adrole" "$pm_adexec" "$pm_addial" \
     "$pm_retired" "$pm_retface" "$pm_legmark" "$pm_workflows" "$pm_wffixmark" \
-    "$pm_prodentries" "$pm_prodclaims" "$pm_tstatus" "$pm_rosites" "$pm_cptrs"
+    "$pm_prodentries" "$pm_prodclaims" "$pm_tstatus" "$pm_rosites" "$pm_cptrs" \
+    "$pm_checks" "$pm_checktotal" "$pm_checkretired" \
+    "$chk_parsed" "$chk_rows" "$chk_retired" "$chk_total_rows" \
+    "$chk_out_buf" "$chk_state_desc" "$chk_state_skip" "$chk_state_problems" "$chk_state_stdout" \
+    "$chk_emitted_ids" "$chk_emitted_ids.expected" "$chk_emitted_ids.actual"
 }
 trap pm_cleanup EXIT HUP INT TERM
 pm_entries=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
@@ -209,6 +236,15 @@ pm_prodclaims=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_tstatus=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_rosites=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
 pm_cptrs=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+pm_checks=$(mktemp "$t_dir/pkgmanifest.XXXXXX")
+pm_checktotal=$(mktemp "$t_dir/pkgmanifest.XXXXXX")
+pm_checkretired=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
+chk_out_buf=$(mktemp "${t_dir%/}/chkresult.XXXXXX")
+chk_state_desc=$(mktemp "${t_dir%/}/chkresult.XXXXXX")
+chk_state_skip=$(mktemp "${t_dir%/}/chkresult.XXXXXX")
+chk_state_problems=$(mktemp "${t_dir%/}/chkresult.XXXXXX")
+chk_state_stdout=$(mktemp "${t_dir%/}/chkresult.XXXXXX")
+chk_emitted_ids=$(mktemp "${t_dir%/}/chkresult.XXXXXX")
 
 pm_die() {
   printf 'check-package: 错误：包清单数据不合预期（fail-closed，不产生部分结论）: %s\n' "$pm_rules" >&2
@@ -310,6 +346,10 @@ pm_parse_data() {
     else if (cmd == "pm_adapter_exec" || cmd == "pm_adapter_dialect") ar = 3
     else if (cmd == "pm_adapter_cap" || cmd == "pm_adapter_role") ar = 4
     else if (cmd == "pm_contract_pointer") ar = 5
+    else if (cmd == "pm_check") ar = 2
+    else if (cmd == "pm_check_total" || cmd == "pm_check_retired") ar = 1
+    else if (cmd == "chk") ar = 4
+    else if (cmd == "chk_total" || cmd == "chk_retired") ar = 1
     else if (cmd == "pm_adapter") ar = 6
     if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
     if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
@@ -369,6 +409,9 @@ pm_dispatch_file() {
     pm_ticket_status) printf '%s\n' "$pm_dispatch_rest" >> "$pm_tstatus" ;;
     pm_readonly_site) printf '%s\n' "$pm_dispatch_rest" >> "$pm_rosites" ;;
     pm_contract_pointer) printf '%s\n' "$pm_dispatch_rest" >> "$pm_cptrs" ;;
+    pm_check) printf '%s\n' "$pm_dispatch_rest" >> "$pm_checks" ;;
+    pm_check_total) printf '%s\n' "$pm_dispatch_rest" >> "$pm_checktotal" ;;
+    pm_check_retired) printf '%s\n' "$pm_dispatch_rest" >> "$pm_checkretired" ;;
   esac
   done < "$1"
 }
@@ -419,6 +462,8 @@ rm -f "$pm_parsed"; pm_parsed=''
 [ -s "$pm_tstatus" ] || pm_die '清单缺 workflow-graph 节票状态词表登记（零行）'
 [ -s "$pm_rosites" ] || pm_die '清单缺 readonly-sites 节声明面登记（零行）'
 [ -s "$pm_cptrs" ] || pm_die '清单缺 contract-pointers 节 README 契约指针登记（零行）'
+[ -s "$pm_checks" ] || pm_die '清单缺 check-registry 节检查登记（零行）'
+[ -s "$pm_checktotal" ] || pm_die '清单缺 check-registry 节编号上界（零行）'
 
 pm_bad=$(LC_ALL=C awk -F'\t' '
   function bad(msg) { printf "entry-files 节第 %d 行: %s\n", FNR, msg; n++ }
@@ -951,6 +996,44 @@ pm_bad=$(LC_ALL=C awk -F'\t' '
 ' "$pm_cptrs") || true
 pm_report "$pm_bad"
 
+# check-registry 节结构校验（检查注册表登记面；编号上界恰一行正整数，退役号与在役行跨行唯一）。
+pm_bad=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "check-registry 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1：编号上界）"); next }
+    if ($1 !~ /^[1-9][0-9]*$/) { bad("编号上界须正整数: " $1) }
+  }
+  END { if (FNR != 1) bad("编号上界须恰一行（实际 " FNR " 行）"); if (n > 0) exit 1 }
+' "$pm_checktotal") || true
+pm_report "$pm_bad"
+
+pm_check_total_n=$(cat "$pm_checktotal")
+pm_bad=$(LC_ALL=C awk -F'\t' -v total="$pm_check_total_n" '
+  function bad(msg) { printf "check-registry 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 1) { bad("字段数 " NF "（预期 1：退役号）"); next }
+    if ($1 !~ /^[1-9][0-9]*$/) { bad("退役号须正整数: " $1); next }
+    if ($1 + 0 > total) { bad("退役号超出编号上界: " $1); next }
+    if ($1 in seen) { bad("退役号跨行重复: " $1) } else { seen[$1] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_checkretired") || true
+pm_report "$pm_bad"
+
+pm_bad=$(LC_ALL=C awk -F'\t' -v total="$pm_check_total_n" '
+  function bad(msg) { printf "check-registry 节第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 2) { bad("字段数 " NF "（预期 2：检查号、slug）"); next }
+    if ($1 !~ /^[1-9][0-9]*$/) { bad("检查号须正整数: " $1); next }
+    if ($1 + 0 > total) { bad("检查号超出编号上界: " $1); next }
+    if ($2 !~ /^[a-z][a-z0-9-]*$/) { bad("slug 须小写 token: " $2); next }
+    if ($1 in seenid) { bad("检查号跨行重复: " $1) } else { seenid[$1] = 1 }
+    if ($2 in seenslug) { bad("slug 跨行重复: " $2) } else { seenslug[$2] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$pm_checks") || true
+pm_report "$pm_bad"
+
 # 问题行累加器（单行；多行由 fail() 走详情块缩进排版）
 problems=''
 add_problem() {
@@ -961,244 +1044,9 @@ add_problem() {
   problems="$problems$1"
 }
 
-# 检查 1：必需入口存在（清单 entry-files 节逐行，票 57 数据驱动；对照 SPEC-06 §2 目标
-# 结构与票 09 Checkpoint 清单）。
-n_entries=$(wc -l < "$pm_entries" | tr -d ' ')
-missing_entries=''
-sep=''
-while IFS= read -r rel; do
-  if [ ! -f "$pkg_root/$rel" ]; then
-    missing_entries="$missing_entries$sep  - $rel"
-    sep='
-'
-  fi
-done < "$pm_entries"
-if [ -n "$missing_entries" ]; then
-  fail 1 "必需入口存在（${n_entries} 个文件）" "$missing_entries"
-else
-  pass 1 "必需入口存在（${n_entries} 个文件）"
-fi
 
-# 检查 2：SKILL.md frontmatter 为 name: agent-up。
-if [ ! -f "$pkg_root/SKILL.md" ]; then
-  fail 2 'SKILL.md frontmatter 为 name: agent-up' 'SKILL.md 不存在'
-elif awk '
-  NR == 1 { ok = ($0 == "---"); next }
-  ok && !closed {
-    if ($0 == "---") closed = 1
-    else if ($0 ~ /^name: agent-up$/) found = 1
-  }
-  END { if (ok && closed && found) exit 0; exit 1 }
-' "$pkg_root/SKILL.md"; then
-  pass 2 'SKILL.md frontmatter 为 name: agent-up'
-else
-  fail 2 'SKILL.md frontmatter 为 name: agent-up' 'frontmatter 缺失、未闭合或不含 name: agent-up 行'
-fi
-
-# 检查 3：包内无旧标识残留（模式运行时为完整旧 Skill 标识字面量，见 README.md）。
-old_id='project-ini'"t"
-hits=$(grep -rn -e "$old_id" "$pkg_root" 2>/dev/null || true)
-if [ -n "$hits" ]; then
-  fail 3 '包内无旧标识残留' "$hits"
-else
-  pass 3 '包内无旧标识残留'
-fi
-
-# 检查 4：无绝对路径与根治理引用。
-# 绝对路径前缀模式运行时为“斜杠 + Users/home + 斜杠”（拼接构造避免自命中）；
-# 根治理引用只查转义字面量“上级 docs”与“上级 .zcode”（.tmpl 内的兄弟路径语义不在本项口径内，按票 09/11 结论）。
-pat_users='/'"Users/"
-pat_home='/'"home/"
-hits=$(grep -rn \
-  -e "$pat_users" \
-  -e "$pat_home" \
-  -e '\.\./docs' \
-  -e '\.\./\.zcode' \
-  "$pkg_root" 2>/dev/null || true)
-if [ -n "$hits" ]; then
-  fail 4 '无绝对路径与根治理引用' "$hits"
-else
-  pass 4 '无绝对路径与根治理引用'
-fi
-
-# 检查 5：模板清单一致（票 57 数据驱动：数据 templates 节 ↔ 磁盘 .tmpl ↔
-# templates/README.md manifest 表双向；manifest＝人读投影，数据＝机器真相）。
-templates_dir="$pkg_root/references/templates"
-manifest="$templates_dir/README.md"
-n_templates=$(wc -l < "$pm_templates" | tr -d ' ')
-tmpl_list=''
-if [ -d "$templates_dir" ]; then
-  tmpl_list=$(find "$templates_dir" -type f -name '*.tmpl' | sort)
-fi
-disk_count=0
-if [ -n "$tmpl_list" ]; then
-  disk_count=$(printf '%s\n' "$tmpl_list" | wc -l | tr -d ' ')
-fi
-problems=''
-if [ ! -d "$templates_dir" ]; then
-  add_problem '  - references/templates/ 目录不存在'
-elif [ "$disk_count" -ne "$n_templates" ]; then
-  # 花括号不可省略：$disk_count 后紧跟全角字符时，sh 会把多字节字符并入变量名。
-  add_problem "  - .tmpl 数量为 ${disk_count}（预期 ${n_templates}）"
-fi
-if [ -d "$templates_dir" ]; then
-  # 磁盘 .tmpl ⊆ 数据（票 09「无未登记」口径的机器真相侧）
-  unreg=''
-  sep2=''
-  OLDIFS=$IFS
-  IFS='
-'
-  for t in $tmpl_list; do
-    IFS=$OLDIFS
-    if ! grep -qxF "$(basename "$t")" "$pm_templates"; then
-      unreg="$unreg$sep2$(basename "$t")"
-      sep2='、'
-    fi
-  done
-  IFS=$OLDIFS
-  if [ -n "$unreg" ]; then
-    add_problem "  - 数据未登记：$unreg"
-  fi
-  # 数据 ⊆ 磁盘
-  data_no_file=''
-  sep2=''
-  OLDIFS=$IFS
-  IFS='
-'
-  while IFS= read -r b; do
-    if [ ! -f "$templates_dir/$b" ]; then
-      data_no_file="$data_no_file$sep2$b"
-      sep2='、'
-    fi
-  done < "$pm_templates"
-  IFS=$OLDIFS
-  if [ -n "$data_no_file" ]; then
-    add_problem "  - 数据登记但无实际文件：$data_no_file"
-  fi
-  # 数据 ↔ manifest 表双向
-  if [ ! -f "$manifest" ]; then
-    add_problem '  - templates/README.md（manifest）不存在'
-  else
-    # 仅在“## 目录清单”至“## 取舍”节内提取（票 09 口径：避开取舍登记散文提及）。
-    # shellcheck disable=SC2016  # sed 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
-    man_names=$(sed -n '/^## 目录清单/,/^## 取舍/p' "$manifest" | sed -n 's/[^`]*`\([^`]*\.tmpl\)`.*/\1/p' | sort -u)
-    data_no_man=''
-    sep2=''
-    OLDIFS=$IFS
-    IFS='
-'
-    while IFS= read -r b; do
-      if ! printf '%s\n' "$man_names" | grep -qxF "$b"; then
-        data_no_man="$data_no_man$sep2$b"
-        sep2='、'
-      fi
-    done < "$pm_templates"
-    IFS=$OLDIFS
-    if [ -n "$data_no_man" ]; then
-      add_problem "  - 未在 manifest 登记：$data_no_man"
-    fi
-    man_no_data=''
-    sep2=''
-    for m in $man_names; do
-      if ! grep -qxF "$m" "$pm_templates"; then
-        man_no_data="$man_no_data$sep2$m"
-        sep2='、'
-      fi
-    done
-    if [ -n "$man_no_data" ]; then
-      add_problem "  - manifest 登记但不在数据：$man_no_data"
-    fi
-  fi
-fi
-if [ -n "$problems" ]; then
-  fail 5 "templates 下 .tmpl 为 ${n_templates} 个且全部登记" "$problems"
-else
-  pass 5 "templates 下 .tmpl 为 ${n_templates} 个且全部登记"
-fi
-
-# 检查 6：文本契约头齐全。*.md 与 *.tmpl 在检测窗口内须含 Input:/Output:/Pos: 三行；
-# 例外（登记见 README.md 与 schemas/README.md、templates/README.md）：
-#   - artifacts-yaml.tmpl 以 YAML # 注释承载（前 5 行含 # Input:/# Output:/# Pos:）；
-#   - LICENSE 与 schemas/*.json 不在 *.md/*.tmpl 范围内，自然豁免。
-file_list=$(find "$pkg_root" -type f \( -name '*.md' -o -name '*.tmpl' \) | sort)
-header_missing=''
-sep=''
-OLDIFS=$IFS
-IFS='
-'
-for f in $file_list; do
-  case $f in
-    */artifacts-yaml.tmpl)
-      win=$(head -n 5 "$f")
-      m_in='# Input:'
-      m_out='# Output:'
-      m_pos='# Pos:'
-      ;;
-    */delivery-rules.tmpl)
-      win=$(head -n 5 "$f")
-      m_in='# Input:'
-      m_out='# Output:'
-      m_pos='# Pos:'
-      ;;
-    *)
-      win=$(header_window "$f")
-      m_in='Input:'
-      m_out='Output:'
-      m_pos='Pos:'
-      ;;
-  esac
-  miss=''
-  case $win in
-    *"$m_in"*) ;;
-    *) miss='Input' ;;
-  esac
-  case $win in
-    *"$m_out"*) ;;
-    *) miss="${miss:+$miss }Output" ;;
-  esac
-  case $win in
-    *"$m_pos"*) ;;
-    *) miss="${miss:+$miss }Pos" ;;
-  esac
-  if [ -n "$miss" ]; then
-    header_missing="$header_missing$sep  - ${f#"${pkg_root}/"} 缺 $miss"
-    sep='
-'
-  fi
-done
-IFS=$OLDIFS
-if [ -n "$header_missing" ]; then
-  fail 6 '文本契约头齐全（*.md 与 *.tmpl）' "$header_missing"
-else
-  pass 6 '文本契约头齐全（*.md 与 *.tmpl）'
-fi
-
-# 检查 7：根治理文件不在包内（AGENTS.md、$docs_dir、$rules_dir、$facts_dir、.zcode/——
-# 票 113 波④：rules/、facts/ 为新布局治理面，包内禁出现目标录像 docs/ 旧形态）。
-gov_found=''
-if [ -e "$pkg_root/AGENTS.md" ]; then
-  gov_found='AGENTS.md（文件）'
-fi
-if [ -d "$pkg_root/$docs_dir" ]; then
-  gov_found="$gov_found $docs_dir/（目录）"
-fi
-if [ -d "$pkg_root/$rules_dir" ]; then
-  gov_found="$gov_found $rules_dir/（目录）"
-fi
-if [ -d "$pkg_root/$facts_dir" ]; then
-  gov_found="$gov_found $facts_dir/（目录）"
-fi
-if [ -d "$pkg_root/.zcode" ]; then
-  gov_found="$gov_found .zcode/（目录）"
-fi
-if [ -n "$gov_found" ]; then
-  fail 7 '根治理文件不在包内' "包根存在：$gov_found"
-else
-  pass 7 '根治理文件不在包内'
-fi
-
-# 票 177：worktree 环境识别与 main-only 清单提取（门禁 8/9 共用）。
-# worktree 内 delivery.rules dp_mainonly 清单的脚本不检查存在性。
+# ---- 共享派生：worktree 环境识别与 main-only 清单（检查 8/9 共用；注册表分发前一次计算）----
+# 票 177：worktree 内 delivery.rules dp_mainonly 清单的脚本不检查存在性。
 mainonly_list=''
 in_worktree=0
 if is_worktree; then
@@ -1220,2950 +1068,245 @@ if is_worktree; then
   fi
 fi
 
-# 检查 8：脚本必需件存在（清单 scripts 节逐行，票 57 数据驱动；kind 区分普通脚本/规则
-# 表/test-harness，口径差定谳＝test-record-layer.sh 定为必需件；票 48 fail-closed 守卫：
-# 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽）。
-# 票 177：worktree 环境豁免 main-only 脚本检查（delivery.rules dp_mainonly 清单），
-# 主检出保持原有检查（仍检测全部 scripts 节登记件）。
-n_scripts=$(wc -l < "$pm_scripts" | tr -d ' ')
-missing_scripts=''
-sep=''
-
-if [ "$in_worktree" -eq 1 ]; then
-  printf 'SKIP: 8 脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）\n'
-  # worktree 环境：检查非 main-only 脚本
-  OLDIFS=$IFS
-  IFS='
-'
-  while IFS= read -r row; do
-    rel=${row%%"$TAB"*}
-    # 判断是否为 main-only 脚本（delivery.rules 路径含 agent-up/ 前缀，需匹配 scripts/ 相对路径）
-    is_mainonly=0
-    for mo in $mainonly_list; do
-      # mo 形如 agent-up/scripts/export-payload.sh，rel 形如 scripts/export-payload.sh
-      # 匹配时去掉 agent-up/ 前缀
-      mo_rel="${mo#agent-up/}"
-      if [ "$rel" = "$mo_rel" ]; then
-        is_mainonly=1
-        break
-      fi
-    done
-    if [ "$is_mainonly" -eq 0 ] && [ ! -f "$pkg_root/$rel" ] && [ ! -d "$pkg_root/$rel" ]; then
-      missing_scripts="$missing_scripts$sep  - $rel"
-      sep='
-'
-    fi
-  done < "$pm_scripts"
-  IFS=$OLDIFS
-  if [ -n "$missing_scripts" ]; then
-    fail 8 "脚本必需件存在（${n_scripts} 个文件，worktree 跳过 main-only）" "$missing_scripts"
-  else
-    pass 8 "脚本必需件存在（${n_scripts} 个文件，worktree 跳过 main-only）"
-  fi
-else
-  # 主检出：检查全部 scripts 节登记件
-  OLDIFS=$IFS
-  IFS='
-'
-  while IFS= read -r row; do
-    rel=${row%%"$TAB"*}
-    if [ ! -f "$pkg_root/$rel" ] && [ ! -d "$pkg_root/$rel" ]; then
-      missing_scripts="$missing_scripts$sep  - $rel"
-      sep='
-'
-    fi
-  done < "$pm_scripts"
-  IFS=$OLDIFS
-  if [ -n "$missing_scripts" ]; then
-    fail 8 "脚本必需件存在（${n_scripts} 个文件）" "$missing_scripts"
-  else
-    pass 8 "脚本必需件存在（${n_scripts} 个文件）"
-  fi
-fi
-
-# 检查 9：$scripts_readme_rel 成员表 ↔ 数据 scripts 节一致（票 57 新增）。一致口径（双向）：
-# ①数据 scripts 节每件都在成员表登记（表＝人读投影不得漏登必需件）；②成员表登记的
-# 每件都是 $scripts_dir 下实际文件（表与实物不漂移）。
-# 票 177：worktree 环境豁免 main-only 脚本的成员表检查，主检出保持原有检查。
-problems=''
-scripts_readme="$pkg_root/$scripts_readme_rel"
-
-if [ "$in_worktree" -eq 1 ]; then
-  printf 'SKIP: 9 %s 成员表与数据 scripts 节一致（worktree 环境，跳过 main-only 成员检查）\n' "$scripts_readme_rel"
-  # worktree 环境：检查非 main-only 脚本与成员表一致性
-  if [ ! -f "$scripts_readme" ]; then
-    add_problem "  - ${scripts_readme_rel}（成员表）不存在"
-  else
-    # shellcheck disable=SC2016  # sed 正则捕获组 \(...\) 必须单引号防止 shell 展开
-    table_names=$(awk '
-      /^\| 名字 \| 地位 \| 功能 \|/ { f = 1; next }
-      f { if ($0 !~ /^\|/) f = 0; else print }
-    ' "$scripts_readme" | sed -n 's/^| `\([^`]*\)`.*/\1/p')
-    if [ -z "$table_names" ]; then
-      add_problem '  - 成员表未提取到成员行（表结构漂移）'
-    else
-      miss_tbl=''
-      sep2=''
-      OLDIFS=$IFS
-      IFS='
-'
-      while IFS= read -r row; do
-        rel=${row%%"$TAB"*}
-        b=${rel##*/}
-        # 跳过 main-only 脚本的成员表检查（delivery.rules 路径含 agent-up/ 前缀）
-        is_mainonly=0
-        for mo in $mainonly_list; do
-          mo_rel="${mo#agent-up/}"
-          if [ "$rel" = "$mo_rel" ]; then
-            is_mainonly=1
-            break
-          fi
-        done
-        if [ "$is_mainonly" -eq 0 ] && ! printf '%s\n' "$table_names" | grep -qxF "$b"; then
-          miss_tbl="$miss_tbl$sep2$b"
-          sep2='、'
-        fi
-      done < "$pm_scripts"
-      IFS=$OLDIFS
-      if [ -n "$miss_tbl" ]; then
-        add_problem "  - 数据登记未在成员表（worktree 跳过 main-only）：$miss_tbl"
-      fi
-      no_file=''
-      sep2=''
-      for b in $table_names; do
-        # 跳过 main-only 脚本的文件存在性检查
-        is_mainonly_b=0
-        for mo in $mainonly_list; do
-          mo_basename=${mo##*/}
-          if [ "$b" = "$mo_basename" ]; then
-            is_mainonly_b=1
-            break
-          fi
-        done
-        if [ "$is_mainonly_b" -eq 0 ] && [ ! -f "$pkg_root/$scripts_dir/$b" ] && [ ! -d "$pkg_root/$scripts_dir/$b" ]; then
-          no_file="$no_file$sep2$b"
-          sep2='、'
-        fi
-      done
-      if [ -n "$no_file" ]; then
-        add_problem "  - 成员表登记但无实际文件（worktree 跳过 main-only）：$no_file"
-      fi
-    fi
-  fi
-  if [ -n "$problems" ]; then
-    fail 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致（worktree 跳过 main-only）" "$problems"
-  else
-    pass 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致（worktree 跳过 main-only）"
-  fi
-else
-  # 主检出：检查全部 scripts 节与成员表一致性
-  if [ ! -f "$scripts_readme" ]; then
-    add_problem "  - ${scripts_readme_rel}（成员表）不存在"
-  else
-    # 提取成员表（锚点＝首列表头行；表格随首个非 | 行结束），每行取首列反引号名单。
-    # shellcheck disable=SC2016  # awk 程序刻意字面 $（引号形态由程序语义决定；wiki 长尾误报）
-    table_names=$(awk '
-      /^\| 名字 \| 地位 \| 功能 \|/ { f = 1; next }
-      f { if ($0 !~ /^\|/) f = 0; else print }
-    ' "$scripts_readme" | sed -n 's/^| `\([^`]*\)`.*/\1/p')
-    if [ -z "$table_names" ]; then
-      add_problem '  - 成员表未提取到成员行（表结构漂移）'
-    else
-      miss_tbl=''
-      sep2=''
-      OLDIFS=$IFS
-      IFS='
-'
-      while IFS= read -r row; do
-        rel=${row%%"$TAB"*}
-        b=${rel##*/}
-        if ! printf '%s\n' "$table_names" | grep -qxF "$b"; then
-          miss_tbl="$miss_tbl$sep2$b"
-          sep2='、'
-        fi
-      done < "$pm_scripts"
-      IFS=$OLDIFS
-      if [ -n "$miss_tbl" ]; then
-        add_problem "  - 数据登记未在成员表：$miss_tbl"
-      fi
-      no_file=''
-      sep2=''
-      for b in $table_names; do
-        if [ ! -f "$pkg_root/$scripts_dir/$b" ] && [ ! -d "$pkg_root/$scripts_dir/$b" ]; then
-          no_file="$no_file$sep2$b"
-          sep2='、'
-        fi
-      done
-      if [ -n "$no_file" ]; then
-        add_problem "  - 成员表登记但无实际文件：$no_file"
-      fi
-    fi
-  fi
-  if [ -n "$problems" ]; then
-    fail 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致" "$problems"
-  else
-    pass 9 "${scripts_readme_rel} 成员表与数据 scripts 节一致"
-  fi
-fi
-
-# 检查 10：规则块短码使用 ⊆ 登记（票 57 新增）。扫描范围＝包内全部 *.md 与 *.tmpl
-# （同检查 6 文件面）；登记权威＝清单 shortcodes 节；SPEC 规格号（R-02-001 形态）与
-# R-<短码>-<三位序号> 占位散文不落入提取模式，零自命中。
-problems=''
-codes_col=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_codes")
-used_all=''
-OLDIFS=$IFS
-IFS='
-'
-for f in $file_list; do
-  IFS=$OLDIFS
-  hits=$(grep -hoE 'R-[A-Z][A-Z]-[0-9][0-9][0-9]' "$f" 2>/dev/null || true)
-  if [ -n "$hits" ]; then
-    used_all="$used_all$hits
-"
-  fi
-done
-IFS=$OLDIFS
-used_prefixes=$(printf '%s' "$used_all" | sed -n 's/^R-\([A-Z][A-Z]\)-[0-9][0-9][0-9]$/\1/p' | sort -u)
-unreg_codes=''
-sep2=''
-for c in $used_prefixes; do
-  if ! printf '%s\n' "$codes_col" | grep -qxF "$c"; then
-    unreg_codes="$unreg_codes$sep2$c"
-    sep2='、'
-  fi
-done
-if [ -n "$unreg_codes" ]; then
-  add_problem "  - 未登记短码：$unreg_codes"
-fi
-if [ -n "$problems" ]; then
-  fail 10 '规则块短码使用均在登记内' "$problems"
-else
-  pass 10 '规则块短码使用均在登记内'
-fi
-
-# 检查 11：platform 枚举登记处 ↔ 数据一致（票 57 新增；逐处全等，协调层改判随票修）。
-# 登记处（锚点＝登记标记文本，值集合以清单 platform-enum 节为权威）：artifacts-yaml.tmpl
-# platform 字段注释区；capability-contract.md 内每个「已知集合」句（frontmatter 与 §2.5
-# 各一处）逐处全等，任一处缺值/多值/改值即 FAIL 且按行号指名；adapters 各文件的宿主
-# 自述不在本项口径内。
-problems=''
-platform_data=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_platforms" | sort)
-pm_enum_diff() {
-  # $1=登记处取值（每行一个）；与数据 platform_data 比对，输出「缺少／多出」摘要或空串
-  _miss=''
-  _extra=''
-  _s2=''
-  for v in $platform_data; do
-    if ! printf '%s\n' "$1" | grep -qx "$v"; then
-      _miss="$_miss$_s2$v"
-      _s2='、'
-    fi
-  done
-  _s2=''
-  for v in $1; do
-    if ! printf '%s\n' "$platform_data" | grep -qx "$v"; then
-      _extra="$_extra$_s2$v"
-      _s2='、'
-    fi
-  done
-  _r=''
-  if [ -n "$_miss" ]; then
-    _r="缺少 ${_miss}"
-  fi
-  if [ -n "$_extra" ]; then
-    if [ -n "$_r" ]; then
-      # 花括号不可省略：$_r 后紧跟全角字符时，sh 会把多字节字符并入变量名。
-      _r="${_r}；多出 ${_extra}"
-    else
-      _r="多出 ${_extra}"
-    fi
-  fi
-  printf '%s' "$_r"
-}
-tmpl_site="$pkg_root/references/templates/artifacts-yaml.tmpl"
-cc_site="$pkg_root/references/adapters/capability-contract.md"
-if [ ! -f "$tmpl_site" ]; then
-  add_problem '  - references/templates/artifacts-yaml.tmpl 不存在'
-else
-  # 提取用 LC_ALL=C awk 字节级 index/substr（BSD sed 对多字节 RE 不可靠）；锚点＝
-  # “当前已知集合：”，取值段至全角分号止。
-  seg=$(LC_ALL=C awk -v mk='当前已知集合：' -v tail='；' '
-    {
-      i = index($0, mk)
-      if (i > 0) {
-        rest = substr($0, i + length(mk))
-        j = index(rest, tail)
-        if (j > 0) rest = substr(rest, 1, j - 1)
-        print rest
-        exit
-      }
-    }
-  ' "$tmpl_site")
-  if [ -z "$seg" ]; then
-    add_problem '  - artifacts-yaml.tmpl 未找到 platform 枚举登记处（当前已知集合标记）'
-  else
-    site_vals=$(printf '%s\n' "$seg" | tr '/' '\n' | tr -d ' ' | LC_ALL=C sort)
-    diff_detail=$(pm_enum_diff "$site_vals")
-    if [ -n "$diff_detail" ]; then
-      add_problem "  - artifacts-yaml.tmpl 登记与数据不一致：$diff_detail"
-    fi
-  fi
-fi
-if [ ! -f "$cc_site" ]; then
-  add_problem '  - references/adapters/capability-contract.md 不存在'
-else
-  # 锚点＝「已知集合」句（本文件 frontmatter 与 §2.5 各有一处登记）；协调层 2026-09-21
-  # 改判随票修：比对口径为逐处全等——每个登记处单独与数据比对，任一处缺值/多值/改值
-  # 即 FAIL（并集口径存在单处删值盲区，废止）；FAIL 行按行号指名漂移处。每句取值段截于
-  # 全角分号/左括注/句号最早者，strip 反引号后按斜杠分值。
-  cc_raw=$(LC_ALL=C awk -v mk='已知集合' '
-    function cutat(s, t,   j) { j = index(s, t); if (j == 0) j = length(s) + 1; return j }
-    {
-      i = index($0, mk)
-      if (i > 0) {
-        rest = substr($0, i + length(mk))
-        j = cutat(rest, "；")
-        k = cutat(rest, "（")
-        l = cutat(rest, "。")
-        e = j
-        if (k < e) e = k
-        if (l < e) e = l
-        if (e <= length(rest)) rest = substr(rest, 1, e - 1)
-        print FNR "\t" rest
-      }
-    }
-  ' "$cc_site")
-  if [ -z "$cc_raw" ]; then
-    add_problem '  - capability-contract.md 未找到 platform 枚举登记处（已知集合标记）'
-  else
-    OLDIFS=$IFS
-    IFS='
-'
-    for row in $cc_raw; do
-      IFS=$OLDIFS
-      cc_ln=${row%%"$TAB"*}
-      seg=${row#*"$TAB"}
-      site_vals=$(printf '%s\n' "$seg" | tr -d '`' | tr '/' '\n' | tr -d ' ' | LC_ALL=C sort -u)
-      diff_detail=$(pm_enum_diff "$site_vals")
-      if [ -n "$diff_detail" ]; then
-        add_problem "  - capability-contract.md :${cc_ln} 登记与数据不一致：$diff_detail"
-      fi
-    done
-    IFS=$OLDIFS
-  fi
-fi
-if [ -n "$problems" ]; then
-  fail 11 'platform 枚举登记与数据一致' "$problems"
-else
-  pass 11 'platform 枚举登记与数据一致'
-fi
-
-# 检查 12：规则块体无模糊措辞（票 58 新增）。词表外置清单 vague-words 节（引擎零词表
-# 硬编码，字面匹配非正则）；行级豁免外置 vague-exemptions 节（路径＋行号＋理由；登记行
-# 无命中即失效豁免 FAIL，防行号漂移静默失效）。扫描窗口＝包内全部 *.md 与 *.tmpl 的
-# R-<短码>-NNN 规则块体（块头行起至下一标题行止，块头本身不扫，规则块结构同
-# governance-format.md R-GF-001）；排除「解释与例外」节（标题含该标记起至下一标题止）
-# 与各 README 文件（叙事面）；manifest 自身词表行为 .rules 数据文件，不在 md/tmpl
-# 扫描文件面（零自命中）。
-problems=''
-n_words=$(wc -l < "$pm_words" | tr -d ' ')
-n_exempt=0
-[ -s "$pm_exempts" ] && n_exempt=$(wc -l < "$pm_exempts" | tr -d ' ')
-words_col=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_words")
-hits_all=''
-OLDIFS=$IFS
-IFS='
-'
-for f in $file_list; do
-  IFS=$OLDIFS
-  case $f in
-    */README.md) continue ;;
-  esac
-  rel=${f#"${pkg_root}/"}
-  # 词表经环境变量传入（BSD awk 对含字面换行的 -v 赋值报 "newline in string"，
-  # ENVIRON 承载多行值可靠）；awk 异常即 exit 2 fail-closed——扫描器失效不得静默
-  # 当作零命中放过（否则词表扫描形同虚设）。
-  awk_rc=0
-  fhits=$(LC_ALL=C WORDS="$words_col" awk -v rel="$rel" '
-    BEGIN { nw = split(ENVIRON["WORDS"], W, "\n") }
-    /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9][ \t]/ { inblk = 1; next }
-    /^#/ {
-      if (index($0, "解释与例外") > 0) expl = 1; else expl = 0
-      inblk = 0
-      next
-    }
-    inblk == 1 && expl != 1 {
-      for (k = 1; k <= nw; k++) {
-        if (W[k] != "" && index($0, W[k]) > 0) printf "%s:%d:%s\n", rel, FNR, W[k]
-      }
-    }
-  ' "$f") || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 12 扫描器异常（awk exit %s）: %s\n' "$awk_rc" "$f" >&2
-    exit 2
-  fi
-  if [ -n "$fhits" ]; then
-    hits_all="$hits_all$fhits
-"
-  fi
-done
-IFS=$OLDIFS
-if [ -n "$hits_all" ]; then
-  OLDIFS=$IFS
-  IFS='
-'
-  for h in $hits_all; do
-    IFS=$OLDIFS
-    h_word=${h##*:}
-    h_rest=${h%:*}
-    h_ln=${h_rest##*:}
-    h_rel=${h_rest%:*}
-    # 尾锚精确匹配（协调层 Review 改判随票修）：检索键带尾制表符——豁免行结构为
-    # 路径\t行号\t理由（理由经结构校验非空且无制表符），故 "path\t82\t" 只匹配行 82
-    # 的豁免行，不匹配 "path\t820\t..."——行号的字符串前缀关系不得误罩其他行命中。
-    if ! grep -qF "$(printf '%s\t%s\t' "$h_rel" "$h_ln")" "$pm_exempts"; then
-      add_problem "  - $h_rel:$h_ln 命中模糊措辞「${h_word}」"
-    fi
-  done
-  IFS=$OLDIFS
-fi
-if [ -s "$pm_exempts" ]; then
-  while IFS= read -r row; do
-    [ -n "$row" ] || continue
-    e_rel=${row%%"$TAB"*}
-    e_rest=${row#*"$TAB"}
-    e_ln=${e_rest%%"$TAB"*}
-    case $hits_all in
-      *"$e_rel:$e_ln:"*) : ;;
-      *)
-        # 花括号不可省略：全角字符相邻时防止变量名吞并
-        add_problem "  - 失效豁免（登记行无词表命中，须复核更新或删除登记）: $e_rel:$e_ln"
-        ;;
-    esac
-  done < "$pm_exempts"
-fi
-if [ -n "$problems" ]; then
-  fail 12 "规则块体无模糊措辞（词表 ${n_words} 词，豁免 ${n_exempt} 行）" "$problems"
-else
-  pass 12 "规则块体无模糊措辞（词表 ${n_words} 词，豁免 ${n_exempt} 行）"
-fi
-
-# 检查 13：镜像脚本与仓根同名件一致（票 58 新增；跨树同名脚本所有权三分类，登记域＝
-# 清单 mirrors 节 pm_mirror <文件名> <所有权> 两参数行）。三分类语义：
-#   mirror        包侧 $scripts_dir/<名> 与仓侧同名件（$scripts_dir/ 与
-#                 rules/implementation/scripts/ 两落位任一在场）互为镜像，逐对 cmp，
-#                 byte 差异即 FAIL 指名；仓侧两落位皆无同名件即 FAIL（镜像登记悬空）。
-#   package-only  包侧为唯一维护权威，不 cmp；包侧缺件由检查 8 指名本项不重复报；仓侧
-#                 同名实例在场属待升级流程同步的过渡态（升级主链见 references/upgrade.md），
-#                 不判差异不判存在。
-#   repo-only     仅仓侧存在、包侧明确不收录：包内出现同名件即 FAIL（防未决策采纳）；
-#                 仓侧两落位皆无同名件即 FAIL（登记悬空）。
-# 票 123 增补（源仓倒挂拦截）保留：仓侧落位形态两处探测（旧 $scripts_dir/ 与新布局
-# rules/implementation/scripts/）。源仓语境判定＝包根父目录存在两落位目录任一；皆无＝
-# 消费项目语境，整项静默跳过无输出行（--pkg-root 参数化语境同口径）。
-problems=''
-mirror_compared=0
-mirror_root=$(CDPATH='' cd "$pkg_root/.." 2>/dev/null && pwd) || mirror_root=''
-mirror_new_dir='rules/implementation/scripts'
-in_mirror_ctx=0
-if [ -n "$mirror_root" ] && { [ -d "$mirror_root/$scripts_dir" ] || [ -d "$mirror_root/$mirror_new_dir" ]; }; then
-  in_mirror_ctx=1
-fi
-if [ "$in_mirror_ctx" -eq 1 ]; then
-  OLDIFS=$IFS
-  IFS='
-'
-  while IFS= read -r mrow; do
-    IFS=$OLDIFS
-    m=${mrow%%"$TAB"*}
-    m_own=${mrow#*"$TAB"}
-    _m_dst=''
-    _m_loc=''
-    if [ -n "$mirror_root" ] && [ -f "$mirror_root/$scripts_dir/$m" ]; then
-      _m_dst="$mirror_root/$scripts_dir/$m"
-      _m_loc="$scripts_dir/$m"
-    elif [ -n "$mirror_root" ] && [ -f "$mirror_root/$mirror_new_dir/$m" ]; then
-      _m_dst="$mirror_root/$mirror_new_dir/$m"
-      _m_loc="$mirror_new_dir/$m"
-    fi
-    case $m_own in
-      mirror)
-        if [ ! -f "$pkg_root/$scripts_dir/$m" ]; then
-          continue  # 包侧缺件由检查 8 指名，本项不重复报
-        fi
-        if [ -z "$_m_dst" ]; then
-          # 花括号不可省略：全角字符相邻时防止变量名吞并（先例检查 5/12/17）
-          add_problem "  - $scripts_dir/$m 登记 mirror 但仓侧两落位皆无同名件（镜像登记悬空，须复核同步或改所有权类别）"
-          continue
-        fi
-        mirror_compared=$((mirror_compared + 1))
-        if ! cmp -s "$pkg_root/$scripts_dir/$m" "$_m_dst"; then
-          add_problem "  - $scripts_dir/$m 与仓根 $_m_loc 不一致（byte-diff，两处同源演化须互为镜像）"
-        fi
-        ;;
-      package-only)
-        : # 包侧缺件由检查 8 指名；不 cmp，仓侧同名实例过渡态不判（升级主链收口）
-        ;;
-      repo-only)
-        if [ -f "$pkg_root/$scripts_dir/$m" ]; then
-          add_problem "  - $scripts_dir/$m 登记 repo-only 但包内出现同名件（防未决策采纳，须改登记 mirror 或移除包内侧）"
-        fi
-        if [ -z "$_m_dst" ]; then
-          add_problem "  - $m 登记 repo-only 但仓侧两落位皆无同名件（登记悬空，须复核移除登记或恢复仓侧件）"
-        fi
-        ;;
-    esac
-  done < "$pm_mirrors"
-  IFS=$OLDIFS
-  if [ "$mirror_compared" -gt 0 ] || [ -n "$problems" ]; then
-    if [ -n "$problems" ]; then
-      fail 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）" "$problems"
-    else
-      pass 13 "镜像脚本与仓根同名件一致（比对 ${mirror_compared} 对）"
-    fi
-  fi
-fi
-# 消费项目语境（两落位目录皆无）或零 mirror 类登记且零问题 → 静默跳过，无输出行
-
-# 检查 14：能力映射一致（票 59 新增）。名单＝清单 capability-primitives 节（九基元名，
-# 引擎零基元名硬编码）；权威表＝capability_authority 登记文件（窄锚点「### …能力基元
-# 清单」标题下九行表首列），与名单逐处全等比对；检查目标＝capability_target 节逐一
-# 核验——kind=decl 取目标文件 required_capabilities（运行时）行的反引号名集合（与预期
-# 名单双向全等，注入未登记名/删名/改名即 FAIL 指名文件），kind=table 取「| 能力基元 |」
-# 对照表首列名集合（与预期名单双向全等，预期名单经载入校验 ⊆ 名单且并集 ⊇ 名单）。
-# 表解析锚点失效即 exit 2 不静默过（检查 11 同款 fail-closed）；targets 均为包内文件，
-# 相对 $pkg_root 解析（--pkg-root 复制落位语境与镜像检查同口径）。扩展维度：readonly-
-# execute 只读约束等级核对——清单 enforcement 词表节（pm_enforcement_level，受控值集）
-# 与 targets 节（pm_enforcement_target，适配文件+预期等级），逐适配器提取 readonly-
-# execute 行 readonly_enforcement: 值与预期全等比对（缺声明/词表外/不一致 FAIL 指名；
-# 行未命中 exit 2）。
-problems=''
-n_caps=$(wc -l < "$pm_caps" | tr -d ' ')
-n_captargets=$(wc -l < "$pm_captargets" | tr -d ' ')
-caps_sorted=$(LC_ALL=C sort "$pm_caps")
-cap_extract_decl() {
-  # $1=文件：required_capabilities（运行时）行首的行，取该行至全角分号止的反引号段
-  LC_ALL=C awk -v mk='required_capabilities（运行时）：' '
-    index($0, mk) == 1 {
-      rest = substr($0, length(mk) + 1)
-      j = index(rest, "；")
-      if (j > 0) rest = substr(rest, 1, j - 1)
-      n = split(rest, parts, "`")
-      for (k = 2; k <= n; k += 2) if (parts[k] != "") print parts[k]
-      found = 1
-      exit
-    }
-    END { if (!found) exit 3 }
-  ' "$1"
-}
-cap_extract_table() {
-  # $1=文件：「| 能力基元」首列表头行的表，取分隔行后各数据行首列
-  LC_ALL=C awk -v mk='| 能力基元' '
-    function firstcell(line,   s) {
-      s = line
-      sub(/^\|[[:space:]]*/, "", s)
-      sub(/[[:space:]]*\|.*/, "", s)
-      return s
-    }
-    index($0, mk) == 1 { inh = 1; next }
-    inh && !sep && $0 ~ /^\|/ { c = firstcell($0); if (c ~ /^[-: ]+$/) sep = 1; next }
-    inh && sep && $0 ~ /^\|/ { print firstcell($0) }
-    inh && sep && $0 !~ /^\|/ { exit }
-    END { if (!sep) exit 3 }
-  ' "$1"
-}
-cap_extract_auth() {
-  # $1=文件：「### …能力基元清单」标题下的表（权威表首列为「能力」），取分隔行后各
-  # 数据行首列；锚点＝以 # 开头且含「能力基元清单」的标题行
-  LC_ALL=C awk -v mk='能力基元清单' '
-    function firstcell(line,   s) {
-      s = line
-      sub(/^\|[[:space:]]*/, "", s)
-      sub(/[[:space:]]*\|.*/, "", s)
-      return s
-    }
-    index($0, mk) > 0 && $0 ~ /^#/ { inh = 1; next }
-    inh && !sep && $0 ~ /^\|/ { c = firstcell($0); if (c ~ /^[-: ]+$/) sep = 1; next }
-    inh && sep && $0 ~ /^\|/ { print firstcell($0) }
-    inh && sep && $0 !~ /^\|/ { exit }
-    END { if (!sep) exit 3 }
-  ' "$1"
-}
-enf_extract_decl() {
-  # $1=文件：「| 能力基元」对照表中 readonly-execute 行的 readonly_enforcement: 等级
-  # token；行未命中 exit 3（fail-closed），行在而声明缺失输出空（调用方报缺声明）。
-  LC_ALL=C awk -v mk='| 能力基元' '
-    function firstcell(line,   s) {
-      s = line
-      sub(/^\|[[:space:]]*/, "", s)
-      sub(/[[:space:]]*\|.*/, "", s)
-      return s
-    }
-    index($0, mk) == 1 { inh = 1; next }
-    inh && !sep && $0 ~ /^\|/ { c = firstcell($0); if (c ~ /^[-: ]+$/) sep = 1; next }
-    inh && sep && $0 ~ /^\|/ {
-      if (firstcell($0) == "readonly-execute") {
-        i = index($0, "readonly_enforcement:")
-        if (i > 0) {
-          rest = substr($0, i + length("readonly_enforcement:"))
-          sub(/^[[:space:]]+/, "", rest)
-          if (match(rest, /[a-z][a-z-]*/)) print substr(rest, RSTART, RLENGTH)
-        }
-        found = 1
-        exit
-      }
-      next
-    }
-    inh && sep && $0 !~ /^\|/ { exit }
-    END { if (!found) exit 3 }
-  ' "$1"
-}
-cap_auth_path=$(cat "$pm_capauth")
-cap_auth_file="$pkg_root/$cap_auth_path"
-if [ ! -f "$cap_auth_file" ]; then
-  add_problem "  - 能力权威文件不存在: $cap_auth_path"
-else
-  rc=0
-  auth_names=$(cap_extract_auth "$cap_auth_file") || rc=$?
-  if [ "$rc" -ne 0 ] || [ -z "$auth_names" ]; then
-    printf 'check-package: 错误：检查 14 权威表解析失效（窄锚点未命中或零数据行，fail-closed）: %s\n' "$cap_auth_path" >&2
-    exit 2
-  fi
-  auth_sorted=$(printf '%s\n' "$auth_names" | LC_ALL=C sort -u)
-  cap_m=''; cap_x=''; sep2=''
-  for v in $caps_sorted; do
-    printf '%s\n' "$auth_sorted" | grep -qx "$v" || { cap_m="$cap_m$sep2$v"; sep2='、'; }
-  done
-  sep2=''
-  for v in $auth_sorted; do
-    printf '%s\n' "$caps_sorted" | grep -qx "$v" || { cap_x="$cap_x$sep2$v"; sep2='、'; }
-  done
-  if [ -n "$cap_m" ] || [ -n "$cap_x" ]; then
-    cap_msg=''
-    if [ -n "$cap_m" ]; then
-      cap_msg="缺少 ${cap_m}"
-    fi
-    if [ -n "$cap_x" ]; then
-      if [ -n "$cap_msg" ]; then
-        cap_msg="${cap_msg}；多出 ${cap_x}"
-      else
-        cap_msg="多出 ${cap_x}"
-      fi
-    fi
-    add_problem "  - $cap_auth_path §能力基元清单表与名单不一致：$cap_msg"
-  fi
-fi
-OLDIFS=$IFS
-IFS='
-'
-while IFS= read -r cap_row; do
-  IFS=$OLDIFS
-  [ -n "$cap_row" ] || continue
-  cap_rel=${cap_row%%"$TAB"*}
-  cap_rest=${cap_row#*"$TAB"}
-  cap_kind=${cap_rest%%"$TAB"*}
-  cap_exp=${cap_rest#*"$TAB"}
-  cap_file="$pkg_root/$cap_rel"
-  if [ ! -f "$cap_file" ]; then
-    add_problem "  - 检查目标不存在: $cap_rel"
-    continue
-  fi
-  rc=0
-  if [ "$cap_kind" = decl ]; then
-    cap_got=$(cap_extract_decl "$cap_file") || rc=$?
-  else
-    cap_got=$(cap_extract_table "$cap_file") || rc=$?
-  fi
-  if [ "$rc" -ne 0 ] || [ -z "$cap_got" ]; then
-    printf 'check-package: 错误：检查 14 目标解析失效（窄锚点未命中或零数据行，fail-closed）: %s\n' "$cap_rel" >&2
-    exit 2
-  fi
-  cap_got_sorted=$(printf '%s\n' "$cap_got" | LC_ALL=C sort -u)
-  cap_exp_sorted=$(printf '%s\n' "$cap_exp" | tr ',' '\n' | LC_ALL=C sort -u)
-  cap_m=''; cap_x=''; cap_u=''; sep2=''
-  for v in $cap_exp_sorted; do
-    printf '%s\n' "$cap_got_sorted" | grep -qx "$v" || { cap_m="$cap_m$sep2$v"; sep2='、'; }
-  done
-  sep2=''
-  for v in $cap_got_sorted; do
-    if printf '%s\n' "$cap_exp_sorted" | grep -qx "$v"; then
-      continue
-    fi
-    if printf '%s\n' "$caps_sorted" | grep -qx "$v"; then
-      cap_x="$cap_x$sep2$v"
-    else
-      cap_u="$cap_u$sep2$v"
-    fi
-    sep2='、'
-  done
-  if [ -n "$cap_m" ]; then
-    # 花括号不可省略：变量名后紧跟全角字符时，sh 会把多字节字符并入变量名（同款先例见检查 5/12）。
-    add_problem "  - $cap_rel 缺少基元 ${cap_m}（相对登记预期名单）"
-  fi
-  if [ -n "$cap_u" ]; then
-    add_problem "  - $cap_rel 未登记基元名 ${cap_u}（不在名单，注入或改名）"
-  fi
-  if [ -n "$cap_x" ]; then
-    add_problem "  - $cap_rel 多出基元 ${cap_x}（超出登记预期名单）"
-  fi
-done < "$pm_captargets"
-IFS=$OLDIFS
-# 检查 14 扩展维度（readonly-execute 只读约束等级）：词表受控（enforcement 词表节）＋
-# 逐适配器对照表 readonly-execute 行提取 readonly_enforcement: 等级 token，与登记预期
-# 值全等比对；预期/声明值不在词表、缺声明、值不一致即 FAIL 指名文件；readonly-execute
-# 行未命中（表锚点失效或行被删）即 exit 2 不静默过（本检查既有 fail-closed 同款）。
-n_enf=$(wc -l < "$pm_enf" | tr -d ' ')
-enf_vocab_sorted=$(LC_ALL=C sort -u "$pm_enfvocab")
-OLDIFS=$IFS
-IFS='
-'
-while IFS= read -r enf_row; do
-  IFS=$OLDIFS
-  [ -n "$enf_row" ] || continue
-  enf_rel=${enf_row%%"$TAB"*}
-  enf_exp=${enf_row#*"$TAB"}
-  enf_file="$pkg_root/$enf_rel"
-  if [ ! -f "$enf_file" ]; then
-    add_problem "  - enforcement 检查目标不存在: $enf_rel"
-    continue
-  fi
-  if ! printf '%s\n' "$enf_vocab_sorted" | grep -qx "$enf_exp"; then
-    add_problem "  - $enf_rel 登记预期等级不在受控词表: $enf_exp"
-    continue
-  fi
-  rc=0
-  enf_got=$(enf_extract_decl "$enf_file") || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 14 enforcement 目标解析失效（readonly-execute 行未命中，fail-closed）: %s\n' "$enf_rel" >&2
-    exit 2
-  fi
-  if [ -z "$enf_got" ]; then
-    add_problem "  - $enf_rel readonly-execute 行缺 readonly_enforcement 声明"
-  elif ! printf '%s\n' "$enf_vocab_sorted" | grep -qx "$enf_got"; then
-    add_problem "  - $enf_rel readonly_enforcement 值不在受控词表: $enf_got"
-  elif [ "$enf_got" != "$enf_exp" ]; then
-    # 花括号不可省略：变量名后紧跟全角字符时，sh 会把多字节字符并入变量名（同款先例见检查 5/12）。
-    add_problem "  - $enf_rel readonly_enforcement 声明与登记预期不一致: ${enf_got}（期望 ${enf_exp}）"
-  fi
-done < "$pm_enf"
-IFS=$OLDIFS
-if [ -n "$problems" ]; then
-  fail 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个，enforcement ${n_enf} 个）" "$problems"
-else
-  pass 14 "能力映射一致（基元 ${n_caps} 个，检查目标 ${n_captargets} 个，enforcement ${n_enf} 个）"
-fi
-
-# 检查 15：生成索引与包内规则块全集全等且零漂移（安装面收敛适配）。唯一对象＝
-# references/rules-index.md（generate-docs-index.sh 独占写；模板 §16 手写索引已退役）。
-# 两项断言：
-#   ①全集全等——索引表行 ID 集 = 包内全部 *.md/*.tmpl 的规则块 ID 集（排除索引自身），
-#     双向缺/多即 FAIL 指名；
-#   ②零漂移——generate-docs-index.sh --check exit 0（渲染结果与磁盘逐字比对，generated_at
-#     行规范化）；exit 1 附 diff 指名差异行，其它退出码视为环境或形态错误一并 FAIL。
-# 生成器或索引缺失即 FAIL（不静默过）；本项只读，--check 零写入。
-problems=''
-gen_docs="$pkg_root/$scripts_dir/generate-docs-index.sh"
+# ---- 共享只读派生量（引擎分发前初始化并显式传入；检查件之间零隐式状态）----
+chk_dir="$script_dir/checks"
+file_list=$(find "$pkg_root" -type f \( -name '*.md' -o -name '*.tmpl' \) | sort)
 idx_file="$pkg_root/references/rules-index.md"
-n_idx=0
-n_union=0
-if [ ! -f "$gen_docs" ]; then
-  add_problem "  - 规则索引生成器不存在: ${scripts_dir}/generate-docs-index.sh"
-fi
-if [ ! -f "$idx_file" ]; then
-  add_problem '  - 生成索引不存在: references/rules-index.md（先运行 generate-docs-index.sh 落盘）'
-else
-  idx_ids=$(LC_ALL=C awk -F'|' '
-    /^\| R-[A-Z][A-Z]-[0-9][0-9][0-9] /{
-      id = $2; gsub(/[ \t]/, "", id); print id
-    }
-  ' "$idx_file" | LC_ALL=C sort -u)
-  n_idx=$(printf '%s\n' "$idx_ids" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
-  union_ids=''
-  OLDIFS=$IFS
-  IFS='
-'
-  for t in $file_list; do
-    IFS=$OLDIFS
-    [ "$t" = "$idx_file" ] && continue
-    hits=$(grep -hoE '^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]' "$t" 2>/dev/null | sed 's/^#### //' || true)
-    if [ -n "$hits" ]; then
-      union_ids="$union_ids$hits
-"
-    fi
-  done
-  IFS=$OLDIFS
-  union_ids=$(printf '%s' "$union_ids" | LC_ALL=C sort -u)
-  n_union=$(printf '%s\n' "$union_ids" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
-  if [ "$n_idx" -eq 0 ]; then
-    add_problem '  - 索引表零行（生成索引无规则块表行）'
-  fi
-  extra=''; sep2=''
-  OLDIFS=$IFS
-  IFS='
-'
-  for id in $idx_ids; do
-    IFS=$OLDIFS
-    if ! printf '%s\n' "$union_ids" | grep -qxF "$id"; then
-      extra="$extra$sep2$id"
-      sep2='、'
-    fi
-  done
-  IFS=$OLDIFS
-  missing=''; sep2=''
-  for id in $union_ids; do
-    if ! printf '%s\n' "$idx_ids" | grep -qxF "$id"; then
-      missing="$missing$sep2$id"
-      sep2='、'
-    fi
-  done
-  if [ -n "$extra" ]; then
-    add_problem "  - 索引多出全集外 ID: $extra"
-  fi
-  if [ -n "$missing" ]; then
-    add_problem "  - 规则块缺索引行: $missing"
-  fi
-fi
-if [ -f "$gen_docs" ] && [ -f "$idx_file" ]; then
-  gen_rc=0
-  gen_out=$(sh "$gen_docs" --check "$pkg_root" 2>&1) || gen_rc=$?
-  case $gen_rc in
-    0) : ;;
-    1) add_problem "  - 生成索引与规则块不一致（stale，--check exit 1）：$(printf '%s\n' "$gen_out" | head -n 12)" ;;
-    *) add_problem "  - 生成器 --check 非预期退出（exit ${gen_rc}）：$(printf '%s\n' "$gen_out" | head -n 6)" ;;
-  esac
-fi
-if [ -n "$problems" ]; then
-  fail 15 "生成索引与规则块全集全等且零漂移（索引 ${n_idx} 行，全集 ${n_union} ID）" "$problems"
-else
-  pass 15 "生成索引与规则块全集全等且零漂移（索引 ${n_idx} 行，全集 ${n_union} ID）"
-fi
+# shellcheck disable=SC1090,SC1091  # 共享检查件辅助函数路径由脚本目录推导（静态视野不可跟随）
+. "$chk_dir/shared.sh"
 
-# 检查 16：索引机制列值 ⊆ 受控词表。对象＝生成索引 references/rules-index.md 机制列
-# （五列表第 5 列）；词表＝清单 mechanism-vocab 节（受控三值，引擎零词表硬编码）。机制列
-# 语法：受控值开头，可跟全角括注「（…）」（出处/说明，括注内容不做词表核验、禁嵌套与
-# 全角分号），可跟「；」分段（每段须为词表值）。BSD awk 的 index/substr 对多字节字符
-# 语义混合不可靠，故先经 sed 把全角括号/分号规范化为 ASCII 再解析（字面替换为字节级，
-# 可靠）；剥离后残留括号判括号不配对（fail-closed）。
-problems=''
-idx_mech=$(mktemp "${t_dir%/}/idxmech.XXXXXX")
-: > "$idx_mech"
-if [ -f "$idx_file" ]; then
-  LC_ALL=C awk -F'|' '
-    /^\| R-[A-Z][A-Z]-[0-9][0-9][0-9] /{
-      id = $2; gsub(/[ \t]/, "", id)
-      cell = $6
-      sub(/^[ \t]+/, "", cell); sub(/[ \t]+$/, "", cell)
-      if (cell == "") next
-      print id "\t" cell
-    }
-  ' "$idx_file" >> "$idx_mech"
-fi
-mechs=$(cat "$pm_mechs")
-n_mechs=$(printf '%s\n' "$mechs" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
-n_row16=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$idx_mech")
-if [ "$n_row16" -eq 0 ]; then
-  add_problem '  - 索引表零行，机制列无从核对'
-else
-  awk_rc=0
-  hits16=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' "$idx_mech" | LC_ALL=C VOCAB="$mechs" awk -F'\t' '
-    BEGIN {
-      nv = split(ENVIRON["VOCAB"], V, "\n")
-      for (k = 1; k <= nv; k++) if (V[k] != "") voc[V[k]] = 1
-    }
-    NF {
-      id = $1
-      t = $2
-      gsub(/\([^)]*\)/, "", t)
-      gsub(/[ \t]/, "", t)
-      if (t ~ /[()]/) { printf "%s\t机制列括号不配对\n", id; next }
-      if (t == "") { printf "%s\t机制列为空\n", id; next }
-      n = split(t, T, ";")
-      for (k = 1; k <= n; k++) {
-        if (T[k] == "") { printf "%s\t机制列含空段\n", id; continue }
-        if (!(T[k] in voc)) printf "%s\t机制值不在受控词表: %s\n", id, T[k]
-      }
-    }
-  ') || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 16 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
-    exit 2
-  fi
-  if [ -n "$hits16" ]; then
-    OLDIFS=$IFS
-    IFS='
-'
-    for h in $hits16; do
-      IFS=$OLDIFS
-      h_id=${h%%"$TAB"*}
-      h_msg=${h#*"$TAB"}
-      add_problem "  - $h_id $h_msg"
-    done
-    IFS=$OLDIFS
-  fi
-fi
-if [ -n "$problems" ]; then
-  fail 16 "索引机制列受控词表（机制 ${n_mechs} 值）" "$problems"
-else
-  pass 16 "索引机制列受控词表（机制 ${n_mechs} 值）"
-fi
-
-# 检查 17：机械行点名出处存在。机械行（机制列首段＝受控值「机械」——该值
-# 为引擎语义锚点，词表成员资格仍以清单为权威）须在括注内点名出处：脚本名（*.sh）必须
-# 真实存在于包 $scripts_dir 且在清单 scripts 节登记；检查项号（「检查 N」）必须落在
-# 1..37（引擎自述上限，新增检查须同步）。仅机械行核验（门禁/约定行括注不做
-# 存在性核对）；零脚本零检查项的机械行判缺点名。对象＝生成索引机制列（检查 16 同源）。
-problems=''
-n_total_checks=37
-n_mrow=0
-mech_m='机械'
-if [ "$n_row16" -eq 0 ]; then
-  add_problem '  - 索引表零行，机械行无从核对'
-else
-  awk_rc=0
-  cand17=$(sed -e 's/（/(/g' -e 's/）/)/g' -e 's/；/;/g' -e 's/检查/CHK/g' "$idx_mech" | LC_ALL=C MECH_M="$mech_m" awk -F'\t' '
-    function paren_span(s,   i, j) {
-      i = index(s, "(")
-      if (i == 0) return ""
-      s = substr(s, i + 1)
-      j = index(s, ")")
-      if (j == 0) return ""
-      return substr(s, 1, j - 1)
-    }
-    BEGIN { mk = ENVIRON["MECH_M"] }
-    NF {
-      id = $1; cell = $2
-      i = index(cell, "(")
-      head = cell
-      if (i > 0) head = substr(cell, 1, i - 1)
-      n = split(head, H, ";")
-      seg = H[1]
-      gsub(/[ \t]/, "", seg)
-      if (seg != mk) next
-      n_mrow++
-      ev = paren_span(cell)
-      print id "\tEV\t" ev
-      rest = ev
-      while (match(rest, /[A-Za-z0-9._-]+\.sh/) > 0) {
-        print id "\tS\t" substr(rest, RSTART, RLENGTH)
-        rest = substr(rest, RSTART + RLENGTH)
-      }
-      rest = ev
-      while (match(rest, /CHK [0-9][0-9]*/) > 0) {
-        num = substr(rest, RSTART, RLENGTH)
-        sub(/^CHK /, "", num)
-        print id "\tC\t" num
-        rest = substr(rest, RSTART + RLENGTH)
-      }
-    }
-    END { printf "COUNT\t%d\n", n_mrow + 0 }
-  ') || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 17 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
-    exit 2
-  fi
-  n_mrow=$(printf '%s\n' "$cand17" | LC_ALL=C awk -F'\t' '$1 == "COUNT" { print $2; exit }')
-  prev_id=''; prev_ev=''; prev_n=0
-  OLDIFS=$IFS
-  IFS='
-'
-  for row in $cand17; do
-    IFS=$OLDIFS
-    row_id=${row%%"$TAB"*}
-    row_rest=${row#*"$TAB"}
-    row_kind=${row_rest%%"$TAB"*}
-    row_val=${row_rest#*"$TAB"}
-    case $row_kind in
-      COUNT) continue ;;
-      EV)
-        if [ -n "$prev_id" ] && [ "$prev_n" -eq 0 ]; then
-          add_problem "  - ${prev_id} 机械行未点名脚本或检查项（原文：${prev_ev}）"
-        fi
-        prev_id=$row_id; prev_ev=$row_val; prev_n=0
-        if [ -z "$row_val" ]; then
-          add_problem "  - $row_id 机械行缺点名出处（须在括注内点名脚本或检查项）"
-        fi
-        ;;
-      S)
-        prev_n=$((prev_n + 1))
-        if [ ! -f "$pkg_root/$scripts_dir/$row_val" ]; then
-          add_problem "  - $row_id 机械行点名脚本不存在: $row_val"
-        elif ! LC_ALL=C awk -F'\t' -v p="$scripts_dir/$row_val" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_scripts"; then
-          add_problem "  - $row_id 机械行点名脚本未在清单 scripts 节登记: $row_val"
-        fi
-        ;;
-      C)
-        prev_n=$((prev_n + 1))
-        case $row_val in
-          ''|*[!0-9]*)
-            add_problem "  - $row_id 机械行点名检查项号形态不合预期: $row_val"
-            ;;
-          *)
-            if [ "$row_val" -lt 1 ] || [ "$row_val" -gt "$n_total_checks" ]; then
-              add_problem "  - $row_id 机械行点名检查项号超界（当前共 ${n_total_checks} 项）: 检查 $row_val"
-            fi
-            ;;
-        esac
-        ;;
-    esac
-  done
-  IFS=$OLDIFS
-  if [ -n "$prev_id" ] && [ "$prev_n" -eq 0 ]; then
-    add_problem "  - ${prev_id} 机械行未点名脚本或检查项（原文：${prev_ev}）"
-  fi
-fi
-if [ -n "$problems" ]; then
-  fail 17 "机械行点名出处存在（机械 ${n_mrow} 行）" "$problems"
-else
-  pass 17 "机械行点名出处存在（机械 ${n_mrow} 行）"
-fi
-
-# 检查 18：包内票号索引禁令（citation-rot 定稿配套）。扫描面＝包内 *.md/*.tmpl/*.json/
-# *.rules（*.sh 代码面不扫——断言名/注释语境为不腐烂载体，扫禁归后续裁决）；模式＝
-# 「票 ?[0-9]{2,}」字面正则，命中即 FAIL 指名文件:行号。行级豁免经清单
-# ticket-citation-ban 节 pm_cite_exempt 登记（路径+行号精确匹配，理由必填），登记行
-# 无命中即失效豁免 FAIL（防漂移静默失效，检查 12 同款口径）；豁免表当前空表交付。
-n_citeex=$(wc -l < "$pm_citeex" | tr -d ' ')
-problems=''
-awk_rc=0
-cand18=$(cd "$pkg_root" && grep -rEn '票 ?[0-9]{2,}' --include='*.md' --include='*.tmpl' --include='*.json' --include='*.rules' . 2>/dev/null | sed 's/^\.\///') || awk_rc=$?
-if [ "$awk_rc" -ne 0 ] && [ "$awk_rc" -ne 1 ]; then
-  printf 'check-package: 错误：检查 18 扫描器异常（grep exit %s）\n' "$awk_rc" >&2
+# ============================================================
+# 检查注册表加载、完整性断言与统一分发
+# ============================================================
+chk_dir="$script_dir/checks"
+chk_parsed=$(mktemp "${t_dir%/}/chkregistry.XXXXXX")
+chk_rows=$(mktemp "${t_dir%/}/chkregistry.XXXXXX")
+chk_retired=$(mktemp "${t_dir%/}/chkregistry.XXXXXX")
+chk_total_rows=$(mktemp "${t_dir%/}/chkregistry.XXXXXX")
+pm_parse_data "$chk_registry_file" "$chk_parsed" '检查注册表' || { rm -f "$chk_parsed"; chk_parsed=''; exit 2; }
+chk_bad_field=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "检查注册表第 %d 行: %s\n", FNR, msg; n++ }
+  $1 == "chk_total" { if (NF != 2) bad("chk_total 字段数 " NF "（预期 2）"); next }
+  $1 == "chk_retired" { if (NF != 2) bad("chk_retired 字段数 " NF "（预期 2）"); next }
+  $1 == "chk" {
+    if (NF != 5) { bad("chk 字段数 " NF "（预期 5：号、slug、件、必需数据节）"); next }
+    if ($2 !~ /^[1-9][0-9]*$/) bad("检查号须正整数: " $2)
+    if ($3 !~ /^[a-z][a-z0-9-]*$/) bad("slug 须小写 token: " $3)
+    if ($4 !~ /^[a-z0-9][a-z0-9-]*\.sh$/) bad("检查件须为单段 *.sh 文件名: " $4)
+  }
+  END { if (n > 0) exit 1 }
+' "$chk_parsed") || true
+if [ -n "$chk_bad_field" ]; then
+  printf 'check-package: 错误：检查注册表结构不合预期（fail-closed，不产生部分结论）: %s\n%s\n' "$chk_registry_file" "$chk_bad_field" >&2
   exit 2
 fi
-if [ -n "$cand18" ]; then
-  OLDIFS=$IFS
-  IFS='
-'
-  for h in $cand18; do
-    IFS=$OLDIFS
-    h_path=${h%%:*}
-    h_ln=${h#*:}
-    h_ln=${h_ln%%:*}
-    if LC_ALL=C awk -F'\t' -v p="$h_path" -v l="$h_ln" '$1 == p && $2 == l { f = 1 } END { exit f ? 0 : 1 }' "$pm_citeex"; then
-      continue
-    fi
-    add_problem "  - $h 命中票号索引禁令（票 ?[0-9][0-9]+；溯源改 commit message／票本，禁令依据＝包内零本仓票号索引）"
-  done
-  IFS=$OLDIFS
-fi
-# 失效豁免核对：登记行无命中即 FAIL（检查 12 同款，防漂移静默失效）。
-if [ "$n_citeex" -gt 0 ]; then
-  while IFS="$(printf '\t')" read -r ex_path ex_ln _; do
-    [ -n "$ex_path" ] || continue
-    if ! printf '%s\n' "$cand18" | LC_ALL=C grep -qE "^${ex_path}:${ex_ln}:" 2>/dev/null; then
-      add_problem "  - 失效豁免（登记行无票号命中，须复核更新或删除登记）: ${ex_path}:${ex_ln}"
-    fi
-  done < "$pm_citeex"
-fi
-if [ -n "$problems" ]; then
-  fail 18 "包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 ${n_citeex} 行）" "$problems"
-else
-  pass 18 "包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 ${n_citeex} 行）"
-fi
-
-# 检查 19：scripts 节可执行位断言（mode 全量）。判定源＝清单 pm_script kind（数据驱动，
-# 引擎零文件名硬编码，家族惯例同检查 8/9）：kind=script（普通脚本）与 kind=test-harness
-# （被调 harness）为可执行类——须 index 100755 且盘上可执行（出生即残类失效防线：hook
-# 只调可执行件、直接执行依赖 -x 位，mode 残缺静默失效，先例 .githooks 门禁 5）；kind=rules
-# （数据规则表）为非可执行件——须 index 100644 且盘上不可执行（数据件误带执行位防扩散）。
-# 每件四态核对：index mode（git ls-files -s）、盘上 -x、期望 mode、kind 枚举兜底（未知
-# kind 即 FAIL，防 kind 枚举扩张漏配期望）。$pkg_root 非 git worktree 时（--pkg-root
-# 复制落位语境，先例检查 13 静默跳过语义）整项静默跳过零输出行——git 不可用时 index
-# mode 无从核对，不核对不宣称（假 PASS 与误报都不发生）。
-problems=''
-n_mode_scripts=$(wc -l < "$pm_scripts" | tr -d ' ')
-if git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1; then
-  OLDIFS=$IFS
-  IFS='
-'
-  while IFS= read -r row; do
-    rel=${row%%"$TAB"*}
-    kind=${row#*"$TAB"}
-    kind=${kind%%"$TAB"*}
-    case $kind in
-      script|test-harness) want=100755; want_exec=1 ;;
-      rules) want=100644; want_exec=0 ;;
-      dir) continue ;;  # 目录成员（kind=dir，如 tests/ 套件目录）：git 不跟踪目录 mode，无可执行位语义，不核对不宣称
-      *)
-        add_problem "  - $rel kind 不合预期（script|rules|test-harness|dir 外值，期望 mode 未配置）: $kind"
-        continue
-        ;;
-    esac
-    idx_mode=$(git -C "$pkg_root" ls-files -s -- "$rel" | LC_ALL=C awk '{print $1; exit}')
-    if [ ! -f "$pkg_root/$rel" ]; then
-      continue  # 缺件由检查 8 指名，本项不重复报
-    fi
-    if [ -z "$idx_mode" ]; then
-      add_problem "  - $rel 未被 git 跟踪（index mode 无从核对，期望 ${want}）"
-      continue
-    fi
-    if [ "$idx_mode" != "$want" ]; then
-      # 花括号不可省略：全角字符相邻时防止变量名吞并（先例检查 12）
-      add_problem "  - $rel index mode 为 ${idx_mode}（期望 ${want}，kind=${kind}）"
-    fi
-    if [ "$want_exec" -eq 1 ] && ! [ -x "$pkg_root/$rel" ]; then
-      add_problem "  - $rel 盘上不可执行（kind=${kind} 须可执行，chmod 755 修复）"
-    fi
-    if [ "$want_exec" -eq 0 ] && [ -x "$pkg_root/$rel" ]; then
-      add_problem "  - $rel 盘上可执行（kind=${kind} 数据件禁执行位）"
-    fi
-  done < "$pm_scripts"
-  IFS=$OLDIFS
-  if [ -n "$problems" ]; then
-    fail 19 "scripts 节 mode 断言（${n_mode_scripts} 件，kind 数据驱动）" "$problems"
-  else
-    pass 19 "scripts 节 mode 断言（${n_mode_scripts} 件，kind 数据驱动）"
-  fi
-fi
-
-# 检查 20：包闭合性与符号链接防护（票 149 新增）。三段防线：
-#   ①scripts 目录一级条目闭合——条目面（find 一级条目）须 ⊆ 闭合白名单＝清单
-#     scripts 节登记件 ∪ 引擎自身（check-package.sh）∪ 成员表（README.md）∪ 清单
-#     数据件自身（package-manifest.rules，与 pm_rules 同源取名）；未登记额外脚本/
-#     文件（含恶意投放）即 FAIL 指名条目。
-#   ②包内 symlink 防外指——全部包内 symlink 的 readlink 原始目标折算为绝对词法形态
-#     后逐段折叠（点段折叠，resolve_within；词法判定不展开中间路径 symlink），折出
-#     包根词法域即 FAIL 指名 symlink（含断链）；外指 symlink 会绕过 grep/find -type f
-#     的内容扫描面，放行＝包闭合性结论不可靠。readlink 原始目标＋词法规范化为 POSIX
-#     通行路径，不依赖 GNU readlink -f。
-#   ③登记路径 symlink 禁令——检查 1 必需入口登记路径（entry-files）与必需目录
-#     （references/、scripts/ 目录自身及其子路径前缀面）不得为 symlink（包内别名或
-#     包外指向一体拦截；[ -f ] 跟随 symlink 的既有判定对此天然盲视）。
-# 闭合白名单零硬编码文件名：引擎自身、成员表与清单数据件名分别同 $0、
-# scripts_readme_rel 路径常量与 pm_rules 载入路径同源。
-problems=''
-n_closure=0
-n_extra=''
-n_syms=0
-n_escape=''
-n_alias=''
-scripts_dir_abs="$pkg_root/$scripts_dir"
-pkg_root_abs=${pkg_root%/}
-pkg_root_rel=${pkg_root_abs#/}
-resolve_within() {
-  # $1=symlink 路径（与 find 输出同形态）：输出 readlink 原始目标经词法规范化（点段
-  # 折叠）后的包根相对路径；越出包根输出 ESCAPE，断链（折叠后不存在）输出 BROKEN。
-  # POSIX 通行路径：只用 readlink 原始目标＋词法折叠，不依赖 GNU readlink -f；中间
-  # 路径组件的 symlink 不展开（词法判定，注记见 README.md）。
-  _rl_target=$(readlink "$1")
-  case $_rl_target in
-    /*) _rl_acc=$_rl_target ;;
-    *) _rl_acc=$(dirname "$1")/$_rl_target ;;
+while IFS= read -r chk_row; do
+  chk_cmd=${chk_row%%"$TAB"*}
+  chk_rest=${chk_row#*"$TAB"}
+  case $chk_cmd in
+    chk_total) printf '%s\n' "$chk_rest" >> "$chk_total_rows" ;;
+    chk_retired) printf '%s\n' "$chk_rest" >> "$chk_retired" ;;
+    chk) printf '%s\n' "$chk_rest" >> "$chk_rows" ;;
   esac
-  _rl_out=''
-  _rl_i=1
-  _rl_n=$(printf '%s' "$_rl_acc" | LC_ALL=C awk '{ n = split($0, p, "/"); print n }')
-  while [ "$_rl_i" -le "$_rl_n" ]; do
-    _rl_seg=$(printf '%s' "$_rl_acc" | LC_ALL=C awk -v i="$_rl_i" '{ n = split($0, p, "/"); print p[i] }')
-    case $_rl_seg in
-      '') ;;
-      .) ;;
-      ..)
-        if [ -z "$_rl_out" ]; then
-          printf 'ESCAPE'
-          return 0
-        fi
-        case $_rl_out in
-          */*) _rl_out=${_rl_out%/*} ;;
-          *) _rl_out='' ;;
-        esac
-        ;;
-      *)
-        if [ -n "$_rl_out" ]; then
-          _rl_out="$_rl_out/$_rl_seg"
-        else
-          _rl_out=$_rl_seg
-        fi
-        ;;
-    esac
-    _rl_i=$((_rl_i + 1))
-  done
-  # 折叠体为无前导斜杠的绝对路径词法形态，与包根词法体（pkg_root_rel）比对：
-  # 前缀剥离＝包根内（输出包根相对路径）；恰等包根＝根外相对空间；其余＝包根外。
-  case $_rl_out in
-    "${pkg_root_rel}"/*)
-      _rl_out=${_rl_out#"$pkg_root_rel"/}
-      if [ -e "$pkg_root/$_rl_out" ]; then
-        printf '%s' "$_rl_out"
-      else
-        printf 'BROKEN'
-      fi
-      ;;
-    *) printf 'ESCAPE' ;;
-  esac
+done < "$chk_parsed"
+rm -f "$chk_parsed"; chk_parsed=''
+
+chk_load_bad=''
+chk_load_report() {
+  chk_load_bad="$chk_load_bad$1
+"
 }
-if [ -d "$scripts_dir_abs" ]; then
-  OLDIFS=$IFS
-  IFS='
-'
-  for _c_entry in $(find "$scripts_dir_abs" -mindepth 1 -maxdepth 1 | LC_ALL=C sort); do
-    IFS=$OLDIFS
-    _c_name=${_c_entry##*/}
-    if ! grep -qF "$(printf '%s\t' "$scripts_dir/$_c_name")" "$pm_scripts" \
-      && [ "$_c_name" != "$(basename "$0")" ] \
-      && [ "$_c_name" != "${scripts_readme_rel##*/}" ] \
-      && [ "$_c_name" != "$(basename "$pm_rules")" ]; then
-      n_extra="$n_extra$sep2$_c_name"
-      sep2='、'
-    fi
-    n_closure=$((n_closure + 1))
-  done
-  IFS=$OLDIFS
+chk_total_reg_n=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$chk_total_rows")
+if [ "$chk_total_reg_n" -ne 1 ]; then
+  chk_load_report "  - 注册表 chk_total 须恰一行（实际 ${chk_total_reg_n} 行）"
 fi
-if [ -n "$n_extra" ]; then
-  add_problem "  - scripts/ 一级存在未登记条目（闭合白名单＝scripts 节登记件∪引擎∪成员表∪清单件）: $n_extra"
+chk_total_reg=$(head -n 1 "$chk_total_rows")
+if ! printf '%s\n' "$chk_total_reg" | LC_ALL=C grep -qE '^[1-9][0-9]*$'; then
+  chk_load_report "  - 注册表 chk_total 须正整数: ${chk_total_reg:-<空>}"
 fi
-sep2=''
-sep_e=''
-sep_a=''
-OLDIFS=$IFS
-IFS='
-'
-for _s in $(find "$pkg_root" -type l | LC_ALL=C sort); do
-  IFS=$OLDIFS
-  n_syms=$((n_syms + 1))
-  _s_rel=${_s#"$pkg_root_abs"/}
-  _s_res=$(resolve_within "$_s")
-  case $_s_res in
-    BROKEN)
-      # 花括号不可省略：变量名后紧跟全角字符时防止吞并（先例检查 5/12/17）
-      n_alias="$n_alias$sep_a${_s_rel}（断链）"
-      sep_a='、'
-      ;;
-    ESCAPE)
-      n_escape="$n_escape$sep_e$_s_rel"
-      sep_e='、'
-      ;;
-    *)
-      # 别名判定面＝必需目录（references/、scripts/）∪ 检查 1 必需入口登记路径
-      # （entry-files 精确整行匹配）：登记件被包内 symlink 偷换同样进 FAIL 面。
-      _s_hit=''
-      case $_s_rel in
-        references|references/*|"$scripts_dir"|"$scripts_dir"/*) _s_hit=1 ;;
+if [ "$chk_total_reg" != "$pm_check_total_n" ]; then
+  chk_load_report "  - 注册表 chk_total 与清单 check-registry 编号上界不一致: $chk_total_reg ≠ $pm_check_total_n"
+fi
+chk_bad_reg=$(LC_ALL=C awk -F'\t' '
+  function bad(msg) { printf "  - 注册表第 %d 行: %s\n", FNR, msg; n++ }
+  {
+    if (NF != 4) { bad("字段数 " NF "（预期 4）"); next }
+    if ($1 !~ /^[1-9][0-9]*$/) { bad("检查号须正整数: " $1); next }
+    if ($2 !~ /^[a-z][a-z0-9-]*$/) { bad("slug 须小写 token: " $2); next }
+    if ($3 !~ /^[a-z0-9][a-z0-9-]*\.sh$/) { bad("检查件须为单段 *.sh 文件名: " $3); next }
+    if ($4 != "-" && $4 !~ /^[a-z_]+(,[a-z_]+)*$/) { bad("必需数据节形态不合预期: " $4); next }
+    if ($1 in seenid) { bad("检查号跨行重复: " $1) } else { seenid[$1] = 1 }
+    if ($2 in seenslug) { bad("slug 跨行重复: " $2) } else { seenslug[$2] = 1 }
+    if ($3 in seenfile) { bad("检查件跨行重复: " $3) } else { seenfile[$3] = 1 }
+  }
+  END { if (n > 0) exit 1 }
+' "$chk_rows") || true
+if [ -n "$chk_bad_reg" ]; then
+  chk_load_bad="$chk_load_bad$chk_bad_reg
+"
+fi
+chk_reg_n=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$chk_rows")
+chk_man_n=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_checks")
+chk_ret_n=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_checkretired")
+chk_ret_reg_n=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$chk_retired")
+chk_exp_n=$((chk_total_reg - chk_ret_n))
+if [ "$chk_reg_n" -ne "$chk_man_n" ] || [ "$chk_reg_n" -ne "$chk_exp_n" ]; then
+  chk_load_report "  - 注册项数不一致：注册表 ${chk_reg_n}／清单 ${chk_man_n}／上界−退役 $chk_exp_n"
+fi
+if [ "$chk_ret_reg_n" -ne "$chk_ret_n" ]; then
+  chk_load_report "  - 退役号行数不一致：注册表 ${chk_ret_reg_n}／清单 $chk_ret_n"
+fi
+chk_ids=$(LC_ALL=C awk -F'\t' 'NF { print $1 }' "$chk_rows" | LC_ALL=C sort -n)
+chk_man_ids=$(LC_ALL=C awk -F'\t' 'NF { print $1 }' "$pm_checks" | LC_ALL=C sort -n)
+chk_ret_ids=$(LC_ALL=C awk 'NF { print $1 }' "$pm_checkretired" | LC_ALL=C sort -n)
+chk_ret_reg_ids=$(LC_ALL=C awk 'NF { print $1 }' "$chk_retired" | LC_ALL=C sort -n)
+if [ "$chk_ids" != "$chk_man_ids" ]; then
+  chk_load_report '  - 注册表在役检查号集合与清单 check-registry 不一致'
+fi
+if [ "$chk_ret_ids" != "$chk_ret_reg_ids" ]; then
+  chk_load_report '  - 注册表退役号集合与清单 check-registry 不一致'
+fi
+chk_pairs=$(LC_ALL=C awk -F'\t' 'NF { print $1 "\t" $2 }' "$chk_rows" | LC_ALL=C sort -n)
+chk_man_pairs=$(LC_ALL=C awk -F'\t' 'NF { print $1 "\t" $2 }' "$pm_checks" | LC_ALL=C sort -n)
+if [ "$chk_pairs" != "$chk_man_pairs" ]; then
+  chk_load_report '  - 注册表（检查号, slug）对与清单 check-registry 不一致'
+fi
+chk_union=$(printf '%s\n%s\n' "$chk_ids" "$chk_ret_ids" | LC_ALL=C awk 'NF { print $1 }' | LC_ALL=C sort -n | LC_ALL=C uniq)
+chk_gap=$(printf '%s\n' "$chk_union" | LC_ALL=C awk -v total="$chk_total_reg" '
+  BEGIN { for (i = 1; i <= total; i++) want[i] = 1 }
+  NF { have[$1] = 1 }
+  END { for (i = 1; i <= total; i++) if (!(i in have)) print i }
+')
+if [ -n "$chk_gap" ]; then
+  chk_load_report "  - 编号连续性与退役声明不一致（缺失号）: $(printf '%s' "$chk_gap" | tr '\n' ' ')"
+fi
+chk_src_list=''
+while IFS="$(printf '\t')" read -r chk_n chk_slug chk_file chk_required; do
+  [ -n "$chk_n" ] || continue
+  if [ ! -f "$chk_dir/$chk_file" ]; then
+    chk_load_report "  - 检查件不存在: checks/${chk_file}（检查 ${chk_n}）"
+    continue
+  fi
+  if [ "$chk_required" != "-" ]; then
+    for chk_req in $(printf '%s' "$chk_required" | tr ',' ' '); do
+      # shellcheck disable=SC2194  # 常量词表（清单指令名白名单）刻意字面，非变量遗漏
+      case " pm_entry pm_script pm_template pm_shortcode pm_platform pm_vague_word pm_vague_exempt pm_mirror pm_capability pm_capability_authority pm_capability_target pm_mechanism pm_cite_exempt pm_layout_face pm_layout_universe pm_layout_legacy_file pm_layout_compat_exempt pm_enforcement_level pm_enforcement_target pm_adapter pm_adapter_cap pm_adapter_role pm_adapter_exec pm_adapter_dialect pm_retired_token pm_retired_face pm_legacy_marker pm_workflow pm_workflow_fixture_marker pm_production_entry pm_production_claim pm_ticket_status pm_readonly_site pm_contract_pointer " in
+        *" $chk_req "*) ;;
+        *) chk_load_report "  - 必需数据节未登记: ${chk_req}（检查 ${chk_n}）" ;;
       esac
-      if [ -z "$_s_hit" ] && grep -qxF "$_s_rel" "$pm_entries"; then
-        _s_hit=1
-      fi
-      if [ -n "$_s_hit" ]; then
-        n_alias="$n_alias$sep_a$_s_rel"
-        sep_a='、'
-      fi
-      ;;
-  esac
-done
-IFS=$OLDIFS
-if [ -n "$n_escape" ]; then
-  add_problem "  - 包内 symlink 指向包根外部: $n_escape"
-fi
-if [ -n "$n_alias" ]; then
-  add_problem "  - 登记路径或必需目录为 symlink/别名: $n_alias"
-fi
-if [ -n "$problems" ]; then
-  fail 20 "包闭合性与符号链接防护（scripts 一级 ${n_closure} 项，symlink ${n_syms} 个）" "$problems"
-else
-  pass 20 "包闭合性与符号链接防护（scripts 一级 ${n_closure} 项，symlink ${n_syms} 个）"
-fi
-
-# 检查 21：references 树成员闭合与导航。四段防线：
-#   ①references 全树文件 ⊆ 清单登记——find references/ 全部常规文件逐件核对：包根相对
-#     路径在清单 entry-files 节，或属 references/templates/ 下 .tmpl 且在 templates 节
-#     （检查 5 同源数据，引擎零文件名硬编码）；未登记额外文件（成员增删漏登记、恶意
-#     投放、隐藏条目）即 FAIL 指名；references/ 目录缺失一体 FAIL。
-#   ②references/README.md 目录清单投影双向——references/ 一级条目（文件与目录）与
-#     README「## 目录清单」表首列反引号名单双向全等（表＝人读投影、数据与实物＝机器
-#     真相，先例检查 5/9 投影纪律）；一级条目未登记表或表登记无实物均 FAIL 指名；
-#     锚点未命中或零成员行判表结构漂移 FAIL。
-#   ③包内 Markdown 行内链接目标存在——全部 *.md 的 ](target) 链接：外链（含 :// 与
-#     mailto:）与 # 纯锚点不在口径；其余剥离 #锚点 后相对所在文件目录词法折叠（点段
-#     折叠，复用检查 20 词法判定形态），目标不存在或折出包根（含绝对路径目标）即 FAIL
-#     指名文件:行号与目标（坏相对链接导航防线）。
-#   ④目录 README 兜底（票 266）——只读两检：①generate-dir-readmes.sh --check
-#     --blocks-only（只校验含生成块的 README 四段结构，旧格式无生成块跳过）；②--freshness
-#     （内存重算 --sync 应产出块并逐行比对，漂移即指名缺失／多余行）。两检均不写文件，
-#     失败逐条并入本检查问题面；生成器缺失交检查 8 报（不重复）。
-problems=''
-n_ref_files=0
-n_links=0
-ref_dir="$pkg_root/references"
-ref_readme="$ref_dir/README.md"
-link_resolve() {
-  # $1=链接目标 $2=所在文件包根相对路径：输出目标相对所在文件目录词法折叠后的包根相对
-  # 路径；折出包根（含绝对路径目标）输出 ESCAPE。词法判定，不展开路径 symlink。
-  _lr_t=$1
-  case $_lr_t in
-    /*) printf 'ESCAPE'; return 0 ;;
-  esac
-  _lr_acc=$(dirname "$2")/$_lr_t
-  _lr_out=''
-  _lr_i=1
-  _lr_n=$(printf '%s' "$_lr_acc" | LC_ALL=C awk '{ n = split($0, p, "/"); print n }')
-  while [ "$_lr_i" -le "$_lr_n" ]; do
-    _lr_seg=$(printf '%s' "$_lr_acc" | LC_ALL=C awk -v i="$_lr_i" '{ n = split($0, p, "/"); print p[i] }')
-    case $_lr_seg in
-      '') ;;
-      .) ;;
-      ..)
-        if [ -z "$_lr_out" ]; then
-          printf 'ESCAPE'
-          return 0
-        fi
-        case $_lr_out in
-          */*) _lr_out=${_lr_out%/*} ;;
-          *) _lr_out='' ;;
-        esac
-        ;;
-      *)
-        if [ -n "$_lr_out" ]; then
-          _lr_out="$_lr_out/$_lr_seg"
-        else
-          _lr_out=$_lr_seg
-        fi
-        ;;
-    esac
-    _lr_i=$((_lr_i + 1))
-  done
-  printf '%s' "$_lr_out"
-}
-if [ ! -d "$ref_dir" ]; then
-  add_problem '  - references/ 目录不存在'
-else
-  # ① 全树成员闭合
-  unreg=''
-  sep2=''
-  OLDIFS=$IFS
-  IFS='
-'
-  for _rf in $(find "$ref_dir" -type f | LC_ALL=C sort); do
-    IFS=$OLDIFS
-    n_ref_files=$((n_ref_files + 1))
-    _rf_rel=${_rf#"${pkg_root}/"}
-    if grep -qxF "$_rf_rel" "$pm_entries"; then
-      continue
-    fi
-    case $_rf_rel in
-      references/templates/*.tmpl)
-        if grep -qxF "$(basename "$_rf_rel")" "$pm_templates"; then
-          continue
-        fi
-        ;;
-    esac
-    unreg="$unreg$sep2$_rf_rel"
-    sep2='、'
-  done
-  IFS=$OLDIFS
-  if [ -n "$unreg" ]; then
-    add_problem "  - references 全树未登记条目（闭合白名单＝entry-files ∪ templates 节 .tmpl）: $unreg"
+    done
   fi
-  # ② README 一级投影双向
-  if [ ! -f "$ref_readme" ]; then
-    add_problem '  - references/README.md（目录清单投影）不存在'
-  else
-    # shellcheck disable=SC2016  # sed 捕获组 \(...\) 刻意单引号防 shell 展开
-    man_names=$(sed -n '/^## 目录清单/,/^## /p' "$ref_readme" | sed -n 's/^[^`]*`\([^`]*\)`.*/\1/p' | sed 's:/*$::' | LC_ALL=C sort -u)
-    if [ -z "$man_names" ]; then
-      add_problem '  - references/README.md 目录清单表未提取到成员行（表结构漂移）'
-    else
-      lvl1_names=''
-      OLDIFS=$IFS
-      IFS='
-'
-      for _l1 in $(find "$ref_dir" -mindepth 1 -maxdepth 1 | LC_ALL=C sort); do
-        IFS=$OLDIFS
-        lvl1_names="$lvl1_names${_l1##*/}
+  chk_src_list="$chk_src_list$chk_dir/$chk_file
 "
-      done
-      IFS=$OLDIFS
-      miss_man=''
-      sep2=''
-      OLDIFS=$IFS
-      IFS='
-'
-      for _n in $lvl1_names; do
-        IFS=$OLDIFS
-        [ -n "$_n" ] || continue
-        if ! printf '%s\n' "$man_names" | grep -qxF "$_n"; then
-          miss_man="$miss_man$sep2$_n"
-          sep2='、'
-        fi
-      done
-      IFS=$OLDIFS
-      if [ -n "$miss_man" ]; then
-        add_problem "  - references/ 一级条目未在 README 目录清单登记: $miss_man"
-      fi
-      miss_disk=''
-      sep2=''
-      for _n in $man_names; do
-        if [ ! -e "$ref_dir/$_n" ]; then
-          miss_disk="$miss_disk$sep2$_n"
-          sep2='、'
-        fi
-      done
-      if [ -n "$miss_disk" ]; then
-        add_problem "  - README 目录清单登记但 references/ 一级无实物: $miss_disk"
-      fi
-    fi
-  fi
-fi
-# ③ Markdown 行内链接目标存在
-link_raw=$(cd "$pkg_root" && grep -rnoE '\]\([^)]+\)' --include='*.md' . 2>/dev/null | sed 's|^\./||') || link_raw=''
-if [ -n "$link_raw" ]; then
-  OLDIFS=$IFS
-  IFS='
-'
-  for _lh in $link_raw; do
-    IFS=$OLDIFS
-    _lf=${_lh%%:*}
-    _lrest=${_lh#*:}
-    _ll=${_lrest%%:*}
-    _lm=${_lrest#*:}
-    _lt=${_lm#](}
-    _lt=${_lt%\)}
-    case $_lt in
-      *'://'*|mailto:*|'#'*) continue ;;
-    esac
-    _lt=${_lt%%#*}
-    [ -n "$_lt" ] || continue
-    n_links=$((n_links + 1))
-    _lr=$(link_resolve "$_lt" "$_lf")
-    case $_lr in
-      ESCAPE)
-        add_problem "  - $_lf:$_ll 坏相对链接（目标为绝对路径或折出包根）: $_lt"
-        ;;
-      *)
-        if [ ! -e "$pkg_root/$_lr" ]; then
-          add_problem "  - $_lf:$_ll 坏相对链接（目标不存在）: $_lt"
-        fi
-        ;;
-    esac
-  done
-  IFS=$OLDIFS
-fi
-# ④目录 README 兜底（票 266，只读两检；与收口链、升级流程同口径）
-#   ①--check --blocks-only：只校验含生成块的 README 四段结构，旧格式无生成块跳过；
-#   ②--freshness：在内存重算 --sync 应产出块逐行比对，漂移即指名缺失／多余行。
-#   两检都不写文件；生成器缺失由检查 8 覆盖，本段不重复报；无启用目录时零动作（不作为即通过）。
-if [ -f "$pkg_root/scripts/generate-dir-readmes.sh" ]; then
-  dr_gen="$pkg_root/scripts/generate-dir-readmes.sh"
-  dr_rules="$pkg_root/scripts/dir-readme.rules"
-  _dr_err=''
-  if ! _dr_err=$(sh "$dr_gen" --target "$pkg_root" --rules "$dr_rules" --check --blocks-only 2>&1); then
-    while IFS= read -r _dr_line; do
-      [ -n "$_dr_line" ] || continue
-      add_problem "  - 目录 README 结构校验未过: $_dr_line"
-    done <<EOF
-${_dr_err}
+done <<EOF
+$(LC_ALL=C sort -n -t"$(printf '\t')" -k1,1n "$chk_rows")
 EOF
-  fi
-  _dr_err=''
-  if ! _dr_err=$(sh "$dr_gen" --target "$pkg_root" --rules "$dr_rules" --freshness 2>&1); then
-    while IFS= read -r _dr_line; do
-      [ -n "$_dr_line" ] || continue
-      add_problem "  - 目录 README 生成块新鲜度未过: $_dr_line"
-    done <<EOF
-${_dr_err}
+while IFS= read -r chk_fn_path; do
+  [ -n "$chk_fn_path" ] || continue
+  # shellcheck disable=SC1090  # 检查件路径由注册表现算（动态发现），静态视野不可跟随
+  . "$chk_fn_path" || { chk_load_report "  - 检查件载入失败: $chk_fn_path"; continue; }
+done <<EOF
+$chk_src_list
 EOF
+chk_missing_fn=''
+while IFS= read -r chk_n; do
+  [ -n "$chk_n" ] || continue
+  if ! command -v "check_$chk_n" >/dev/null 2>&1; then
+    chk_missing_fn="$chk_missing_fn check_$chk_n"
   fi
+done <<EOF
+$chk_ids
+EOF
+if [ -n "$chk_missing_fn" ]; then
+  chk_load_report "  - 检查件未定义统一 interface 函数:$chk_missing_fn"
 fi
-if [ -n "$problems" ]; then
-  fail 21 "references 树成员闭合与导航（成员 ${n_ref_files} 件，链接 ${n_links} 个）" "$problems"
-else
-  pass 21 "references 树成员闭合与导航（成员 ${n_ref_files} 件，链接 ${n_links} 个）"
-fi
-
-# 检查 22：规则块九字段格式（票 195 新增）。依 references/protocol/governance-format.md
-# §2.1 既有定义机械执行（本检查是该定义的执行面，非第二权威，字段集与 Level 枚举为检查
-# 语义常量，先例检查 19 的 kind 枚举）。扫描面＝包内全部 *.md 与 *.tmpl 的
-# `#### R-<短码>-<三位序号>` 规则块（标题行形态同检查 12 扫描窗口，含裸 ID 标题——
-# 标题无尾随文字同样落进 Level 核对）：
-#   ①标题行须以受控 Level 四值收尾（MUST/MUST NOT/SHOULD/MAY，反引号可选），缺失或
-#     自造级即 FAIL 指名 ID 与标题原文；
-#   ②块体（标题行起至下一标题行止，与检查 12 窗口同口径）七字段 When/Action/Forbidden/
-#     Stop if/Evidence/Owner/Authority 须以「- **字段**：」形态各至少一行，缺字段即
-#     FAIL 指名 ID 与缺失字段名（全量扫描不排除「解释与例外」节——规则块无处可藏）；
-#   ③块 ID 全局唯一（governance-format.md update_policy 定稿：ID 不得复用），跨行或
-#     跨文件重复即 FAIL 指名 ID 与各处文件:行号。
-problems=''
-rb_fields=$(mktemp "${t_dir%/}/ruleblock.XXXXXX")
-rb_dup=$(mktemp "${t_dir%/}/ruleblock.XXXXXX")
-awk_rc=0
-# shellcheck disable=SC2086  # $file_list 刻意分词——find 逐文件作 awk 多文件参数（包路径无空白，清单校验禁空白路径）
-LC_ALL=C awk -v pr="$pkg_root" '
-  BEGIN { nf = split("When×Action×Forbidden×Stop if×Evidence×Owner×Authority", FLD, "×") }
-  function report(   k, miss) {
-    miss = ""
-    for (k = 1; k <= nf; k++) if (!(FLD[k] in have)) miss = miss FLD[k] " "
-    if (miss != "") printf "MISSING\t%s\t%s\t%d\t%s\n", id, f, ln, miss
-    printf "BLOCK\t%s\t%s\t%d\n", id, f, ln
-    inblk = 0
-  }
-  /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]([ \t]|$)/ {
-    if (inblk) report()
-    id = $2
-    f = FILENAME
-    if (index(f, pr) == 1) f = substr(f, length(pr) + 2)
-    ln = FNR
-    t = $0
-    gsub(/`/, "", t)
-    if (t !~ /(MUST NOT|MUST|SHOULD|MAY)[ \t]*$/) printf "BADLEVEL\t%s\t%s\t%d\t%s\n", id, f, ln, t
-    delete have
-    inblk = 1
-    next
-  }
-  inblk && /^#/ { report(); next }
-  inblk && /^- \*\*/ {
-    line = $0
-    sub(/^- \*\*/, "", line)
-    sub(/\*\*：.*/, "", line)
-    have[line] = 1
-    next
-  }
-  END { if (inblk) report() }
-' $file_list > "$rb_fields" || awk_rc=$?
-if [ "$awk_rc" -ne 0 ]; then
-  printf 'check-package: 错误：检查 22 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
-  rm -f "$rb_fields" "$rb_dup"
+if [ -n "$chk_load_bad" ]; then
+  printf 'check-package: 错误：检查注册表完整性断言未通过（fail-closed，不产生部分结论）:\n%s' "$chk_load_bad" >&2
   exit 2
 fi
-n_blocks=$(LC_ALL=C awk -F'\t' '$1 == "BLOCK" { n++ } END { print n + 0 }' "$rb_fields")
-grep '^BADLEVEL' "$rb_fields" | LC_ALL=C cut -f2- > "$rb_dup"
-while IFS="$(printf '\t')" read -r _rb_id _rb_f _rb_ln _rb_t; do
-  [ -n "$_rb_id" ] || continue
-  add_problem "  - ${_rb_id} 标题行 Level 缺失或非法（须 MUST/MUST NOT/SHOULD/MAY，标题：${_rb_t}）"
-done < "$rb_dup"
-grep '^MISSING' "$rb_fields" | LC_ALL=C cut -f2- > "$rb_dup"
-while IFS="$(printf '\t')" read -r _rb_id _rb_f _rb_ln _rb_miss; do
-  [ -n "$_rb_id" ] || continue
-  add_problem "  - ${_rb_id} 块体缺字段（${_rb_f}:${_rb_ln} 起）: $(printf '%s' "$_rb_miss" | sed 's/ $//')"
-done < "$rb_dup"
-grep '^BLOCK' "$rb_fields" | LC_ALL=C cut -f2- > "$rb_dup"
-LC_ALL=C awk -F'\t' '{ c[$1] = c[$1] " " $2 ":" $3; n[$1]++ } END { for (i in n) if (n[i] > 1) printf "DUP\t%s\t%s\n", i, substr(c[i], 2) }' "$rb_dup" \
-  | LC_ALL=C sort > "$rb_fields"
-while IFS="$(printf '\t')" read -r _dup_tag _rb_id _rb_locs; do
-  [ -n "$_dup_tag" ] || continue
-  add_problem "  - 规则块 ID 重复（全局唯一，不得复用）: ${_rb_id}（${_rb_locs}）"
-done < "$rb_fields"
-rm -f "$rb_fields" "$rb_dup"
-if [ -n "$problems" ]; then
-  fail 22 "规则块九字段格式（块 ${n_blocks} 个，字段 7 项，级 4 值）" "$problems"
-else
-  pass 22 "规则块九字段格式（块 ${n_blocks} 个，字段 7 项，级 4 值）"
-fi
+n_total_checks=$chk_total_reg
 
-# 检查 24：布局引用分类与失效检测（modern/legacy/compatibility 三分类）。扫描面＝清单
-# layout-face 节登记面：目录行递归取 *.md/*.tmpl（排除 README.md 叙事面，检查 12 同款
-# 口径），单文件行整件入面。分类口径：
-#   legacy        ＝清单 layout-legacy-file 节登记文件（旧项目路径手册等票卡定谳的合法
-#                   保留件），命中只计数不判罚；
-#   compatibility ＝清单 layout-compat-exempt 节登记行（路径＋行号＋理由，显式兼容豁免，
-#                   非隐式忽略；登记行无命中即失效豁免 FAIL，检查 12/18 同款防漂移口径）；
-#   modern        ＝其余命中：旧布局路径 token（docs/<path> 或 development-process，前邻
-#                   字符禁「/」与字母数字点连字符，避开 code.claude.com/docs/ 等外部 URL
-#                   形态）即 FAIL 指名文件:行号与命中 token。
-# ②modern 相对链接解析＝面内 *.tmpl 的 ](target) 行内链接：目标剥锚点与前导 ./ 后落
-#   rules/ 或 facts/（modern 布局）时须 ∈ 生成布局全集（清单 layout-universe 节登记模板
-#   按锚点提取的路径行并集，数据驱动）。与检查 21③ 关系（实证定谳）：21③ 对包内 *.md
-#   行内链接按包内树判定存在性，不适用于模板生成物相对链接（生成目标是消费项目布局）；
-#   modern 生成布局目标解析为其正交补面，故立本检查项而非泛化 21③；*.md 内行内链接
-#   存在性仍归 21③，本项不重复。
-problems=''
-n24_face=0
-n24_mod=0
-n24_legacy=0
-n24_compat=0
-n24_links=0
-n24_modlines=''
-layout24_files=$(mktemp "${t_dir%/}/layout24.XXXXXX")
-layout24_hits=$(mktemp "${t_dir%/}/layout24.XXXXXX")
-layout24_links=$(mktemp "${t_dir%/}/layout24.XXXXXX")
-layout24_univ=$(mktemp "${t_dir%/}/layout24.XXXXXX")
-# 面清单组装（face 行＝目录或单文件；登记面不存在即 FAIL，fail-closed 不静默缩面）
-while IFS= read -r l24_row; do
-  [ -n "$l24_row" ] || continue
-  if [ -d "$pkg_root/$l24_row" ]; then
-    (cd "$pkg_root" && find "$l24_row" -type f \( -name '*.md' -o -name '*.tmpl' \) ! -name 'README.md' 2>/dev/null) >> "$layout24_files" || true
-  elif [ -f "$pkg_root/$l24_row" ]; then
-    printf '%s\n' "$l24_row" >> "$layout24_files"
-  else
-    add_problem "  - layout-face 登记面不存在: $l24_row"
-  fi
-done < "$pm_layoutface"
-LC_ALL=C sort -u "$layout24_files" -o "$layout24_files"
-n24_face=$(wc -l < "$layout24_files" | tr -d ' ')
-# ①失效引用扫描（逐面文件 grep -noE，命中行落 <rel>:<ln>:<match>）
-layout24_pat='(^|[^/A-Za-z0-9._-])(docs/[A-Za-z0-9._/-]+|development-process)'
-OLDIFS=$IFS
-IFS='
-'
-while IFS= read -r l24_f; do
-  IFS=$OLDIFS
-  [ -n "$l24_f" ] || continue
-  LC_ALL=C grep -noE "$layout24_pat" "$pkg_root/$l24_f" 2>/dev/null \
-    | sed "s|^|$l24_f:|" >> "$layout24_hits" || true
-done < "$layout24_files"
-IFS=$OLDIFS
-# 命中三分类
-while IFS= read -r l24_h; do
-  [ -n "$l24_h" ] || continue
-  l24_rel=${l24_h%%:*}
-  l24_rest=${l24_h#*:}
-  l24_ln=${l24_rest%%:*}
-  l24_m=${l24_rest#*:}
-  case $l24_m in
-    docs/*|development-process*) l24_tok=$l24_m ;;
-    *) l24_tok=${l24_m#?} ;;
-  esac
-  if LC_ALL=C awk -F'\t' -v p="$l24_rel" 'BEGIN { ok = 0 } $1 == p { ok = 1 } END { exit ok ? 0 : 1 }' "$pm_layoutlf"; then
-    n24_legacy=$((n24_legacy + 1))
-    continue
-  fi
-  if grep -qF "$(printf '%s\t%s\t' "$l24_rel" "$l24_ln")" "$pm_layoutce"; then
-    n24_compat=$((n24_compat + 1))
-    continue
-  fi
-  case "
-$n24_modlines" in
-    *"
-$l24_rel:$l24_ln
-"*) : ;;
-    *)
-      n24_modlines="$n24_modlines$l24_rel:$l24_ln
-"
-      n24_mod=$((n24_mod + 1))
-      add_problem "  - $l24_rel:$l24_ln modern 布局面失效引用（分类 modern）: $l24_tok"
-      ;;
-  esac
-done < "$layout24_hits"
-# 失效豁免核对：登记行无命中即 FAIL（检查 12/18 同款，防漂移静默失效）
-while IFS= read -r l24_crow; do
-  [ -n "$l24_crow" ] || continue
-  l24_crel=${l24_crow%%"$TAB"*}
-  l24_crest=${l24_crow#*"$TAB"}
-  l24_cln=${l24_crest%%"$TAB"*}
-  if ! LC_ALL=C awk -F':' -v p="$l24_crel" -v l="$l24_cln" '$1 == p && $2 == l { f = 1 } END { exit f ? 0 : 1 }' "$layout24_hits"; then
-    add_problem "  - 失效豁免（登记行无 legacy 引用命中，须复核更新或删除登记）: $l24_crel:$l24_cln"
-  fi
-done < "$pm_layoutce"
-# ②modern 相对链接解析（面内 *.tmpl；生成布局全集提取与链接核对）
-while IFS= read -r l24_urow; do
-  [ -n "$l24_urow" ] || continue
-  l24_usrc=${l24_urow%%"$TAB"*}
-  l24_uanchor=${l24_urow#*"$TAB"}
-  if [ ! -f "$pkg_root/$l24_usrc" ]; then
-    add_problem "  - layout-universe 登记模板不存在: $l24_usrc"
-    continue
-  fi
-  LC_ALL=C sed -n "s/.*$l24_uanchor \([A-Za-z0-9._/-]*\).*/\1/p" "$pkg_root/$l24_usrc" >> "$layout24_univ" || true
-done < "$pm_layoutu"
-while IFS= read -r l24_f; do
-  IFS=$OLDIFS
-  [ -n "$l24_f" ] || continue
-  case $l24_f in
-    *.tmpl) : ;;
-    *) continue ;;
-  esac
-  LC_ALL=C grep -noE '\]\([^)]+\)' "$pkg_root/$l24_f" 2>/dev/null \
-    | sed "s|^|$l24_f:|" >> "$layout24_links" || true
-done < "$layout24_files"
-IFS=$OLDIFS
-while IFS= read -r l24_l; do
-  [ -n "$l24_l" ] || continue
-  l24_lrel=${l24_l%%:*}
-  l24_lrest=${l24_l#*:}
-  l24_lln=${l24_lrest%%:*}
-  l24_lm=${l24_lrest#*:}
-  l24_lt=${l24_lm#](}
-  l24_lt=${l24_lt%\)}
-  case $l24_lt in
-    *'://'*|mailto:*|'#'*) continue ;;
-  esac
-  l24_lt=${l24_lt%%#*}
-  [ -n "$l24_lt" ] || continue
-  case $l24_lt in
-    ./*) l24_lt=${l24_lt#./} ;;
-  esac
-  case $l24_lt in
-    rules/*|facts/*) : ;;
-    *) continue ;;
-  esac
-  n24_links=$((n24_links + 1))
-  # 成员判定＝整行精确相等（-x）：子串口径会让 rules/project 误配 rules/project.md
-  if ! grep -qsxF -- "$l24_lt" "$layout24_univ"; then
-    add_problem "  - $l24_lrel:$l24_lln modern 布局相对链接目标不在生成布局全集（分类 modern）: $l24_lt"
-  fi
-done < "$layout24_links"
-rm -f "$layout24_files" "$layout24_hits" "$layout24_links" "$layout24_univ"
-if [ -n "$problems" ]; then
-  fail 24 "布局引用分类与失效检测（面 ${n24_face} 件，modern 失效 ${n24_mod} 处，legacy ${n24_legacy} 处，compatibility ${n24_compat} 处，modern 链接 ${n24_links} 个）" "$problems"
-else
-  pass 24 "布局引用分类与失效检测（面 ${n24_face} 件，modern 失效 ${n24_mod} 处，legacy ${n24_legacy} 处，compatibility ${n24_compat} 处，modern 链接 ${n24_links} 个）"
-fi
 
-# 检查 25：待定规范声明检测（票 212 新增）。规范规则只引用已核验事实——MUST/MUST NOT
-# 规则块内不得出现【待定】来源标记（未核验面在规则块内用状态词表标注：pending/
-# unsupported/local-observation；本地实验记录移出 MUST 正文降为注记形态）。
-# 扫描面＝references/adapters/ 全部 *.md（宿主映射手册是适配证据的规范承载面；引擎
-# 硬编码该域路径，先例检查 21 的 references/ 与检查 24 的 governance-format.md 域常量；
-# 写入指引面豁免见下）。窗口＝#### R-<短码>-NNN 标题 Level 为 MUST/MUST NOT 的规则块
-#（标题行起至下一标题行止，检查 22 同款窗口口径）：
-#   ①块内行含【待定】即 FAIL 指名文件:行号；
-#   ②行级豁免＝命中行内显式标记 <!-- pending-decl-exempt: <理由> -->（理由必填）：
-#     只限写入指引面（【待定】标记机制的指令行本体，如 adapter-template.md R-AT-001
-#     Stop if）；标记行无【待定】命中、不在 MUST 块内或缺理由 → 失效豁免 FAIL
-#    （检查 12/18/24 同款防漂移口径）。零 git 依赖。
-problems=''
-n25_hits=0
-n25_exempt=0
-pd25_dir="$pkg_root/references/adapters"
-if [ ! -d "$pd25_dir" ]; then
-  add_problem '  - 待定规范声明检测扫描面不存在: references/adapters'
-else
-  pd25_list=$(mktemp "${t_dir%/}/pend25.XXXXXX")
-  pd25_out=$(mktemp "${t_dir%/}/pend25.XXXXXX")
-  find "$pd25_dir" -type f -name '*.md' | LC_ALL=C sort > "$pd25_list"
-  if [ ! -s "$pd25_list" ]; then
-    add_problem '  - 待定规范声明检测扫描面零 md 文件: references/adapters'
-  else
-    awk_rc=0
-    # shellcheck disable=SC2046,SC2086  # $(cat) 文件清单刻意分词——find 逐文件作 awk 多文件参数（包路径无空白，清单校验禁空白路径，检查 22 同款形态）
-    LC_ALL=C awk -v pr="$pkg_root" '
-      BEGIN { tok = "<!-- pending-decl-exempt:" }
-      FNR == 1 { inmust = 0 }
-      /^#/ {
-        if ($0 ~ /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]([ \t]|$)/) {
-          t = $0
-          gsub(/`/, "", t)
-          inmust = (t ~ /(MUST NOT|MUST)[ \t]*$/) ? 1 : 0
-        } else {
-          inmust = 0
-        }
-        next
-      }
-      {
-        hastag = index($0, "【待定】") > 0
-        p = index($0, tok)
-        if (!hastag && p == 0) next
-        rel = FILENAME
-        if (index(rel, pr) == 1) rel = substr(rel, length(pr) + 2)
-        if (p > 0) {
-          rest = substr($0, p + length(tok))
-          e = index(rest, "-->")
-          reason = e > 1 ? substr(rest, 1, e - 1) : ""
-          gsub(/^[ \t]+/, "", reason)
-          gsub(/[ \t]+$/, "", reason)
-          if (!inmust || !hastag) printf "STALE\t%s\t%d\n", rel, FNR
-          else if (reason == "") printf "BADREASON\t%s\t%d\n", rel, FNR
-          else printf "EXEMPT\t%s\t%d\n", rel, FNR
-        } else if (inmust) {
-          printf "HIT\t%s\t%d\n", rel, FNR
-        }
-      }
-    ' $(cat "$pd25_list") > "$pd25_out" || awk_rc=$?
-    if [ "$awk_rc" -ne 0 ]; then
-      printf 'check-package: 错误：检查 25 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
-      rm -f "$pd25_list" "$pd25_out"
+# ============================================================
+# 统一分发：注册表顺序逐项调用检查件；引擎统一生成 PASS/FAIL/SKIP 行与汇总计数。
+# 输出先缓冲、完整性守卫通过后一次性落 stdout：检查件崩溃/主动 exit 2/输出残缺一律
+# fail-closed（stderr 指名，stdout 零残缺输出），杜绝 exit 0 的残缺包检。
+# ============================================================
+while IFS= read -r chk_n; do
+  [ -n "$chk_n" ] || continue
+  : > "$chk_state_desc"
+  : > "$chk_state_skip"
+  : > "$chk_state_problems"
+  : > "$chk_state_stdout"
+  chk_rc=0
+  ( problems=''
+    _chk_desc=''
+    _chk_skip=''
+    # 共享 scratch（引擎显式初始化后传入；检查件之间零隐式状态）
+    sep=''
+    sep2=''
+    sep_a=''
+    sep_e=''
+    OLDIFS=$IFS
+    "check_$chk_n" "$pkg_root"
+    printf '%s' "$_chk_desc" > "$chk_state_desc"
+    printf '%s' "$_chk_skip" > "$chk_state_skip"
+    printf '%s' "$problems" > "$chk_state_problems"
+  ) > "$chk_state_stdout" || chk_rc=$?
+  if [ "$chk_rc" -eq 2 ]; then
+    exit 2
+  elif [ "$chk_rc" -ne 0 ]; then
+    printf 'check-package: 错误：检查 %s 执行异常中止（fail-closed，不产生部分结论）\n' "$chk_n" >&2
+    exit 2
+  fi
+  if [ -s "$chk_state_stdout" ]; then
+    printf 'check-package: 错误：检查 %s 直接写 stdout（违反检查件 interface：只判定与报告问题）\n' "$chk_n" >&2
+    exit 2
+  fi
+  _chk_desc=$(cat "$chk_state_desc")
+  _chk_skip=$(cat "$chk_state_skip")
+  problems=$(cat "$chk_state_problems")
+  if [ -n "$_chk_skip" ]; then
+    printf 'SKIP: %s %s\n' "$chk_n" "$_chk_skip" >> "$chk_out_buf"
+  fi
+  if [ -n "$problems" ]; then
+    if [ -z "$_chk_desc" ]; then
+      printf 'check-package: 错误：检查 %s 未声明描述（检查件 interface 违约）\n' "$chk_n" >&2
       exit 2
     fi
-    while IFS="$(printf '\t')" read -r _pd_tag _pd_rel _pd_ln; do
-      [ -n "$_pd_tag" ] || continue
-      case $_pd_tag in
-        HIT)
-          n25_hits=$((n25_hits + 1))
-          add_problem "  - ${_pd_rel}:${_pd_ln} MUST 块命中【待定】来源标记（规范事实须已核验；未核验面用状态词表 pending/unsupported/local-observation 标注，本地实验记录移出 MUST 正文）"
-          ;;
-        STALE)
-          add_problem "  - ${_pd_rel}:${_pd_ln} 失效豁免（pending-decl-exempt 标记行无【待定】命中或不在 MUST 块内，须复核更新或删除标记）"
-          ;;
-        BADREASON)
-          add_problem "  - ${_pd_rel}:${_pd_ln} 豁免标记缺理由（<!-- pending-decl-exempt: 理由 -->，理由必填）"
-          ;;
-        EXEMPT)
-          n25_exempt=$((n25_exempt + 1))
-          ;;
-      esac
-    done < "$pd25_out"
+    fail "$chk_n" "$_chk_desc" "$problems"
+  elif [ -n "$_chk_desc" ]; then
+    pass "$chk_n" "$_chk_desc"
   fi
-  rm -f "$pd25_list" "$pd25_out"
-fi
-if [ -n "$problems" ]; then
-  fail 25 "待定规范声明检测（MUST 块【待定】命中 ${n25_hits} 处，豁免 ${n25_exempt} 行）" "$problems"
-else
-  pass 25 "待定规范声明检测（MUST 块【待定】命中 ${n25_hits} 处，豁免 ${n25_exempt} 行）"
-fi
-
-# 检查 26：适配器注册表闭合（票 215 新增）。单一数据源＝清单 adapter-registry 节
-# （pm_adapter 六字段：platform/shortcode/adapter_file/capability_coverage/
-# role_mapping/evidence_status；字段格式、跨行唯一与 platform ∈ 枚举宿主值在加载段
-# 结构校验 fail-closed，短码全局唯一由该节单源验证）。五向闭合：
-#   ①注册表 ↔ platform-enum 节双向全等——注册表侧 ∈ 宿主值（去 neutral）在加载段
-#     fail-closed 核验，本处补枚举宿主值缺注册行方向；
-#   ②注册表 ↔ 适配器文件在位——adapter_file 存在（命名同名基线已在加载段校验）；
-#   ③注册表 ↔ shortcodes 节——（短码, 所属文件）对须在册且全等；注册短码在
-#     shortcodes 节挂其他所属文件即 FAIL（跨面唯一性锚定注册表）；
-#   ④注册表 ↔ capability targets 节——（adapter_file, coverage）与 kind=table 行
-#     双向一一全等（注册表与 pm_capability_target 互为镜像）；
-#   ⑤注册表 ↔ 两 README 投影——references/README.md「adapters/」行反引号小写
-#     token 集合与注册平台集全等（父 README 不漏列平台）；adapters/README.md
-#     目录清单表 `<宿主文件>` 行含 `<短码>` 反引号 token，且表内小写单段 .md 行
-#     （宿主映射文件形态）须全部在册（投影不另立登记事实）。
-# R-CC-005 登记链口径：platform 枚举登记处（artifacts-yaml.tmpl 注释区与
-# capability-contract.md 已知集合句）由检查 11 对 platform-enum 节闭合、本检查①
-# 对注册表闭合，两级串联全覆盖；capability-contract.md 枚举段语义不在本检查改写面。
-problems=''
-n26_rows=$(wc -l < "$pm_adapters" | tr -d ' ')
-# ①枚举宿主值集（去 neutral）缺注册行方向（注册表侧 ∈ 宿主值已在加载段核验）
-reg_platforms=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_adapters" | LC_ALL=C sort)
-host_platforms=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_platforms" | grep -vx 'neutral' | LC_ALL=C sort)
-for v in $host_platforms; do
-  if ! printf '%s\n' "$reg_platforms" | grep -qx "$v"; then
-    add_problem "  - platform-enum 宿主值缺注册行: $v"
-  fi
-done
-# ②适配器文件在位
-while IFS="$(printf '\t')" read -r a26_plat a26_sc a26_file a26_cov a26_role a26_ev; do
-  [ -n "$a26_plat" ] || continue
-  if [ ! -f "$pkg_root/$a26_file" ]; then
-    add_problem "  - 注册表适配器文件不存在: $a26_file"
-  fi
-done < "$pm_adapters"
-# ③shortcodes 节（短码, 文件）对全等 + 注册短码不挂其他所属文件
-while IFS="$(printf '\t')" read -r a26_plat a26_sc a26_file a26_cov a26_role a26_ev; do
-  [ -n "$a26_plat" ] || continue
-  if ! grep -qF "$(printf '%s\t%s' "$a26_sc" "$a26_file")" "$pm_codes"; then
-    add_problem "  - 注册表（短码, 所属文件）对不在 shortcodes 节: $a26_sc $a26_file"
-  fi
-  a26_other=$(grep -F "$(printf '%s\t' "$a26_sc")" "$pm_codes" | grep -vF "$(printf '%s\t%s' "$a26_sc" "$a26_file")" || true)
-  if [ -n "$a26_other" ]; then
-    add_problem "  - 注册短码在 shortcodes 节挂其他所属文件（短码全局唯一锚定注册表）: $a26_other"
-  fi
-done < "$pm_adapters"
-# ④capability targets kind=table 行 ↔ 注册表互为镜像（IFS 收敛为换行保 TAB 字段对）
-a26_tab=$(LC_ALL=C awk -F'\t' '$2 == "table" {print $1 "\t" $3}' "$pm_captargets" | LC_ALL=C sort)
-a26_regtab=$(LC_ALL=C awk -F'\t' '{print $3 "\t" $4}' "$pm_adapters" | LC_ALL=C sort)
-OLDIFS=$IFS
-IFS='
-'
-for v in $a26_regtab; do
-  if ! printf '%s\n' "$a26_tab" | grep -qxF "$v"; then
-    add_problem "  - 注册表（适配文件, coverage）对不在 capability targets 节 kind=table 行: $(printf '%s' "$v" | tr '\t' ' ')"
-  fi
-done
-for v in $a26_tab; do
-  if ! printf '%s\n' "$a26_regtab" | grep -qxF "$v"; then
-    add_problem "  - capability targets 节 kind=table 行未入注册表（互为镜像）: $(printf '%s' "$v" | tr '\t' ' ')"
-  fi
-done
-IFS=$OLDIFS
-# ⑤references/README.md「adapters/」行投影（父 README 平台全集，不漏列）
-# 锚点用 BRE 字面竖线（BSD grep 的 \| 为交替元字符，先例：检查 21② sed 提取同款字面）。
-ref_readme26="$pkg_root/references/README.md"
-ad_readme26="$pkg_root/references/adapters/README.md"
-if [ ! -f "$ref_readme26" ]; then
-  add_problem '  - references/README.md 不存在（父 README 投影无承载）'
-else
-  # shellcheck disable=SC2016  # 单引号内反引号为字面 Markdown 表锚（行首 | `adapters/` | 目录行锚点），非命令替换
-  ref26_row=$(grep -n '^| `adapters/`' "$ref_readme26" | head -1)
-  if [ -z "$ref26_row" ]; then
-    # shellcheck disable=SC2016  # 提示文案内反引号为字面 Markdown 锚原样指名（锚点漂移时供人工比对），非命令替换
-    add_problem '  - references/README.md 未找到 adapters 目录行（锚点行首 | `adapters/` |，父 README 投影漂移）'
-  else
-    # shellcheck disable=SC2016  # grep -oE 与 tr 的反引号为字面 Markdown 锚定界符（平台 token 提取形态本体），非命令替换
-    ref26_vals=$(printf '%s\n' "$ref26_row" | cut -d: -f2- | LC_ALL=C grep -oE '`[a-z][a-z0-9-]*`' | tr -d '`' | LC_ALL=C sort -u)
-    ref26_diff=''
-    for v in $reg_platforms; do
-      if ! printf '%s\n' "$ref26_vals" | grep -qx "$v"; then
-        # 花括号不可省略：$v 后紧跟全角分号时，sh 会把多字节字符并入变量名（先例检查 5/12/14）
-        ref26_diff="${ref26_diff}缺少 ${v}；"
-      fi
-    done
-    for v in $ref26_vals; do
-      if ! printf '%s\n' "$reg_platforms" | grep -qx "$v"; then
-        ref26_diff="${ref26_diff}多出 ${v}；"
-      fi
-    done
-    if [ -n "$ref26_diff" ]; then
-      # 尾部分号剥离（逐项以「；」衔接，末项不带尾分号）
-      add_problem "  - references/README.md adapters 行投影与注册表不一致（父 README 不得漏列平台）: $(printf '%s' "$ref26_diff" | sed 's/；$//')"
-    fi
-  fi
-fi
-# ⑤adapters/README.md 目录清单投影：注册行含短码 token；表内（短码, 文件）投影对须
-# 在册（宿主对＝adapter-registry 节，非宿主对＝shortcodes 节——投影不另立登记事实）。
-if [ ! -f "$ad_readme26" ]; then
-  add_problem '  - references/adapters/README.md 不存在（目录 README 投影无承载）'
-else
-  ad26_tab=$(sed -n '/^## 目录清单/,/^## /p' "$ad_readme26")
-  if [ -z "$ad26_tab" ]; then
-    add_problem '  - references/adapters/README.md 目录清单表未提取到内容（表结构漂移）'
-  else
-    # shellcheck disable=SC2034  # 六变量整体解构对齐 pm_adapter 行六字段布局（read 尾字段不可省否则吞并剩余列）；coverage/role/evidence 本循环不消费
-    while IFS="$(printf '\t')" read -r a26_plat a26_sc a26_file a26_cov a26_role a26_ev; do
-      [ -n "$a26_plat" ] || continue
-      a26_base=${a26_file##*/}
-      # 花括号不可省略：变量名后紧跟全角字符时防止吞并（先例检查 5/12/14）
-      if ! printf '%s\n' "$ad26_tab" | grep -E "^\\| \`${a26_base}\`" | grep -qF "\`${a26_sc}\`"; then
-        add_problem "  - adapters/README.md 目录清单投影缺行或缺短码: ${a26_base}（${a26_sc}）"
-      fi
-    done < "$pm_adapters"
-    # 反向闭合：表行携带的两字母短码列与首列 .md 名组成投影对，逐对核对在册
-    # （名字列取行内首个 <名>.md token＝表首列；短码列取首个两字母大写 token；
-    # 「无」短码行与占位 `<host>.md` 形态不落入提取）。
-    ad26_pairs=$(printf '%s\n' "$ad26_tab" | LC_ALL=C awk '
-      {
-        n = split($0, f, "|")
-        name = ""; sc = ""
-        for (i = 2; i <= n; i++) {
-          t = f[i]
-          gsub(/`/, "", t)
-          gsub(/^[ \t]+/, "", t); gsub(/[ \t]+$/, "", t)
-          if (name == "" && t ~ /^[A-Za-z][A-Za-z0-9._-]*\.md$/) name = t
-          else if (sc == "" && t ~ /^[A-Z][A-Z]$/) sc = t
-        }
-        if (name != "" && sc != "") print sc "\t" name
-      }' | LC_ALL=C sort -u)
-    OLDIFS=$IFS
-    IFS='
-'
-    for pr in $ad26_pairs; do
-      a26_sc=${pr%%"$TAB"*}
-      a26_base=${pr#*"$TAB"}
-      a26_path="references/adapters/$a26_base"
-      if ! LC_ALL=C awk -F'\t' -v sc="$a26_sc" -v p="$a26_path" '{ if ($2 == sc && $3 == p) found = 1 } END { exit found ? 0 : 1 }' "$pm_adapters" \
-        && ! LC_ALL=C awk -F'\t' -v sc="$a26_sc" -v p="$a26_path" '{ if ($1 == sc && $2 == p) found = 1 } END { exit found ? 0 : 1 }' "$pm_codes"; then
-        add_problem "  - adapters/README.md 投影短码对未登记（宿主对入 adapter-registry 节、其余入 shortcodes 节）: $a26_sc $a26_base"
-      fi
-    done
-    IFS=$OLDIFS
-  fi
-fi
-if [ -n "$problems" ]; then
-  fail 26 "适配器注册表闭合（注册 ${n26_rows} 行，投影 2 面）" "$problems"
-else
-  pass 26 "适配器注册表闭合（注册 ${n26_rows} 行，投影 2 面）"
-fi
-
-# 检查 27：适配差异数据表一致性（票 222 新增）。数据＝references/adapters/
-# adapter-diffs.rules 四节机器数据行（pm_adapter_cap／pm_adapter_role／
-# pm_adapter_exec／pm_adapter_dialect；包根相对落位、包侧唯一副本，加载段结构
-# 校验 fail-closed）。断言「数据 ≡ 现行五宿主 Markdown 对应段」全等，两向漂移
-# 即 FAIL 指名宿主与段（表文修正归人工裁决，不静默互改；宿主文档改写归后继
-# 生成/去重票——其以本表为输入）。全等口径＝两侧同规约「剥离反引号（Markdown
-# 强调记号非内容）后逐行逐字段全等」：
-#   ①九行能力表——「| 能力基元 |」对照表数据行按（基元, 工具, 约束）三列比对，
-#     行序＝宿主文档行序（行序敏感）；
-#   ②三角色映射表——「| <role-contract-dir>/」行按（角色, 能力名单, 工具口径）
-#     三列比对（角色名自路径尾段剥 <role-contract-dir>/ 与 .md），行序敏感；
-#   ③独立执行体声明——exec 行锚语原文子串在场断言（宿主文件 grep -F）；
-#   ④宿主特有方言——dialect 行签名锚语原文子串在场断言（同上）。
-problems=''
-n27_cap=$(wc -l < "$pm_adcap" | tr -d ' ')
-n27_role=$(wc -l < "$pm_adrole" | tr -d ' ')
-n27_exec=$(wc -l < "$pm_adexec" | tr -d ' ')
-n27_dial=$(wc -l < "$pm_addial" | tr -d ' ')
-a27_extract_cap() {
-  # $1=宿主文件：「| 能力基元 |」对照表数据行规约化——剥反引号后（基元, 工具,
-  # 约束）三列 TAB 行；单元格数非 3 的行剥反引号原样输出（比对必失配＝漂移面）。
-  LC_ALL=C awk -v mk='| 能力基元' '
-    function trimbt(x) { gsub(/`/, "", x); gsub(/^[ \t]+/, "", x); gsub(/[ \t]+$/, "", x); return x }
-    {
-      if (!inh) { if (index($0, mk) == 1) inh = 1; next }
-      if ($0 !~ /^\|/) exit
-      c = $0
-      sub(/^[[:space:]]*\|/, "", c)
-      sub(/[[:space:]]*\|.*/, "", c)
-      gsub(/^[[:space:]]+/, "", c); gsub(/[[:space:]]+$/, "", c)
-      if (c ~ /^[-:]+$/) next
-      n = split($0, f, "|")
-      if (n - 2 != 3) { print trimbt($0); next }
-      print trimbt(f[2]) "\t" trimbt(f[3]) "\t" trimbt(f[4])
-    }
-  ' "$1"
-}
-a27_extract_role() {
-  # $1=宿主文件：「| <role-contract-dir>/」行规约化——（角色, 能力名单, 工具口径）
-  # 三列 TAB 行；角色名＝首列路径尾段剥 <role-contract-dir>/ 前缀与 .md 后缀。列数非 3
-  # 的行剥反引号原样输出（与能力表同款守卫：比对必失配＝漂移面，防多/少列静默截断）。
-  LC_ALL=C awk '
-    function trimbt(x) { gsub(/`/, "", x); gsub(/^[ \t]+/, "", x); gsub(/[ \t]+$/, "", x); return x }
-    $0 ~ /^\| <role-contract-dir>\// {
-      n = split($0, f, "|")
-      if (n - 2 != 3) { print trimbt($0); next }
-      r = trimbt(f[2])
-      sub(/^<role-contract-dir>\//, "", r)
-      sub(/\.md$/, "", r)
-      print r "\t" trimbt(f[3]) "\t" trimbt(f[4])
-    }
-  ' "$1"
-}
-a27_first_diff() {
-  # $1/$2=两规约化 TAB 行文件；stdout＝首个差异行号（两侧全等＝0；行数不齐＝
-  # 短侧行数＋1）。
-  LC_ALL=C awk '
-    NR == FNR { d[FNR] = $0; nd = FNR; next }
-    { if (!fd && $0 != d[FNR]) fd = FNR; nm = FNR }
-    END { if (!fd && nd != nm) fd = (nd < nm ? nd : nm) + 1; print fd + 0 }
-  ' "$1" "$2"
-}
-a27_cap_d=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
-a27_cap_m=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
-a27_role_d=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
-a27_role_m=$(mktemp "${t_dir%/}/pkgmanifest.XXXXXX")
-n27_hosts=0
-# shellcheck disable=SC2034  # 六变量整体解构对齐 pm_adapter 行六字段布局（read 尾字段不可省否则吞并剩余列）；sc/cov/role/ev 本循环不消费
-while IFS="$(printf '\t')" read -r a27_plat a27_sc a27_file a27_cov a27_role a27_ev; do
-  [ -n "$a27_plat" ] || continue
-  n27_hosts=$((n27_hosts + 1))
-  a27_host="$pkg_root/$a27_file"
-  if [ ! -f "$a27_host" ]; then
-    continue  # 适配器文件缺席已由检查 26② 指名，此处不重复计失败
-  fi
-  # ①九行能力表（行序敏感全等；两侧同规约剥反引号——数据侧强调记号原样承载，
-  #   剥离后与宿主抽取同形，检查 27 的宽松口径不变）
-  awk -F'\t' -v p="$a27_plat" '$1 == p { a = $2; b = $3; c = $4; gsub(/`/, "", a); gsub(/`/, "", b); gsub(/`/, "", c); print a "\t" b "\t" c }' "$pm_adcap" > "$a27_cap_d"
-  a27_extract_cap "$a27_host" > "$a27_cap_m"
-  if ! cmp -s "$a27_cap_d" "$a27_cap_m"; then
-    a27_fd=$(a27_first_diff "$a27_cap_d" "$a27_cap_m")
-    add_problem "  - $a27_file 九行能力表与差异数据表漂移（段＝capability-map；首个差异行 ${a27_fd}，0＝行数不齐）"
-  fi
-  # ②三角色映射表（行序敏感全等；同①两侧剥反引号口径）
-  awk -F'\t' -v p="$a27_plat" '$1 == p { a = $2; b = $3; c = $4; gsub(/`/, "", a); gsub(/`/, "", b); gsub(/`/, "", c); print a "\t" b "\t" c }' "$pm_adrole" > "$a27_role_d"
-  a27_extract_role "$a27_host" > "$a27_role_m"
-  if ! cmp -s "$a27_role_d" "$a27_role_m"; then
-    a27_fd=$(a27_first_diff "$a27_role_d" "$a27_role_m")
-    add_problem "  - $a27_file 三角色映射表与差异数据表漂移（段＝role-map；首个差异行 ${a27_fd}，0＝行数不齐）"
-  fi
-done < "$pm_adapters"
-# ③独立执行体声明锚语（原文子串在场）
-while IFS="$(printf '\t')" read -r a27_plat a27_status a27_anchor; do
-  [ -n "$a27_plat" ] || continue
-  a27_file=$(LC_ALL=C awk -F'\t' -v p="$a27_plat" '$1 == p { print $3; exit }' "$pm_adapters")
-  if [ -n "$a27_file" ] && [ -f "$pkg_root/$a27_file" ]; then
-    if ! grep -qF -- "$a27_anchor" "$pkg_root/$a27_file"; then
-      add_problem "  - $a27_file 独立执行体声明锚语失据（段＝executor-status，status=${a27_status}）: $a27_anchor"
-    fi
-  fi
-done < "$pm_adexec"
-# ④宿主特有方言签名锚语（原文子串在场）
-while IFS="$(printf '\t')" read -r a27_plat a27_key a27_anchor; do
-  [ -n "$a27_plat" ] || continue
-  a27_file=$(LC_ALL=C awk -F'\t' -v p="$a27_plat" '$1 == p { print $3; exit }' "$pm_adapters")
-  if [ -n "$a27_file" ] && [ -f "$pkg_root/$a27_file" ]; then
-    if ! grep -qF -- "$a27_anchor" "$pkg_root/$a27_file"; then
-      add_problem "  - $a27_file 方言签名锚语失据（段＝dialect-signature，key=${a27_key}）: $a27_anchor"
-    fi
-  fi
-done < "$pm_addial"
-rm -f "$a27_cap_d" "$a27_cap_m" "$a27_role_d" "$a27_role_m"
-if [ -n "$problems" ]; then
-  fail 27 "适配差异数据表一致性（宿主 ${n27_hosts} 个，cap ${n27_cap} 行，role ${n27_role} 行，exec ${n27_exec} 行，dialect ${n27_dial} 行）" "$problems"
-else
-  pass 27 "适配差异数据表一致性（宿主 ${n27_hosts} 个，cap ${n27_cap} 行，role ${n27_role} 行，exec ${n27_exec} 行，dialect ${n27_dial} 行）"
-fi
-
-# 检查 28：宿主差异段生成漂移（票 223 新增）。链路＝数据表 → 生成器渲染 → 渲染输出 ≡
-# 宿主对应段。渲染器＝同目录 generate-adapter-diffs.sh（--check 模式；数据表四节机器
-# 数据行 → Markdown 差异段），比对口径＝逐字节（含行内代码反引号等强调记号，数据表字段
-# 原样承载）：cap/role 段渲染行与宿主对应段只去首尾空白、按三列取单元格后逐行逐字节 cmp
-# （行序敏感，不剥反引号），exec/dialect 段锚语原文在场断言。与检查 27 的分工：27 断言
-# 「数据表 ≡ 文档」（宽松口径＝两侧同剥反引号后全等），28 断言「经生成器渲染 ≡ 文档」
-# （严格口径＝含强调记号逐字节一致，证明生成链路无损复现现行文档）；两者同批同步即
-# 表/文档/渲染三方一致，且 28 额外兜住「强调记号单侧丢失」。漂移即 FAIL 指名宿主文件
-# 与段；生成器缺件或数据面不合预期同样 FAIL（缺件另由检查 8 报）。
-problems=''
-n28_hosts=$(wc -l < "$pm_adapters" | tr -d ' ')
-n28_cap=$(wc -l < "$pm_adcap" | tr -d ' ')
-n28_role=$(wc -l < "$pm_adrole" | tr -d ' ')
-n28_exec=$(wc -l < "$pm_adexec" | tr -d ' ')
-n28_dial=$(wc -l < "$pm_addial" | tr -d ' ')
-a28_out=''
-if a28_out=$(sh "$script_dir/generate-adapter-diffs.sh" --pkg-root "$pkg_root" --check 2>&1); then
-  pass 28 "宿主差异段生成漂移零差异（宿主 ${n28_hosts} 个，cap ${n28_cap} 行，role ${n28_role} 行，exec ${n28_exec} 行，dialect ${n28_dial} 行）"
-else
-  fail 28 "宿主差异段生成漂移（宿主 ${n28_hosts} 个，cap ${n28_cap} 行，role ${n28_role} 行，exec ${n28_exec} 行，dialect ${n28_dial} 行）" "$a28_out"
-fi
-
-# 检查 29：退役能力不在活动创建路径（票 219 新增；207 交付面核对）。退役 token（清单
-# retired-path 节）在活动创建路径面（同节 face 登记，目录行递归取 *.md/*.tmpl）内出现
-# 时，同行须带显式 legacy 标注词（退役/legacy/retired）；缺失即 FAIL 指名文件:行号、
-# token 与冲突类型——活动创建路径不得再提供退役能力，历史事实须显式标注为 legacy。
-# 数据驱动（引擎零 token 零标注词硬编码）；面缺失 FAIL，扫描器异常 exit 2。
-problems=''
-n29_faces=0
-n29_hits=0
-retired_toks=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_retired")
-legacy_marks=$(LC_ALL=C awk -F'\t' '{print $1}' "$pm_legmark")
-r29_files=$(mktemp "${t_dir%/}/retired29.XXXXXX")
-while IFS= read -r r29_row; do
-  [ -n "$r29_row" ] || continue
-  n29_faces=$((n29_faces + 1))
-  if [ -d "$pkg_root/$r29_row" ]; then
-    (cd "$pkg_root" && find "$r29_row" -type f \( -name '*.md' -o -name '*.tmpl' \) 2>/dev/null) >> "$r29_files" || true
-  elif [ -f "$pkg_root/$r29_row" ]; then
-    printf '%s\n' "$r29_row" >> "$r29_files"
-  else
-    add_problem "  - $r29_row 冲突类型=活动面缺失（规则 retired-path · 登记面不存在）"
-  fi
-done < "$pm_retface"
-LC_ALL=C sort -u "$r29_files" -o "$r29_files"
-r29_hits=$(mktemp "${t_dir%/}/retired29.XXXXXX")
-OLDIFS=$IFS
-IFS='
-'
-while IFS= read -r r29_f; do
-  IFS=$OLDIFS
-  [ -n "$r29_f" ] || continue
-  [ -f "$pkg_root/$r29_f" ] || continue
-  awk_rc=0
-  LC_ALL=C TOKS="$retired_toks" MARKS="$legacy_marks" awk -v rel="$r29_f" '
-    BEGIN { nt = split(ENVIRON["TOKS"], T, "\n"); nm = split(ENVIRON["MARKS"], M, "\n") }
-    {
-      hit = ""
-      for (i = 1; i <= nt; i++) if (T[i] != "" && index($0, T[i]) > 0) { hit = T[i]; break }
-      if (hit == "") next
-      okm = 0
-      for (i = 1; i <= nm; i++) if (M[i] != "" && index($0, M[i]) > 0) { okm = 1; break }
-      if (!okm) printf "%s:%d\t%s\n", rel, FNR, hit
-    }
-  ' "$pkg_root/$r29_f" >> "$r29_hits" || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 29 扫描器异常（awk exit %s）: %s\n' "$awk_rc" "$r29_f" >&2
-    exit 2
-  fi
-done < "$r29_files"
-rm -f "$r29_files"
-IFS=$OLDIFS
-while IFS="$(printf '\t')" read -r r29_loc r29_tok; do
-  [ -n "$r29_loc" ] || continue
-  n29_hits=$((n29_hits + 1))
-  add_problem "  - $r29_loc 冲突类型=退役能力仍在活动创建路径（规则 retired-path · token「${r29_tok}」无 legacy 标注）"
-done < "$r29_hits"
-rm -f "$r29_files" "$r29_hits"
-if [ -n "$problems" ]; then
-  fail 29 "退役能力不在活动创建路径（面 ${n29_faces} 个，命中 ${n29_hits} 处）" "$problems"
-else
-  pass 29 "退役能力不在活动创建路径（面 ${n29_faces} 个，命中 ${n29_hits} 处）"
-fi
-
-# 检查 30：workflow transition endpoint 存在（票 219 新增；208 交付面核对）。逐工作流
-# （清单 workflow-graph 节登记面）解析 state_machine：states 名集、initial_state、
-# transitions 的 from/to 与 trigger；断言 initial_state ∈ states、每个 from/to ∈ states、
-# trigger ∈ steps 的 id（端点缺失即 FAIL 指名文件:行号、端点种类与冲突类型）、state 名
-# 不跨行重复；states 或 transitions 零行即 FAIL（空图不构成状态模型）。
-problems=''
-n30_wf=0
-n30_states=0
-n30_trans=0
-w30_tmp=$(mktemp "${t_dir%/}/wfgraph.XXXXXX")
-while IFS="$(printf '\t')" read -r w30_rel _w30_pos; do
-  [ -n "$w30_rel" ] || continue
-  n30_wf=$((n30_wf + 1))
-  if [ ! -f "$pkg_root/$w30_rel" ]; then
-    add_problem "  - $w30_rel 冲突类型=工作流文件缺失（规则 workflow-graph · 登记面）"
-    continue
-  fi
-  awk_rc=0
-  LC_ALL=C awk -v rel="$w30_rel" '
-    /^[A-Za-z_][A-Za-z0-9_]*:/ {
-      key = $0; sub(/:.*/, "", key)
-      in_steps = (key == "steps") ? 1 : 0
-      in_sm = (key == "state_machine") ? 1 : 0
-      in_states = 0; in_trans = 0
-      next
-    }
-    in_steps && /^  - id: / { v = $0; sub(/^  - id: /, "", v); print "STEP\t" v "\t" FNR; next }
-    in_sm && /^  initial_state: / { v = $0; sub(/^  initial_state: /, "", v); print "INIT\t" v "\t" FNR; next }
-    in_sm && /^  states:[ \t]*$/ { in_states = 1; in_trans = 0; next }
-    in_sm && /^  transitions:[ \t]*$/ { in_states = 0; in_trans = 1; next }
-    in_states && /^    - name: / { v = $0; sub(/^    - name: /, "", v); print "STATE\t" v "\t" FNR; next }
-    in_trans && /^    - from: / { v = $0; sub(/^    - from: /, "", v); print "FROM\t" v "\t" FNR; next }
-    in_trans && /^      to: / { v = $0; sub(/^      to: /, "", v); print "TO\t" v "\t" FNR; next }
-    in_trans && /^      trigger: / { v = $0; sub(/^      trigger: /, "", v); print "TRIGGER\t" v "\t" FNR; next }
-  ' "$pkg_root/$w30_rel" > "$w30_tmp" || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 30 扫描器异常（awk exit %s）: %s\n' "$awk_rc" "$w30_rel" >&2
-    rm -f "$w30_tmp"
-    exit 2
-  fi
-  w30_states=$(LC_ALL=C awk -F'\t' '$1 == "STATE" { print $2 }' "$w30_tmp")
-  w30_steps=$(LC_ALL=C awk -F'\t' '$1 == "STEP" { print $2 }' "$w30_tmp")
-  if [ -z "$w30_states" ]; then
-    add_problem "  - $w30_rel 冲突类型=状态图零 state（规则 workflow-graph · states 缺失）"
-    continue
-  fi
-  n30_states=$((n30_states + $(printf '%s\n' "$w30_states" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')))
-  n30_trans=$((n30_trans + $(LC_ALL=C awk -F'\t' '$1 == "FROM" { n++ } END { print n + 0 }' "$w30_tmp")))
-  while IFS="$(printf '\t')" read -r w30_kind w30_val w30_ln; do
-    [ -n "$w30_kind" ] || continue
-    case $w30_kind in
-      INIT|FROM|TO)
-        if ! printf '%s\n' "$w30_states" | grep -qxF -- "$w30_val"; then
-          add_problem "  - $w30_rel:$w30_ln 冲突类型=transition endpoint 未声明为 state（规则 workflow-graph · ${w30_kind}「${w30_val}」）"
-        fi
-        ;;
-      TRIGGER)
-        if ! printf '%s\n' "$w30_steps" | grep -qxF -- "$w30_val"; then
-          add_problem "  - $w30_rel:$w30_ln 冲突类型=transition trigger 未声明为 step（规则 workflow-graph · trigger「${w30_val}」）"
-        fi
-        ;;
-    esac
-  done < "$w30_tmp"
-  w30_dup=$(LC_ALL=C awk -F'\t' '$1 == "STATE" { if (c[$2]++) print $2 }' "$w30_tmp" | LC_ALL=C sort -u)
-  for w30_d in $w30_dup; do
-    add_problem "  - $w30_rel 冲突类型=state 名跨行重复（规则 workflow-graph · state「${w30_d}」）"
-  done
-  if [ "$(LC_ALL=C awk -F'\t' '$1 == "INIT" { n++ } END { print n + 0 }' "$w30_tmp")" -eq 0 ]; then
-    add_problem "  - $w30_rel 冲突类型=缺 initial_state（规则 workflow-graph · 起点未声明）"
-  fi
-  if [ "$(LC_ALL=C awk -F'\t' '$1 == "FROM" { n++ } END { print n + 0 }' "$w30_tmp")" -eq 0 ]; then
-    add_problem "  - $w30_rel 冲突类型=零 transition（规则 workflow-graph · 状态图不可达）"
-  fi
-done < "$pm_workflows"
-rm -f "$w30_tmp"
-if [ -n "$problems" ]; then
-  fail 30 "workflow transition endpoint 存在（工作流 ${n30_wf} 件，状态 ${n30_states} 个，转换 ${n30_trans} 条）" "$problems"
-else
-  pass 30 "workflow transition endpoint 存在（工作流 ${n30_wf} 件，状态 ${n30_states} 个，转换 ${n30_trans} 条）"
-fi
-
-# 检查 31：状态写票前有合法映射（票 219 新增；208/209 交付面核对）。逐工作流核对
-# `state_to_ticket_status` 映射：每个 state 须有映射行（缺映射＝写票前无合法映射）、
-# 映射键须为已声明 state（孤键）、映射目标须 ∈ 票状态词表（清单 workflow-graph 节
-# ticket-status；词表外目标即非法状态写入）；映射节缺失即 FAIL。
-problems=''
-n31_wf=0
-n31_map=0
-ts31_vocab=$(LC_ALL=C sort -u "$pm_tstatus")
-n31_tvocab=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_tstatus")
-w31_tmp=$(mktemp "${t_dir%/}/wfmap.XXXXXX")
-while IFS="$(printf '\t')" read -r w31_rel _w31_pos; do
-  [ -n "$w31_rel" ] || continue
-  n31_wf=$((n31_wf + 1))
-  if [ ! -f "$pkg_root/$w31_rel" ]; then
-    continue  # 缺件由检查 30 指名，本项不重复报
-  fi
-  awk_rc=0
-  LC_ALL=C awk -v rel="$w31_rel" '
-    /^[A-Za-z_][A-Za-z0-9_]*:/ {
-      key = $0; sub(/:.*/, "", key)
-      in_sm = (key == "state_machine") ? 1 : 0
-      in_map = 0
-      next
-    }
-    in_sm && /^  states:[ \t]*$/ { in_states = 1; next }
-    in_sm && /^  transitions:[ \t]*$/ { in_states = 0; next }
-    in_sm && /^  state_to_ticket_status:[ \t]*$/ { in_states = 0; in_map = 1; next }
-    in_states && /^    - name: / { v = $0; sub(/^    - name: /, "", v); print "STATE\t" v "\t" FNR; next }
-    in_map && /^    [a-z][a-z0-9_]*: / {
-      line = $0
-      sub(/^    /, "", line)
-      k = line; sub(/:.*/, "", k)
-      v = line; sub(/^[^:]*:[ \t]*/, "", v)
-      print "MAP\t" k "\t" v "\t" FNR
-      next
-    }
-  ' "$pkg_root/$w31_rel" > "$w31_tmp" || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 31 扫描器异常（awk exit %s）: %s\n' "$awk_rc" "$w31_rel" >&2
-    rm -f "$w31_tmp"
-    exit 2
-  fi
-  w31_states=$(LC_ALL=C awk -F'\t' '$1 == "STATE" { print $2 }' "$w31_tmp")
-  w31_mapn=$(LC_ALL=C awk -F'\t' '$1 == "MAP" { n++ } END { print n + 0 }' "$w31_tmp")
-  if [ "$w31_mapn" -eq 0 ]; then
-    add_problem "  - $w31_rel 冲突类型=状态写票前无合法映射（规则 workflow-state-map · 缺 state_to_ticket_status 节）"
-    continue
-  fi
-  n31_map=$((n31_map + w31_mapn))
-  while IFS= read -r w31_s; do
-    [ -n "$w31_s" ] || continue
-    if ! LC_ALL=C awk -F'\t' -v s="$w31_s" '$1 == "MAP" && $2 == s { f = 1 } END { exit f ? 0 : 1 }' "$w31_tmp"; then
-      add_problem "  - $w31_rel 冲突类型=状态无票映射（规则 workflow-state-map · state「${w31_s}」）"
-    fi
-  done <<EOF
-$w31_states
+done <<EOF
+$chk_ids
 EOF
-  while IFS="$(printf '\t')" read -r w31_kind w31_k w31_v w31_ln; do
-    [ "$w31_kind" = MAP ] || continue
-    if [ -n "$w31_states" ] && ! printf '%s\n' "$w31_states" | grep -qxF -- "$w31_k"; then
-      add_problem "  - $w31_rel:$w31_ln 冲突类型=映射键非已声明 state（规则 workflow-state-map · state「${w31_k}」）"
-    fi
-    if ! printf '%s\n' "$ts31_vocab" | grep -qxF -- "$w31_v"; then
-      add_problem "  - $w31_rel:$w31_ln 冲突类型=映射目标越票状态词表（规则 workflow-state-map · 目标「${w31_v}」）"
-    fi
-  done < "$w31_tmp"
-done < "$pm_workflows"
-rm -f "$w31_tmp"
-if [ -n "$problems" ]; then
-  fail 31 "状态写票前有合法映射（工作流 ${n31_wf} 件，映射 ${n31_map} 条，票状态词表 ${n31_tvocab} 值）" "$problems"
-else
-  pass 31 "状态写票前有合法映射（工作流 ${n31_wf} 件，映射 ${n31_map} 条，票状态词表 ${n31_tvocab} 值）"
+
+# ---- 输出完整性守卫：实际输出号集合 == 注册表在役集合（扣除语境静默 13/19）----
+chk_silent=''
+chk_mirror_root=$(CDPATH='' cd -- "$pkg_root/.." 2>/dev/null && pwd) || chk_mirror_root=''
+if [ -z "$chk_mirror_root" ] || { [ ! -d "$chk_mirror_root/scripts" ] && [ ! -d "$chk_mirror_root/rules/implementation/scripts" ]; }; then
+  chk_silent="$chk_silent 13"
 fi
-
-# 检查 32：readonly-execute 声明有 enforcement level（票 219 新增；210/212 交付面核对）。
-# 闭包双向：references/ 树凡声明 readonly-execute 的文件须在清单 readonly-sites 节登记
-# （未登记即 FAIL）；登记面须真实存在且确实声明该能力（登记悬空 FAIL）；mode=level 的
-# 声明面须给出具体等级值（readonly_enforcement: <token>，值 ∈ enforcement 词表）且须为
-# enforcement 目标（pm_enforcement_target 双向闭合）；mode=reference 须含
-# readonly_enforcement 指针（引用等级模型）；mode=authority＝模型定义处豁免等级值核对。
-problems=''
-n32_decl=0
-n32_level=0
-n32_vocab=$(LC_ALL=C sort -u "$pm_enfvocab")
-n32_vocab_n=$(LC_ALL=C awk 'NF { n++ } END { print n + 0 }' "$pm_enfvocab")
-r32_list=$(mktemp "${t_dir%/}/roexec.XXXXXX")
-find "$pkg_root/references" -type f \( -name '*.md' -o -name '*.tmpl' \) | LC_ALL=C sort > "$r32_list" || true
-while IFS= read -r r32_abs; do
-  [ -n "$r32_abs" ] || continue
-  grep -qF -- 'readonly-execute' "$r32_abs" || continue
-  r32_rel=${r32_abs#"$pkg_root/"}
-  n32_decl=$((n32_decl + 1))
-  if ! LC_ALL=C awk -F'\t' -v p="$r32_rel" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_rosites"; then
-    add_problem "  - $r32_rel 冲突类型=readonly-execute 声明未登记声明面（规则 readonly-site · 缺 readonly-sites 行）"
-  fi
-done < "$r32_list"
-rm -f "$r32_list"
-while IFS="$(printf '\t')" read -r r32_rel r32_mode; do
-  [ -n "$r32_rel" ] || continue
-  if [ ! -f "$pkg_root/$r32_rel" ]; then
-    add_problem "  - $r32_rel 冲突类型=声明面文件缺失（规则 readonly-site · mode=${r32_mode}）"
-    continue
-  fi
-  if ! grep -qF -- 'readonly-execute' "$pkg_root/$r32_rel"; then
-    add_problem "  - $r32_rel 冲突类型=声明面未声明 readonly-execute（规则 readonly-site · 登记悬空 mode=${r32_mode}）"
-    continue
-  fi
-  case $r32_mode in
-    level)
-      n32_level=$((n32_level + 1))
-      r32_levels=$(LC_ALL=C awk '
-        {
-          line = $0
-          while ((i = index(line, "readonly_enforcement:")) > 0) {
-            rest = substr(line, i + length("readonly_enforcement:"))
-            sub(/^[ \t`]+/, "", rest)
-            if (match(rest, /^[a-z][a-z-]*/)) print substr(rest, RSTART, RLENGTH)
-            line = rest
-          }
-        }
-      ' "$pkg_root/$r32_rel")
-      if [ -z "$r32_levels" ]; then
-        add_problem "  - $r32_rel 冲突类型=readonly 声明缺 enforcement level（规则 readonly-site · mode=level 未声明 readonly_enforcement 值）"
-      else
-        for r32_lv in $r32_levels; do
-          if ! printf '%s\n' "$n32_vocab" | grep -qxF -- "$r32_lv"; then
-            add_problem "  - $r32_rel 冲突类型=enforcement level 越受控词表（规则 readonly-site · 值「${r32_lv}」）"
-          fi
-        done
-      fi
-      if ! LC_ALL=C awk -F'\t' -v p="$r32_rel" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_enf"; then
-        add_problem "  - $r32_rel 冲突类型=level 声明面未登记 enforcement 目标（规则 readonly-site · 双向闭合缺 pm_enforcement_target 行）"
-      fi
-      ;;
-    reference)
-      if ! grep -qF -- 'readonly_enforcement' "$pkg_root/$r32_rel"; then
-        add_problem "  - $r32_rel 冲突类型=readonly 声明缺 enforcement level 指针（规则 readonly-site · mode=reference 未引等级模型）"
-      fi
-      ;;
-    authority)
-      : # 等级模型定义处：值核对归 mode=level 声明面
-      ;;
-  esac
-done < "$pm_rosites"
-while IFS="$(printf '\t')" read -r r32_tgt _r32_exp; do
-  [ -n "$r32_tgt" ] || continue
-  if ! LC_ALL=C awk -F'\t' -v p="$r32_tgt" -v m="level" '$1 == p && $2 == m { f = 1 } END { exit f ? 0 : 1 }' "$pm_rosites"; then
-    add_problem "  - $r32_tgt 冲突类型=enforcement 目标未登记 level 声明面（规则 readonly-site · 双向闭合缺 readonly-sites 行）"
-  fi
-done < "$pm_enf"
-if [ -n "$problems" ]; then
-  fail 32 "readonly-execute 声明有 enforcement level（声明面 ${n32_decl} 个，level ${n32_level} 个，词表 ${n32_vocab_n} 值）" "$problems"
-else
-  pass 32 "readonly-execute 声明有 enforcement level（声明面 ${n32_decl} 个，level ${n32_level} 个，词表 ${n32_vocab_n} 值）"
+if ! git -C "$pkg_root" rev-parse --git-dir >/dev/null 2>&1; then
+  chk_silent="$chk_silent 19"
 fi
-
-# 检查 33：MUST 不引用待定规范事实（票 219 新增；212 交付面整包核对）。检查 25 的
-# 适配域专项面之外，本项把同一禁令扩到整包其余 *.md/*.tmpl（两面并集＝整包闭合）：
-# `#### R-<短码>-NNN` 标题 Level 为 MUST/MUST NOT 的块体内出现【待定】来源标记即 FAIL
-# 指名文件:行号；行内豁免标记 <!-- pending-decl-exempt: 理由 --> 同 25 语义（须在 MUST
-# 块内、有【待定】命中、理由非空，否则失效豁免 FAIL）。
-problems=''
-n33_hits=0
-n33_exempt=0
-p33_list=$(mktemp "${t_dir%/}/pend33.XXXXXX")
-p33_out=$(mktemp "${t_dir%/}/pend33.XXXXXX")
-(cd "$pkg_root" && find . -type f \( -name '*.md' -o -name '*.tmpl' \) | sed 's|^\./||' | LC_ALL=C sort) \
-  | grep -v '^references/adapters/' > "$p33_list" || true
-if [ ! -s "$p33_list" ]; then
-  add_problem '  - 待定规范声明检测整包面零 md/tmpl 文件（扫描面失效）'
-else
-  awk_rc=0
-  # shellcheck disable=SC2046,SC2086  # $(cat) 文件清单刻意分词——逐文件作 awk 多文件参数（包路径无空白，清单校验禁空白路径，检查 22/25 同款形态）
-  (cd "$pkg_root" && LC_ALL=C awk '
-    BEGIN { tok = "<!-- pending-decl-exempt:" }
-    FNR == 1 { inmust = 0 }
-    /^#/ {
-      if ($0 ~ /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]([ \t]|$)/) {
-        t = $0
-        gsub(/`/, "", t)
-        inmust = (t ~ /(MUST NOT|MUST)[ \t]*$/) ? 1 : 0
-      } else {
-        inmust = 0
-      }
-      next
-    }
-    {
-      # 标记形态＝行尾 HTML 注释（`-->` 之后仅空白）：散文提及豁免标记（表格说明、契约头
-      # 注释块）不是豁免指令本身；纯注释行（首个非空白字符起即 <!--）整行跳过。
-      trimmed = $0
-      sub(/^[ \t]+/, "", trimmed)
-      if (substr(trimmed, 1, 4) == "<!--") next
-      hastag = index($0, "【待定】") > 0
-      p = index($0, tok)
-      valid = 0
-      reason = ""
-      if (p > 0) {
-        rest = substr($0, p + length(tok))
-        e = index(rest, "-->")
-        if (e > 0) {
-          tail = substr(rest, e + 3)
-          gsub(/[ \t]+/, "", tail)
-          if (tail == "") {
-            valid = 1
-            reason = substr(rest, 1, e - 1)
-            gsub(/^[ \t]+/, "", reason)
-            gsub(/[ \t]+$/, "", reason)
-          }
-        }
-      }
-      if (!valid && !hastag) next
-      if (valid) {
-        if (!inmust || !hastag) printf "STALE\t%s\t%d\n", FILENAME, FNR
-        else if (reason == "") printf "BADREASON\t%s\t%d\n", FILENAME, FNR
-        else printf "EXEMPT\t%s\t%d\n", FILENAME, FNR
-      } else if (inmust) {
-        printf "HIT\t%s\t%d\n", FILENAME, FNR
-      }
-    }
-  ' $(cat "$p33_list")) > "$p33_out" || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 33 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
-    rm -f "$p33_list" "$p33_out"
-    exit 2
-  fi
-  while IFS="$(printf '\t')" read -r _pd3_tag _pd3_rel _pd3_ln; do
-    [ -n "$_pd3_tag" ] || continue
-    case $_pd3_tag in
-      HIT)
-        n33_hits=$((n33_hits + 1))
-        add_problem "  - ${_pd3_rel}:${_pd3_ln} 冲突类型=MUST 块引用【待定】规范事实（规则 pending-decl · 规范事实须已核验，未核验面用状态词表标注）"
-        ;;
-      STALE)
-        add_problem "  - ${_pd3_rel}:${_pd3_ln} 冲突类型=失效豁免（规则 pending-decl · 标记行无【待定】命中或不在 MUST 块内）"
-        ;;
-      BADREASON)
-        add_problem "  - ${_pd3_rel}:${_pd3_ln} 冲突类型=豁免标记缺理由（规则 pending-decl · 理由必填）"
-        ;;
-      EXEMPT)
-        n33_exempt=$((n33_exempt + 1))
-        ;;
-    esac
-  done < "$p33_out"
+chk_expected_ids=$(printf '%s\n' "$chk_ids" | LC_ALL=C awk -v sk="$chk_silent " 'BEGIN { n = split(sk, a, " "); for (i = 1; i <= n; i++) if (a[i] != "") s[a[i]] = 1 } !($0 in s)')
+chk_actual_ids=$(LC_ALL=C sort -n "$chk_emitted_ids")
+if [ "$chk_actual_ids" != "$chk_expected_ids" ]; then
+  printf '%s\n' "$chk_expected_ids" > "$chk_emitted_ids.expected"
+  printf '%s\n' "$chk_actual_ids" > "$chk_emitted_ids.actual"
+  chk_missing=$(LC_ALL=C awk 'NR == FNR { have[$0] = 1; next } !($0 in have)' "$chk_emitted_ids.actual" "$chk_emitted_ids.expected")
+  chk_extra=$(LC_ALL=C awk 'NR == FNR { want[$0] = 1; next } !($0 in want)' "$chk_emitted_ids.expected" "$chk_emitted_ids.actual")
+  chk_missing=$(printf '%s' "$chk_missing" | tr '\n' ' ')
+  chk_extra=$(printf '%s' "$chk_extra" | tr '\n' ' ')
+  printf 'check-package: 错误：检查输出不完整（fail-closed，不产生部分结论）：缺失号 [%s] 多余号 [%s]\n' "$chk_missing" "$chk_extra" >&2
+  exit 2
 fi
-rm -f "$p33_list" "$p33_out"
-if [ -n "$problems" ]; then
-  fail 33 "MUST 不引用待定规范事实（MUST 块【待定】命中 ${n33_hits} 处，豁免 ${n33_exempt} 行；面＝adapters 外）" "$problems"
-else
-  pass 33 "MUST 不引用待定规范事实（MUST 块【待定】命中 ${n33_hits} 处，豁免 ${n33_exempt} 行；面＝adapters 外）"
-fi
-
-# 检查 34：README 非唯一执行契约（票 219 新增；217 交付面核对）。清单 contract-pointers
-# 节逐行：含锚点词的 README 行须含指针原文（执行契约正文不得以 README 自任唯一，须指向
-# 权威件），权威文件须真实存在且含权威锚点；README 任一行出现「唯一声明处＝本」
-# 「唯一执行契约＝本」自任契约形态即 FAIL（执行契约须落在 schema/协议件）。
-problems=''
-n34_ptrs=0
-n34_lines=0
-while IFS="$(printf '\t')" read -r c34_readme c34_anchor c34_ptr c34_auth c34_aanchor; do
-  [ -n "$c34_readme" ] || continue
-  n34_ptrs=$((n34_ptrs + 1))
-  if [ ! -f "$pkg_root/$c34_readme" ]; then
-    add_problem "  - $c34_readme 冲突类型=契约承载 README 缺失（规则 contract-pointer · 锚点「${c34_anchor}」）"
-    continue
-  fi
-  c34_hits=$(grep -nF -- "$c34_anchor" "$pkg_root/$c34_readme" || true)
-  if [ -z "$c34_hits" ]; then
-    add_problem "  - $c34_readme 冲突类型=契约锚点未命中（规则 contract-pointer · 锚点「${c34_anchor}」）"
-  else
-    OLDIFS=$IFS
-    IFS='
-'
-    for c34_h in $c34_hits; do
-      IFS=$OLDIFS
-      c34_ln=${c34_h%%:*}
-      c34_text=${c34_h#*:}
-      case $c34_text in
-        *"$c34_ptr"*) n34_lines=$((n34_lines + 1)) ;;
-        *)
-          add_problem "  - $c34_readme:$c34_ln 冲突类型=README 独占执行契约（规则 contract-pointer · 锚点「${c34_anchor}」缺指针 ${c34_ptr}）"
-          ;;
-      esac
-    done
-    IFS=$OLDIFS
-  fi
-  if [ ! -f "$pkg_root/$c34_auth" ]; then
-    add_problem "  - $c34_auth 冲突类型=契约权威件缺失（规则 contract-pointer · README 指针悬空）"
-  elif ! grep -qF -- "$c34_aanchor" "$pkg_root/$c34_auth"; then
-    add_problem "  - $c34_auth 冲突类型=权威件缺契约锚点（规则 contract-pointer · 锚点「${c34_aanchor}」）"
-  fi
-done < "$pm_cptrs"
-c34_readmes=$(cd "$pkg_root" && find . -type f -name 'README.md' | sed 's|^\./||' | LC_ALL=C sort)
-OLDIFS=$IFS
-IFS='
-'
-for c34_r in $c34_readmes; do
-  IFS=$OLDIFS
-  [ -n "$c34_r" ] || continue
-  c34_claim=$(grep -nE '唯一(声明处|执行契约)＝本[ ]*(README|文件|文档)' "$pkg_root/$c34_r" || true)
-  if [ -n "$c34_claim" ]; then
-    OLDIFS=$IFS
-    IFS='
-'
-    for c34_c in $c34_claim; do
-      IFS=$OLDIFS
-      c34_cln=${c34_c%%:*}
-      add_problem "  - $c34_r:$c34_cln 冲突类型=README 自任唯一执行契约（规则 contract-pointer · 执行契约须指向 schema/协议件）"
-    done
-    IFS=$OLDIFS
-  fi
-done
-IFS=$OLDIFS
-if [ -n "$problems" ]; then
-  fail 34 "README 非唯一执行契约（登记指针 ${n34_ptrs} 条，自带指针 ${n34_lines} 行）" "$problems"
-else
-  pass 34 "README 非唯一执行契约（登记指针 ${n34_ptrs} 条，自带指针 ${n34_lines} 行）"
-fi
-
-# 检查 35：平台短码注册表闭合（票 219 新增；215 交付面核对）。检查 26 覆盖注册表→各投影
-# 方向，本项补两处闭合缺口：①shortcodes 节中 owner 为注册表适配器文件的短码行须在
-# adapter-registry 节登记（适配器文件归属短码以注册表单源，不得另立登记行）；②平台短码
-# （注册表短码）与规则块短码（shortcodes 节非适配器 owner 行）命名空间不得相交（同码
-# 两义使 R-XX-NNN 与平台绑定歧义）。
-problems=''
-n35_reg=$(wc -l < "$pm_adapters" | tr -d ' ')
-n35_codes=$(wc -l < "$pm_codes" | tr -d ' ')
-n35_plat=$(LC_ALL=C awk -F'\t' '{print $2}' "$pm_adapters" | LC_ALL=C sort -u)
-n35_plat_n=$(printf '%s\n' "$n35_plat" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
-while IFS="$(printf '\t')" read -r c35_sc c35_owner; do
-  [ -n "$c35_sc" ] || continue
-  if LC_ALL=C awk -F'\t' -v p="$c35_owner" '$3 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_adapters"; then
-    if ! LC_ALL=C awk -F'\t' -v s="$c35_sc" -v p="$c35_owner" '$2 == s && $3 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_adapters"; then
-      add_problem "  - shortcodes 节 ${c35_sc} ${c35_owner} 冲突类型=适配器归属短码未入注册表（规则 shortcode-closure · 注册表单源）"
-    fi
-  fi
-done < "$pm_codes"
-c35_rulecodes=$(LC_ALL=C awk -F'\t' 'NR == FNR { a[$3] = 1; next } !($2 in a) { print $1 }' "$pm_adapters" "$pm_codes" | LC_ALL=C sort -u)
-for c35_p in $n35_plat; do
-  if printf '%s\n' "$c35_rulecodes" | grep -qxF -- "$c35_p"; then
-    add_problem "  - 短码 ${c35_p} 冲突类型=平台短码与规则块短码命名空间相交（规则 shortcode-closure · 同码两义）"
-  fi
-done
-if [ -n "$problems" ]; then
-  fail 35 "平台短码注册表闭合（注册 ${n35_reg} 行，短码节 ${n35_codes} 行，平台短码 ${n35_plat_n} 个）" "$problems"
-else
-  pass 35 "平台短码注册表闭合（注册 ${n35_reg} 行，短码节 ${n35_codes} 行，平台短码 ${n35_plat_n} 个）"
-fi
-
-# 检查 36：fixture workflow 不标 production executable（票 219 新增；211 交付面核对）。
-# 工作流面（references/workflows/*.yaml）须全部在清单 workflow-graph 节登记定位（未登记
-# ＝定位未决）；fixture 类须在 description 声明 fixture 标记词、入口名带 -fixture 后缀、
-# 不占生产入口名、不含生产可执行声称词（不得把参考夹具标成生产可执行）；production 类
-# 须入口名在 pm_production_entry 登记、不得带 fixture 标记与后缀。
-problems=''
-n36_wf=0
-n36_fix=0
-n36_prod=0
-n36_face=$(cd "$pkg_root" && find references/workflows -type f -name '*.yaml' 2>/dev/null | LC_ALL=C sort)
-n36_mark=$(cat "$pm_wffixmark")
-OLDIFS=$IFS
-IFS='
-'
-for f36 in $n36_face; do
-  IFS=$OLDIFS
-  [ -n "$f36" ] || continue
-  n36_wf=$((n36_wf + 1))
-  if ! LC_ALL=C awk -F'\t' -v p="$f36" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$pm_workflows"; then
-    add_problem "  - $f36 冲突类型=工作流未登记定位（规则 workflow-positioning · 缺 workflow-graph 行）"
-  fi
-done
-IFS=$OLDIFS
-while IFS="$(printf '\t')" read -r f36_rel f36_pos; do
-  [ -n "$f36_rel" ] || continue
-  if [ ! -f "$pkg_root/$f36_rel" ]; then
-    add_problem "  - $f36_rel 冲突类型=工作流文件缺失（规则 workflow-positioning · 登记面）"
-    continue
-  fi
-  f36_name=$(LC_ALL=C awk '
-    /^workflow:/ { wf = 1; next }
-    wf && /^  name: / { v = $0; sub(/^  name: /, "", v); print v; exit }
-    wf && /^[A-Za-z_]/ { wf = 0 }
-  ' "$pkg_root/$f36_rel")
-  f36_desc=$(LC_ALL=C awk '
-    /^workflow:/ { wf = 1; next }
-    wf && /^  description: / { v = $0; sub(/^  description: /, "", v); print v; exit }
-    wf && /^[A-Za-z_]/ { wf = 0 }
-  ' "$pkg_root/$f36_rel")
-  case $f36_pos in
-    fixture)
-      n36_fix=$((n36_fix + 1))
-      case $f36_name in
-        *-fixture) : ;;
-        *) add_problem "  - $f36_rel 冲突类型=fixture 入口名缺 -fixture 后缀（规则 workflow-positioning · name「${f36_name}」）" ;;
-      esac
-      case $f36_desc in
-        *"$n36_mark"*) : ;;
-        *) add_problem "  - $f36_rel 冲突类型=fixture 未标非生产定位（规则 workflow-positioning · description 缺「${n36_mark}」）" ;;
-      esac
-      if printf '%s\n' "$(cat "$pm_prodentries")" | grep -qxF -- "$f36_name"; then
-        add_problem "  - $f36_rel 冲突类型=fixture 占用生产入口名（规则 workflow-positioning · name「${f36_name}」）"
-      fi
-      while IFS= read -r f36_claim; do
-        [ -n "$f36_claim" ] || continue
-        if grep -qF -- "$f36_claim" "$pkg_root/$f36_rel"; then
-          add_problem "  - $f36_rel 冲突类型=fixture 标 production executable（规则 workflow-positioning · 声称词「${f36_claim}」）"
-        fi
-      done < "$pm_prodclaims"
-      ;;
-    production)
-      n36_prod=$((n36_prod + 1))
-      if ! printf '%s\n' "$(cat "$pm_prodentries")" | grep -qxF -- "$f36_name"; then
-        add_problem "  - $f36_rel 冲突类型=production 入口名未登记（规则 workflow-positioning · name「${f36_name}」）"
-      fi
-      case $f36_name in
-        *-fixture) add_problem "  - $f36_rel 冲突类型=production 入口名带 fixture 后缀（规则 workflow-positioning · name「${f36_name}」）" ;;
-      esac
-      case $f36_desc in
-        *"$n36_mark"*) add_problem "  - $f36_rel 冲突类型=production 工作流带 fixture 标记（规则 workflow-positioning · description 含「${n36_mark}」）" ;;
-      esac
-      ;;
-  esac
-done < "$pm_workflows"
-if [ -n "$problems" ]; then
-  fail 36 "fixture workflow 不标 production executable（工作流 ${n36_wf} 件，fixture ${n36_fix} 件，production ${n36_prod} 件）" "$problems"
-else
-  pass 36 "fixture workflow 不标 production executable（工作流 ${n36_wf} 件，fixture ${n36_fix} 件，production ${n36_prod} 件）"
-fi
-
-# 检查 37：模型档位契约结构（复杂度派生档位 ↔ 适配器 §2.6）与短上下文别名契约结构
-# （↔ 适配器 §2.7）。四层断言：①
-# references/adapters/README.md「模型档位派生表」数据行恰四行且首列按 C0–C3 有序、第二列
-# 非空、C0–C2 三档词两两不同、C3 行第二列不得复用任三档词（无第五档）；②adapter-registry
-# 登记宿主文件与 adapter-template.md 骨架均含「### 2.6 模型档位可用性」，分档能力／
-# 角色级模型键／降级记录格式三条 bullet 各恰一行且值非空，档位表恰三行且档位集合＝派生表
-# 三档词（各一次）、取值非空；③宿主文件额外断言：分档能力以 可逐档／仅单档／不可分档
-# 开头，不可分档宿主三档取值均含 inherit，仅单档与不可分档宿主角色级模型键标待实测，
-# 降级记录格式含 model_tier，档位取值含 inherit 时该行同含 inherit；④宿主文件与骨架均含
-# 「### 2.7 短上下文别名与到线策略」，短上下文别名取值／到线行为／Agent 工具显式覆盖／
-# 降级记录格式四条 bullet 各恰一行且值非空；宿主侧别名取值落 README「别名取值词表」、
-# 到线行为落「到线行为词表」（两表为受控词表，越表即 FAIL），显式覆盖取值 ∈ 可／否／待实测
-# （引擎内闭集，同 §2.6 分档能力先例），降级记录格式须含 short_context: 与 boundary: 两个
-# 记录键；证据闸——别名取值或到线行为离开待实测（即写实测结论）时该行须含「实测」字样，
-# 阻断以推测或代码阅读替代运行实测。三档词与两张词表均自 README 数据读取（引擎零取值硬编码）；
-# 模板骨架是占位，只做 §2.7 结构断言。§2.6 与 §2.7 的 bullet 读取均限定在各自小节内
-# （两节同用「降级记录格式」标签，不跨节计数）。
-problems=''
-n37_hosts=0
-n37_tmpl=0
-n37_tiers=3
-ad37_readme="$pkg_root/references/adapters/README.md"
-ad37_tmpl="$pkg_root/references/adapters/adapter-template.md"
-a37_t1=''
-a37_t2=''
-a37_t3=''
-if [ ! -f "$ad37_readme" ]; then
-  add_problem '  - references/adapters/README.md 不存在（模型档位派生表无承载）'
-else
-  a37_rows=$(sed -n '/^## 模型档位派生表/,/^## /p' "$ad37_readme" | LC_ALL=C awk -F'|' '
-    function trim(s) { gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s); return s }
-    /^\|/ {
-      c1 = trim($2); c2 = trim($3)
-      if (c1 == "复杂度" || c1 ~ /^-+$/) next
-      if (c1 == "" && c2 == "") next
-      print c1 "\t" c2
-    }')
-  a37_row_n=$(printf '%s\n' "$a37_rows" | grep -c . || true)
-  if [ "$a37_row_n" -ne 4 ]; then
-    add_problem "  - 模型档位派生表数据行应为 4 行（C0–C3），实为 ${a37_row_n} 行"
-  fi
-  a37_order=$(printf '%s\n' "$a37_rows" | cut -f1 | tr '\n' ' ' | sed 's/ $//')
-  if [ "$a37_order" != 'C0 C1 C2 C3' ]; then
-    add_problem "  - 模型档位派生表首列须按 C0 C1 C2 C3 有序（逐行对应 §2.1），实为「${a37_order}」"
-  fi
-  a37_empty=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$2 == "" { print NR }' | tr '\n' ' ')
-  if [ -n "$a37_empty" ]; then
-    add_problem "  - 模型档位派生表档位列有空行（第 ${a37_empty% } 行）"
-  fi
-  a37_t1=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C0" { print $2; exit }')
-  a37_t2=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C1" { print $2; exit }')
-  a37_t3=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C2" { print $2; exit }')
-  a37_c3=$(printf '%s\n' "$a37_rows" | awk -F'\t' '$1 == "C3" { print $2; exit }')
-  if [ -z "$a37_t1" ] || [ -z "$a37_t2" ] || [ -z "$a37_t3" ]; then
-    add_problem "  - 模型档位派生表 C0–C2 档位词须非空（实为「${a37_t1}」「${a37_t2}」「${a37_t3}」）"
-  else
-    if [ "$a37_t1" = "$a37_t2" ] || [ "$a37_t1" = "$a37_t3" ] || [ "$a37_t2" = "$a37_t3" ]; then
-      add_problem "  - 模型档位派生表 C0–C2 档位词须两两不同（实为「${a37_t1}」「${a37_t2}」「${a37_t3}」）"
-    fi
-    case $a37_c3 in
-      "$a37_t1"|"$a37_t2"|"$a37_t3")
-        add_problem "  - C3 行第二列不得复用三档词（无第五档）: ${a37_c3}" ;;
-    esac
-  fi
-fi
-
-# 单文件 §2.6 结构断言读值器（$1=文件 $2=bullet 标签 $3=count|value $4=小节锚，缺省 `2\.6 `）
-# 限定在小节内读取：命中「### <小节锚>」标题起算，遇任一下一行标题即止。§2.6 与 §2.7 同用
-# 「降级记录格式」等标签，跨节计数会把两节 bullet 混算，故一律按小节收敛。
-a37_get() {
-  LC_ALL=C awk -v sec="${4:-2\\.6 }" -v lab="$2" -v mode="$3" '
-    BEGIN { pre = "- " lab "：" ; prel = length(pre); head = "^### " sec }
-    $0 ~ head { insec = 1; next }
-    insec && /^#+ / { insec = 0 }
-    insec && index($0, pre) == 1 {
-      n++; v = substr($0, prel + 1); gsub(/^[ \t]+/, "", v); gsub(/[ \t]+$/, "", v); last = v
-    }
-    END { if (mode == "count") print n + 0; else print last }' "$1"
-}
-
-# 单文件 §2.6 档位表解析（$1=文件；输出「档位<TAB>取值」行；同款小节收敛，§2.7 表不混入）
-a37_tier_rows() {
-  LC_ALL=C awk -F'|' '
-    function trim(s) { gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s); return s }
-    /^### 2\.6 / { insec = 1; next }
-    insec && /^#+ / { insec = 0 }
-    insec && /^\|/ {
-      c1 = trim($2); c2 = trim($3)
-      if (c1 == "档位" || c1 ~ /^-+$/) next
-      if (c1 == "" && c2 == "") next
-      print c1 "\t" c2
-    }' "$1"
-}
-
-a37_check() {
-  # $1=包根相对路径 $2=host|template
-  a37_rel=$1
-  a37_kind=$2
-  a37_abs="$pkg_root/$a37_rel"
-  if [ ! -f "$a37_abs" ]; then
-    add_problem "  - 缺少适配文件: ${a37_rel}"
-    return
-  fi
-  if ! grep -q '^### 2\.6 模型档位可用性' "$a37_abs"; then
-    add_problem "  - ${a37_rel} 缺「### 2.6 模型档位可用性」段"
-    return
-  fi
-  for a37_lab in 分档能力 角色级模型键 降级记录格式; do
-    a37_cnt=$(a37_get "$a37_abs" "$a37_lab" count)
-    a37_val=$(a37_get "$a37_abs" "$a37_lab" value)
-    if [ "$a37_cnt" -ne 1 ]; then
-      add_problem "  - ${a37_rel} §2.6「${a37_lab}」行应恰 1 行（实为 ${a37_cnt} 行）"
-    elif [ -z "$a37_val" ]; then
-      add_problem "  - ${a37_rel} §2.6「${a37_lab}」取值为空"
-    fi
-  done
-  a37_tr=$(a37_tier_rows "$a37_abs")
-  a37_tr_n=$(printf '%s\n' "$a37_tr" | grep -c . || true)
-  if [ "$a37_tr_n" -ne "$n37_tiers" ]; then
-    add_problem "  - ${a37_rel} §2.6 档位表应恰 ${n37_tiers} 行（small/standard/strong），实为 ${a37_tr_n} 行"
-  fi
-  a37_set=$(printf '%s\n' "$a37_tr" | cut -f1 | LC_ALL=C sort | tr '\n' ' ')
-  a37_want_set=$(printf '%s\n%s\n%s\n' "$a37_t1" "$a37_t2" "$a37_t3" | LC_ALL=C sort | tr '\n' ' ')
-  if [ "$a37_set" != "$a37_want_set" ]; then
-    add_problem "  - ${a37_rel} §2.6 档位集合与派生表不一致（应＝「${a37_want_set% }」，实为「${a37_set% }」）"
-  fi
-  a37_tr_empty=$(printf '%s\n' "$a37_tr" | awk -F'\t' '$2 == "" { print $1 }' | tr '\n' ' ')
-  if [ -n "$a37_tr_empty" ]; then
-    add_problem "  - ${a37_rel} §2.6 档位取值空: ${a37_tr_empty% }"
-  fi
-  if [ "$a37_kind" = host ]; then
-    a37_dial=$(a37_get "$a37_abs" 分档能力 value)
-    case $a37_dial in
-      可逐档*) a37_tier_mode=逐档 ;;
-      仅单档*) a37_tier_mode=单档 ;;
-      不可分档*) a37_tier_mode=不可分档 ;;
-      *) a37_tier_mode=bad ;;
-    esac
-    if [ "$a37_tier_mode" = bad ]; then
-      add_problem "  - ${a37_rel} §2.6 分档能力须以 可逐档／仅单档／不可分档 开头: ${a37_dial}"
-    fi
-    if [ "$a37_tier_mode" = 不可分档 ]; then
-      a37_no_inh=$(printf '%s\n' "$a37_tr" | awk -F'\t' 'index($2, "inherit") == 0 { print $1 }' | tr '\n' ' ')
-      if [ -n "$a37_no_inh" ]; then
-        add_problem "  - ${a37_rel} §2.6 不可分档宿主三档取值须均为 inherit（缺: ${a37_no_inh% }）"
-      fi
-    fi
-    if [ "$a37_tier_mode" = 单档 ] || [ "$a37_tier_mode" = 不可分档 ]; then
-      a37_key=$(a37_get "$a37_abs" 角色级模型键 value)
-      case $a37_key in
-        *待实测*) ;;
-        *) add_problem "  - ${a37_rel} §2.6 仅单档/不可分档宿主的角色级模型键须标待实测: ${a37_key}" ;;
-      esac
-    fi
-    a37_rec=$(a37_get "$a37_abs" 降级记录格式 value)
-    case $a37_rec in
-      *model_tier*) ;;
-      *) add_problem "  - ${a37_rel} §2.6 降级记录格式须含 model_tier: ${a37_rec}" ;;
-    esac
-    if printf '%s\n' "$a37_tr" | awk -F'\t' 'index($2, "inherit") > 0 { f = 1 } END { exit f ? 0 : 1 }'; then
-      case $a37_rec in
-        *inherit*) ;;
-        *) add_problem "  - ${a37_rel} §2.6 档位取值含 inherit 时降级记录格式须同样含 inherit: ${a37_rec}" ;;
-      esac
-    fi
-    n37_hosts=$((n37_hosts + 1))
-  else
-    n37_tmpl=$((n37_tmpl + 1))
-  fi
-  a37_check_27 "$a37_rel" "$a37_kind"
-}
-
-# 检查 37④ 词表读值器：README「短上下文别名与到线词表」小节内指定子词表的首列取值
-# （$1=文件 $2=子词表名：别名取值|到线行为；反引号剥离后输出）
-a37_vocab() {
-  LC_ALL=C awk -v want="$2" -F'|' '
-    function trim(s) { gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s); return s }
-    /^## 短上下文别名与到线词表/ { top = 1; next }
-    top && /^## / { top = 0 }
-    top && /^### / { sec = $0; sub(/^### /, "", sec); sub(/词表.*$/, "", sec); next }
-    top && sec == want && /^\|/ {
-      c1 = trim($2)
-      if (c1 == "取值" || c1 ~ /^-+$/) next
-      gsub(/`/, "", c1)
-      if (c1 != "") print c1
-    }' "$1"
-}
-
-# 取值落词表判定（$1=取值 $2=词表多行文本）：恰等，或在取值后紧跟括号说明
-a37_in_vocab() {
-  a37_v_ok=1
-  while IFS= read -r a37_v_item; do
-    [ -n "$a37_v_item" ] || continue
-    case $1 in
-      "$a37_v_item"|"$a37_v_item"（*|"$a37_v_item"\(*) a37_v_ok=0; break ;;
-    esac
-  done <<EOF
-$2
-EOF
-  [ "$a37_v_ok" -eq 0 ]
-}
-
-# 单文件 §2.7 短上下文别名与到线策略结构断言（$1=包根相对路径 $2=host|template）：
-# 段在位、四条 bullet 各恰一行且值非空；宿主侧再加两张受控词表落表、显式覆盖三值整词
-# 起首（可／否／待实测 后须为行尾或分隔符）、降级记录格式记录键齐备与证据闸（离开待实测
-# 的取值须含「实测」且不得含「未实测／待实测」字样）。模板只做结构断言。
-a37_check_27() {
-  a37_27_rel=$1
-  a37_27_kind=$2
-  a37_27_abs="$pkg_root/$a37_27_rel"
-  [ -f "$a37_27_abs" ] || return 0
-  if ! grep -q '^### 2\.7 短上下文别名与到线策略' "$a37_27_abs"; then
-    add_problem "  - ${a37_27_rel} 缺「### 2.7 短上下文别名与到线策略」段"
-    return 0
-  fi
-  for a37_27_lab in 短上下文别名取值 到线行为 'Agent 工具显式覆盖' 降级记录格式; do
-    a37_27_cnt=$(a37_get "$a37_27_abs" "$a37_27_lab" count '2\.7 ')
-    a37_27_val=$(a37_get "$a37_27_abs" "$a37_27_lab" value '2\.7 ')
-    if [ "$a37_27_cnt" -ne 1 ]; then
-      add_problem "  - ${a37_27_rel} §2.7「${a37_27_lab}」行应恰 1 行（实为 ${a37_27_cnt} 行）"
-    elif [ -z "$a37_27_val" ]; then
-      add_problem "  - ${a37_27_rel} §2.7「${a37_27_lab}」取值为空"
-    fi
-  done
-  [ "$a37_27_kind" = host ] || return 0
-  a37_27_alias=$(a37_get "$a37_27_abs" 短上下文别名取值 value '2\.7 ')
-  a37_27_bound=$(a37_get "$a37_27_abs" 到线行为 value '2\.7 ')
-  a37_27_cover=$(a37_get "$a37_27_abs" 'Agent 工具显式覆盖' value '2\.7 ')
-  a37_27_rec=$(a37_get "$a37_27_abs" 降级记录格式 value '2\.7 ')
-  if [ -n "$a37_27_alias" ] && ! a37_in_vocab "$a37_27_alias" "$a37_alias_vocab"; then
-    add_problem "  - ${a37_27_rel} §2.7 短上下文别名取值未落别名取值词表: ${a37_27_alias}"
-  fi
-  if [ -n "$a37_27_bound" ] && ! a37_in_vocab "$a37_27_bound" "$a37_bound_vocab"; then
-    add_problem "  - ${a37_27_rel} §2.7 到线行为取值未落到线行为词表（压缩／硬拒绝／待实测）: ${a37_27_bound}"
-  fi
-  case $a37_27_cover in
-    '') ;;
-    *)
-      a37_27_cover_ok=0
-      for a37_27_kw in 可 否 待实测; do
-        case $a37_27_cover in
-          "$a37_27_kw") a37_27_cover_ok=1 ;;
-          "$a37_27_kw"（*|"$a37_27_kw"'('*|"$a37_27_kw"：*|"$a37_27_kw":*) a37_27_cover_ok=1 ;;
-        esac
-        if [ "$a37_27_cover_ok" -eq 1 ]; then break; fi
-      done
-      if [ "$a37_27_cover_ok" -ne 1 ]; then
-        add_problem "  - ${a37_27_rel} §2.7 Agent 工具显式覆盖须整词以 可／否／待实测 起首（其后为行尾或分隔符）: ${a37_27_cover}"
-      fi
-      ;;
-  esac
-  case $a37_27_rec in
-    *short_context:*|'') ;;
-    *) add_problem "  - ${a37_27_rel} §2.7 降级记录格式须含记录键 short_context: ${a37_27_rec}" ;;
-  esac
-  case $a37_27_rec in
-    *boundary:*|'') ;;
-    *) add_problem "  - ${a37_27_rel} §2.7 降级记录格式须含记录键 boundary: ${a37_27_rec}" ;;
-  esac
-  case $a37_27_alias in
-    待实测*|'') ;;
-    *实测*)
-      case $a37_27_alias in
-        *未实测*|*待实测*)
-          add_problem "  - ${a37_27_rel} §2.7 短上下文别名取值离开待实测时不得含 未实测／待实测 字样: ${a37_27_alias}" ;;
-      esac
-      ;;
-    *) add_problem "  - ${a37_27_rel} §2.7 短上下文别名取值离开待实测时须含实测证据字样: ${a37_27_alias}" ;;
-  esac
-  case $a37_27_bound in
-    待实测*|'') ;;
-    *实测*)
-      case $a37_27_bound in
-        *未实测*|*待实测*)
-          add_problem "  - ${a37_27_rel} §2.7 到线行为离开待实测时不得含 未实测／待实测 字样: ${a37_27_bound}" ;;
-      esac
-      ;;
-    *) add_problem "  - ${a37_27_rel} §2.7 到线行为写实测结论时须含实测证据字样: ${a37_27_bound}" ;;
-  esac
-}
-
-a37_alias_vocab=$(a37_vocab "$ad37_readme" 别名取值)
-a37_bound_vocab=$(a37_vocab "$ad37_readme" 到线行为)
-if [ -z "$a37_alias_vocab" ] || [ -z "$a37_bound_vocab" ]; then
-  add_problem '  - references/adapters/README.md「短上下文别名与到线词表」取值未解析到（两张受控词表无承载）'
-fi
-
-OLDIFS37=$IFS
-IFS='
-'
-# shellcheck disable=SC2013  # 适配注册表行以 TAB 分列取第 3 字段（路径无空白），IFS 收敛换行即按行迭代
-for a37_reg in $(LC_ALL=C awk -F'\t' '{ print $3 }' "$pm_adapters"); do
-  IFS=$OLDIFS37
-  a37_check "$a37_reg" host
-  IFS='
-'
-done
-IFS=$OLDIFS37
-if [ -f "$ad37_tmpl" ]; then
-  a37_check 'references/adapters/adapter-template.md' template
-else
-  add_problem '  - references/adapters/adapter-template.md 不存在（骨架 §2.6 无承载）'
-fi
-if [ -n "$problems" ]; then
-  fail 37 "模型档位契约结构（宿主 ${n37_hosts} 个，模板 ${n37_tmpl} 件，档位 ${n37_tiers} 个）" "$problems"
-else
-  pass 37 "模型档位契约结构（宿主 ${n37_hosts} 个，模板 ${n37_tmpl} 件，档位 ${n37_tiers} 个）"
-fi
+cat "$chk_out_buf"
 
 if [ "$failures" -gt 0 ]; then
-  printf 'check-package: FAIL（%s 项未通过，共 37 项）\n' "$failures"
+  printf 'check-package: FAIL（%s 项未通过，共 %s 项）\n' "$failures" "$n_total_checks"
   exit 1
 fi
 printf 'check-package: PASS\n'

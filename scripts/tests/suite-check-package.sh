@@ -239,13 +239,12 @@ suite_check_package() {
   # 两形态（worktree/主检出）差异不再靠第二份金样承载：静默跳过面由 cp_active_ids
   # 按语境现算、行内计数由清单现查，同一组断言对两形态一致生效。
   # ============================================================
-  cp_engine="${SCRIPT_DIR}/check-package.sh"
   cp_manifest="${PKG_ROOT}/scripts/package-manifest.rules"
+  cp_chk_registry="${SCRIPT_DIR}/checks/registry.rules"
   cp_registry="${D}/registry.ids"
   : > "${cp_registry}"
-  if [ -f "${cp_engine}" ]; then
-    LC_ALL=C grep -oE '^# 检查 [0-9]+：' "${cp_engine}" 2>/dev/null \
-      | LC_ALL=C sed -E 's/^# 检查 ([0-9]+)：/\1/' \
+  if [ -f "${cp_chk_registry}" ]; then
+    LC_ALL=C awk '$1 == "chk" { print $2 }' "${cp_chk_registry}" \
       | LC_ALL=C sort -n > "${cp_registry}" || :
   fi
   cp_reg_n=$(wc -l < "${cp_registry}" | tr -d ' ')
@@ -253,10 +252,10 @@ suite_check_package() {
   cp_reg_dup=$(LC_ALL=C uniq -d "${cp_registry}" | tr '\n' ' ')
   cp_reg_bad=$(LC_ALL=C awk 'NF && ($1 < 1 || $1 != int($1)) { print "bad" }' "${cp_registry}")
   if [ "${cp_reg_n}" -gt 0 ] && [ -z "${cp_reg_dup}" ] && [ -z "${cp_reg_bad}" ]; then
-    ok "引擎注册表解析：注册检查 ${cp_reg_n} 项（引擎内「# 检查 N：」声明行，退役检查自然不出现）"
+    ok "检查注册表解析：注册检查 ${cp_reg_n} 项（checks/registry.rules 的 chk 行；退役项不入注册、由 chk_retired 声明）"
   else
-    bad '引擎注册表解析：声明行可解析、编号合法且唯一' \
-      "项数=${cp_reg_n} 重复=[${cp_reg_dup}] 非法=[${cp_reg_bad}] 来源=${cp_engine}"
+    bad '检查注册表解析：chk 行可解析、编号合法且唯一' \
+      "项数=${cp_reg_n} 重复=[${cp_reg_dup}] 非法=[${cp_reg_bad}] 来源=${cp_chk_registry}"
     suite_summary 'check-package'
     return 0
   fi
@@ -1658,6 +1657,106 @@ EOF
     ok '负例 N73 宿主 §2.6 档位取值清空 → exit 1 且 FAIL: 37 指名文件与档位'
   else
     bad '负例 N73 宿主 §2.6 档位取值清空 → exit 1 且 FAIL: 37 指名文件与档位' "exit=$rc"
+  fi
+
+  # 票 273：注册表分发 fail-closed 三例（残缺输出不得 exit 0；一致退役不得连带打崩其余件）。
+  # 用例 R1：注册表侧退役但清单未同步 → 加载期 exit 2，stdout 零残缺输出。
+  cp -R "${PKG_ROOT}" "${D}/pkgreg1"
+  grep -v '^chk 6 ' "${D}/pkgreg1/scripts/checks/registry.rules" > "${D}/reg1.a"
+  LC_ALL=C awk '{ print } /^chk_retired 23$/ { print "chk_retired 6" }' "${D}/reg1.a" > "${D}/reg1.b"
+  mv "${D}/reg1.b" "${D}/pkgreg1/scripts/checks/registry.rules"
+  rm -f "${D}/reg1.a"
+  : > "${D}/act.reg1"
+  : > "${D}/err.reg1"
+  sh "${D}/pkgreg1/scripts/check-package.sh" "${D}/pkgreg1" >"${D}/act.reg1" 2>"${D}/err.reg1"
+  rc=$?
+  if [ "$rc" -eq 2 ] && [ ! -s "${D}/act.reg1" ] && grep -q '注册项数不一致' "${D}/err.reg1"; then
+    ok '用例 R1 注册表退役但清单未同步 → exit 2 且 stdout 零残缺输出'
+  else
+    bad '用例 R1 注册表退役但清单未同步 → exit 2 且 stdout 零残缺输出' "exit=$rc stdout=$(head -c 120 "${D}/act.reg1" | tr '\n' '|')"
+  fi
+
+  # 用例 R2：人为让一个检查件崩溃（unbound variable）→ exit 2，stdout 零残缺输出。
+  cp -R "${PKG_ROOT}" "${D}/pkgreg2"
+  LC_ALL=C awk '{ print } /^check_10\(\) \{$/ { print "  : \"$chk_crash_probe_zzz\"" }' \
+    "${D}/pkgreg2/scripts/checks/10-rule-shortcodes.sh" > "${D}/reg2.a"
+  mv "${D}/reg2.a" "${D}/pkgreg2/scripts/checks/10-rule-shortcodes.sh"
+  : > "${D}/act.reg2"
+  : > "${D}/err.reg2"
+  sh "${D}/pkgreg2/scripts/check-package.sh" "${D}/pkgreg2" >"${D}/act.reg2" 2>"${D}/err.reg2"
+  rc=$?
+  if [ "$rc" -eq 2 ] && [ ! -s "${D}/act.reg2" ] && grep -q '检查 10 执行异常中止' "${D}/err.reg2"; then
+    ok '用例 R2 检查件崩溃 → exit 2 且 stdout 零残缺输出（不 fail-open）'
+  else
+    bad '用例 R2 检查件崩溃 → exit 2 且 stdout 零残缺输出（不 fail-open）' "exit=$rc stdout=$(head -c 120 "${D}/act.reg2" | tr '\n' '|')"
+  fi
+
+  # 用例 R3：正常退役一件且 registry＋manifest 同步 → exit 0、其余件照常判定、汇总 PASS。
+  cp -R "${PKG_ROOT}" "${D}/pkgreg3"
+  grep -v '^chk 6 ' "${D}/pkgreg3/scripts/checks/registry.rules" > "${D}/reg3.a"
+  LC_ALL=C awk '{ print } /^chk_retired 23$/ { print "chk_retired 6" }' "${D}/reg3.a" > "${D}/reg3.b"
+  mv "${D}/reg3.b" "${D}/pkgreg3/scripts/checks/registry.rules"
+  grep -v '^pm_check 6 ' "${D}/pkgreg3/scripts/package-manifest.rules" > "${D}/reg3.c"
+  LC_ALL=C awk '{ print } /^pm_check_retired 23$/ { print "pm_check_retired 6" }' "${D}/reg3.c" > "${D}/reg3.d"
+  mv "${D}/reg3.d" "${D}/pkgreg3/scripts/package-manifest.rules"
+  rm -f "${D}/reg3.a" "${D}/reg3.c"
+  : > "${D}/act.reg3"
+  : > "${D}/err.reg3"
+  sh "${D}/pkgreg3/scripts/check-package.sh" "${D}/pkgreg3" >"${D}/act.reg3" 2>"${D}/err.reg3"
+  rc=$?
+  # 副本语境（非 git、无镜像落位）下检查 13/19 静默：期望行数＝在役行数−2，另加汇总行。
+  r3_rows=$(LC_ALL=C awk '$1 == "chk" { n++ } END { print n + 0 }' "${D}/pkgreg3/scripts/checks/registry.rules")
+  r3_expect=$((r3_rows - 2))
+  r3_dep_ok=1
+  for _r3n in 10 12 15 22; do
+    grep -q "^PASS: ${_r3n} " "${D}/act.reg3" || r3_dep_ok=0
+  done
+  if [ "$rc" -eq 0 ] && [ ! -s "${D}/err.reg3" ] \
+    && [ "$(grep -c '^PASS: ' "${D}/act.reg3")" -eq "$r3_expect" ] \
+    && [ "$(wc -l < "${D}/act.reg3" | tr -d ' ')" -eq $((r3_expect + 1)) ] \
+    && grep -qxF 'check-package: PASS' "${D}/act.reg3" \
+    && ! grep -q '^FAIL: ' "${D}/act.reg3" \
+    && ! grep -q '^PASS: 6 ' "${D}/act.reg3" \
+    && [ "$r3_dep_ok" -eq 1 ]; then
+    ok "用例 R3 一致退役检查 6 → exit 0、PASS $r3_expect 行＋汇总、依赖件 10/12/15/22 照常判定"
+  else
+    bad '用例 R3 一致退役检查 6 → exit 0、其余件照常判定、汇总 PASS' \
+      "exit=$rc pass=$(grep -c '^PASS: ' "${D}/act.reg3" 2>/dev/null) lines=$(wc -l < "${D}/act.reg3" 2>/dev/null) dep_ok=$r3_dep_ok err=$(head -c 120 "${D}/err.reg3" | tr '\n' '|')"
+  fi
+
+
+  # 票 273 P2 守卫回归 R4：输出完整性守卫双向（缺号/多余号）不得 fail-open。
+  # R4a 缺号：检查 12 提前 return 0（不产行、不设描述）→ exit 2、stdout 0 字节、stderr 指名缺失号 12。
+  cp -R "$PKG_ROOT" "$D/pkgreg4"
+  LC_ALL=C awk '{ print } /^check_12\(\) \{$/ { print "  return 0" }' \
+    "$D/pkgreg4/scripts/checks/12-vague-words.sh" > "$D/reg4.a"
+  mv "$D/reg4.a" "$D/pkgreg4/scripts/checks/12-vague-words.sh"
+  : > "$D/act.reg4a"
+  : > "$D/err.reg4a"
+  sh "$D/pkgreg4/scripts/check-package.sh" "$D/pkgreg4" > "$D/act.reg4a" 2> "$D/err.reg4a"
+  rc=$?
+  r4_bad=''
+  [ "$rc" -eq 2 ] || r4_bad="$r4_bad 缺号rc=$rc"
+  [ ! -s "$D/act.reg4a" ] || r4_bad="$r4_bad 缺号stdout非空"
+  grep -q '缺失号' "$D/err.reg4a" || r4_bad="$r4_bad 缺号未指名"
+  grep -qE '(^|[^0-9])12([^0-9]|$)' "$D/err.reg4a" || r4_bad="$r4_bad 缺号未指名12"
+  # R4b 多余号：检查 12 额外向输出号账本追加 999（多出不属于自己的行）→ exit 2、stdout 0 字节、stderr 指名多余号。
+  cp -R "$PKG_ROOT" "$D/pkgreg5"
+  LC_ALL=C awk '{ print } /^check_12\(\) \{$/ { print "  echo 999 >> \"$chk_emitted_ids\"" }' \
+    "$D/pkgreg5/scripts/checks/12-vague-words.sh" > "$D/reg5.a"
+  mv "$D/reg5.a" "$D/pkgreg5/scripts/checks/12-vague-words.sh"
+  : > "$D/act.reg4b"
+  : > "$D/err.reg4b"
+  sh "$D/pkgreg5/scripts/check-package.sh" "$D/pkgreg5" > "$D/act.reg4b" 2> "$D/err.reg4b"
+  rc=$?
+  [ "$rc" -eq 2 ] || r4_bad="$r4_bad 多余号rc=$rc"
+  [ ! -s "$D/act.reg4b" ] || r4_bad="$r4_bad 多余号stdout非空"
+  grep -q '多余号' "$D/err.reg4b" || r4_bad="$r4_bad 多余号未指名"
+  grep -q '999' "$D/err.reg4b" || r4_bad="$r4_bad 多余号未指名999"
+  if [ -z "$r4_bad" ]; then
+    ok '用例 R4 输出完整性守卫双向（缺号 12／多余号 999 → exit 2 且 stdout 0 字节、stderr 指名）'
+  else
+    bad '用例 R4 输出完整性守卫双向（缺号 12／多余号 999 → exit 2 且 stdout 0 字节、stderr 指名）' "$r4_bad"
   fi
 
   suite_summary 'check-package'
