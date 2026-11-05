@@ -8,7 +8,8 @@ fi
 
 # suite: ticket-run——三阶段真实夹具、Review 结论位 fail-closed（含证据行不得翻案）、
 #        两段提交与编排器原子层边界；可恢复协调器五子命令、intent 重跑收敛、残留
-#        intent 的前置复核与 next 退出码（decision-required＝exit 1）。
+#        intent 的前置复核与 next 退出码（decision-required＝exit 1）；记录收口段单一锁窗口
+#        （票 271：flip-index 继承标记＋checkpoint.commit 同锁同令牌＋段末释放）。
 
 tr_git_commit() {
   git -C "$1" add -A
@@ -271,8 +272,47 @@ suite_ticket_run() {
   tr_audit_receipt "$WT" "$tr_base" "$tr_head"
   git -C "$WT" config user.email reviewer@example.com
   git -C "$WT" config user.name reviewer
-  tr_run 90 commit "$MAIN" > "$D/commit.out" 2> "$D/commit.err"
+  # ---- 票 271 插桩：记录收口段单一锁窗口探针（不改产品行为，只观测）----
+  # ticket-ops.sh 包装器记录 flip-index 收到的继承标记与父锁；python3 垫片在票本体
+  # checkpoint.commit 的内联写入点记录当时锁目录与令牌仍归父进程（同锁同令牌）。
+  ac3=$D/ac3
+  mkdir -p "$ac3/bin" "$ac3/probe"
+  cp "$MAIN/rules/implementation/scripts/ticket-ops.sh" "$MAIN/rules/implementation/scripts/ticket-ops-real.sh"
+  cat > "$MAIN/rules/implementation/scripts/ticket-ops.sh" <<'WRAP'
+#!/bin/sh
+_p=${TR271_PROBE:-}
+if [ -n "$_p" ]; then
+  printf '%s\n' "${RECORD_LOCK_INHERITED:-0}" > "$_p/flip-inherited"
+  printf '%s\n' "${RECORD_LOCK_DIR:-}" > "$_p/flip-lock-dir"
+  printf '%s\n' "${RECORD_LOCK_TOKEN:-}" > "$_p/flip-token"
+  if [ -n "${RECORD_LOCK_DIR:-}" ] && [ -d "${RECORD_LOCK_DIR}" ]; then printf 'held\n' > "$_p/flip-lock-held"; fi
+  printf '%s\n' "$*" >> "$_p/flip-calls"
+fi
+exec sh "$(dirname "$0")/ticket-ops-real.sh" "$@"
+WRAP
+  ac3_real_py=$(command -v python3)
+  cat > "$ac3/bin/python3" <<'PYS'
+#!/bin/sh
+if [ -n "${TR271_PROBE:-}" ] && [ "${1:-}" = '-' ]; then
+  _p=$TR271_PROBE
+  _want=$(sed -n '1p' "$_p/flip-token" 2>/dev/null) || _want=''
+  _dir=$(sed -n '1p' "$_p/flip-lock-dir" 2>/dev/null) || _dir=''
+  _live=$(sed -n '1p' "$_dir/token" 2>/dev/null) || _live=''
+  if [ -n "$_dir" ] && [ -d "$_dir" ] && [ "$_live" = "$_want" ]; then
+    printf 'held\n' > "$_p/commit-lock-held"
+  else
+    printf 'dir=%s live=%s want=%s\n' "$_dir" "$_live" "$_want" > "$_p/commit-lock-miss"
+  fi
+fi
+exec "$TR271_REAL_PY" "$@"
+PYS
+  chmod +x "$ac3/bin/python3"
+  ( cd "$MAIN" && TMPDIR="$D/tmp" TR271_PROBE="$ac3/probe" TR271_REAL_PY="$ac3_real_py" \
+      PATH="$ac3/bin:$PATH" sh "$MAIN/rules/implementation/scripts/ticket-run.sh" 90 commit "$MAIN" ) \
+    > "$D/commit.out" 2> "$D/commit.err"
   rc=$?
+  cp "$MAIN/rules/implementation/scripts/ticket-ops-real.sh" "$MAIN/rules/implementation/scripts/ticket-ops.sh"
+  rm -f "$MAIN/rules/implementation/scripts/ticket-ops-real.sh"
   if [ "$rc" -eq 0 ] && [ "$(git -C "$WT" rev-list --count HEAD)" -eq 4 ] \
     && grep -q '"id": "90-run-fixture", "status": "done"' "$WT/facts/requirements/tickets/index.json" \
     && grep -q '| 90-run-fixture | done |' "$WT/facts/requirements/tickets/progress-current.md" \
@@ -293,6 +333,25 @@ suite_ticket_run() {
   else
     bad 'P3b commit 收尾在票本体写入 checkpoint.commit（键在位、非空、绑定产品提交并随记录提交入库）' \
       "commit=${commit_cp_commit:-<空>} committed_at=${commit_cp_at:-<空>} product=${product_head}"
+  fi
+
+  # ---- AC3（票 271）：记录收口段的 flip-index 与 checkpoint.commit 处于同一锁窗口 ----
+  # 三证据：①flip-index 收到 RECORD_LOCK_INHERITED=1（不自行取锁）；②flip-index 执行时父锁
+  # 已在场（锁目录存在）；③checkpoint.commit 内联写入时同一锁目录的令牌仍等于 flip 时令牌
+  # （窗口未被拆成两段）；段末按所有权释放（锁目录不残留）。
+  ac3_inherited=$(sed -n '1p' "$ac3/probe/flip-inherited" 2>/dev/null)
+  ac3_lockdir=$(sed -n '1p' "$ac3/probe/flip-lock-dir" 2>/dev/null)
+  ac3_probe_state="inherited=$ac3_inherited flip锁=$([ -f "$ac3/probe/flip-lock-held" ] && echo yes || echo no) commit锁=$([ -f "$ac3/probe/commit-lock-held" ] && echo yes || echo no)"
+  if [ -f "$ac3/probe/flip-lock-dir" ] && [ -f "$ac3/probe/flip-token" ] \
+    && [ "$ac3_inherited" = '1' ] \
+    && [ -f "$ac3/probe/flip-lock-held" ] \
+    && [ -f "$ac3/probe/commit-lock-held" ] && [ ! -f "$ac3/probe/commit-lock-miss" ] \
+    && grep -q 'flip-index' "$ac3/probe/flip-calls" \
+    && [ -n "$ac3_lockdir" ] && [ ! -d "$ac3_lockdir" ]; then
+    ok 'AC3 ticket-run 记录收口段单一锁窗口：flip-index 以继承标记接管父锁、checkpoint.commit 同锁同令牌写入、段末释放'
+  else
+    bad 'AC3 ticket-run 记录收口段单一锁窗口：flip-index 以继承标记接管父锁、checkpoint.commit 同锁同令牌写入、段末释放' \
+      "$ac3_probe_state 锁残留=$([ -n "$ac3_lockdir" ] && [ -d "$ac3_lockdir" ] && echo yes || echo no) miss=$(sed -n '1p' "$ac3/probe/commit-lock-miss" 2>/dev/null) calls=$(sed -n '1p' "$ac3/probe/flip-calls" 2>/dev/null)"
   fi
 
   if require_out 'suite-ticket-run 目标输出在场' "$WT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md" \

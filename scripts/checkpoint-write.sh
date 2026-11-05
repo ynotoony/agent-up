@@ -12,8 +12,11 @@
 # Pos: User Review Checkpoint 唯一写入方（票 229：自 lane-commit.sh 拆出的记录写职责；
 #      道脚本 lane-commit.sh 经同目录优先／PATH 回退定位本件，本件不反向调用任何道脚本）。
 #      写入面＝调用方传入的票文件（.md）或票目录内独立 checkpoint md；不触索引、账本、
-#      README 与投影。POSIX sh、零外部依赖、fail-closed（参数不合、票文件不存在、末段
-#      symlink 或父目录 realpath 越界即停止，停止时零写入）。
+#      README 与投影。记录层写锁（票 271）：写入前经共享库 record_lock_ensure 取锁——独立
+#      调用自取并在退出时按所有权释放，RECORD_LOCK_INHERITED=1 时继承父进程锁且不释放；
+#      每个写入点前经 record_lock_assert 核对令牌归属，被夺即 fail-closed 零写入（被夺前
+#      已完成的写入不回收，如实报告）。POSIX sh、零外部依赖、fail-closed（参数不合、票文件
+#      不存在、末段 symlink 或父目录 realpath 越界即停止，停止时零写入）。
 
 # 用法、输入/输出契约与退出码见同目录 README.md checkpoint-write 专节。
 
@@ -167,6 +170,12 @@ case ${t_stem} in
     ;;
 esac
 
+# 记录层写锁（票 271）：取锁点在所有参数与路径边界校验之后、写入之前——校验失败路径
+# 不取锁亦零写入；继承标记（RECORD_LOCK_INHERITED=1＋锁目录＋令牌）由调用方传入时接管
+# 父进程的锁，退出时不释放父锁（record_lock_release_owned 按所有权判定）。
+trap 'record_lock_release_owned' EXIT HUP INT TERM
+record_lock_ensure "${repo_root}"
+
 # 记录块（与 lane-commit.sh 拆出前同格式：日期标题＋裁决原文＋裁决时间＋提交＋diff 摘要）
 emit_checkpoint_block() {
   printf '\n## User Review Checkpoint（%s，lane-commit.sh）\n\n' "${date_value}"
@@ -180,16 +189,19 @@ if [ "${ticket_is_json}" -eq 1 ]; then
   ck_target="${TICKETS_DIR}/${t_stem}-review-checkpoint.md"
   cw_in_repo_parent "${ck_target}" 'User Review Checkpoint 目标'
   if [ ! -f "${repo_root}/${ck_target}" ]; then
+    record_lock_assert
     { printf '# 票 %s User Review Checkpoint（用户即 Review 道）\n' "${t_stem}"
       emit_checkpoint_block
     } > "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 文件创建失败: ${ck_target}"
   else
     [ ! -h "${repo_root}/${ck_target}" ] || die1 "User Review Checkpoint 目标不得为 symlink: ${ck_target}"
+    record_lock_assert
     emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
   fi
   printf 'checkpoint-write: User Review Checkpoint 已追加: %s（.json 票体零追加，独立 checkpoint md 承载）\n' "${ck_target}"
 else
   ck_target=${ticket}
+  record_lock_assert
   emit_checkpoint_block >> "${repo_root}/${ck_target}" || die1 "User Review Checkpoint 追加失败: ${ck_target}"
   printf 'checkpoint-write: User Review Checkpoint 已追加: %s\n' "${ck_target}"
 fi

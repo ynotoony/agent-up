@@ -65,11 +65,12 @@
 #      再生调用 generate-progress.sh 不在此限）。
 
 # 用法、数据契约与退出码见同目录 README.md。
-# 单写路径（票 246 承接票 243）：索引为唯一可变状态真相源；状态写入先经共享库
-# record_lock_acquire 取记录层写锁（mkdir 原子语义，锁目录由仓库根的 Git 公共目录推导，
-# 主检与全部 worktree 共享；陈旧锁只诊断，显式 --break-stale-lock 才夺；等待超时即
-# exit 1 并发冲突），锁区间覆盖预检读取到投影收尾；四个写点前经 record_lock_assert 核对
-# 令牌归属（被夺锁即拒绝写入）；每个写点先生成同目录临时件再 mv 原子替换（崩溃只留
+# 单写路径（票 246 承接票 243；票 271 补继承入口）：索引为唯一可变状态真相源；状态写入
+# 先经共享库 record_lock_ensure 取记录层写锁（继承标记在场即接管父进程锁，否则按仓库根
+# 自取；mkdir 原子语义，锁目录由仓库根的 Git 公共目录推导，主检与全部 worktree 共享；
+# 陈旧锁只诊断，显式 --break-stale-lock 才夺；等待超时即 exit 1 并发冲突），锁区间覆盖
+# 预检读取到投影收尾；四个写点前经 record_lock_assert 核对令牌归属（被夺锁即拒绝写入）；
+# 释放按所有权判定（继承时不动父锁）；每个写点先生成同目录临时件再 mv 原子替换（崩溃只留
 # 完整旧版或完整新版）；嵌套调用 ledger-append.sh 时传继承标记，不重复取锁；索引已达
 # 目标状态时走幂等重放（补齐 README/账本/投影后 exit 0，不重复落账本行），故崩溃后
 # 重跑同一命令即可收敛，无需手工编辑任何状态文件。
@@ -198,6 +199,9 @@ usage() {
           RECORD_LOCK_BREAK_STALE  设为 1 时对陈旧锁显式夺锁（等价 --break-stale-lock；
                                    未设＝只诊断不夺锁）
           RECORD_LOCK_TEST_HOLD_MS 仅测试用：持锁后延迟返回的毫秒数（未设或 0＝零开销）
+          RECORD_LOCK_INHERITED／RECORD_LOCK_DIR／RECORD_LOCK_TOKEN 嵌套继承入口：由持锁
+                                    父进程传入时本脚本接管同一把锁（跳过取锁与释放，锁生命
+                                    周期归父进程）；标记残缺即 exit 2 fail-closed
           TICKET_OPS_FAULT         崩溃注入点 after-index-write|after-ledger-write|
                                    after-projection-write（未设＝正常路径）
 互斥边界: 写锁目录由仓库根的 Git 公共目录推导（经 rev-parse 取公共目录并归一为绝对物理
@@ -211,7 +215,8 @@ tmp_readme=''
 cleanup() {
   if [ -n "${tmp_idx}" ]; then rm -f "${tmp_idx}"; tmp_idx=''; fi
   if [ -n "${tmp_readme}" ]; then rm -f "${tmp_readme}"; tmp_readme=''; fi
-  record_lock_release
+  # 票 271：按所有权释放——继承父进程锁时只清本地标记，绝不删除父锁
+  record_lock_release_owned
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -245,7 +250,8 @@ repo_root=$_rr
 [ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-record_lock_init "${repo_root}"
+# 票 271：锁初始化/继承判定后移到取锁点（record_lock_ensure），先执行只读预检——
+# 早初始化会在继承形态下重置父进程传入的锁目录与令牌。
 
 # ---- 选项解析 ----
 
@@ -483,9 +489,11 @@ fault_point() {
   exit 70
 }
 
-# ---- 状态写锁（票 246：原语下沉 common-helpers.sh，本脚本只调用不复制）----
+# ---- 状态写锁（票 246：原语下沉 common-helpers.sh，本脚本只调用不复制；票 271 继承入口）----
 # 锁目录由仓库根的 Git 公共目录推导（跨主检与 worktree 共享），陈旧锁只诊断、显式参数
-# 才夺；取锁/令牌校验/释放细节见共享库 record_lock_* 与同目录 README.md。
+# 才夺；取锁唯一入口＝record_lock_ensure（继承标记在场即继承，否则自取），释放经
+# record_lock_release_owned 按所有权判定；令牌校验/陈旧判定细节见共享库 record_lock_*
+# 与同目录 README.md。
 
 # ---- 状态读取辅助（票 243：幂等判定共用；只读，写入前判定） ----
 
@@ -921,8 +929,9 @@ if [ "${dir_readme_gate}" -eq 1 ]; then
 fi
 
 # ---- 状态预检（锁内：票 246 单写路径——预检读取与写入同锁区间，防读-改-写丢更新）----
-
-record_lock_acquire
+# 票 271 继承入口：RECORD_LOCK_INHERITED=1（＋锁目录＋令牌）时接管父进程的锁，跳过
+# 取锁与释放（锁生命周期归父进程）；否则按仓库根自取。所有权经 RECORD_LOCK_OWNED 回读。
+record_lock_ensure "${repo_root}"
 
 replay=0
 if [ "${cmd}" = 'open' ]; then

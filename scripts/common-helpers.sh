@@ -5,11 +5,12 @@
 # Output: 错误与告警报文函数、仓库根推导，只追加前缀语义（账本清单、字节前缀判定、
 #         首个违规行号定位——check-append-only.sh 与记录提交前缀门共用），记录层
 #         写锁原语（mkdir 原子取锁、有界等待、陈旧锁只诊断、显式夺锁、令牌归属校验、
-#         继承识别与释放），以及证据门 Review Checkpoint 允许集的唯一形态判定；本库
-#         不直接写业务载体。
-# Pos: agent-up 脚本共享库，锁原语（票 246）、前缀语义（票 247）与 Review Checkpoint
-#      允许集判定（票 237）全仓唯一实现点；ticket-ops.sh／merge-ticket.sh／
-#      ledger-append.sh／check-append-only.sh／lane-commit.sh 只调用不复制。
+#         嵌套继承、继承或自取单一入口 record_lock_ensure 与所有权感知释放），以及证据门
+#         Review Checkpoint 允许集的唯一形态判定；本库不直接写业务载体。
+# Pos: agent-up 脚本共享库，锁原语（票 246 原语＋票 271 继承/所有权入口）、前缀语义
+#      （票 247）与 Review Checkpoint 允许集判定（票 237）全仓唯一实现点；
+#      ticket-ops.sh／merge-ticket.sh／ledger-append.sh／check-append-only.sh／
+#      lane-commit.sh／checkpoint-write.sh／ticket-run.sh 只调用不复制。
 #      一旦我被更新，务必同步 rules/implementation/scripts/ 镜像件与同目录 README.md。
 
 # Extract script name from $0 for error messages
@@ -161,7 +162,7 @@ record_first_bad_line() {
   ' "$1" "$2"
 }
 
-# ---- 记录层写锁原语（票 246：全仓唯一实现；ticket-ops.sh 与 ledger-append.sh 共用）----
+# ---- 记录层写锁原语（票 246／票 271：全仓唯一实现；ticket-ops.sh、ledger-append.sh、lane-commit.sh、checkpoint-write.sh 与 ticket-run.sh 共用）----
 # mkdir 原子创建语义（POSIX，macOS/BSD 无 flock 亦可用）。锁目录由仓库根的 Git 公共目录
 # 推导（git rev-parse --git-common-dir，cd -P 归一为物理绝对路径），使主检与全部 worktree
 # 争用同一把锁；非 Git 语境回退 $TMPDIR 并按仓库根物理路径派生，保证同机同用户仍互斥。
@@ -174,6 +175,7 @@ record_first_bad_line() {
 : "${RECORD_LOCK_DIR:=}"
 : "${RECORD_LOCK_TOKEN:=}"
 : "${RECORD_LOCK_HELD:=0}"
+: "${RECORD_LOCK_OWNED:=0}"
 
 # 按仓库根解析锁目录（幂等；每次调用重置持有状态与令牌）
 record_lock_init() {
@@ -315,5 +317,38 @@ record_lock_inherit() {
     die2 '继承写锁（RECORD_LOCK_INHERITED=1）但 RECORD_LOCK_DIR／RECORD_LOCK_TOKEN 缺失——拒绝在无锁状态下写入'
   fi
   RECORD_LOCK_HELD=1
+  return 0
+}
+
+# 取锁唯一入口（票 271）：继承或自取。RECORD_LOCK_INHERITED=1 时接管父进程的锁
+# （锁目录与令牌经环境传入），跳过 init/acquire 且不承担释放责任；否则按仓库根
+# 初始化锁目录并自取。返回码只表达「锁已就绪」（0＝就绪；继承标记残缺经 die2、
+# 取锁超时或未初始化经 die1 退出，均 fail-closed）；所有权经 RECORD_LOCK_OWNED 回读：
+# 1＝本进程自取，退出前须经 record_lock_release_owned 释放；0＝继承，锁生命周期归
+# 父进程，本进程不得释放。
+record_lock_ensure() {
+  # 同进程重复调用：已自取且令牌仍在手则幂等返回
+  if [ "${RECORD_LOCK_OWNED:-0}" -eq 1 ] && [ "${RECORD_LOCK_HELD:-0}" -eq 1 ]; then
+    return 0
+  fi
+  RECORD_LOCK_OWNED=0
+  if record_lock_inherit; then
+    return 0
+  fi
+  record_lock_init "$1"
+  record_lock_acquire
+  RECORD_LOCK_OWNED=1
+  return 0
+}
+
+# 按所有权释放（票 271）：自取（RECORD_LOCK_OWNED=1）才删除锁目录；继承时只清本地持有
+# 标记，绝不动父进程的锁。幂等，可作 EXIT 陷阱体。
+record_lock_release_owned() {
+  if [ "${RECORD_LOCK_OWNED:-0}" -eq 1 ]; then
+    record_lock_release
+  else
+    RECORD_LOCK_HELD=0
+  fi
+  RECORD_LOCK_OWNED=0
   return 0
 }

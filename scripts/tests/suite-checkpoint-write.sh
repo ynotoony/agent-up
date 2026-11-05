@@ -13,7 +13,8 @@ fi
 # <id>-review-checkpoint.md（创建带一级标题／已存在追加记录块、票体逐字节零追加）、
 # stdout 末行目标文件机器契约行；参数缺失/票文件缺失/绝对路径/父目录 symlink 逃逸/
 # 日期越界 fail-closed 与未知参数、无参数用法错误；记录块格式（日期标题＋裁决原文＋裁决时间＋提交＋diff
-# 摘要）与拆出前 lane-commit.sh 逐字节一致）
+# 摘要）与拆出前 lane-commit.sh 逐字节一致；记录层写锁接线（票 271）——独立调用自取锁＋
+# 并发争用零写入、继承路径不释放父锁）
 # ============================================================
 
 cw_fixture() {
@@ -32,6 +33,20 @@ cw_run() {
     --commit-subject 'fix(scope): fixture subject' \
     --diff-summary 'M a.txt' \
     --date '2026-10-28' > "$3" 2>&1
+}
+
+cw_lock_dir() {
+  # $1=夹具根：经共享库解析锁目录（只读探针；测试不按实现猜路径，产品脚本零锁实现复制）
+  cw_probe="$D/.probe-lock.sh"
+  cat > "$cw_probe" <<'PROBE'
+#!/bin/sh
+set -eu
+. "$1/common-helpers.sh"
+record_lock_init "$2"
+printf '%s\n' "$RECORD_LOCK_DIR"
+PROBE
+  sh "$cw_probe" "$SCRIPT_DIR" "$1"
+  rm -f "$cw_probe"
 }
 
 suite_checkpoint_write() {
@@ -187,6 +202,85 @@ suite_checkpoint_write() {
     ok '负例 N8 票文件父目录 symlink 逃逸 → exit 1 且仓外零写入'
   else
     bad '负例 N8 票文件父目录 symlink 逃逸 → exit 1 且仓外零写入' "exit=$rc $(tail -n 2 "$D/n8.out" | tr '\n' '|')"
+  fi
+
+  # ============================================================
+  # 票 271：记录层写锁接线断言（AC1 自取锁＋并发争用、AC2 继承路径）
+  # ============================================================
+
+  # ---- AC1（票 271）：独立调用自取锁——持锁期间第二方 exit 1「并发冲突」且零写入 ----
+  # 持有者经共享库取锁，RECORD_LOCK_TEST_HOLD_MS 放大持锁窗口（复用既有测试钩子）；
+  # 第二方＝checkpoint-write 自身（TICKET_OPS_LOCK_TIMEOUT=1）：等待超时即 exit 1。
+  cw_fixture "$D/ac1"
+  git -C "$D/ac1" init -q >/dev/null 2>&1 || true
+  # shellcheck disable=SC2016  # fixture 文本字面量（刻意单引号，反引号不展开）
+  printf '# 票 271-ac1\n\n**Status:** `in_progress`\n' > "$D/ac1/facts/requirements/tickets/271-ac1.md"
+  ac1_lock=$(cw_lock_dir "$D/ac1")
+  ac1_ck0=$(cksum "$D/ac1/facts/requirements/tickets/271-ac1.md")
+  (
+    RECORD_LOCK_TEST_HOLD_MS=3000 sh -c '. "$1"; record_lock_init "$2"; trap "record_lock_release" EXIT; record_lock_acquire' \
+      sh "$SCRIPT_DIR/common-helpers.sh" "$D/ac1" >"$D/ac1-hold.log" 2>&1
+  ) &
+  ac1_holder=$!
+  ac1_wait=0
+  while [ ! -d "$ac1_lock" ] && [ "$ac1_wait" -lt 120 ]; do
+    sleep 0.05
+    ac1_wait=$((ac1_wait + 1))
+  done
+  TICKET_OPS_LOCK_TIMEOUT=1 sh "$CW" "$D/ac1" review-checkpoint \
+    --ticket 'facts/requirements/tickets/271-ac1.md' \
+    --verdict-quote 'AC1 并发争用夹具' --verdict-at '2026-11-05T10:00' \
+    --commit 'abcdef1234567890' --commit-subject 'fix(lock): fixture' \
+    --diff-summary 'M a.txt' >"$D/ac1.out" 2>&1
+  rc=$?
+  wait "$ac1_holder" 2>/dev/null || true
+  if [ "$rc" -eq 1 ] && grep -q '并发冲突' "$D/ac1.out" \
+    && [ "$(cksum "$D/ac1/facts/requirements/tickets/271-ac1.md")" = "$ac1_ck0" ] \
+    && [ ! -f "$D/ac1/facts/requirements/tickets/271-ac1-review-checkpoint.md" ] \
+    && [ ! -d "$ac1_lock" ]; then
+    ok 'AC1 checkpoint-write 独立调用自取锁：持锁期间第二方 exit 1（并发冲突）且票体零写入'
+  else
+    bad 'AC1 checkpoint-write 独立调用自取锁：持锁期间第二方 exit 1（并发冲突）且票体零写入' \
+      "exit=$rc 锁在=$([ -d "$ac1_lock" ] && echo yes || echo no) $(tail -n 2 "$D/ac1.out" | tr '\n' '|')"
+  fi
+
+  # ---- AC2（票 271）：继承路径成立——父进程持锁调用 checkpoint-write exit 0，子进程退出后锁仍在 ----
+  # 父进程自取锁后以继承标记（RECORD_LOCK_INHERITED=1＋锁目录＋令牌）调用子进程；
+  # 子进程须 exit 0 且不删除父锁（令牌原样），释放责任仍归父进程。
+  cw_fixture "$D/ac2"
+  git -C "$D/ac2" init -q >/dev/null 2>&1 || true
+  # shellcheck disable=SC2016  # fixture 文本字面量（刻意单引号）
+  printf '# 票 271-ac2\n\n**Status:** `in_progress`\n' > "$D/ac2/facts/requirements/tickets/271-ac2.md"
+  mkdir -p "$D/ac2-state"
+  sh -c '
+    . "$1"
+    record_lock_init "$2"
+    record_lock_acquire
+    printf "%s\n" "$RECORD_LOCK_TOKEN" > "$3/parent-token"
+    RECORD_LOCK_INHERITED=1 RECORD_LOCK_DIR="$RECORD_LOCK_DIR" RECORD_LOCK_TOKEN="$RECORD_LOCK_TOKEN" \
+      sh "$4" "$2" review-checkpoint --ticket facts/requirements/tickets/271-ac2.md \
+        --verdict-quote "AC2 继承夹具" --verdict-at "2026-11-05T10:05" \
+        --commit abcdef1234567890 --commit-subject "fix(lock): inherit" \
+        --diff-summary "M b.txt" > "$3/out" 2>&1
+    printf "%s\n" "$?" > "$3/child-exit"
+    if [ -d "$RECORD_LOCK_DIR" ]; then printf "present\n" > "$3/lock-state"; else printf "absent\n" > "$3/lock-state"; fi
+    sed -n "1p" "$RECORD_LOCK_DIR/token" > "$3/live-token" 2>/dev/null || true
+    record_lock_release
+    if [ -d "$RECORD_LOCK_DIR" ]; then printf "stuck\n" > "$3/after-release"; else printf "released\n" > "$3/after-release"; fi
+  ' sh "$SCRIPT_DIR/common-helpers.sh" "$D/ac2" "$D/ac2-state" "$CW"
+  ac2_child_rc=$(sed -n '1p' "$D/ac2-state/child-exit" 2>/dev/null)
+  ac2_lock_state=$(sed -n '1p' "$D/ac2-state/lock-state" 2>/dev/null)
+  ac2_parent_token=$(sed -n '1p' "$D/ac2-state/parent-token" 2>/dev/null)
+  ac2_live_token=$(sed -n '1p' "$D/ac2-state/live-token" 2>/dev/null)
+  ac2_after=$(sed -n '1p' "$D/ac2-state/after-release" 2>/dev/null)
+  if [ "$ac2_child_rc" = '0' ] && [ "$ac2_lock_state" = 'present' ] \
+    && [ -n "$ac2_parent_token" ] && [ "$ac2_live_token" = "$ac2_parent_token" ] \
+    && [ "$ac2_after" = 'released' ] \
+    && [ "$(grep -c '^## User Review Checkpoint' "$D/ac2/facts/requirements/tickets/271-ac2.md")" -eq 1 ]; then
+    ok 'AC2 继承路径成立：父进程持锁调用 checkpoint-write exit 0，子进程退出后锁目录仍在且令牌原样（父锁不被释放）'
+  else
+    bad 'AC2 继承路径成立：父进程持锁调用 checkpoint-write exit 0，子进程退出后锁目录仍在且令牌原样（父锁不被释放）' \
+      "child_exit=$ac2_child_rc 锁态=$ac2_lock_state token一致=$([ "$ac2_live_token" = "$ac2_parent_token" ] && echo yes || echo no) 父释放后=$ac2_after"
   fi
 
   suite_summary 'checkpoint-write'

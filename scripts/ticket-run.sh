@@ -31,7 +31,10 @@
 #         legacy implementation|review  渲染合同；implementation 缺站时经 worktree-add
 #                   合同入口创建（旧语义原样保留）。legacy commit 在授权记录翻转时，于
 #                   产品提交后把 checkpoint.commit（committed_at＋product commit）原子写入
-#                   站内票本体，并与索引/投影一起收编进纯记录提交。
+#                   站内票本体，并与索引/投影一起收编进纯记录提交。记录收口段（票 271）
+#                   经共享库 record_lock_ensure 自取记录层写锁，覆盖「flip-index →
+#                   checkpoint.commit → 记录提交」全段；flip-index 以继承标记接管同一把
+#                   锁（不再自行取锁），段末按所有权释放。
 # Pos: 主 agent 唯一编排入口（可恢复协调器）；只组合 contract-build/worktree-add/
 #      ticket-ops 原子层，不读取或改写票状态逻辑，不直接写 index/README/账本/投影；
 #      状态写入唯一经 ticket-ops（票 243 核心）。intent 日志只落 Git 公共目录，不进
@@ -1213,6 +1216,8 @@ check_gates="${script_dir}/check-gates.sh"
 gate_file=$(mktemp "${TMPDIR:-/tmp}/ticket-run-gates.XXXXXX") || die2 '门禁临时文件创建失败'
 cleanup() {
   rm -f "$gate_file"
+  # 票 271：记录收口段自取的写锁按所有权释放（未取锁时幂等空操作）
+  record_lock_release_owned
 }
 trap cleanup EXIT HUP INT TERM
 {
@@ -1247,18 +1252,25 @@ printf 'ticket-run: 产品提交: %s\n' "$product_commit"
 # ---- 纯记录提交：索引与投影只经 ticket-ops 生成后收编 ----
 
 if [ -n "$record_flips" ]; then
+  # 记录收口段单一锁窗口（票 271）：本进程自取记录层写锁（锁目录由站的 Git 公共目录
+  # 推导，与主检同一把），覆盖「flip-index → checkpoint.commit → 记录提交」；flip-index
+  # 以继承标记接管同一把锁（不自行取锁，避免两段锁范围不连续），段末按所有权释放。
+  record_lock_ensure "$worktree"
   for line in $record_flips; do
     rest=${line#flips: facts/requirements/tickets/index.json:index:}
     flip_id=${rest%%:*}
     rest2=${rest#*:}
     flip_status=${rest2%%:*}
     flip_updated=${rest2#*:}
-    sh "$ticket_ops" "$worktree" flip-index --id "$flip_id" --status "$flip_status" --updated-at "$flip_updated" || \
+    RECORD_LOCK_INHERITED=1 RECORD_LOCK_DIR="${RECORD_LOCK_DIR}" RECORD_LOCK_TOKEN="${RECORD_LOCK_TOKEN}" \
+      sh "$ticket_ops" "$worktree" flip-index --id "$flip_id" --status "$flip_status" --updated-at "$flip_updated" || \
       die1 "索引翻转代理失败——产品提交 ${product_commit} 已创建、记录提交未创建"
   done
   checkpoint_ticket="${worktree}/facts/requirements/tickets/$(basename "$ticket_file")"
   [ -f "$checkpoint_ticket" ] || die1 "站内票文件不存在，无法写入 checkpoint.commit: ${checkpoint_ticket}"
   committed_at=$(date -u +%Y-%m-%d)
+  # 同一锁窗口内写入 checkpoint.commit（票 271：与 flip-index 同段，写入前核对令牌归属）
+  record_lock_assert
   python3 - "$checkpoint_ticket" "$product_commit" "$committed_at" <<'PY' || die1 "checkpoint.commit 写入失败——产品提交 ${product_commit} 已创建、记录提交未创建"
 import json, os, sys, tempfile
 path, commit_id, committed_at = sys.argv[1:4]
@@ -1287,5 +1299,7 @@ PY
   git -C "$worktree" commit -m "chore(ticket): 记录翻转 — ${commit_message}" || die1 '纯记录提交创建失败'
   record_commit=$(git -C "$worktree" rev-parse HEAD)
   printf 'ticket-run: 记录提交: %s\n' "$record_commit"
+  # 记录收口段结束：按所有权释放自取的写锁（EXIT 陷阱为失败路径兜底）
+  record_lock_release_owned
 fi
 printf 'ticket-run: PASS（commit 完成；Review pass 已核对，产品提交与授权记录翻转分离）\n'
