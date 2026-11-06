@@ -1321,6 +1321,30 @@ sh scripts/measure-context-cost.sh --governance [--templates <dir>] [--baseline 
 
 回归＝`tests/` 的 `context-cost` 套件（`sh tests/suite-context-cost.sh` 或 `sh tests/test-runner.sh --suite context-cost`），夹具内建、仓库零留样。
 
+
+### 提交门禁选跑映射（staged 影响面 → 套件）
+
+`.githooks/pre-commit` 门禁 4 的判定顺序：**先判纯文档，再按路径映射，未命中回落全量**。
+
+- **纯文档**（staged 全部为 `*.md`/`*.tmpl`）只跑冒烟集合：`module-map json-engine delivery-parser`。根级 `README.md`、`docs/**` 等未映射文档因此走冒烟，不触发回落全量。
+- `ticket-run.sh`、`worktree-add.sh`、`contract-build.sh`、`check-dispatch-contract.sh` → `ticket-run`（**先于** `check-*.sh` 通配，避免被遮蔽）
+- `lane-commit.sh`、`check-gates.sh`、`checkpoint-write.sh` → `lane-commit`（**先于** `check-*.sh` 通配）
+- `agent-up/scripts/checks/*`、`check-package.sh`、`package-manifest.rules`、其余 `check-*.sh`（未被上述具体映射命中的）→ `check-package`
+- `dir-readme.rules`、`generate-dir-readmes.sh` → `dir-readme`
+- `ticket-ops.sh`、`ledger-append.sh`、`record-store.sh`、`ticket-audit.sh`、`merge-ticket.sh` → `ticket-ops`＋`ticket-audit`＋`merge`
+- `dp-load-rules.sh`、其余 `*.rules` → `delivery-parser`
+- `generate-progress.sh`、`facts/requirements/tickets/*` → `progress`＋`ticket-ops`
+- 其余 `agent-up/scripts/*.sh`、`agent-up/scripts/tests/*` → `module-map`＋`json-engine`
+- 映射外其余**非文档**路径 → **回落 `--suite all`**（不静默跳过）
+
+注意：`*.rules` 是机器数据件，**不属于纯文档**，一律按其映射执行（`package-manifest.rules` 跑 `check-package`、`dir-readme.rules` 跑 `dir-readme`、其余规则文件跑 `delivery-parser`）；只有 `*.md`／`*.tmpl` 才触发冒烟。
+
+引擎定向运行入口 `check-package.sh --only N[,N] [package-root]`：只跑选中检查、输出仅含选中行；未设时全量输出与退出码逐字节不变；未注册/非法号 exit 2 fail-closed。
+
+定向运行的校验面：只校验被选中检查声明的清单节与注册表中被选中的行（行级形态/重复、号集合与 slug 对）；全局计数（`chk_total`、在役项数、退役号行数）仍按全表校验，故「注册表与清单整体错位」在定向运行下照样 exit 2。退役号集合全等与编号连续性属全表性质，只在全量模式校验——**定向运行不能替代提交门禁的全量运行**。
+
+耗时口径（随宿主负载浮动）：单检查定向运行约 0.2–0.5s（全量 37 项约 6–9s）；`check-package` 套件改为逐例定向后从约 110s 级降到约 60s 级。套件内仍保留四例整套运行（正例、R1 注册表计数、R2 注入崩溃、R3 退役后计数断言）——它们是整套语义的守门例，不参与定向改造。
+
 ## test-record-layer.sh（记录层回归 harness）
 
 - 布局：`test-record-layer.sh` 为兼容入口（委托 `tests/test-runner.sh`，参数不变）；`tests/test-helpers.sh` 承载 ok/bad/assert_eq/suite_summary/cleanup 等共享函数；每个 suite 一个 `tests/suite-<name>.sh`（内含该套件私有夹具函数），文件头带独立入口（直接 `sh tests/suite-<name>.sh` 即跑该套件）。新增套件三处同步：runner 派发表、本节 suite 覆盖表、清单 scripts 节 dir 行描述。
