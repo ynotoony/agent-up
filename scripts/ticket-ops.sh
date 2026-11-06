@@ -622,12 +622,16 @@ audit_gate() {
     sh "${audit_cmd}" "${nn}" --repo "${repo_root}" --operation merge \
       --allow-after "${issues_index_rel}" \
       --allow-after "${progress_current_rel}" \
+      --allow-after 'facts/project/changes.jsonl' \
+      --allow-after 'facts/requirements/tickets/README.md' \
       --allow-after "${_ag_ticket_rel}" \
       --allow-after "${_ag_cp}" || _ag_rc=$?
   else
     sh "${audit_cmd}" "${nn}" --repo "${repo_root}" --operation merge \
       --allow-after "${issues_index_rel}" \
       --allow-after "${progress_current_rel}" \
+      --allow-after 'facts/project/changes.jsonl' \
+      --allow-after 'facts/requirements/tickets/README.md' \
       --allow-after "${_ag_ticket_rel}" || _ag_rc=$?
   fi
   case ${_ag_rc} in
