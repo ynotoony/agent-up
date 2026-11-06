@@ -1261,14 +1261,29 @@ EOF
   fi
 
   # N-152oneof：oneOf 零命中（verification 为数字，非 string 非 array）→ exit 1 零写入
-  # 且报文指名 oneOf（verification 的 oneOf 两分支＝string｜array，数字两不命中）
-  sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' -e 's/"priority_reason": "fixture 优先级理由（正例，非空）"/"priority_reason": "fixture 优先级理由（正例，非空）", "verification": 42/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  # 且报文指名 oneOf（verification 的 oneOf 两分支＝string｜array，数字两不命中）。
+  # 票 280：原夹具以「追加第二个 verification 键」制造数字形态，构成重复键（严格读取
+  # 会先报重复键而非 oneOf）；改为原位替换既有 verification 值，保持本负例的 oneOf 单义。
+  sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' \
+      -e 's/"verification": \[.*\]/"verification": 42/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
   sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v152o.log" 2>&1
   rc=$?
   if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q 'oneOf' "$D/v152o.log"; then
     ok '负例 N-152oneof verification oneOf 零命中（数字形态）→ exit 1 零写入（票 152 AC1）'
   else
     bad '负例 N-152oneof verification oneOf 零命中（数字形态）→ exit 1 零写入（票 152 AC1）' "exit=$rc $(head -n 2 "$D/v152o.log" | tr '\n' '|')"
+  fi
+
+  # N-280dup：票本体含重复键（严格读取门）→ exit 1 零写入且报文指名重复键
+  # （票 280：validate_ticket 改走 _strict_load；旧实现在 json.load 下后者覆盖不报错）
+  sed -e 's/"id": "30-gamma-third"/"id": "50-epsilon-fifth"/' \
+      -e 's/"priority_reason": "fixture 优先级理由（正例，非空）"/"priority_reason": "fixture 优先级理由（正例，非空）", "priority_reason": "重复键"/' "$TIX152_OK_BODY" > "$F152/facts/requirements/tickets/50-epsilon-fifth.json"
+  sh "$TIX152" "$F152" open --id 50-epsilon-fifth --complexity C1 --title e --ledger-line "$TIX152_LEDGER" >"$D/v280dup.log" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && [ "$S152" = "$(tix_state "$F152")" ] && grep -q '重复键' "$D/v280dup.log"; then
+    ok '负例 N-280dup 票本体重复键经严格读取判非法 → exit 1 零写入（票 280）'
+  else
+    bad '负例 N-280dup 票本体重复键经严格读取判非法 → exit 1 零写入（票 280）' "exit=$rc $(head -n 2 "$D/v280dup.log" | tr '\n' '|')"
   fi
 
   # 正例 P152r：request 本体已退役，测试转为存量 request 读取校验通过（票 207）

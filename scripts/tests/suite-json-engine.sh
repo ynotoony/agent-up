@@ -9,10 +9,12 @@ fi
 
 # ============================================================
 # suite: json-engine（票 227 F3：唯一 JSON 引擎 json-validator.py 通用操作面——
-# json get/fields/len/pick/count-key 与 ticket-check close/deps/open-body、
+# json get/fields/len/pick/count-key/set 与 ticket-check close/deps/open-body、
 # contract ticket-id 正负例覆盖；票 261 严格化——NaN 与重复键 exit 2、合法输入对照；
-# json-helpers.sh awk 行解析退役后由本套件承接
-# 解析层行为回归，至少 12 断言）
+# 票 280 契约校准与结构收敛——help/-h/--help exit 0、全局退出码口径、
+# workflow index-status 死代码删除（exit 2 零写入）、validate_ticket 走 _strict_load
+# （NaN/重复键 exit 1）、四门单一 loader 报文不变、json set 序列化面、grade 接口保留；
+# json-helpers.sh awk 行解析退役后由本套件承接解析层行为回归）
 # ============================================================
 
 suite_json_engine() {
@@ -234,6 +236,93 @@ suite_json_engine() {
     ok '严格化后合法 JSON 仍 exit 0 且取值不变（负例对照）'
   else
     bad '严格化后合法 JSON 仍 exit 0 且取值不变（负例对照）' "exit=$rc actual=$result"
+  fi
+
+  # ---- 票 280：help 模式（契约头 help 条目）与全局退出码口径 ----
+  for harg in help -h --help; do
+    python3 "$ENGINE" "$harg" >/dev/null 2>&1
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      ok "help 模式 $harg exit 0（契约头 help 条目）"
+    else
+      bad "help 模式 $harg exit 0（契约头 help 条目）" "expected=0 actual=$rc"
+    fi
+  done
+
+  usage_out=$(python3 "$ENGINE" help 2>&1)
+  case $usage_out in
+    *'index-status'*) bad 'help 用法不再列出已删除的 workflow index-status（死代码收敛）' 'usage 仍含 index-status' ;;
+    *) ok 'help 用法不再列出已删除的 workflow index-status（死代码收敛）' ;;
+  esac
+
+  # ---- 票 280：死代码 wf_index_status 删除后 index-status 不再是合同子命令 ----
+  printf '%s\n' '{"issues": [{"id": "x-1", "status": "ready"}]}' > "$D/wf-index.json"
+  python3 "$ENGINE" workflow index-status "$D/wf-index.json" x-1 'done' >"$D/wf-is.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '参数个数不合合同' "$D/wf-is.out" \
+    && grep -q '"status": "ready"' "$D/wf-index.json"; then
+    ok 'workflow index-status 死代码删除后 exit 2 且索引文件零写入'
+  else
+    bad 'workflow index-status 死代码删除后 exit 2 且索引文件零写入' "exit=$rc"
+  fi
+
+  # ---- 票 280：validate_ticket 改走 _strict_load（NaN/重复键 exit 1，合法票仍放行）----
+  printf '%s\n' '{"type": "object", "required": ["id"], "additionalProperties": false, "properties": {"id": {"type": "string"}}}' > "$D/mini-schema.json"
+  printf '%s\n' '{"id": "legal-t"}' > "$D/mini-legal.json"
+  python3 "$ENGINE" ticket "$D/mini-schema.json" "$D/mini-legal.json" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok 'ticket 严格化后合法票仍 exit 0（负例对照）'
+  else
+    bad 'ticket 严格化后合法票仍 exit 0（负例对照）' "expected=0 actual=$rc"
+  fi
+
+  printf '%s\n' '{"id": "nan-t", "complexity": NaN}' > "$D/mini-nan.json"
+  python3 "$ENGINE" ticket "$D/mini-schema.json" "$D/mini-nan.json" >"$D/t-nan.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'ticket-validate: FAIL: 无法读取文件' "$D/t-nan.out"; then
+    ok 'ticket 票体 NaN 字面量经 _strict_load 判非法（exit 1）'
+  else
+    bad 'ticket 票体 NaN 字面量经 _strict_load 判非法（exit 1）' "exit=$rc"
+  fi
+
+  printf '%s\n' '{"id": "dup-t", "id": "dup-t2"}' > "$D/mini-dup.json"
+  python3 "$ENGINE" ticket "$D/mini-schema.json" "$D/mini-dup.json" >"$D/t-dup.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '同一对象内重复键' "$D/t-dup.out"; then
+    ok 'ticket 票体重复键经 _strict_load 判非法（exit 1）'
+  else
+    bad 'ticket 票体重复键经 _strict_load 判非法（exit 1）' "exit=$rc"
+  fi
+
+  # ---- 票 280：四门经单一 loader，缺失文件仍按既有 ticket-ops 合同报文 exit 1 ----
+  python3 "$ENGINE" ticket-check close "$D/no-such-ticket.json" t9 >"$D/tc-miss.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'ticket-ops: FAIL: 票 t9 收口缺 actual_time：票本体不可读或非合法 JSON' "$D/tc-miss.out"; then
+    ok 'ticket-check close 缺失文件经单一 loader 仍按合同报文 exit 1'
+  else
+    bad 'ticket-check close 缺失文件经单一 loader 仍按合同报文 exit 1' "exit=$rc"
+  fi
+
+  # ---- 票 280：json set 记录层序列化面（契约头 json 条目补 set）----
+  set_out=$(printf '%s\n' '{"a": {"b": 1}}' | python3 "$ENGINE" json set - a.c 2)
+  rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s' "$set_out" | grep -q '"c": 2' \
+    && printf '%s' "$set_out" | grep -q '"b": 1'; then
+    ok 'json set 点路径设置并规范化序列化输出（中间层对象保留）'
+  else
+    bad 'json set 点路径设置并规范化序列化输出（中间层对象保留）' "exit=$rc"
+  fi
+
+  # ---- 票 280：grade 传递面不变（profile 参数接口保留、不读取）----
+  printf 'profile placeholder\n' > "$D/grade-profile.md"
+  printf '%s\n' '{"id": "9-grade-t", "complexity": "C1", "scope": ["a"]}' > "$D/grade-ticket.json"
+  grade_out=$(python3 "$ENGINE" grade "$D/grade-profile.md" "$D/grade-ticket.json")
+  rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s' "$grade_out" | grep -q '=== 票 9-grade-t ==='; then
+    ok 'grade 带 profile 接口参数仍 exit 0 且逐票输出（接口保留、未读取）'
+  else
+    bad 'grade 带 profile 接口参数仍 exit 0 且逐票输出（接口保留、未读取）' "exit=$rc"
   fi
 
   suite_summary 'json-engine'
