@@ -1,6 +1,8 @@
 #!/bin/sh
 # Input: 仓库根目录（缺省按脚本落位自推导——agent-up/scripts/ 上两级、
 #        rules/implementation/scripts/ 上三级，尾径校验失败报错退出 2，第一参数可指定）、
+#        同目录唯一 JSON 引擎 json-validator.py 与 python3（index.json 条目行、教训账本
+#        指针与历史终态行一律经引擎解析，缺件/不可用 exit 2 fail-closed，不内嵌解析副本）、
 #        本文件登记表内
 #        的易腐状态句条目，与模式开关（第二参数或 STALE_CLAIMS_MODE 环境变量）；
 #        仓根 delivery.rules（票 72 配置点亮：dp_stale_lit 点亮位、payload 节 remote 名
@@ -9,7 +11,8 @@
 #        （S6 终态基线锚：facts/requirements/tickets/index.json 的现行提交历史，票 94——只读 log -p，
 #        不读其他历史面）。
 # Output: 登记条目逐项核对结果——STALE 行（过期断言，含 路径:行号:内容 定位）、
-#         WARN 行（提醒，含登记日期与【待定】阈值标注）、NOTE 行（比对机制退化说明，
+#         WARN 行（提醒，含该条目登记日期〔stale_entry_date 数据节按条目取〕与【待定】
+#         阈值标注；缺失退化面一律 WARN 显式说明，不静默放行）、NOTE 行（比对机制退化说明，
 #         不计入失败）、STALE-prone 行（S4 计数模式易腐命中，指名 file:line，
 #         计入过期断言计数）、S6 非法跃迁行（STALE，指名票 id 与跃迁方向 done/superseded
 #         → 非终态）、结尾汇总行；票收口模式（gate）发现过期断言 exit 1，
@@ -17,7 +20,9 @@
 # Pos: 登记表驱动的易腐断言扫描器（REQ-20260904-010 / 票 19）；S4 计数漂移哨兵
 #      （票 65）；S5 方案结论标注句（票 85，R-DP-033 加固配套格式断言）；S6 终态哨兵
 #      （票 94，done/superseded 被改回非终态即 STALE/FAIL——复盘缺口④幽灵态机器报警）；
-#      POSIX sh、零外部依赖、全程只读（除打印外无写操作，Git 仅使用只读子命令）。
+#      POSIX sh、零外部依赖（JSON 解析经同目录唯一引擎 json-validator.py json rows/
+#      json fields，缺件或 python3 不可用 exit 2 fail-closed）、全程只读（除打印外无写
+#      操作，Git 仅使用只读子命令）。
 # dp-parser: 2
 # stale-claims-version: 8（断言组 S1-S8；机制版本注记，dp-parser 先例）
 #      （本件要求解析器最低版注记；解析唯一实现＝同目录 dp-load-rules.sh，版本唯一
@@ -36,6 +41,7 @@ archive_changes_rel='facts/project/archive/changes.md'
 issues_dir_rel='facts/requirements/tickets'
 issues_readme_rel='facts/requirements/tickets/README.md'
 issues_index_rel='facts/requirements/tickets/index.json'
+changes_jsonl_rel='facts/project/changes.jsonl'
 artifacts_yaml_rel='facts/project/artifacts.yaml'
 agent_runs_dir_rel='facts/requirements/runs'
 arch_generated_dir_rel='facts/project/architecture/generated'
@@ -45,6 +51,8 @@ facts_tree_rel='facts'
 
 set -eu
 set -f  # 关闭文件名展开：脚本不依赖 glob
+
+TAB=$(printf '\t')  # 引擎 json rows/json fields 的 TAB 分列读取（S3/S6/S7/S8）
 
 # Source common helper functions（票 227 F4/F5：仓库根推导统一经 resolve_repo_root --layout）
 _helper_script=$(dirname "$0")/common-helpers.sh
@@ -69,8 +77,9 @@ usage() {
 退出码:
   0  gate 模式下无过期断言（提醒照常输出），或 session 模式。
   1  gate 模式下存在过期断言（STALE 行见输出）。
-  2  用法或环境错误（参数过多、模式非法、仓库根不存在等）；delivery.rules 解析破坏亦
-     exit 2（票 72 配置点亮，fail-closed 不产生部分结论）。
+  2  用法或环境错误（参数过多、模式非法、仓库根不存在等）；delivery.rules 解析破坏、
+     同目录唯一 JSON 引擎 json-validator.py 缺失或 python3 不可用亦 exit 2（运行时依赖
+     只认安装闭包，fail-closed 不产生部分结论）。
 NOTE 行为比对机制退化说明（生成器不可用时退化为内建最小比对），不计入失败。
 登记表条目、校验方式与提醒阈值口径见同目录 README.md。
 USAGE
@@ -90,9 +99,25 @@ emit_stale() {
   stale_count=$((stale_count + 1))
 }
 
+# 条目登记日期数据节（WARN 行「提醒自 … 登记」按条目取，不再全局硬编码）：来源＝
+# 各条目核对函数（check_sN）首次进入本文件的提交日期（git log -S 检索），条目新增/迁移
+# 时随复核更新；S1/S2/S3 为同批首批登记，S4 起各自成条。
+stale_entry_date() {
+  case $1 in
+    S1 | S2 | S3) printf '2026-09-06' ;;
+    S4) printf '2026-09-22' ;;
+    S5) printf '2026-09-24' ;;
+    S6) printf '2026-09-28' ;;
+    S7) printf '2026-10-09' ;;
+    S8) printf '2026-10-10' ;;
+    *) printf '' ;;
+  esac
+}
+
 emit_warn() {
-  # $1=定位 $2=提醒内容。存在时长阈值未定稿，统一标注【待定】。
-  printf 'WARN: %s — %s（提醒自 2026-09-04 登记，存在时长阈值【待定】）\n' "$1" "$2"
+  # $1=条目（S1-S8，登记日期按条目取） $2=定位 $3=提醒内容；存在时长阈值未定稿，统一标注【待定】。
+  _wdate=$(stale_entry_date "$1")
+  printf 'WARN: %s — %s（提醒自 %s 登记，存在时长阈值【待定】）\n' "$2" "$3" "${_wdate:-未知}"
   warn_count=$((warn_count + 1))
 }
 
@@ -182,6 +207,20 @@ if [ "${DP_PARSER_VERSION:-0}" -lt 2 ]; then
 fi
 
 dp_load_rules "$repo_root" 'check-stale-claims' || exit 2
+
+# 唯一 JSON 引擎（运行时依赖只认脚本同目录安装闭包）：index.json 条目行、历史终态行与
+# 教训账本指针一律经同目录 json-validator.py 解析（json rows/json fields），不内嵌解析
+# 副本、不回退包工作树副本；缺件或 python3 不可用即 exit 2 fail-closed 指名。
+_engine=$(dirname "$0")/json-validator.py
+if [ ! -f "$_engine" ]; then
+  printf 'check-stale-claims: 错误：唯一 JSON 引擎缺失（安装闭包缺失）: %s——运行时依赖只认脚本同目录（与 common-helpers.sh／dp-load-rules.sh 同分发）；缺失即安装不到位，请按 Agent Up 包 references/upgrade.md 升级或 scripts/install.sh 修补后重跑（本次不产生结论）\n' "$_engine" >&2
+  exit 2
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  printf 'check-stale-claims: 错误：python3 不可用——唯一 JSON 引擎无法执行（fail-closed，本次不产生结论）\n' >&2
+  exit 2
+fi
+
 s1_lit=0
 s2_lit=0
 case $DP_STALE_LIT in *"S1"*) s1_lit=1 ;; esac
@@ -204,7 +243,9 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 # S3 frontier 句 | facts/requirements/tickets/index.json（票状态真相源）+ facts/requirements/tickets/progress-current.md（现役状态投影）
 #    | machine：投影 vs 索引比对——优先调用 generate-progress.sh --check（exit 0 一致；
 #      exit 1 投影 stale 或缺失；exit 2 索引缺失或条目排版不合预期）→ 差异即过期断言；
-#      生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明。
+#      生成器不可用时退化为内建最小比对（id/status/updated_at 三元组）并输出 NOTE 说明；
+#      条目行经唯一 JSON 引擎 json rows 解析（票 284：键序无关、紧凑与带空格同受理，
+#      不再用行内正则 jval）。
 #      （2026-09-18 票 37 修订：原"docs/issues/README.md（现 facts/requirements/tickets/README.md）表行逐票对照票面状态"实现退役
 #      ——README 票表为索引派生生成块（一致性由 S4 生成块新鲜度核对承载），与索引冲突时以索引为准。）
 # S4 计数漂移句 | facts/requirements/tickets/README.md 票表生成块 + facts/requirements/tickets/index.json
@@ -231,7 +272,8 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #    | machine：终态哨兵（票 94，复盘缺口④幽灵态）——索引内 id 曾达终态（done/
 #      superseded）而当前 status 回到非终态（ready/in_progress/blocked/review_ready/
 #      review_pass/review_fail）即 STALE 指名票 id 与跃迁方向。基线锚＝该索引的 Git
-#      现行提交历史（`git log -p` 提取历次 + 行的 id/status；选型理由：零新增数据源
+#      现行提交历史（`git log -p` 提取历次 + 行、经唯一 JSON 引擎 json rows 解析
+#      id/status——票 284；选型理由：零新增数据源
 #      ——终态史已由仓库历史承载，夹具快照反而成为第二本可漂移的账；非 Git 工作区
 #      WARN 跳过；索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过，对齐
 #      S1/S5）。对账分层：一致性对账
@@ -241,7 +283,8 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      含非空 superseded_by 时，指向的票 id 必须真实存在于本索引（缺失即 STALE 指名
 #      双方 id）；指向票自身带 superseded_by（替代链环）即 STALE；指向票状态非终态
 #      （替代票尚未收口）即 WARN 提醒不拦截（收口顺序合法：先标后收）。字段缺失＝
-#      零命中零报（可选字段语义，存量票零回扫）；不按时间自动打标。
+#      零命中零报（可选字段语义，存量票零回扫）；不按时间自动打标。条目经唯一 JSON
+#      引擎 json rows 解析（票 284：三份 awk jval 副本随解析收敛合一，键序无关）。
 # S8 复盘沉淀指针 | facts/project/changes.jsonl（教训账本，kind=lesson 行）
 #    | machine：沉淀指针核对（R-DP-041 检查面配套）——lesson 行 promoted_to ∈
 #      {rules, validator, test} 且 decision/evidence_ref 含可 grep 文件指针（rules/ 或
@@ -252,7 +295,8 @@ case $DP_STALE_LIT in *"S2"*) s2_lit=1 ;; esac
 #      人落新行，S8 只报警不代写）。已知限制：同一行多指针只核首个命中（漏报面，
 #      指针写法应一行动一处）；锚点 grep -F 定字面；紧凑 JSON（键后无空格）同受扫描。
 #      NOTE 零命中行仅当账本内无任何可 grep 指针的 lesson 行时打一条（混合账本下
-#      不可 grep 行零提示归本限制注记，不另打行）。
+#      不可 grep 行零提示归本限制注记，不另打行）。账本文件缺失＝WARN 显式跳过（票 284
+#      关闭 fail-open：不再静默返回 0，对齐 S3/S6/S7 缺失退化语义）。
 
 readme_rel='README.md'
 # S2 次级权威位置＝包内 README（票 72 配置点亮：自 delivery.rules dp_payload_root 派生，
@@ -272,7 +316,7 @@ check_s1() {
   _loc="$progress_rel:$(printf '%s' "$_anchor" | sed 's/:.*//')"
 
   if ! git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    emit_warn "$_loc" '目标当前不是 Git 工作区，Git 状态句条目按流程退化语义跳过（对齐 development-process 例外条款）'
+    emit_warn S1 "$_loc" '目标当前不是 Git 工作区，Git 状态句条目按流程退化语义跳过（对齐 development-process 例外条款）'
     return 0
   fi
 
@@ -284,7 +328,7 @@ check_s1() {
       emit_stale "$_loc" "基线块宣称首个提交 $_sha 存在，但对象库中找不到该提交"
     fi
   else
-    emit_warn "$_loc" '基线块内未提取到首个提交短 SHA，提交存在性未核验'
+    emit_warn S1 "$_loc" '基线块内未提取到首个提交短 SHA，提交存在性未核验'
   fi
 
   # 1b 基线块宣称的本地导出分支存在（分支名自 delivery.rules dp_payload_local_ref 读取，
@@ -294,7 +338,7 @@ check_s1() {
       emit_stale "$_loc" "基线块宣称本地导出分支 $DP_LOCAL_REF 存在，但该分支引用不存在"
     fi
   else
-    emit_warn "$_loc" 'S1-1b 本地导出分支核对跳过：delivery.rules 未声明 payload 节（分支名不可知）'
+    emit_warn S1 "$_loc" 'S1-1b 本地导出分支核对跳过：delivery.rules 未声明 payload 节（分支名不可知）'
   fi
 
   # 1c 基线块宣称的唯一 remote 与地址（remote 名自 delivery.rules dp_payload_remote 读取，
@@ -302,7 +346,7 @@ check_s1() {
   _remotes=$(git -C "$repo_root" remote || true)
   _claim_url=$(printf '%s' "$_anchor" | sed -n 's/.*\(https:\/\/github\.com\/[A-Za-z0-9._/-]*\).*/\1/p' | sed 's/\.git$//')
   if [ -z "$DP_REMOTE" ]; then
-    emit_warn "$_loc" 'S1-1c 唯一 remote 核对跳过：delivery.rules 未声明 payload 节（remote 名不可知）'
+    emit_warn S1 "$_loc" 'S1-1c 唯一 remote 核对跳过：delivery.rules 未声明 payload 节（remote 名不可知）'
   elif [ "$_remotes" != "$DP_REMOTE" ]; then
     emit_stale "$_loc" "基线块宣称唯一 remote 为 ${DP_REMOTE}，实际 remote 列表为：${_remotes:-（空）}"
   else
@@ -321,7 +365,7 @@ check_s1() {
       emit_stale "$_loc" '基线块宣称本地 main 未推送，但该提交已包含于远端跟踪分支'
     fi
   else
-    emit_warn "$_loc" '本地 main 分支不存在，未推送断言未核验'
+    emit_warn S1 "$_loc" '本地 main 分支不存在，未推送断言未核验'
   fi
 
   # 1e（已移除，票 37）：基线块"存在未提交工作区改动"为票 13 时点历史快照，
@@ -349,7 +393,7 @@ check_s2() {
   # 发布远端名自 delivery.rules dp_payload_remote 读取（票 72 配置点亮；
   # 未声明 payload 节＝remote 名不可知，退化 WARN 跳过不硬猜）
   if [ -z "$DP_REMOTE" ]; then
-    emit_warn "$_rloc" 'S2 remote 比对跳过：delivery.rules 未声明 payload 节（发布远端名不可知）'
+    emit_warn S2 "$_rloc" 'S2 remote 比对跳过：delivery.rules 未声明 payload 节（发布远端名不可知）'
   else
     _actual=$(git -C "$repo_root" config --get "remote.$DP_REMOTE.url" 2>/dev/null || true)
     if [ -z "$_actual" ]; then
@@ -362,7 +406,7 @@ check_s2() {
   # 安装命令行与发布宣称同源核对（包内 README 的克隆地址与宣称一致；包前缀自
   # delivery.rules dp_payload_root 派生，未声明＝位置不可知，退化 WARN 跳过）
   if [ -z "$pkg_readme_rel" ]; then
-    emit_warn "$_rloc" 'S2 安装行同源核对跳过：delivery.rules 未声明 payload 节（包内 README 位置不可知）'
+    emit_warn S2 "$_rloc" 'S2 安装行同源核对跳过：delivery.rules 未声明 payload 节（包内 README 位置不可知）'
   elif [ -f "$_kf" ]; then
     _kline=$(first_grep_line "$_claim" "$_kf")
     if [ -z "$_kline" ]; then
@@ -373,29 +417,20 @@ check_s2() {
   fi
 
   # 远端可达性与可见性本地不可核验（不出网）→ 存在时长提醒
-  emit_warn "$_rloc" "远端仓库可达性与 public 可见性本地不核验（零网络依赖），请按登记周期人工复核宣称：$_claim"
+  emit_warn S2 "$_rloc" "远端仓库可达性与 public 可见性本地不核验（零网络依赖），请按登记周期人工复核宣称：$_claim"
 }
 
 # ---- S3 frontier 句（投影 vs 索引，票 37 改造） -----------------------------
 
 s3_index_rows() {
-  # $1=索引文件；输出每条目一行 "id|status|updated_at"（一条目一行排版，行内提取）。
-  awk '
-    function jval(line, key,    i, rest, j) {
-      i = index(line, "\"" key "\": \"")
-      if (i == 0) return ""
-      rest = substr(line, i + length(key) + 5)
-      j = index(rest, "\"")
-      if (j == 0) return ""
-      return substr(rest, 1, j - 1)
-    }
-    index($0, "\"id\": \"") > 0 {
-      id = jval($0, "id"); st = jval($0, "status"); ua = jval($0, "updated_at")
-      if (id == "" || st == "" || ua == "") { bad = 1; next }
-      print id "|" st "|" ua
-    }
+  # $1=索引文件；经唯一 JSON 引擎 json rows 逐条目输出 "id|status|updated_at"
+  # （键序无关、紧凑与带空格同受理；缺必备字段即返回 1 由调用方报排版破坏）。
+  _s3_rows=$(python3 "$_engine" json rows "$1" issues id status updated_at 2>/dev/null) || return 1
+  [ -n "$_s3_rows" ] || return 0
+  printf '%s\n' "$_s3_rows" | awk -F'\t' '
+    { if ($1 == "" || $2 == "" || $3 == "") { bad = 1; next } print $1 "|" $2 "|" $3 }
     END { exit bad ? 1 : 0 }
-  ' "$1"
+  '
 }
 
 s3_projection_rows() {
@@ -558,7 +593,7 @@ check_s4_block() {
   _rf="$repo_root/$issues_readme_rel"
   _idx="$repo_root/$issues_index_rel"
   if [ ! -f "$_rf" ] || [ ! -f "$_idx" ]; then
-    emit_warn "$issues_readme_rel" "S4 生成块新鲜度断言跳过：$issues_readme_rel 或 $issues_index_rel 缺失，按退化语义不硬猜"
+    emit_warn S4 "$issues_readme_rel" "S4 生成块新鲜度断言跳过：$issues_readme_rel 或 $issues_index_rel 缺失，按退化语义不硬猜"
     return 0
   fi
   _s4_gen=''
@@ -568,7 +603,7 @@ check_s4_block() {
     _s4_gen="$repo_root/$repo_scripts_dir_rel/generate-progress.sh"
   fi
   if [ -z "$_s4_gen" ]; then
-    emit_warn "$issues_readme_rel" 'S4 生成块新鲜度断言跳过：generate-progress.sh 不可用（脚本同目录与仓库 scripts 目录均未找到），不按实现猜派生口径'
+    emit_warn S4 "$issues_readme_rel" 'S4 生成块新鲜度断言跳过：generate-progress.sh 不可用（脚本同目录与仓库 scripts 目录均未找到），不按实现猜派生口径'
     return 0
   fi
   _s4_rc=0
@@ -653,7 +688,7 @@ check_s5() {
   _s5_globs=$(s5_load_globs)
   [ -n "$_s5_globs" ] || return 0
   if ! git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    emit_warn "$s5_scan_glob" 'S5 结论标注断言跳过：目标当前不是 Git 工作区，新增/修改面无法判定，按流程退化语义跳过（对齐 S1）'
+    emit_warn S5 "$s5_scan_glob" 'S5 结论标注断言跳过：目标当前不是 Git 工作区，新增/修改面无法判定，按流程退化语义跳过（对齐 S1）'
     return 0
   fi
   _s5_changed=$(git -C "$repo_root" -c core.quotePath=off status --porcelain --untracked-files=all 2>/dev/null) || _s5_changed=''
@@ -731,173 +766,164 @@ S5_HITS_INNER
 check_s6() {
   _idx="$repo_root/$issues_index_rel"
   if [ ! -f "$_idx" ]; then
-    emit_warn "$issues_index_rel" 'S6 终态哨兵跳过：索引文件不存在（票状态真相源缺失），对齐 S3 缺失退化语义'
+    emit_warn S6 "$issues_index_rel" 'S6 终态哨兵跳过：索引文件不存在（票状态真相源缺失），对齐 S3 缺失退化语义'
     return 0
   fi
   if ! git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    emit_warn "$issues_index_rel" 'S6 终态哨兵跳过：目标当前不是 Git 工作区，终态基线不可判定，按流程退化语义跳过（对齐 S1/S5）'
+    emit_warn S6 "$issues_index_rel" 'S6 终态哨兵跳过：目标当前不是 Git 工作区，终态基线不可判定，按流程退化语义跳过（对齐 S1/S5）'
     return 0
   fi
-  # 基线提取：历次 + 行的 id/status 对（含工作区当前行的 status）。id 提取面＝
-  # 「"id": "<token>"」紧邻 "status": "…" 的条目行（一条目一行排版，与 S3 同款口径；
-  # 缩进宽容——真实索引为 4 空格缩进、夹具为紧凑形态，均受理）。
-  _s6_hist=$(git -C "$repo_root" log -p --format= -- "$issues_index_rel" 2>/dev/null \
-    | LC_ALL=C grep '^+.*{"id": "' \
-    | sed -n 's/^+[[:space:]]*{"id": "\([^"]*\)", "status": "\([^"]*\)".*/\1|\2/p') || _s6_hist=''
-  _s6_now_row=$(LC_ALL=C grep -o '"id": "[^"]*", "status": "[^"]*"' "$_idx" 2>/dev/null || true)
-  if [ -z "$_s6_hist" ] && [ -z "$_s6_now_row" ]; then
-    emit_warn "$issues_index_rel" 'S6 终态哨兵跳过：索引尚无基线提交且当前行无可提取条目（无可比历史），不硬猜'
+  # 基线提取（票 284 解析收敛）：历史 + 行先聚合为 JSON 数组，后经唯一 JSON 引擎
+  # json rows 一次解析（键序无关、紧凑与带空格同受理；不逐行起子进程、不内嵌 jval）。
+  _s6_hist_raw=$(git -C "$repo_root" log -p --format= -- "$issues_index_rel" 2>/dev/null \
+    | LC_ALL=C grep '^+.*{"id"' | sed 's/^+//; s/,[[:space:]]*$//') || _s6_hist_raw=''
+  _s6_hist=''
+  if [ -n "$_s6_hist_raw" ]; then
+    _s6_hist=$( { printf '['; printf '%s\n' "$_s6_hist_raw" | paste -sd, -; printf ']'; } \
+      | python3 "$_engine" json rows - '' id status 2>/dev/null ) || _s6_hist=''
+  fi
+  _s6_now=$(python3 "$_engine" json rows "$_idx" issues id status 2>/dev/null) || {
+    emit_warn S6 "$issues_index_rel" 'S6 终态哨兵跳过：索引条目行不可经唯一 JSON 引擎解析（排版破坏归 S3 --check 口径），本次不硬猜'
+    return 0
+  }
+  if [ -z "$_s6_hist" ] && [ -z "$_s6_now" ]; then
+    emit_warn S6 "$issues_index_rel" 'S6 终态哨兵跳过：索引尚无基线提交且当前行无可提取条目（无可比历史），不硬猜'
     return 0
   fi
-  # 曾见终态集：历史上任一时刻 status 为终态的 id（当前行也计入——终态票现行终态属
-  # 合法稳态，不报；只有「曾终态→现非终态」才报）。now 行变换：grep -o 提取形态为
-  # 「"id": "<id>", "status": "<st>"」（无前导 {），依次去头、竖线化、去尾引号。
-  _s6_terminal_seen=$({ printf '%s\n' "$_s6_hist"; printf '%s\n' "$_s6_now_row" | sed 's/^"id": "//;s/", "status": "/|/;s/"$//'; } \
-    | awk -F'|' '$2=="done" || $2=="superseded" {print $1}' | LC_ALL=C sort -u)
-  [ -n "$_s6_terminal_seen" ] || return 0
-  # 当前非终态面：终态集 ∩ 当前面（历史＋现行行同源提取，当前 status 非终态即报）
-  while IFS='|' read -r _s6_id _s6_st; do
-    [ -n "$_s6_id" ] || continue
-    case $_s6_st in
-      done | superseded) continue ;;
-      ready | in_progress | blocked | review_ready | review_pass | review_fail)
-        if printf '%s\n' "$_s6_terminal_seen" | grep -qxF "$_s6_id"; then
-          emit_stale "$issues_index_rel:$_s6_id" "S6 终态哨兵：票 $_s6_id 曾达终态，当前 status 被改回非终态 ${_s6_st}——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记"
-        fi
-        ;;
-      *)
-        # 空值/未知值不越哨兵面（状态词表外归 S3 --check 口径），零报。
-        ;;
-    esac
-  done <<S6_NOW_INNER
-$(printf '%s\n' "$_s6_now_row" | sed 's/^"id": "//;s/", "status": "/|/;s/"$//')
-S6_NOW_INNER
+  # 曾见终态集：历史段任一时刻 status 为终态的 id（终态票现行终态属合法稳态，不报；
+  # 只有「曾终态→现非终态」才报）。分类一次 awk 完成（历史段入集→分隔标记→当前行判定），
+  # 循环内零命令替换，action 行回 shell 交 emit_stale（计数与报文口径不变）。
+  _s6_actions=$( { printf '%s\n' "$_s6_hist"; printf '@@S6_SPLIT@@\n'; printf '%s\n' "$_s6_now"; } \
+    | LC_ALL=C awk -F'\t' -v loc="$issues_index_rel" '
+      BEGIN { phase = 1 }
+      $0 == "@@S6_SPLIT@@" { phase = 2; next }
+      phase == 1 { if ($2 == "done" || $2 == "superseded") term[$1] = 1; next }
+      {
+        st = $2
+        if (st == "ready" || st == "in_progress" || st == "blocked" || st == "review_ready" || st == "review_pass" || st == "review_fail") {
+          if ($1 in term) printf "STALE\t%s:%s\tS6 终态哨兵：票 %s 曾达终态，当前 status 被改回非终态 %s——done/superseded 为终态，幽灵态即报；合法复开须以新票承载（改 id）或显式 superseded 登记\n", loc, $1, $1, st
+        }
+      }
+    ')
+  if [ -n "$_s6_actions" ]; then
+    while IFS="$TAB" read -r _s6_tag _s6_loc _s6_msg; do
+      [ -n "$_s6_tag" ] || continue
+      case $_s6_tag in
+        STALE) emit_stale "$_s6_loc" "$_s6_msg" ;;
+      esac
+    done <<S6_ACTIONS
+$_s6_actions
+S6_ACTIONS
+  fi
   return 0
 }
-
 # ---- S7 替代标记存在性（R-DP-039 替代标记面配套）---------------------------
 #
-# superseded_by 存在性断言：索引条目含非空 superseded_by 时——
+# superseded_by 存在性断言（票 284 解析收敛：索引条目经唯一 JSON 引擎 json rows 解析——
+# 键序无关、紧凑与带空格同受理；原三份 awk jval 副本随解析收敛合一为引擎调用，环检测
+# 与收口顺序一次 awk 分类、循环内零命令替换）：
 #   ① 指向的票 id 必须真实存在于本索引（缺失即 STALE 指名双方 id）；
-#   ② 指向票自身带 superseded_by（替代链环）即 STALE（A 替代 B、B 又被替代的环语义
-#      无法裁决现行依据，登记时拆环）；
+#   ② 指向票自身带 superseded_by（替代链环/自指）即 STALE（A 替代 B、B 又被替代的环语义
+#      无法裁决现行依据，登记时拆环只指最终替代票）；
 #   ③ 指向票状态非终态（替代票尚未收口）仅 WARN 不拦截（先标后收为合法顺序）。
 # 字段缺失＝零命中零报（可选字段语义，存量票零回扫，R-DP-039 明文不按时间自动打标）。
-# 与 S6 同款单文件行式提取口径（一条目一行；id 与 superseded_by 同行提取，状态值从
-# id 邻接提取——生成器与 S6 的提取形态不受本断言新增字段影响，已实测夹具）。
 
 check_s7() {
   _idx="$repo_root/$issues_index_rel"
   if [ ! -f "$_idx" ]; then
-    emit_warn "$issues_index_rel" 'S7 替代标记断言跳过：索引文件不存在（票状态真相源缺失），对齐 S3/S6 缺失退化语义'
+    emit_warn S7 "$issues_index_rel" 'S7 替代标记断言跳过：索引文件不存在（票状态真相源缺失），对齐 S3/S6 缺失退化语义'
     return 0
   fi
-  # 提取面：全部条目行的 id（存在性比对基准）与带标记行的 id|superseded_by。
-  # grep -o 的锚定面收窄到 "id": "<id>" 与 "superseded_by": "<id>" 两个最小 token 再逐行
-  # 配对不可行（token 无行号关联）——改用 awk 行内提取（与 S3 jval 同款口径），键序无关。
-  _s7_all=$(LC_ALL=C grep -o '"id": "[^"]*"' "$_idx" 2>/dev/null | sed 's/"id": "//;s/"$//') || _s7_all=''
-  [ -n "$_s7_all" ] || return 0
-  _s7_marked=$(awk '
-    function jval(line, key,    i, rest, j) {
-      i = index(line, "\"" key "\": \"")
-      if (i == 0) return ""
-      rest = substr(line, i + length(key) + 5)
-      j = index(rest, "\"")
-      if (j == 0) return ""
-      return substr(rest, 1, j - 1)
+  _s7_rows=$(python3 "$_engine" json rows "$_idx" issues id status superseded_by 2>/dev/null) || {
+    emit_warn S7 "$issues_index_rel" 'S7 替代标记断言跳过：索引条目行不可经唯一 JSON 引擎解析（排版破坏归 S3 --check 口径），本次不硬猜'
+    return 0
+  }
+  [ -n "$_s7_rows" ] || return 0
+  # 存在性＋链环＋收口顺序一次 awk 分类（action 行回 shell 交 emit_*：STALE 计数与 WARN
+  # 条目登记日期口径不变；循环内零命令替换）。
+  _s7_actions=$(printf '%s\n' "$_s7_rows" | LC_ALL=C awk -F'\t' -v loc="$issues_index_rel" '
+    $1 != "" {
+      if (!($1 in seen_id)) { seen_id[$1] = 1; st[$1] = $2 }
+      if ($3 != "") { marked[$1] = $3; mlist[++m] = $1 }
     }
-    index($0, "\"superseded_by\": \"") > 0 {
-      id = jval($0, "id"); dst = jval($0, "superseded_by")
-      if (id != "" && dst != "") print id "|" dst
+    END {
+      for (i = 1; i <= m; i++) {
+        src = mlist[i]; dst = marked[src]
+        if (!(dst in seen_id)) {
+          printf "STALE\t%s:%s\tS7 替代标记断言：票 %s 的 superseded_by 指向 %s，但该票不在索引中——替代标记指向的票必须真实存在（R-DP-039），修标或先开替代票\n", loc, src, src, dst
+          continue
+        }
+        if (dst in marked && !reported[dst]) {
+          printf "STALE\t%s:%s\tS7 替代标记断言：票 %s 自身亦带 superseded_by 替代标记——替代链出现二度替代（环语义无法裁决现行依据），登记时拆环只指最终替代票（R-DP-039）\n", loc, dst, dst
+          reported[dst] = 1
+          continue
+        }
+        if (st[dst] == "done" || st[dst] == "superseded") continue
+        if (st[dst] == "") {
+          printf "WARN\t%s:%s\tS7 收口顺序提醒：票 %s 的 superseded_by 指向 %s，指向票状态不可读（词表外或排版漂移），人工核对\n", loc, src, src, dst
+        } else {
+          printf "WARN\t%s:%s\tS7 收口顺序提醒：票 %s 的 superseded_by 指向 %s，替代票尚未收口（状态 %s）——先标后收为合法顺序，收口后本提醒自然消除\n", loc, src, src, dst, st[dst]
+        }
+      }
     }
-  ' "$_idx" 2>/dev/null) || _s7_marked=''
-  [ -n "$_s7_marked" ] || return 0
-  # 指向票状态图（id|status，供 ③ 收口顺序提醒；键序无关同款 awk 提取）
-  _s7_st_map=$(awk '
-    function jval(line, key,    i, rest, j) {
-      i = index(line, "\"" key "\": \"")
-      if (i == 0) return ""
-      rest = substr(line, i + length(key) + 5)
-      j = index(rest, "\"")
-      if (j == 0) return ""
-      return substr(rest, 1, j - 1)
-    }
-    index($0, "\"id\": \"") > 0 {
-      id = jval($0, "id"); st = jval($0, "status")
-      if (id != "" && st != "") print id "|" st
-    }
-  ' "$_idx" 2>/dev/null) || _s7_st_map=''
-  while IFS='|' read -r _s7_src _s7_dst; do
-    [ -n "${_s7_src:-}" ] && [ -n "${_s7_dst:-}" ] || continue
-    # ① 存在性：指向票必须在索引内
-    if ! printf '%s\n' "$_s7_all" | LC_ALL=C grep -qxF "${_s7_dst}"; then
-      emit_stale "${issues_index_rel}:${_s7_src}" "S7 替代标记断言：票 ${_s7_src} 的 superseded_by 指向 ${_s7_dst}，但该票不在索引中——替代标记指向的票必须真实存在（R-DP-039），修标或先开替代票"
-      continue
-    fi
-    # ② 链环：指向票自身又指向他人即环（含自指）——环检测看指向票自身是否也带
-    #    superseded_by（不论指向谁），链式二度替代一律拆环直指最终替代票。
-    #    （同一被二度替代票只报一次：_s7_ring_reported 累积已报 id，grep -qxF 整行
-    #    去重，避免 91→92 与 92 自身两轮循环对同一票重复计数。）
-    if printf '%s\n' "$_s7_marked" | awk -F'|' -v d="${_s7_dst}" '$1==d && $2!="" {found=1} END{exit !found}' \
-      && ! printf '%s\n' "${_s7_ring_reported:-}" | LC_ALL=C grep -qxF "${_s7_dst}"; then
-      emit_stale "${issues_index_rel}:${_s7_dst}" "S7 替代标记断言：票 ${_s7_dst} 自身亦带 superseded_by 替代标记——替代链出现二度替代（环语义无法裁决现行依据），登记时拆环只指最终替代票（R-DP-039）"
-      _s7_ring_reported="${_s7_ring_reported:-}${_s7_dst}
-"
-      continue
-    fi
-    # ③ 收口顺序：指向票非终态仅 WARN（先标后收合法）
-    #    （消息内变量一律 ${} 花括号引用——bash 3.2 set -u 下 $var 后紧跟多字节字符
-    #    会把 UTF-8 字节并入变量名解析，实测 _s7_dst_st）触发 unbound，dash 无此问题，
-    #    统一花括号跨 sh 兼容。）
-    _s7_dst_st=$(printf '%s\n' "$_s7_st_map" | awk -F'|' -v d="${_s7_dst}" '$1==d {print $2; exit}')
-    case ${_s7_dst_st} in
-      done | superseded) : ;;
-      '')
-        emit_warn "${issues_index_rel}:${_s7_src}" "S7 收口顺序提醒：票 ${_s7_src} 的 superseded_by 指向 ${_s7_dst}，指向票状态不可读（词表外或排版漂移），人工核对" ;;
-      *)
-        emit_warn "${issues_index_rel}:${_s7_src}" "S7 收口顺序提醒：票 ${_s7_src} 的 superseded_by 指向 ${_s7_dst}，替代票尚未收口（状态 ${_s7_dst_st}）——先标后收为合法顺序，收口后本提醒自然消除" ;;
-    esac
-  done <<S7_MARKED_INNER
-$_s7_marked
-S7_MARKED_INNER
+  ')
+  if [ -n "$_s7_actions" ]; then
+    while IFS="$TAB" read -r _s7_tag _s7_loc _s7_msg; do
+      [ -n "$_s7_tag" ] || continue
+      case $_s7_tag in
+        STALE) emit_stale "$_s7_loc" "$_s7_msg" ;;
+        WARN) emit_warn S7 "$_s7_loc" "$_s7_msg" ;;
+      esac
+    done <<S7_ACTIONS
+$_s7_actions
+S7_ACTIONS
+  fi
   return 0
 }
 
 # ---- S8 复盘沉淀指针（R-DP-041 检查面配套）---------------------------------
 #
-# lesson 行沉淀指针核对：changes.jsonl 的 kind=lesson 行，promoted_to ∈ {rules,
-# validator, test} 且 decision/evidence_ref 含可 grep 文件指针（rules/ 或 scripts/
-# 开头路径，可带 #锚点后缀）时——①指针文件存在于仓库根；②带 #锚点时锚点文本在
-# 文件中可 grep。文件缺失或锚点丢失＝STALE 指名行号与指针（沉淀被删或指针写错）。
-# promoted_to ∈ {新票, none} 跳过（新票由票务系统管、none 无沉淀义务）；指针不可
-# grep 形态（无 rules/ 或 scripts/ 路径）＝NOTE 退化说明不计失败。零 lesson 行零报。
-# 变量引用一律 ${} 花括号（bash 3.2 set -u 多字节变量名解析事故，票 127 教训）。
+# lesson 行沉淀指针核对（票 284：教训账本缺失改 WARN 显式退化，不再静默返回 0；指针抽取
+# 单次 awk 预计算、循环内零命令替换；账本路径经 changes_jsonl_rel 常量承载）：
+# changes.jsonl 的 kind=lesson 行，promoted_to ∈ {rules, validator, test} 且 decision/
+# evidence_ref 含可 grep 文件指针（rules/ 或 scripts/ 开头路径，可带 #锚点后缀）时——
+# ①指针文件存在于仓库根；②带 #锚点时锚点文本在文件中可 grep。文件缺失或锚点丢失＝
+# STALE 指名行号与指针（沉淀被删或指针写错）。promoted_to ∈ {新票, none} 跳过（新票由
+# 票务系统管、none 无沉淀义务）；指针不可 grep 形态＝NOTE 退化说明不计失败。零 lesson
+# 行零报。账本文件缺失＝WARN 显式跳过（对齐 S3/S6/S7 缺失退化语义）。变量引用一律用
+# 花括号形态（bash 3.2 set -u 多字节变量名解析事故，票 127 教训）。
 
 check_s8() {
-  _ledger="$repo_root/facts/project/changes.jsonl"
+  _ledger="$repo_root/$changes_jsonl_rel"
   if [ ! -f "$_ledger" ]; then
+    emit_warn S8 "$changes_jsonl_rel" 'S8 复盘沉淀指针断言跳过：教训账本不存在（记录层账本缺失），按退化语义显式跳过不硬猜（对齐 S3/S6/S7 缺失退化；不再静默返回 0）'
     return 0
   fi
+  # 单次 awk 预计算（行号｜指针｜文件｜锚点）：lesson+promoted_to 过滤、首个可 grep 指针
+  # 抽取与锚点收窄一并在扫描内完成（原逐行命令替换与整册 cat 已去除）。
+  _s8_ptrs=$(LC_ALL=C awk '
+    {
+      line = $0
+      if (line !~ /"kind": ?"lesson"/) next
+      if (line !~ /"promoted_to": ?"(rules|validator|test)"/) next
+      if (!match(line, /[^A-Za-z0-9._\/-](rules|scripts)\/[A-Za-z0-9._\/-]+(#[^" ]*)?/)) next
+      ptr = substr(line, RSTART + 1, RLENGTH - 1)
+      file = ptr
+      anchor = ""
+      h = index(ptr, "#")
+      if (h > 0) { file = substr(ptr, 1, h - 1); anchor = substr(ptr, h + 1) }
+      if (anchor != "") {
+        n = index(anchor, " ")
+        if (n > 1) anchor = substr(anchor, 1, n - 1)
+        gsub(/[。.,，;；:：)）!！?？"]+$/, "", anchor)
+      }
+      printf "%d\t%s\t%s\t%s\n", NR, ptr, file, anchor
+    }
+  ' "$_ledger" 2>/dev/null) || _s8_ptrs=''
   _s8_hit=0
-  _s8_ln=0
-  while IFS= read -r _s8_line; do
-    _s8_ln=$((_s8_ln + 1))
-    printf '%s\n' "$_s8_line" | LC_ALL=C grep -Eq '"kind": ?"lesson"' || continue
-    printf '%s\n' "$_s8_line" | LC_ALL=C grep -Eq '"promoted_to": ?"(rules|validator|test)"' || continue
-    _s8_ptr=$(printf '%s\n' "$_s8_line" | LC_ALL=C awk '{if(match($0, /[^A-Za-z0-9._\/-](rules|scripts)\/[A-Za-z0-9._\/-]+(#[^" ]*)?/)){r=substr($0, RSTART+1, RLENGTH-1); print r; exit}}')
-    if [ -z "${_s8_ptr:-}" ]; then
-      continue
-    fi
+  while IFS="$TAB" read -r _s8_ln _s8_ptr _s8_file _s8_anchor; do
+    [ -n "$_s8_ln" ] || continue
     _s8_hit=$((_s8_hit + 1))
-    _s8_file=${_s8_ptr%%#*}
-    _s8_anchor=''
-    case ${_s8_ptr} in
-      *'#'*)
-        # 锚点收窄：截到首个空白前，再去尾随标点/引号（decision 散文锚点后常带
-        # 句点、空格、尾随文字）——awk 单遍处理，POSIX 安全（票 134 Review P1-3）
-        _s8_anchor=$(printf '%s\n' "${_s8_ptr#*#}" | LC_ALL=C awk '{r=$0; n=index(r, " "); if(n>1) r=substr(r,1,n-1); gsub(/[。.,，;；:：)）!！?？"]+$/, "", r); print r}')
-        ;;
-    esac
     if [ ! -f "$repo_root/$_s8_file" ]; then
       emit_stale "$_ledger:$_s8_ln" "S8 复盘沉淀指针：lesson 行沉淀指针 ${_s8_ptr} 指向的文件不存在——沉淀被删或指针写错（R-DP-041 检查面），修指针或重沉淀"
       continue
@@ -908,14 +934,14 @@ check_s8() {
       if [ "$_s8_arc_rc" -eq 1 ]; then
         emit_stale "$_ledger:$_s8_ln" "S8 复盘沉淀指针：lesson 行沉淀指针 ${_s8_ptr} 的锚点在目标文件中不存在——文件已演进或指针写错（R-DP-041 检查面），修指针或落新 lesson 行校正（append-only）"
       elif [ "$_s8_arc_rc" -ge 2 ]; then
-        emit_warn "$_ledger:$_s8_ln" "S8 锚点核对异常（目标文件不可读或 grep 错误）：${_s8_ptr}——人工核对"
+        emit_warn S8 "$_ledger:$_s8_ln" "S8 锚点核对异常（目标文件不可读或 grep 错误）：${_s8_ptr}——人工核对"
       fi
     fi
-  done <<S8_LEDGER_INNER
-$(LC_ALL=C cat "$_ledger")
-S8_LEDGER_INNER
+  done <<S8_PTRS
+$_s8_ptrs
+S8_PTRS
   if [ "$_s8_hit" -eq 0 ]; then
-    printf 'NOTE: facts/project/changes.jsonl — 无可 grep 沉淀指针的 lesson 行（S8 扫描面零命中，promoted_to 新票/none 或指针不可 grep 形态不在面）\n'
+    printf 'NOTE: %s — 无可 grep 沉淀指针的 lesson 行（S8 扫描面零命中，promoted_to 新票/none 或指针不可 grep 形态不在面）\n' "$changes_jsonl_rel"
   fi
   return 0
 }

@@ -30,8 +30,15 @@ sc_build_fixture() {
   R="$1/repo"
   rm -rf "$1"
   mkdir -p "$R/facts/requirements/tickets" "$R/facts/project/archive" "$R/facts/requirements/research"
+  # 夹具引擎目录（eng）＝被测件＋共享库＋共享解析器＋唯一 JSON 引擎四件（票 284：索引
+  # 解析经引擎，缺件即 exit 2 fail-closed；单件语义仍成立——eng 内无生成器，S3 走退化）。
+  mkdir -p "$1/eng"
+  cp "$SC" "$1/eng/check-stale-claims.sh"
+  cp "$SCRIPT_DIR/common-helpers.sh" "$1/eng/common-helpers.sh"
+  cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/eng/dp-load-rules.sh"
+  cp "$SCRIPT_DIR/json-validator.py" "$1/eng/json-validator.py"
   printf '# progress\n\nGit 恢复基线：占位锚点（S1 权威位置在位）\n' > "$R/facts/project/archive/progress.md"
-  printf '{"id": "90-fixture", "status": "ready", "updated_at": "2026-09-22T00:00:00Z"}\n' > "$R/facts/requirements/tickets/index.json"
+  printf '{\n  "issues": [\n    {"id": "90-fixture", "status": "ready", "updated_at": "2026-09-22T00:00:00Z"}\n  ]\n}\n' > "$R/facts/requirements/tickets/index.json"
   printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | ready | - | 2026-09-22T00:00:00Z |\n' > "$R/facts/requirements/tickets/progress-current.md"
   printf '# issues\n\n任务票 1；\n' > "$R/facts/requirements/tickets/README.md"
 }
@@ -196,7 +203,7 @@ EOF
   # S3 最小比对同夹具内保持绿，S6 断言单变量隔离；终态史经 git log -p 基线锚承载）
   sc_s6_write() {
     # $1=夹具仓根 $2=91 状态 $3=91 updated_at $4=92 状态 $5=92 updated_at
-    printf '{"id": "91-s6-done", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "%s"}\n{"id": "92-s6-superseded", "status": "%s", "complexity": "C0", "blocked_by": [], "updated_at": "%s"}\n' "$2" "$3" "$4" "$5" > "$1/facts/requirements/tickets/index.json"
+    printf '{\n  "issues": [\n    {"id": "91-s6-done", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "%s"},\n    {"id": "92-s6-superseded", "status": "%s", "complexity": "C0", "blocked_by": [], "updated_at": "%s"}\n  ]\n}\n' "$2" "$3" "$4" "$5" > "$1/facts/requirements/tickets/index.json"
     printf '# issues\n\n任务票 1；\n任务票 2；\n' > "$1/facts/requirements/tickets/README.md"
     printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 91-s6-done | %s | - | %s |\n| 92-s6-superseded | %s | - | %s |\n' "$2" "$3" "$4" "$5" > "$1/facts/requirements/tickets/progress-current.md"
   }
@@ -271,7 +278,7 @@ EOF
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p6/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p6/eng/dp-load-rules.sh"
   sc_git_baseline "$D/p6/repo"
-  printf '{"id": "90-fixture", "status": "in_progress", "updated_at": "2026-09-28T01:00:00Z"}\n' > "$D/p6/repo/facts/requirements/tickets/index.json"
+  printf '{\n  "issues": [\n    {"id": "90-fixture", "status": "in_progress", "updated_at": "2026-09-28T01:00:00Z"}\n  ]\n}\n' > "$D/p6/repo/facts/requirements/tickets/index.json"
   printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | in_progress | - | 2026-09-28T01:00:00Z |\n' > "$D/p6/repo/facts/requirements/tickets/progress-current.md"
   sc_run "$D/p6" > "$D/p6.out" 2>&1
   rc=$?
@@ -294,9 +301,9 @@ EOF
     # 同步覆写 README 锚点行（S4 数量相等：2 条目↔2 锚点）与投影行（S3 最小比对），
     # S7 断言单变量隔离。
     if [ -n "$3" ]; then
-      printf '{"id": "91-s7", "status": "%s", "superseded_by": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T10:00"}\n{"id": "92-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T11:00"}\n' "$2" "$3" "$4" > "$1/facts/requirements/tickets/index.json"
+      printf '{\n  "issues": [\n    {"id": "91-s7", "status": "%s", "superseded_by": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T10:00"},\n    {"id": "92-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T11:00"}\n  ]\n}\n' "$2" "$3" "$4" > "$1/facts/requirements/tickets/index.json"
     else
-      printf '{"id": "91-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T10:00"}\n{"id": "92-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T11:00"}\n' "$2" "$4" > "$1/facts/requirements/tickets/index.json"
+      printf '{\n  "issues": [\n    {"id": "91-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T10:00"},\n    {"id": "92-s7", "status": "%s", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-09T11:00"}\n  ]\n}\n' "$2" "$4" > "$1/facts/requirements/tickets/index.json"
     fi
     printf '# issues\n\n任务票 1；\n任务票 2；\n' > "$1/facts/requirements/tickets/README.md"
     printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 91-s7 | %s | - | 2026-10-09T10:00 |\n| 92-s7 | %s | - | 2026-10-09T11:00 |\n' "$2" "$4" > "$1/facts/requirements/tickets/progress-current.md"
@@ -468,9 +475,11 @@ EOF
     cp "$SC" "$1/repo/$2"
     cp "$SCRIPT_DIR/common-helpers.sh" "$1/repo/$(dirname "$2")/common-helpers.sh"
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/$(dirname "$2")/dp-load-rules.sh"
+    cp "$SCRIPT_DIR/json-validator.py" "$1/repo/$(dirname "$2")/json-validator.py"
     cp "$SC" "$1/repo/eng/check-stale-claims.sh"
-  cp "$SCRIPT_DIR/common-helpers.sh" "$1/repo/eng/common-helpers.sh"
+    cp "$SCRIPT_DIR/common-helpers.sh" "$1/repo/eng/common-helpers.sh"
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/eng/dp-load-rules.sh"
+    cp "$SCRIPT_DIR/json-validator.py" "$1/repo/eng/json-validator.py"
     ( cd "$1/repo" && sh "$2" ) > "$4" 2>&1
     _bare_rc=$?
     sh "$1/repo/eng/check-stale-claims.sh" "$1/repo" gate > "$3" 2>&1
@@ -496,9 +505,7 @@ EOF
   cp "$SC" "$D/p12/repo/agent-up/scripts/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p12/repo/agent-up/scripts/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p12/repo/agent-up/scripts/dp-load-rules.sh"
-  cp "$SC" "$D/p12/repo/eng/check-stale-claims.sh"
-  cp "$SCRIPT_DIR/common-helpers.sh" "$D/p12/repo/eng/common-helpers.sh"
-  cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p12/repo/eng/dp-load-rules.sh"
+  cp "$SCRIPT_DIR/json-validator.py" "$D/p12/repo/agent-up/scripts/json-validator.py"
   ( cd "$D/p12/repo" && sh agent-up/scripts/check-stale-claims.sh ) > "$D/p12.out" 2>&1
   rc=$?
   if require_out 'suite-stale-claims 目标输出在场' "$D/p12.out" && [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p12.out"; then
@@ -724,5 +731,75 @@ EOF
     bad 'S4-X3 豁免表结构破坏（缺理由）→ exit 2 fail-closed 指名（豁免显式无静默）' "exit=$rc $(tail -n 2 "$D/s4x3.out" | tr '\n' '|')"
   fi
 
+  # ---- 票 284 码审闭合：fail-open 关闭、引擎解析、降级显式、日期按条目 ----
+  # N13：changes.jsonl 缺失须 WARN 显式退化（旧实现静默 return 0＝fail-open；变异即翻红）
+  sc_build_fixture "$D/s8miss"
+  rm -f "$D/s8miss/repo/facts/project/changes.jsonl"
+  sc_run "$D/s8miss" > "$D/s8miss.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '^WARN: facts/project/changes.jsonl — S8 复盘沉淀指针断言跳过：教训账本不存在' "$D/s8miss.out" \
+    && grep -q '提醒自 2026-10-10 登记' "$D/s8miss.out"; then
+    ok '票 284 N13 账本 changes.jsonl 缺失 → WARN 显式退化（exit 0，不再静默返回 0）'
+  else
+    bad '票 284 N13 账本 changes.jsonl 缺失 → WARN 显式退化（exit 0，不再静默返回 0）' "exit=$rc $(grep 'S8' "$D/s8miss.out" | head -2 | tr '\n' '|')"
+  fi
+
+  # N14：唯一 JSON 引擎缺失 → exit 2 fail-closed 指名（运行时依赖只认安装闭包）
+  sc_build_fixture "$D/engmiss"
+  rm -f "$D/engmiss/eng/json-validator.py"
+  sc_run "$D/engmiss" > "$D/engmiss.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 2 ] && grep -q '唯一 JSON 引擎缺失' "$D/engmiss.out" \
+    && grep -q 'json-validator.py' "$D/engmiss.out"; then
+    ok '票 284 N14 唯一 JSON 引擎缺失 → exit 2 fail-closed 指名 json-validator.py（不内嵌解析副本）'
+  else
+    bad '票 284 N14 唯一 JSON 引擎缺失 → exit 2 fail-closed 指名 json-validator.py（不内嵌解析副本）' "exit=$rc $(head -2 "$D/engmiss.out" | tr '\n' '|')"
+  fi
+
+  # P13：紧凑索引（键后无空格）S6 曾终态被改回非终态 → STALE（旧行内正则零命中即漏报；
+  # 引擎 json rows 解析后同口径可判）
+  sc_build_fixture "$D/cmp6"
+  printf '{\n  "issues": [\n    {"id":"93-cmp-done","status":"done","updated_at":"2026-11-01T00:00:00Z"}\n  ]\n}\n' \
+    > "$D/cmp6/repo/facts/requirements/tickets/index.json"
+  printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 93-cmp-done | done | - | 2026-11-01T00:00:00Z |\n' \
+    > "$D/cmp6/repo/facts/requirements/tickets/progress-current.md"
+  sc_git_baseline "$D/cmp6/repo"
+  printf '{\n  "issues": [\n    {"id":"93-cmp-done","status":"in_progress","updated_at":"2026-11-01T01:00:00Z"}\n  ]\n}\n' \
+    > "$D/cmp6/repo/facts/requirements/tickets/index.json"
+  printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 93-cmp-done | in_progress | - | 2026-11-01T01:00:00Z |\n' \
+    > "$D/cmp6/repo/facts/requirements/tickets/progress-current.md"
+  sc_run "$D/cmp6" > "$D/cmp6.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^STALE: facts/requirements/tickets/index.json:93-cmp-done' "$D/cmp6.out" \
+    && grep -q 'S6 终态哨兵：票 93-cmp-done 曾达终态' "$D/cmp6.out"; then
+    ok '票 284 P13 紧凑索引（键后无空格）S6 终态改回非终态 → STALE（引擎解析消除漏报）'
+  else
+    bad '票 284 P13 紧凑索引（键后无空格）S6 终态改回非终态 → STALE（引擎解析消除漏报）' "exit=$rc $(head -3 "$D/cmp6.out" | tr '\n' '|')"
+  fi
+
+  # P14：紧凑索引 S7 悬挂标记 → STALE（旧 grep -o 依赖空格形态零命中即漏报）
+  sc_build_fixture "$D/cmp7"
+  printf '{\n  "issues": [\n    {"id":"91-cmp","status":"superseded","superseded_by":"99-none","updated_at":"2026-11-01T00:00:00Z"},\n    {"id":"92-cmp","status":"done","updated_at":"2026-11-01T00:00:00Z"}\n  ]\n}\n' \
+    > "$D/cmp7/repo/facts/requirements/tickets/index.json"
+  printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 91-cmp | superseded | - | 2026-11-01T00:00:00Z |\n| 92-cmp | done | - | 2026-11-01T00:00:00Z |\n' \
+    > "$D/cmp7/repo/facts/requirements/tickets/progress-current.md"
+  sc_run "$D/cmp7" > "$D/cmp7.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '^STALE: facts/requirements/tickets/index.json:91-cmp' "$D/cmp7.out" \
+    && grep -q 'superseded_by 指向 99-none，但该票不在索引中' "$D/cmp7.out"; then
+    ok '票 284 P14 紧凑索引 S7 悬挂标记 → STALE 指名双方 id（引擎解析消除漏报）'
+  else
+    bad '票 284 P14 紧凑索引 S7 悬挂标记 → STALE 指名双方 id（引擎解析消除漏报）' "exit=$rc $(head -3 "$D/cmp7.out" | tr '\n' '|')"
+  fi
+
+  # P15：WARN 登记日期按条目取（S1=2026-09-06／S7=2026-10-09，不再全局硬编码 2026-09-04）
+  if grep -q '提醒自 2026-09-06 登记' "$D/p2.out" && grep -q '提醒自 2026-10-09 登记' "$D/n7.out"; then
+    ok '票 284 P15 WARN 登记日期按条目取（S1 2026-09-06／S7 2026-10-09）'
+  else
+    bad '票 284 P15 WARN 登记日期按条目取（S1 2026-09-06／S7 2026-10-09）' "p2=$(grep -c '2026-09-06' "$D/p2.out") n7=$(grep -c '2026-10-09' "$D/n7.out")"
+  fi
+
   suite_summary 'stale-claims'
+
 }

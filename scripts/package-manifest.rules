@@ -184,10 +184,10 @@ pm_entry references/why/decisions.md
 
 pm_script scripts/check-gates.sh script '道脚本：快道门禁核对器（白名单＋验证命令前后完整工作区快照；allow-output 缺省为空，白名单外变化一律失败）'
 pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾（白名单提交与合同预检；索引翻转经 ticket-ops flip-index、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append 三代理承载，本件零记录写入面；另提供记录提交单点入口 --record-commit：持同一把记录层写锁、只暂存记录路径、前缀断言与部分暂存/混提拒绝）'
-pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（票收口拦截＋会话启动警告）'
+pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（登记表 S1-S8：票收口拦截＋会话启动警告；索引条目与账本指针解析经同目录唯一 JSON 引擎 json rows，缺件即 exit 2 fail-closed；教训账本缺失＝WARN 显式退化不静默放行）'
 pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/warn 函数，另提供记录层写锁原语 record_lock_*——ticket-ops 与 ledger-append 及 lane-commit 记录提交门共用；只追加前缀语义原语 record_append_only_path/record_prefix_ok/record_first_bad_line 与账本清单——check-append-only 与记录提交门共用）'
 pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_load_rules 唯一实现＋DP_PARSER_VERSION 单一版本来源；四消费件同目录 source，缺件与版本漂移 fail-closed；文法说明 references/delivery-rules.md）'
-pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作（get/type/fields/len/pick/count-key/set，set 为记录层字段级改写序列化面）＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
+pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作（get/type/fields/len/pick/count-key/rows/set；rows 数字组逐元素按字段输出 TAB 行式供 check-stale-claims 消费，set 为记录层字段级改写序列化面）＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-docs-index.sh script '规则索引生成器（扫描包内规则块→references/rules-index.md；--check 零漂移核对，零写入）'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'

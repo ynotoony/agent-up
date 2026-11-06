@@ -7,10 +7,12 @@ Entry points:
 - grade: Grade ticket complexity (the profile .md argument is interface-reserved:
   all countable criteria come from the ticket body, the file is not read)
 - run: Validate/seal run records and compute stats
-- json: Generic JSON operations (get/type/fields/len/pick/count-key/set) for the
-  shell script layer — the single JSON engine replacing embedded python heredocs
-  and awk JSON parsing; set is the record-layer field rewrite serializer
-  (pure function, atomic replace belongs to record-store.sh)
+- json: Generic JSON operations (get/type/fields/len/pick/count-key/rows/set) for
+  the shell script layer — the single JSON engine replacing embedded python
+  heredocs and awk JSON parsing; rows prints one TAB-separated line per array
+  element (check-stale-claims.sh index/ledger consumption); set is the
+  record-layer field rewrite serializer (pure function, atomic replace belongs
+  to record-store.sh)
 - workflow: workflow-executor.sh JSON operations (steps/state-machine parsing,
   map-status/check-status mapping enforcement (票 221), check-conditions/
   eval-condition condition vocabulary check and evaluation over structured step
@@ -859,6 +861,48 @@ def json_count_key(args):
     return 0
 
 
+def json_rows(args):
+    """json rows <src|-> <array_path> <field> [<field> ...]
+    Print one TAB-separated line per array element with the given top-level
+    fields (missing field = empty cell; strings raw, booleans/numbers raw,
+    null empty, containers compact JSON). <array_path> may be '' for the
+    document root array. Exit 0 done; 2 usage; 3 path missing; 1 unreadable,
+    non-standard JSON, value not an array, or element not an object."""
+    if len(args) < 3:
+        print('用法: json-validator.py json rows <src|-> <array_path> <field> [<field> ...]', file=sys.stderr)
+        sys.exit(2)
+    src, path, fields = args[0], args[1], args[2:]
+    data = _load_json(src)
+    value = data if path == '' else _navigate(data, path)
+    if value is _MISSING:
+        print(f'json-validator: FAIL: 路径不存在: {path}', file=sys.stderr)
+        return 3
+    if not isinstance(value, list):
+        print(f'json-validator: FAIL: json rows 要求路径指向数组: {path or "（根）"}', file=sys.stderr)
+        return 1
+    for idx, element in enumerate(value):
+        if not isinstance(element, dict):
+            print(f'json-validator: FAIL: json rows 第 {idx} 个元素不是对象', file=sys.stderr)
+            return 1
+        cells = []
+        for field in fields:
+            item = element.get(field)
+            if item is None:
+                cells.append('')
+            elif isinstance(item, str):
+                cells.append(item)
+            elif item is True:
+                cells.append('true')
+            elif item is False:
+                cells.append('false')
+            elif isinstance(item, (dict, list)):
+                cells.append(json.dumps(item, ensure_ascii=False))
+            else:
+                cells.append(str(item))
+        print('\t'.join(cells))
+    return 0
+
+
 def json_set(args):
     """json set <src|-> <dotted.path> <json-value>
     Print the document with <json-value> (parsed as JSON) set at the dotted
@@ -1702,8 +1746,11 @@ def print_usage():
   json get <src|-> <path> [default] | json type <src|-> <path> |
   json fields <src|-> <field>... | json len <src|-> <path> [default] |
   json pick <src|-> <array_path> <k> <v> [...] [field] | json count-key <src|-> <key> |
+  json rows <src|-> <array_path> <field>... |
   json set <src|-> <dotted.path> <json-value>
-      通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin；json set 为
+      通用 JSON 操作面（脚本层唯一 JSON 引擎；src='-' 读 stdin；json rows 数字组
+      逐元素按字段输出 TAB 分列一行（缺字段空单元；路径缺失 3、值非数组/元素非
+      对象 1），供 check-stale-claims 以行式消费索引条目；json set 为
       记录层字段级改写序列化面：输出 ensure_ascii=False＋indent=2＋末尾换行，
       纯函数零写入，原子替换归 record-store.sh）
       退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
@@ -1803,7 +1850,7 @@ def main():
 
     elif mode == 'json':
         if len(sys.argv) < 3:
-            print("用法: python3 json-validator.py json <get|type|fields|len|pick|count-key|set> [args]", file=sys.stderr)
+            print("用法: python3 json-validator.py json <get|type|fields|len|pick|count-key|rows|set> [args]", file=sys.stderr)
             sys.exit(2)
         op = sys.argv[2]
         if op == 'get':
@@ -1818,6 +1865,8 @@ def main():
             sys.exit(json_pick(sys.argv[3:]))
         elif op == 'count-key':
             sys.exit(json_count_key(sys.argv[3:]))
+        elif op == 'rows':
+            sys.exit(json_rows(sys.argv[3:]))
         elif op == 'set':
             sys.exit(json_set(sys.argv[3:]))
         else:

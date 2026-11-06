@@ -325,5 +325,47 @@ suite_json_engine() {
     bad 'grade 带 profile 接口参数仍 exit 0 且逐票输出（接口保留、未读取）' "exit=$rc"
   fi
 
+  # ---- json rows（数组逐元素行式消费；check-stale-claims 索引条目解析承载）----
+  printf '{\n  "issues": [\n    {"id": "a-1", "status": "done", "updated_at": "2026-01-01T00:00"},\n    {"id": "b-2", "status": "ready"}\n  ]\n}\n' > "$D/rows-doc.json"
+  result=$(python3 "$ENGINE" json rows "$D/rows-doc.json" issues id status updated_at)
+  rc=$?
+  expected=$(printf 'a-1\tdone\t2026-01-01T00:00\nb-2\tready\t')
+  if [ "$rc" -eq 0 ] && [ "$result" = "$expected" ]; then
+    ok 'json rows 数字组逐元素 TAB 分列（缺字段空单元；键序无关）'
+  else
+    bad 'json rows 数字组逐元素 TAB 分列（缺字段空单元；键序无关）' "exit=$rc actual=$(printf '%s' "$result" | tr '\t' '|' | tr '\n' '/')"
+  fi
+  result=$(printf '[{"id":"c","status":"done"}]' | python3 "$ENGINE" json rows - '' id status)
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$result" = "$(printf 'c\tdone')" ]; then
+    ok 'json rows 根数组（空路径）与 stdin 读取'
+  else
+    bad 'json rows 根数组（空路径）与 stdin 读取' "exit=$rc actual=$result"
+  fi
+  python3 "$ENGINE" json rows "$D/rows-doc.json" nope id >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 3 ]; then
+    ok 'json rows 路径缺失 exit 3'
+  else
+    bad 'json rows 路径缺失 exit 3' "expected=3 actual=$rc"
+  fi
+  printf '{"issues": {"id": "x"}}\n' > "$D/rows-nonarray.json"
+  python3 "$ENGINE" json rows "$D/rows-nonarray.json" issues id >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ]; then
+    ok 'json rows 路径值非数组 exit 1（fail-closed）'
+  else
+    bad 'json rows 路径值非数组 exit 1（fail-closed）' "expected=1 actual=$rc"
+  fi
+  printf '{"issues": [{"id": "x"}, "scalar"]}\n' > "$D/rows-nonobj.json"
+  python3 "$ENGINE" json rows "$D/rows-nonobj.json" issues id >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ]; then
+    ok 'json rows 数组元素非对象 exit 1（fail-closed）'
+  else
+    bad 'json rows 数组元素非对象 exit 1（fail-closed）' "expected=1 actual=$rc"
+  fi
+
   suite_summary 'json-engine'
+
 }
