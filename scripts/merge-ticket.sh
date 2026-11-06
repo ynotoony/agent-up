@@ -3,12 +3,14 @@
 #        写入由调用方按票独立落账；合并前另取票分支绑定 worktree 作审查证据审计目标
 #        （ticket-audit.sh <NN> --repo <worktree> --operation merge）。
 # Output: 单票合并收口逐步输出——证据门三值结论、实际合并模式（fast-forward
-#         或 no-ff）、合并提交哈希（审计要点四）、清场（worktree remove＋branch -d）
+#         或 no-ff）、合并提交哈希（审计要点四）、强制清场（worktree remove --force＋branch -d；
+#         站内残渣视为可弃，失败即报错非静默）
 #         或冲突停等报告（冲突文件清单＋abort 清现场确认）；退出码 0 成功（已清场）/
 #         1 fail-closed／2 用法环境错误／3 真冲突停等（已 abort 清现场，worktree 保留）。
 # Pos: 合并站独立脚本（票 93；车道＝全道，lane-commit.sh 同款脚本化收尾解耦）：
 #      ff 失败自动降级 --no-ff，仍冲突则 git merge --abort 清现场（审计要点二，禁悬挂
-#      merge-in-progress）；成功路径无条件清场；主仓不干净即拒绝；下一行是票 93 历史注记。
+#      merge-in-progress）；成功路径无条件强制清场（站内残渣视为可弃）；主仓不干净即拒绝；
+#      下一行是票 93 历史注记。
 #      本脚本——由调用方 chain 翻转前查 index 现值（审计要点三，票 93 四要点分工）；
 #      票 237 起合并前置证据门：只认 ticket-audit --operation merge conformant，未提交/
 #      diff 失配/unknown 一律拒绝（缺证据即 decision-required，不采信自报 PASS）；
@@ -244,12 +246,12 @@ printf 'merge-ticket: 合并成功\n'
 printf '模式: %s\n' "${mode}"
 printf '合并提交: %s\n' "${mhash}"
 
-# ---- 成功路径清场：无条件删 worktree 与分支（不管哪种方式成功） ----
+# ---- 成功路径强制清场：无条件删 worktree 与分支（站内残渣视为可弃；失败即非零退出） ----
 
 wt=$(wt_of_branch "${repo_root}" "${branch}")
 if [ -n "${wt}" ] && [ -d "${wt}" ]; then
-  git -C "${repo_root}" worktree remove "${wt}" >/dev/null 2>&1 \
-    || die1 "worktree 移除失败（工作区含未提交改动？人工核对后处理，防误删）：${wt}——合并已成功提交 ${mhash}"
+  git -C "${repo_root}" worktree remove --force "${wt}" >/dev/null 2>&1 \
+    || die1 "worktree 强制移除失败（人工核对后处理）：${wt}——合并已成功提交 ${mhash}"
   printf 'merge-ticket: 清场: worktree 已移除 %s\n' "${wt}"
 else
   printf 'merge-ticket: 清场: 未发现绑定 worktree，跳过移除\n'

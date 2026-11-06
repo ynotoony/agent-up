@@ -206,6 +206,7 @@ pm_script scripts/host-config.sh script '宿主无关的宿主用户级配置对
 pm_script scripts/export-payload.sh script '公开载荷导出单命令（delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force；真跑主检出门禁）'
 pm_script scripts/worktree-add.sh script 'worktree 栅栏化创建单命令（delivery.rules main-only 节驱动 sparse-checkout 排除＋主检出自拒＋分支形态断言）'
 pm_script scripts/worktree-deps.sh script 'worktree 依赖准备单命令（符号链接 node_modules 拒绝＋安装前 workspace 清单断言零安装＋非 npm 仓库 skip exit 0＋克隆加速显式开关）'
+pm_script scripts/worktree-prune.sh script '工作树清理独立命令：三判据（非主检出／工作区干净／分支已并入 main 或票 done）分可清/跳过/保留三类并报回收体积；dry-run 缺省零删除，--apply 执行 worktree remove --force＋branch -d（未合并且 --force 用 -D）；不接会话开始与 pre-push、不写账本'
 pm_script scripts/upgrade-check.sh script '落地面升级对账器（已治理仓对包新基线逐件三态 cmp：同步/落后/漂移；全程只读 fail-closed；升级流程入口 references/upgrade.md）'
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/dir-readme.rules rules '目录 README 四段式契约范围规则表（generate-dir-readmes.sh 数据：include/exclude 行，非执行式解析 fail-closed）'
@@ -322,6 +323,7 @@ pm_mirror dp-load-rules.sh mirror
 pm_mirror check-stale-claims.sh mirror
 pm_mirror worktree-add.sh mirror
 pm_mirror worktree-deps.sh mirror
+pm_mirror worktree-prune.sh mirror
 pm_mirror common-helpers.sh mirror
 pm_mirror ledger-append.sh mirror
 pm_mirror checkpoint-write.sh mirror

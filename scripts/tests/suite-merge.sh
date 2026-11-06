@@ -187,6 +187,23 @@ suite_merge() {
     bad '正例 P1c 分支 tip 含合法 Review Checkpoint md → merge exit 0 放行并清场（与 done 门同源）' "exit=$rc $(tail -n 3 "$D/p1c.out" | tr '\n' '|')"
   fi
 
+  # ---- 正例 P1e：站内残渣（未跟踪文件）不得阻断合并，成功路径强制清场 ----
+  sm_make_fixture "$D/p1e" "$D/p1e-wt" committed
+  printf 'residue\n' > "$D/p1e-wt/residue.txt"
+  p1e_tip=$(git -C "$D/p1e-wt" rev-parse HEAD)
+  sm_run "$D/p1e" "$D/p1e.out" "$SM_BRANCH" "$SM_ID"
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q 'merge-ticket: 合并成功' "$D/p1e.out" \
+    && grep -q '清场: worktree 已移除' "$D/p1e.out" \
+    && grep -q '清场: 分支已删除' "$D/p1e.out" \
+    && [ "$(git -C "$D/p1e" rev-parse HEAD)" = "$p1e_tip" ] \
+    && [ ! -d "$D/p1e-wt" ] \
+    && ! git -C "$D/p1e" rev-parse --verify -q "refs/heads/$SM_BRANCH" >/dev/null 2>&1; then
+    ok '正例 P1e 站内残渣不阻断合并 → exit 0 且强制清场（worktree 与分支均删除）'
+  else
+    bad '正例 P1e 站内残渣不阻断合并 → exit 0 且强制清场（worktree 与分支均删除）' "exit=$rc $(tail -n 3 "$D/p1e.out" | tr '\n' '|')"
+  fi
+
   # ---- 正例 P1d：审查后仅提交记录面派生件（changes.jsonl＋tickets/README.md）→ P04 放行 ----
   # 记录面派生件随每次票务操作必然变动（账本行追加、README 状态列同步），不属被审阅的
   # 实现面；允许集补入两件后，主线在分支期间落记录面提交不再被 P04 误判污染（C0 修复）。
