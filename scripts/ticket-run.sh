@@ -34,7 +34,10 @@
 #                   站内票本体，并与索引/投影一起收编进纯记录提交。记录收口段（票 271）
 #                   经共享库 record_lock_ensure 自取记录层写锁，覆盖「flip-index →
 #                   checkpoint.commit → 记录提交」全段；flip-index 以继承标记接管同一把
-#                   锁（不再自行取锁），段末按所有权释放。票 272 起 checkpoint.commit 的字段级
+#                   锁（不再自行取锁），段末按所有权释放。无授权翻转（none）时同样写
+#                   checkpoint.commit 并创建记录提交（票 283：stdout 恒有产品提交／
+#                   checkpoint.commit／记录提交三行，收口不以翻转存在为前提）。
+#                   票 272 起 checkpoint.commit 的字段级
 #                   改写经记录写入 module record-store.sh 的 record_set_json（唯一 JSON 引擎
 #                   json set 序列化＝ensure_ascii=False＋indent=2＋末尾换行，形态与拆出前
 #                   逐字节一致；票本体与索引路径经其路径表 ticket:<id>／index 解析）。
@@ -75,6 +78,12 @@ fi
 NL='
 '
 TAB=$(printf '\t')
+
+set_next() {
+  # 全局簇唯一的赋值点（票 283 收敛）：$1=步骤 $2=原因
+  NEXT_STEP=$1
+  NEXT_REASON=$2
+}
 
 usage() {
   cat <<'USAGE'
@@ -310,25 +319,13 @@ intent_record() {
   printf '%s\n' "$_iline" >> "$intent_file" || die2 "intent 写入失败: ${intent_file}"
 }
 
-intent_last_started_field() {
-  # $1=步骤 $2=列号（4 起为载荷）；打印该步骤最后一条 started 的该列，无则非 0
+intent_last_field() {
+  # $1=步骤 $2=列号（2=状态，4/5=载荷）$3=可选行状态过滤（如 started；缺省不过滤）
+  # 打印最后一条匹配行的该列，无匹配或列值为空返回非 0。票 283：三个 intent_last_* 收敛至此。
   intent_ensure
   [ -f "$intent_file" ] || return 1
-  awk -F "$TAB" -v step="$1" -v col="$2" '$1 == step && $2 == "started" { v = $col } END { if (v == "") exit 1; print v }' "$intent_file"
-}
-
-intent_last_state() {
-  # $1=步骤；打印该步骤最后一条状态，无记录返回非 0
-  intent_ensure
-  [ -f "$intent_file" ] || return 1
-  awk -F "$TAB" -v step="$1" '$1 == step { state = $2 } END { if (state == "") exit 1; print state }' "$intent_file"
-}
-
-intent_last_started_payload() {
-  # $1=步骤；打印该步骤最后一条 started 的第 4 列载荷，无则非 0
-  intent_ensure
-  [ -f "$intent_file" ] || return 1
-  awk -F "$TAB" -v step="$1" '$1 == step && $2 == "started" { v = $4 } END { if (v == "") exit 1; print v }' "$intent_file"
+  awk -F "$TAB" -v step="$1" -v col="$2" -v want="${3:-}" \
+    '$1 == step && (want == "" || $2 == want) { v = $col } END { if (v == "") exit 1; print v }' "$intent_file"
 }
 
 record_effect_applied() {
@@ -336,8 +333,8 @@ record_effect_applied() {
   # 源收据被清理时退化为「intent 记的 kind 对应目标证据存在」——落位即效果成立；
   # 内容不可再比对属已知限制（证据不可覆盖语义保证目标不会被后续改写）。
   # 供 pending_intent_step 在崩溃于 mv 与 done 之间时判 record 是否仍算「未完成」。
-  _rf=$(intent_last_started_payload record 2>/dev/null) || _rf=''
-  _rk=$(intent_last_started_field record 5 2>/dev/null) || _rk=''
+  _rf=$(intent_last_field record 4 started 2>/dev/null) || _rf=''
+  _rk=$(intent_last_field record 5 started 2>/dev/null) || _rk=''
   worktree_path_valid || return 1
   if [ -n "$_rf" ] && [ -f "$_rf" ]; then
     _rk=$(receipt_get "$_rf" receipt_kind 2>/dev/null) || return 1
@@ -360,7 +357,7 @@ pending_intent_step() {
   # 目标证据已在场（源收据在场时另比内容）即视为已完成，不因日志末态误报。
   _pending=''
   for _step in worktree take record; do
-    if [ "$(intent_last_state "$_step" 2>/dev/null)" = 'started' ]; then
+    if [ "$(intent_last_field "$_step" 2 2>/dev/null)" = 'started' ]; then
       if [ "$_step" = 'record' ] && record_effect_applied; then
         continue
       fi
@@ -371,82 +368,65 @@ pending_intent_step() {
   printf '%s' "$_pending"
 }
 
-NEXT_STEP=''
-NEXT_REASON=''
+set_next '' ''
 compute_next() {
   _status=$(index_status) || _status=''
   if [ -z "$_status" ]; then
     if [ -e "$worktree" ]; then
-      NEXT_STEP='decision-required'
-      NEXT_REASON="索引无该票条目但站路径已存在（状态不一致，须人工裁决）: ${worktree}"
+      set_next 'decision-required' "索引无该票条目但站路径已存在（状态不一致，须人工裁决）: ${worktree}"
     else
-      NEXT_STEP='open'
-      NEXT_REASON='索引无该票条目：先经 ticket-ops open 开票'
+      set_next 'open' '索引无该票条目：先经 ticket-ops open 开票'
     fi
     return 0
   fi
   if [ -e "$worktree" ] && ! worktree_path_valid; then
-    NEXT_STEP='decision-required'
-    NEXT_REASON="站路径存在但不是有效 Git worktree（须人工裁决）: ${worktree}"
+    set_next 'decision-required' "站路径存在但不是有效 Git worktree（须人工裁决）: ${worktree}"
     return 0
   fi
   if worktree_path_valid && [ "$(worktree_branch)" != "ticket/${ticket_id}" ]; then
-    NEXT_STEP='decision-required'
-    NEXT_REASON="站分支不是 ticket/${ticket_id}（实际 $(worktree_branch)），须人工裁决"
+    set_next 'decision-required' "站分支不是 ticket/${ticket_id}（实际 $(worktree_branch)），须人工裁决"
     return 0
   fi
   case $_status in
     ready)
-      NEXT_STEP='start'
-      NEXT_REASON='票已就绪：建站并领取（start 幂等，重跑收敛）'
+      set_next 'start' '票已就绪：建站并领取（start 幂等，重跑收敛）'
       ;;
     in_progress)
       if worktree_path_valid; then
-        NEXT_STEP='contract implementation'
-        NEXT_REASON='票已领取且站就绪：渲染实现阶段合同'
+        set_next 'contract implementation' '票已领取且站就绪：渲染实现阶段合同'
       else
-        NEXT_STEP='start'
-        NEXT_REASON='票已领取但站缺失：重跑 start 补建站（幂等）'
+        set_next 'start' '票已领取但站缺失：重跑 start 补建站（幂等）'
       fi
       ;;
     review_ready)
       if worktree_path_valid; then
-        NEXT_STEP='contract review'
-        NEXT_REASON='票待审查：渲染审查阶段合同'
+        set_next 'contract review' '票待审查：渲染审查阶段合同'
       else
-        NEXT_STEP='decision-required'
-        NEXT_REASON='票待审查但站缺失（审查须在站内进行），须人工裁决'
+        set_next 'decision-required' '票待审查但站缺失（审查须在站内进行），须人工裁决'
       fi
       ;;
     review_pass)
       if worktree_path_valid; then
-        NEXT_STEP='commit'
-        NEXT_REASON='Review 结论已 pass：进入 commit 门禁'
+        set_next 'commit' 'Review 结论已 pass：进入 commit 门禁'
       else
-        NEXT_STEP='decision-required'
-        NEXT_REASON='票 review_pass 但站缺失，须人工裁决'
+        set_next 'decision-required' '票 review_pass 但站缺失，须人工裁决'
       fi
       ;;
     review_fail)
       if worktree_path_valid; then
-        NEXT_STEP='contract implementation'
-        NEXT_REASON='审查未过：返工实现'
+        set_next 'contract implementation' '审查未过：返工实现'
       else
-        NEXT_STEP='decision-required'
-        NEXT_REASON='票 review_fail 但站缺失，须人工裁决'
+        set_next 'decision-required' '票 review_fail 但站缺失，须人工裁决'
       fi
       ;;
     blocked)
-      NEXT_STEP='decision-required'
-      NEXT_REASON='票处于 blocked：须人工裁决解阻'
+      set_next 'decision-required' '票处于 blocked：须人工裁决解阻'
       ;;
     done|superseded)
-      NEXT_STEP='done'
-      NEXT_REASON="票处于终态 ${_status}：无下一步"
+      set_next 'done' "票处于终态 ${_status}：无下一步"
       ;;
     *)
-      NEXT_STEP='decision-required'
-      NEXT_REASON="索引状态不在状态机取值内: ${_status}"
+      set_next 'decision-required' "索引状态不在状态机取值内: ${_status}"
       ;;
   esac
 }
@@ -466,13 +446,11 @@ conveyor_next() {
         case ${_status:-} in
           ready|in_progress)
             if [ "$NEXT_STEP" != 'decision-required' ]; then
-              NEXT_STEP='start'
-              NEXT_REASON="上次 ${_pending} 步骤未完成：先重跑 start 收敛（幂等补齐）"
+              set_next 'start' "上次 ${_pending} 步骤未完成：先重跑 start 收敛（幂等补齐）"
             fi
             ;;
           *)
-            NEXT_STEP='decision-required'
-            NEXT_REASON="上次 ${_pending} 步骤未完成，但索引状态 ${_status:-未知} 不满足 start 前置（只接受 ready|in_progress）——须人工裁决，清除路径见下行"
+            set_next 'decision-required' "上次 ${_pending} 步骤未完成，但索引状态 ${_status:-未知} 不满足 start 前置（只接受 ready|in_progress）——须人工裁决，清除路径见下行"
             _pending_nonconvergent=1
             ;;
         esac
@@ -480,12 +458,10 @@ conveyor_next() {
       record)
         if worktree_path_valid; then
           if [ "$NEXT_STEP" != 'decision-required' ]; then
-            NEXT_STEP='record'
-            NEXT_REASON='上次 record 步骤未完成：重跑 record 收敛（同内容不重写）'
+            set_next 'record' '上次 record 步骤未完成：重跑 record 收敛（同内容不重写）'
           fi
         else
-          NEXT_STEP='decision-required'
-          NEXT_REASON="上次 record 步骤未完成但站缺失（record 要求站已存在）——须人工裁决，清除路径见下行"
+          set_next 'decision-required' "上次 record 步骤未完成但站缺失（record 要求站已存在）——须人工裁决，清除路径见下行"
           _pending_nonconvergent=1
         fi
         ;;
@@ -593,6 +569,30 @@ worktree_fence_require() {
   esac
 }
 
+# ---- 站构建/守卫共享实现（票 283 去重：start 与 repair 原各一份）----
+station_guard_existing() {
+  # $1=场景注记（拼进 fail-closed 报文）；站已存在时的分支/形态守卫
+  worktree_path_valid || \
+    die1 "decision-required: 站路径存在但不是有效 Git worktree$1: ${worktree}"
+  [ "$(worktree_branch)" = "ticket/${ticket_id}" ] || \
+    die1 "decision-required: 站分支不是 ticket/${ticket_id}（实际 $(worktree_branch)）$1: ${worktree}"
+  worktree=$(CDPATH='' cd -- "${worktree}" && pwd -P) || die2 'worktree 物理路径不可解析'
+}
+
+station_build() {
+  # $1=intent 步骤名 $2=重跑子命令名（start／repair）；建站→物化→栅栏核验→intent done
+  worktree_add="${script_dir}/worktree-add.sh"
+  [ -r "${worktree_add}" ] || die2 "建站原子层缺失: ${worktree_add}"
+  intent_record "$1" started
+  mkdir -p "$(dirname "${worktree}")" || die1 "站容器目录创建失败: $(dirname "${worktree}")"
+  (cd "${repo_root}" && sh "${worktree_add}" "${worktree}" "ticket/${ticket_id}" >&2) || \
+    die1 "worktree 创建失败（intent 已记 started）——重跑 $2 收敛: ${worktree}"
+  worktree_path_valid || die1 "建站后站路径不是有效 Git worktree: ${worktree}"
+  worktree=$(CDPATH='' cd -- "${worktree}" && pwd -P) || die2 'worktree 物理路径不可解析'
+  worktree_fence_require
+  intent_record "$1" "done"
+}
+
 conveyor_start() {
   _status=$(index_status) || _status=''
   [ -n "$_status" ] || die1 "start 前置未满足：索引无该票条目（先 open）: ${ticket_id}"
@@ -603,25 +603,12 @@ conveyor_start() {
   esac
 
   if [ -e "$worktree" ]; then
-    worktree_path_valid || \
-      die1 "decision-required: 站路径存在但不是有效 Git worktree: ${worktree}"
-    [ "$(worktree_branch)" = "ticket/${ticket_id}" ] || \
-      die1 "decision-required: 站分支不是 ticket/${ticket_id}: $(worktree_branch)"
-    worktree=$(CDPATH='' cd -- "$worktree" && pwd -P) || die2 'worktree 物理路径不可解析'
+    station_guard_existing ''
     worktree_fence_require
     intent_record worktree "done"
   else
-    worktree_add="${script_dir}/worktree-add.sh"
-    [ -r "$worktree_add" ] || die2 "建站原子层缺失: ${worktree_add}"
-    intent_record worktree started
-    mkdir -p "$(dirname "$worktree")" || die1 "站容器目录创建失败: $(dirname "$worktree")"
-    (cd "$repo_root" && sh "$worktree_add" "$worktree" "ticket/${ticket_id}" >&2) || \
-      die1 "worktree 创建失败（intent 已记 started）——重跑 start 收敛: ${worktree}"
-    worktree_path_valid || die1 "建站后站路径不是有效 Git worktree: ${worktree}"
-    worktree=$(CDPATH='' cd -- "$worktree" && pwd -P) || die2 'worktree 物理路径不可解析'
     # 新建主路径与 skip 分支同一判定：建站返回 0 不等于栅栏已生效。
-    worktree_fence_require
-    intent_record worktree "done"
+    station_build worktree start
   fi
 
   # 领取账本行：日期与 ticket-ops 的 updated_at 同源（本地 date +%F），否则本地
@@ -894,25 +881,12 @@ conveyor_repair() {
 
   # ---- 动作 1：补建缺失站（站有效且分支正确即跳过；不领取、不写索引）----
   if [ -e "$worktree" ]; then
-    worktree_path_valid || \
-      die1 "decision-required: 站路径存在但不是有效 Git worktree（repair 不删除未知目录）: ${worktree}"
-    [ "$(worktree_branch)" = "ticket/${ticket_id}" ] || \
-      die1 "decision-required: 站分支不是 ticket/${ticket_id}（实际 $(worktree_branch)）——repair 不改分支: ${worktree}"
-    worktree=$(CDPATH='' cd -- "$worktree" && pwd -P) || die2 'worktree 物理路径不可解析'
+    station_guard_existing '（repair 不删除未知目录、不改分支）'
     worktree_fence_require
   else
     case $_rp_status in
       ready|in_progress|review_ready|review_pass|review_fail)
-        _rp_worktree_add="${script_dir}/worktree-add.sh"
-        [ -r "$_rp_worktree_add" ] || die2 "建站原子层缺失: ${_rp_worktree_add}"
-        intent_record repair started
-        mkdir -p "$(dirname "$worktree")" || die1 "站容器目录创建失败: $(dirname "$worktree")"
-        (cd "$repo_root" && sh "$_rp_worktree_add" "$worktree" "ticket/${ticket_id}" >&2) || \
-          die1 "worktree 补建失败（intent 已记 started）——重跑 repair 收敛: ${worktree}"
-        worktree_path_valid || die1 "补建后站路径不是有效 Git worktree: ${worktree}"
-        worktree=$(CDPATH='' cd -- "$worktree" && pwd -P) || die2 'worktree 物理路径不可解析'
-        worktree_fence_require
-        intent_record repair "done"
+        station_build repair repair
         _rp_station='rebuilt'
         _rp_outcome='repaired'
         ;;
@@ -1266,12 +1240,14 @@ printf 'ticket-run: 产品提交: %s\n' "$product_commit"
 
 # ---- 纯记录提交：索引与投影只经 ticket-ops 生成后收编 ----
 
-if [ -n "$record_flips" ]; then
+  # 记录收口段（票 283：不以「有无授权翻转」为前提——无翻转同样写 checkpoint.commit 并
+  # 创建记录提交，契约：stdout 恒有产品提交／checkpoint.commit／记录提交三行）。
   # 记录收口段单一锁窗口（票 271）：本进程自取记录层写锁（锁目录由站的 Git 公共目录
   # 推导，与主检同一把），覆盖「flip-index → checkpoint.commit → 记录提交」；flip-index
   # 以继承标记接管同一把锁（不自行取锁，避免两段锁范围不连续），段末按所有权释放。
   record_lock_ensure "$worktree"
   for line in $record_flips; do
+    # 无授权翻转时该循环零迭代（不跳过后续 checkpoint.commit／记录提交）
     rest=${line#flips: facts/requirements/tickets/index.json:index:}
     flip_id=${rest%%:*}
     rest2=${rest#*:}
@@ -1298,5 +1274,4 @@ if [ -n "$record_flips" ]; then
   printf 'ticket-run: 记录提交: %s\n' "$record_commit"
   # 记录收口段结束：按所有权释放自取的写锁（EXIT 陷阱为失败路径兜底）
   record_lock_release_owned
-fi
-printf 'ticket-run: PASS（commit 完成；Review pass 已核对，产品提交与授权记录翻转分离）\n'
+printf 'ticket-run: PASS（commit 完成；Review pass 已核对，产品提交与记录提交分离；无授权翻转时仅写 checkpoint.commit 并创建记录提交）\n'

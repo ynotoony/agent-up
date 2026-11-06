@@ -376,6 +376,120 @@ PYS
     bad 'P6 存量格式「- 评审结论：**pass**（注记）」被采信并完成两段提交' "exit=$rc $(tail -n 3 "$D/commit-legacy.err" | tr '\n' '|')"
   fi
 
+  # ---- 票 283：RECORD_FLIP_AUTHORIZATION=none 时仍须写 checkpoint.commit 并创建记录提交 ----
+  # 契约：stdout 恒有三行（产品提交／checkpoint.commit／记录提交），且记录提交不以翻转存在为前提。
+  NF=$D/nf
+  tr_build_fixture "$NF"
+  NWT=$(realpath "$D")/nf-wt/wt90
+  python3 - "$NF/facts/requirements/tickets/90-run-fixture.json" <<'PY'
+import json,sys
+p=sys.argv[1]
+d=json.load(open(p,encoding='utf-8'))
+d['dispatch']['commit']['RECORD_FLIP_AUTHORIZATION']='none'
+with open(p,'w',encoding='utf-8') as fh:
+    json.dump(d, fh, ensure_ascii=False, indent=2); fh.write(chr(10))
+PY
+  # 站内派生投影先落位：无翻转路径不再经 flip-index 再生，记录提交仍需既有 progress 文件
+  sh "$NF/rules/implementation/scripts/generate-progress.sh" "$NF" >/dev/null 2>&1 || true
+  git -C "$NF" add -A
+  git -C "$NF" -c user.email=fixture@example.com -c user.name=fixture commit -qm 'fixture progress seed'
+  (cd "$NF" && TMPDIR="$D/tmp" sh "$NF/rules/implementation/scripts/ticket-run.sh" 90 start) >"$D/nf-start.out" 2>&1
+  printf 'Verdict: **PASS**\n' > "$NWT/facts/requirements/tickets/90-run-fixture-review-checkpoint.md"
+  nf_base=$(git -C "$NWT" rev-parse HEAD)
+  printf 'implemented nf\n' >> "$NWT/product.txt"
+  git -C "$NWT" add product.txt
+  git -C "$NWT" -c user.email=fixture@example.com -c user.name=fixture commit -qm 'product implementation nf'
+  nf_head=$(git -C "$NWT" rev-parse HEAD)
+  nf_excl=$(git -C "$NWT" rev-parse --git-path info/exclude)
+  case $nf_excl in /*) ;; *) nf_excl="$NWT/$nf_excl" ;; esac
+  mkdir -p "$(dirname "$nf_excl")"
+  printf '%s\n' 'facts/requirements/audit-policy.json' >> "$nf_excl"
+  printf '{"schema_version":1,"policy_id":"ticket-run-nf","effective_from":"2026-01-01","baseline_sha":"%s","release_baseline":"none","trusted_reviewers":["reviewer@example.com"],"implementation_identities":["fixture@example.com"]}\n' \
+    "$nf_base" > "$NWT/facts/requirements/audit-policy.json"
+  tr_audit_receipt "$NWT" "$nf_base" "$nf_head"
+  git -C "$NWT" config user.email reviewer@example.com
+  git -C "$NWT" config user.name reviewer
+  nf_n0=$(git -C "$NWT" rev-list --count HEAD)
+  nf_idx0=$(cksum "$NWT/facts/requirements/tickets/index.json")
+  (cd "$NF" && TMPDIR="$D/tmp" sh "$NF/rules/implementation/scripts/ticket-run.sh" 90 commit) >"$D/nf-commit.out" 2>"$D/nf-commit.err"
+  rc=$?
+  nf_cp=$(python3 "$NF/rules/implementation/scripts/json-validator.py" json get \
+    "$NWT/facts/requirements/tickets/90-run-fixture.json" checkpoint.commit.commit 2>/dev/null || true)
+  nf_prod=$(sed -n 's/^ticket-run: 产品提交: //p' "$D/nf-commit.out")
+  if [ "$rc" -eq 0 ] \
+    && [ "$(git -C "$NWT" rev-list --count HEAD)" -eq "$((nf_n0 + 2))" ] \
+    && grep -q '^ticket-run: 产品提交: ' "$D/nf-commit.out" \
+    && grep -q '^ticket-run: checkpoint.commit: ' "$D/nf-commit.out" \
+    && grep -q '^ticket-run: 记录提交: ' "$D/nf-commit.out" \
+    && [ -n "$nf_cp" ] && [ "$nf_cp" = "$nf_prod" ] \
+    && [ "$nf_idx0" = "$(cksum "$NWT/facts/requirements/tickets/index.json")" ]; then
+    ok 'P-283 无授权翻转（none）：仍写 checkpoint.commit 并创建记录提交，三行机器输出齐全且索引未被翻'
+  else
+    bad 'P-283 无授权翻转（none）：仍写 checkpoint.commit 并创建记录提交，三行机器输出齐全且索引未被翻' \
+      "exit=$rc 提交数=$(git -C "$NWT" rev-list --count HEAD 2>/dev/null)/$((nf_n0 + 2)) cp=${nf_cp:-<空>} prod=${nf_prod:-<空>} idx变更=$([ "$nf_idx0" = "$(cksum "$NWT/facts/requirements/tickets/index.json")" ] && echo no || echo yes) $(tail -n 3 "$D/nf-commit.err" | tr '\n' '|')"
+  fi
+
+  # 负例 N-283：无翻转路径上记录收口失败（外部先持记录层锁 → 取锁超时并发冲突）→
+  # 产品提交已建、记录提交未建、exit 1（fail-closed 不降级）
+  NF2=$D/nf2
+  tr_build_fixture "$NF2"
+  NWT2=$(realpath "$D")/nf2-wt/wt90
+  python3 - "$NF2/facts/requirements/tickets/90-run-fixture.json" <<'PY'
+import json,sys
+p=sys.argv[1]
+d=json.load(open(p,encoding='utf-8'))
+d['dispatch']['commit']['RECORD_FLIP_AUTHORIZATION']='none'
+with open(p,'w',encoding='utf-8') as fh:
+    json.dump(d, fh, ensure_ascii=False, indent=2); fh.write(chr(10))
+PY
+  # 站内派生投影先落位：无翻转路径不再经 flip-index 再生，记录提交仍需既有 progress 文件
+  sh "$NF2/rules/implementation/scripts/generate-progress.sh" "$NF2" >/dev/null 2>&1 || true
+  git -C "$NF2" add -A
+  git -C "$NF2" -c user.email=fixture@example.com -c user.name=fixture commit -qm 'fixture progress seed'
+  (cd "$NF2" && TMPDIR="$D/tmp" sh "$NF2/rules/implementation/scripts/ticket-run.sh" 90 start) >"$D/nf2-start.out" 2>&1
+  printf 'Verdict: **PASS**\n' > "$NWT2/facts/requirements/tickets/90-run-fixture-review-checkpoint.md"
+  nf2_base=$(git -C "$NWT2" rev-parse HEAD)
+  printf 'implemented nf2\n' >> "$NWT2/product.txt"
+  git -C "$NWT2" add product.txt
+  git -C "$NWT2" -c user.email=fixture@example.com -c user.name=fixture commit -qm 'product implementation nf2'
+  nf2_head=$(git -C "$NWT2" rev-parse HEAD)
+  nf2_excl=$(git -C "$NWT2" rev-parse --git-path info/exclude)
+  case $nf2_excl in /*) ;; *) nf2_excl="$NWT2/$nf2_excl" ;; esac
+  mkdir -p "$(dirname "$nf2_excl")"
+  printf '%s\n' 'facts/requirements/audit-policy.json' >> "$nf2_excl"
+  printf '{"schema_version":1,"policy_id":"ticket-run-nf2","effective_from":"2026-01-01","baseline_sha":"%s","release_baseline":"none","trusted_reviewers":["reviewer@example.com"],"implementation_identities":["fixture@example.com"]}\n' \
+    "$nf2_base" > "$NWT2/facts/requirements/audit-policy.json"
+  tr_audit_receipt "$NWT2" "$nf2_base" "$nf2_head"
+  git -C "$NWT2" config user.email reviewer@example.com
+  git -C "$NWT2" config user.name reviewer
+  nf2_n0=$(git -C "$NWT2" rev-list --count HEAD)
+  # 外部先持记录层写锁：产品提交照常创建，记录收口段取锁在超时后 fail-closed（exit 1），
+  # 记录提交不创建——负例证明「无翻转也不静默跳过记录收口」的失败路径仍零降级。
+  (
+    # shellcheck disable=SC1091  # 夹具内按变量路径 source 共享库（真实锁原语，非输入面）
+    . "$NF2/rules/implementation/scripts/common-helpers.sh"
+    record_lock_init "$NF2"
+    trap 'record_lock_release' EXIT
+    record_lock_acquire
+    sleep 5
+  ) >"$D/nf2-hold.log" 2>&1 &
+  nf2_holder=$!
+  nf2_wait=0
+  while [ ! -d "$NF2/.git/agent-up-record.lock" ] && [ "$nf2_wait" -lt 100 ]; do sleep 0.05; nf2_wait=$((nf2_wait + 1)); done
+  (cd "$NF2" && TMPDIR="$D/tmp" TICKET_OPS_LOCK_TIMEOUT=1 sh "$NF2/rules/implementation/scripts/ticket-run.sh" 90 commit) >"$D/nf2-commit.out" 2>"$D/nf2-commit.err"
+  rc=$?
+  wait "$nf2_holder" 2>/dev/null || true
+  if [ "$rc" -eq 1 ] \
+    && grep -q '^ticket-run: 产品提交: ' "$D/nf2-commit.out" \
+    && ! grep -q '^ticket-run: 记录提交: ' "$D/nf2-commit.out" \
+    && grep -q '并发冲突' "$D/nf2-commit.err" \
+    && [ "$(git -C "$NWT2" rev-list --count HEAD)" -eq "$((nf2_n0 + 1))" ]; then
+    ok 'N-283 无翻转路径记录收口失败（外部持锁→取锁超时并发冲突）：产品提交已建、记录提交未建、exit 1（fail-closed 不降级）'
+  else
+    bad 'N-283 无翻转路径记录收口失败（外部持锁→取锁超时并发冲突）：产品提交已建、记录提交未建、exit 1（fail-closed 不降级）' \
+      "exit=$rc 提交数=$(git -C "$NWT2" rev-list --count HEAD 2>/dev/null)/$((nf2_n0 + 1)) $(tail -n 3 "$D/nf2-commit.err" | tr '\n' '|')"
+  fi
+
   tr_run 90 bogus "$MAIN" > "$D/bogus.out" 2> "$D/bogus.err"
   rc=$?
   if [ "$rc" -eq 2 ] && [ ! -s "$D/bogus.out" ]; then
@@ -1023,6 +1137,23 @@ PY
     ok 'D6c 残留 take intent＋索引 review_pass（站已就位）→ next 判 decision-required（不提示 start/commit）'
   else
     bad 'D6c 残留 take intent＋索引 review_pass（站已就位）→ next 判 decision-required（不提示 start/commit）' "exit=$rc $(cat "$D/d6c-next.out" | tr '\n' '|')"
+  fi
+
+  # D6f：review_pass＋站就位且无残留 intent → next 必须给出 commit —— 钉死 NEXT 簇
+  # review_pass→commit 分支（该分支缺断言时被变异成 record 套件仍会全绿）。
+  D6F=$D/d6f
+  tr_build_fixture "$D6F" review_pass
+  (cd "$D6F" && git worktree add -q -b ticket/90-run-fixture "$D/d6f-wt/wt90" HEAD)
+  tr_run_in "$D6F" 90 next > "$D/d6f-next.out" 2> "$D/d6f-next.err"
+  rc=$?
+  if require_out 'suite-ticket-run 目标输出在场' "$D/d6f-next.out" \
+    && [ "$rc" -eq 0 ] \
+    && grep -q '^ticket-run: 下一步: commit$' "$D/d6f-next.out" \
+    && grep -q 'Review 结论已 pass' "$D/d6f-next.out"; then
+    ok 'D6f review_pass＋站就位且无残留 intent → next 给出 commit（review_pass→commit 分支钉死）'
+  else
+    bad 'D6f review_pass＋站就位且无残留 intent → next 给出 commit（review_pass→commit 分支钉死）' \
+      "exit=$rc $(cat "$D/d6f-next.out" | tr '\n' '|')"
   fi
 
   # D6d/D6e：残留仍可收敛的正例侧（索引 ready）——next 必须给出 start；
