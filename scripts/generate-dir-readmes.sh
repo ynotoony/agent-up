@@ -50,6 +50,7 @@ import fnmatch
 import hashlib
 import os
 import re
+import subprocess
 import sys
 
 USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] [--rules <path>]
@@ -1423,64 +1424,45 @@ def artifact_path_norm(text):
     return "/".join(parts)
 
 
+BRIEF_INDEX_REASONS = {
+    "MISSING_SECTION": "artifacts 索引不可解析（缺 artifacts 段）",
+    "NO_ENTRIES": "artifacts 索引无有效条目",
+    "ENTRY_MISSING_IDPATH": "artifacts 索引条目缺 id 或 path",
+}
+
+BRIEF_INDEX_FIELDS = ("id", "path", "kind", "authority", "read_when")
+
+
 def load_artifacts_index(path):
-    # 只读平铺条目：本索引的登记行是 `  - ` 起始的条目加四空格缩进的标量字段，无跨行标量；
-    # 任意 `  - ` 行都是条目边界（不能只认 `- id:`，否则缺 id 的条目会被并入上一条）；
-    # 缺件、非 UTF-8、缺 artifacts 段、零条目或任一条目缺 id/path 一律整体降级，不部分采用。
+    # 解析唯一实现＝同目录 artifacts-index.sh --brief（票 286 D2：与 check-artifacts.sh 严格
+    # 对账解析同一行文法扫描与条目边界规则）。本函数只承载读面/编码面降级分类与条目 dict
+    # 投影——「缺失／不可读／非 UTF-8」三类错误仍由本层分类，文案与降级语义不变。
     try:
         with open(path, "r", encoding="utf-8") as fh:
-            raw = fh.read().splitlines()
+            fh.read()
     except FileNotFoundError:
         return None, "artifacts 索引缺失"
     except OSError:
         return None, "artifacts 索引不可读"
     except UnicodeDecodeError:
         return None, "artifacts 索引不是 UTF-8"
+    parser = os.path.join(sys.argv[1], "artifacts-index.sh")
+    if not os.path.isfile(parser):
+        return None, "artifacts 索引解析器缺失（同目录 artifacts-index.sh，安装闭包不完整）"
+    proc = subprocess.run(["sh", parser, "--brief", path],
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc.returncode != 0:
+        stderr_text = proc.stderr.decode("utf-8", "replace").strip()
+        token = stderr_text.splitlines()[-1] if stderr_text else ""
+        return None, BRIEF_INDEX_REASONS.get(token, "artifacts 索引不可解析（共享解析器不可采用）")
     entries = []
-    current = None
-    saw_section = False
-    in_section = False
-    for line in raw:
-        if line.strip() == "artifacts:":
-            saw_section = True
-            in_section = True
+    for line in proc.stdout.decode("utf-8", "replace").splitlines():
+        if not line:
             continue
-        if in_section and line and not line[0].isspace() and not line.startswith("#"):
-            if current is not None:
-                entries.append(current)
-                current = None
-            in_section = False
-        if not in_section:
-            continue
-        match = re.match(r"^  - (.*)$", line)
-        if match:
-            if current is not None:
-                entries.append(current)
-            rest = match.group(1).strip()
-            current = {}
-            key_match = re.match(r"([A-Za-z_]+):\s*(.*?)\s*$", rest)
-            if key_match:
-                current[key_match.group(1)] = key_match.group(2)
-            else:
-                current["id"] = ""
-            continue
-        if current is None:
-            continue
-        match = re.match(r"^    ([A-Za-z_]+):\s*(.*?)\s*$", line)
-        if not match:
-            continue
-        key, value = match.group(1), match.group(2)
-        if key in ("path", "kind", "authority", "read_when"):
-            current[key] = value
-    if current is not None:
-        entries.append(current)
-    if not saw_section:
-        return None, "artifacts 索引不可解析（缺 artifacts 段）"
-    if not entries:
-        return None, "artifacts 索引无有效条目"
-    for entry in entries:
-        if not entry.get("id") or not entry.get("path"):
-            return None, "artifacts 索引条目缺 id 或 path"
+        parts = line.split("\t")
+        if len(parts) < len(BRIEF_INDEX_FIELDS):
+            parts = parts + [""] * (len(BRIEF_INDEX_FIELDS) - len(parts))
+        entries.append(dict(zip(BRIEF_INDEX_FIELDS, parts)))
     return entries, None
 
 

@@ -591,7 +591,7 @@ suite_project_dashboard() {
     # ---- 安装闭包真跑：按登记的复制行落位（夹具政策＝真实登记两行，源件齐） ----
     PKG="$D/pkg"
     mkdir -p "$PKG/scripts" "$D/proj"
-    cp "$SCRIPT_DIR/install.sh" "$HTML" "$PKG/scripts/"
+    cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/rules-lexer.sh" "$HTML" "$PKG/scripts/"
     grep -F 'ip_gate ticket-ops --ticket-ops ' "$POLICY" > "$PKG/scripts/install-policy.rules"
     grep -F "ip_file agent-up/scripts/$DASH_NAME Conditional ticket-ops " "$POLICY" >> "$PKG/scripts/install-policy.rules"
     ( cd "$D" && sh "$PKG/scripts/install.sh" --target "$D/proj" --ticket-ops ) > "$D/install.out" 2>&1
@@ -608,7 +608,7 @@ suite_project_dashboard() {
     # 负例：包内缺仪表盘源件 → 预检失败 exit 1 指名路径、零写入
     PKGB="$D/pkgb"
     mkdir -p "$PKGB/scripts" "$D/projb"
-    cp "$SCRIPT_DIR/install.sh" "$PKGB/scripts/"
+    cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/rules-lexer.sh" "$PKGB/scripts/"
     cp "$PKG/scripts/install-policy.rules" "$PKGB/scripts/"
     ( cd "$D" && sh "$PKGB/scripts/install.sh" --target "$D/projb" --ticket-ops ) > /dev/null 2>"$D/install-bad.err"
     bad_rc=$?

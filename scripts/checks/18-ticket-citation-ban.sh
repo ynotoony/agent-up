@@ -36,15 +36,11 @@ if [ -n "$cand18" ]; then
   done
   IFS=$OLDIFS
 fi
-# 失效豁免核对：登记行无命中即 FAIL（检查 12 同款，防漂移静默失效）。
-if [ "$n_citeex" -gt 0 ]; then
-  while IFS="$(printf '\t')" read -r ex_path ex_ln _; do
-    [ -n "$ex_path" ] || continue
-    if ! printf '%s\n' "$cand18" | LC_ALL=C grep -qE "^${ex_path}:${ex_ln}:" 2>/dev/null; then
-      add_problem "  - 失效豁免（登记行无票号命中，须复核更新或删除登记）: ${ex_path}:${ex_ln}"
-    fi
-  done < "$pm_citeex"
-fi
+# 失效豁免核对：登记行无命中即 FAIL（检查 12 同款，防漂移静默失效）——核对唯一实现＝
+# shared.sh chk_exempt_stale（票 286 D4）。
+chk_exempt_stale "$pm_citeex" '票号命中' regex <<EOF
+$cand18
+EOF
 if [ -n "$problems" ]; then
   _chk_desc="包内票号索引禁令（扫描面 md/tmpl/json/rules；豁免 ${n_citeex} 行）"
 else

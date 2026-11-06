@@ -14,10 +14,11 @@
 #         未知，fail-closed：worktree-add 只在有栅栏配置的仓提供）；解析破坏 exit 2。
 # Pos: 公开包 worktree 创建单命令（交付面规则：main-only 脚本禁止在链接 worktree 运行，
 #      与 export-payload.sh 真跑门禁、install.sh worktree 自拒互为三闸——创建面排除＋
-#      运行面自拒＋规则面成文 R-DP-036）；解析引擎段内嵌（fail-closed 六规则同族；
-#      引擎零项目约定硬编码）；POSIX sh；不执行 git push / 不删除既有 worktree（同名
-#      目录已存在即停，--force 只放宽 git 层）；.sparse-checkout 排除清单持久在该
-#      worktree 的 $GIT_DIR/info/sparse-checkout（随 worktree 删除一并消失）。
+#      运行面自拒＋规则面成文 R-DP-036）；main-only 解析引擎＝同目录 dp-load-rules.sh
+#      （fail-closed 六规则同族；引擎零项目约定硬编码；版本注记见下行 dp-parser）；
+#      POSIX sh；不执行 git push / 不删除既有 worktree（同名目录已存在即停，--force 只
+#      放宽 git 层）；.sparse-checkout 排除清单持久在该 worktree 的
+#      $GIT_DIR/info/sparse-checkout（随 worktree 删除一并消失）。
 # dp-parser: 2
 #      （本件要求解析器最低版注记；解析唯一实现＝同目录 dp-load-rules.sh，版本唯一
 #      来源＝其 DP_PARSER_VERSION。落地拷贝遇未知锚点/指令、解析器缺件或版本漂移即

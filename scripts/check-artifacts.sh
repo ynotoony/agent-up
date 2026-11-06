@@ -95,6 +95,10 @@ yaml="$repo_root/$artifacts_yaml"
 [ -f "$yaml" ] || die2 "治理产物登记缺失: facts/project/artifacts.yaml（相对 ${repo_root}）"
 
 script_dir=$(CDPATH='' cd "$(dirname -- "$0")" && pwd)
+# ---- 登记解析唯一实现（票 286 D2：与 generate-dir-readmes --brief 同源＝同目录
+#      artifacts-index.sh；本件只承载严格侧错误抬头透传与合法条目账本落盘）----
+_artifacts_parser=$(dirname -- "$0")/artifacts-index.sh
+[ -f "$_artifacts_parser" ] || die2 "共享解析器缺失: $_artifacts_parser（artifacts 索引解析唯一实现＝同目录 artifacts-index.sh，与消费件同目录分发）"
 enum_template="$script_dir/../references/templates/artifacts-yaml.tmpl"
 [ -f "$enum_template" ] || die2 "枚举权威模板缺失: $enum_template"
 ca_kind_values=$(awk '/^# enum kind: / { sub(/^# enum kind: /, ""); print }' "$enum_template")
@@ -109,7 +113,8 @@ ca_entries=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 ca_managed=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 ca_scan=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
 ca_unreg_list=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
-cleanup() { rm -f "$ca_entries" "$ca_managed" "$ca_scan" "$ca_unreg_list"; }
+ca_parse_err=$(mktemp "${t_dir%/}/reconcile.XXXXXX")
+cleanup() { rm -f "$ca_entries" "$ca_managed" "$ca_scan" "$ca_unreg_list" "$ca_parse_err"; }
 trap cleanup EXIT HUP INT TERM
 
 # ---- 对账数据块（票 59 D2 定谳；受管口径与协议豁免唯一承载点，引擎零目录硬编码；
@@ -248,106 +253,16 @@ fi
 # （聚合登记的中文说明尾注）与其后全部内容；kind/lifecycle 依模板各自唯一的
 # enum 行校验；path 比较折叠重复 /、. 和可消解的 .. 段并去尾 /；其他缩进字段
 # 行忽略；未知形态行即解析破坏。
-ca_bad=$(LC_ALL=C awk -v kind_values="$ca_kind_values" -v lifecycle_values="$ca_lifecycle_values" '
-  function bad(msg) { printf "ERR: 第 %d 行: %s\n", FNR, msg; n++ }
-  function normalize_path(path, parts, count, i, value, result, depth, stack) {
-    count = split(path, parts, "/")
-    depth = 0
-    for (i = 1; i <= count; i++) {
-      value = parts[i]
-      if (value == "" || value == ".") continue
-      if (value == ".." && depth > 0 && stack[depth] != "..") {
-        delete stack[depth]
-        depth--
-        continue
-      }
-      stack[++depth] = value
-    }
-    for (i = 1; i <= depth; i++) result = result (i == 1 ? "" : "/") stack[i]
-    return result == "" ? "." : result
-  }
-  function allowed(field, value, values, count, i) {
-    count = split(field == "kind" ? kind_values : lifecycle_values, values, " ")
-    for (i = 1; i <= count; i++) if (values[i] == value) return 1
-    return 0
-  }
-  /^artifacts:[[:space:]]*$/ { top = 1; next }
-  /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
-  /^  - id: / {
-    if (curid != "") {
-      if (!curpath) bad("条目缺 path 字段: " curid)
-      if (!curkind) bad("条目缺 kind 字段: " curid)
-      if (!curlifecycle) bad("条目缺 lifecycle 字段: " curid)
-    }
-    curid = substr($0, 9)
-    sub(/[[:space:]]+$/, "", curid)
-    if (curid == "") bad("条目 id 为空")
-    else if (curid in seenid) bad("条目 id 重复: " curid "（首见行 " seenid[curid] "）")
-    else seenid[curid] = FNR
-    nent++
-    curpath = ""
-    curkind = ""
-    curlifecycle = ""
-    next
-  }
-  /^    path: / {
-    if (curid == "") { bad("path 字段在条目外"); next }
-    if (curpath != "") { bad("条目多行 path 字段: " curid); next }
-    v = substr($0, 11)
-    i = index(v, "（")
-    if (i > 0) v = substr(v, 1, i - 1)
-    gsub(/^[[:space:]]+/, "", v)
-    gsub(/[[:space:]]+$/, "", v)
-    if (v == "") bad("条目 path 值为空: " curid)
-    else if (v ~ /[[:space:]]/) bad("条目 path 含空白（无法安全匹配）: " curid)
-    else {
-      curpath = v
-      normalized = normalize_path(v)
-      if (normalized in seenpath) bad("规范化 path 重复: " curid " 与 " seenpath[normalized] " → " normalized)
-      else seenpath[normalized] = curid
-      printf "%s\t%s\n", curid, v
-    }
-    next
-  }
-  /^    kind: / {
-    if (curid == "") { bad("kind 字段在条目外"); next }
-    if (curkind != "") { bad("条目重复 kind 字段: " curid); next }
-    value = substr($0, 11)
-    sub(/[[:space:]]+$/, "", value)
-    if (value == "") bad("条目 kind 值为空: " curid)
-    else if (!allowed("kind", value)) bad("条目 kind 未知: " curid "=" value)
-    curkind = value
-    next
-  }
-  /^    lifecycle: / {
-    if (curid == "") { bad("lifecycle 字段在条目外"); next }
-    if (curlifecycle != "") { bad("条目重复 lifecycle 字段: " curid); next }
-    value = substr($0, 16)
-    sub(/[[:space:]]+$/, "", value)
-    if (value == "") bad("条目 lifecycle 值为空: " curid)
-    else if (!allowed("lifecycle", value)) bad("条目 lifecycle 未知: " curid "=" value)
-    curlifecycle = value
-    next
-  }
-  /^[[:space:]]+[A-Za-z_][A-Za-z0-9_-]*:/ { next }
-  { bad("无法解析的行: " substr($0, 1, 40)) }
-  END {
-    if (curid != "") {
-      if (!curpath) bad("条目缺 path 字段: " curid)
-      if (!curkind) bad("条目缺 kind 字段: " curid)
-      if (!curlifecycle) bad("条目缺 lifecycle 字段: " curid)
-    }
-    if (!top) bad("缺 artifacts: 顶层键")
-    if (nent == 0) bad("零条目")
-    if (n > 0) exit 1
-  }
-' "$yaml") || ca_parse_rc=$?
-if [ "${ca_parse_rc:-0}" -ne 0 ]; then
+# 解析唯一实现＝同目录 artifacts-index.sh --strict（票 286 D2：行文法、条目边界、kind/
+# lifecycle 枚举与 path 归一唯一性都在共享件内；本件只透传错误抬头与合法条目账本）。
+ca_parse_rc=0
+sh "$_artifacts_parser" --strict "$ca_kind_values" "$ca_lifecycle_values" "$yaml" \
+  > "$ca_entries" 2> "$ca_parse_err" || ca_parse_rc=$?
+if [ "$ca_parse_rc" -ne 0 ]; then
   printf 'check-artifacts: 错误：登记解析破坏（fail-closed，不产生部分结论）: %s\n' "$artifacts_yaml" >&2
-  printf '%s\n' "$ca_bad" | grep '^ERR: ' | sed 's/^ERR: //' >&2
+  sed 's/^ERR: //' "$ca_parse_err" >&2
   exit 2
 fi
-printf '%s\n' "$ca_bad" | grep -v '^ERR: ' > "$ca_entries"
 
 reg_pats=$(LC_ALL=C awk -F'\t' '{print $2}' "$ca_entries")
 

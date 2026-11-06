@@ -186,12 +186,14 @@ pm_script scripts/check-gates.sh script '道脚本：快道门禁核对器（白
 pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾（白名单提交与合同预检；索引翻转经 ticket-ops flip-index、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append 三代理承载，本件零记录写入面；另提供记录提交单点入口 --record-commit：持同一把记录层写锁、只暂存记录路径、前缀断言与部分暂存/混提拒绝）'
 pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（登记表 S1-S8：票收口拦截＋会话启动警告；索引条目与账本指针解析经同目录唯一 JSON 引擎 json rows，缺件即 exit 2 fail-closed；教训账本缺失＝WARN 显式退化不静默放行）'
 pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/warn 函数，另提供记录层写锁原语 record_lock_*——ticket-ops 与 ledger-append 及 lane-commit 记录提交门共用；只追加前缀语义原语 record_append_only_path/record_prefix_ok/record_first_bad_line 与账本清单——check-append-only 与记录提交门共用）'
+pm_script scripts/rules-lexer.sh script '共享非执行式规则表词法器（lex_bad/lex_line 唯一实现：续行拼接、单引号词法取段、引号外 shell 语法元字符与引号内命令替换/参数展开拒绝、行内制表符拒绝；check-package／install／generate-module-map／generate-adapter-diffs 四引擎只保留指令分发表；package-only，不落仓侧镜像、不入安装闭包）'
 pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_load_rules 唯一实现＋DP_PARSER_VERSION 单一版本来源；四消费件同目录 source，缺件与版本漂移 fail-closed；文法说明 references/delivery-rules.md）'
 pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作（get/type/fields/len/pick/count-key/rows/set；rows 数字组逐元素按字段输出 TAB 行式供 check-stale-claims 消费，set 为记录层字段级改写序列化面）＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
 pm_script scripts/generate-docs-index.sh script '规则索引生成器（扫描包内规则块→references/rules-index.md；--check 零漂移核对，零写入）'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/generate-dir-readmes.sh script '目录 README 校验／同步／骨架生成器（四段齐全／总行数上限 25／无成员表／无计数与状态句／正文反引号相对路径存在／正文裸露占位【填写：…】（HTML 注释、行内代码段与围栏代码块内不算）／生成块标记成对（围栏代码块内标记不算块）；--check 零写入；--sync 只重建生成块内子目录表、块外逐字节不动且幂等，子目录名含 | 时首格转义，无生成块输出 SKIP；--init 新目录四段骨架留占位；--init 与 --sync --dir 路径含空白 exit 2 零写入；三模式互斥；范围规则可 --rules 覆盖）'
+pm_script scripts/artifacts-index.sh script 'artifacts 索引解析唯一实现（--strict 严格对账解析＝条目/枚举/path 归一唯一性全 schema 校验；--brief 宽松条目投影＝id/path 必填；check-artifacts 与 generate-dir-readmes --brief 同源；同目录定位，随 fast-lane／ticket-ops 安装闭包）'
 pm_script scripts/generate-adapter-diffs.sh script '适配器宿主差异段生成器与生成漂移核对器（数据表四节机器数据行→Markdown 差异段；check-package 检查 28 经其 --check 指名宿主与段）'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/close/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理；close/flip/flip-index 至 done 需 actual_time＋ticket-audit conformant 双证，缺证据 decision-required 零写入；记录层写锁经共享库原语 record_lock_* 承载）'
 pm_script scripts/ledger-append.sh script '账本唯一写入方（changes.jsonl 行族形状校验＋唯一 JSON 引擎解析门＋追加单点，ticket-ops 账本落行与写前预检经其承载；--micro 微账本行族 facts/project/micro.jsonl 写入，lane-commit 微道落行经其承载；写模式自取记录层写锁、嵌套调用按继承标记跳过；追加经 record-store record_append 承载）'
@@ -218,6 +220,7 @@ pm_script scripts/generate-mirrors.sh script '镜像生成器：从包侧 script
 pm_script scripts/checks dir '包检引擎检查件目录（registry.rules 注册表＋每检查一件 NN-slug.sh；统一 interface：引擎传入包根，检查件只判定与报告问题，不生成 PASS/FAIL 行与汇总；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
+pm_script scripts/json-line.sh script '内联 JSON 行解析唯一实现（jval／jnum 取值原语：字符串与裸值两形态；absorption-trigger 与 health-summary 同源；同目录定位，随 ticket-ops 安装闭包）'
 pm_script scripts/measure-context-cost.sh script '成本度量复测器（只读统计会话 wire.jsonl 的 usage.record 八项指标与分布，给定基线出差值；--governance 统计安装件字符数、规则块数与四阶段读取集字符数；缺失项或样本不足 exit 非 0 且零 stdout）'
 pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAML workflow 定义驱动的流程执行器：条件跳过、工具调用、checkpoint 落盘、中断续传）'
 pm_script scripts/verify-contract.sh script '结构化验收谓词执行器（verification 对象数组逐条执行与断言；普通任务禁止空验证，纯记录须显式 record-only）'
@@ -314,10 +317,12 @@ pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden
 # 结构 --check 与生成块 --freshness 两检），包侧演化须经 generate-mirrors 同步仓侧，
 # 手改仓侧副本即被检查 13 指名（漂移闭环；仓侧副本为生成物，维护责任在包侧源）。
 pm_mirror generate-dir-readmes.sh mirror
+pm_mirror artifacts-index.sh mirror
 pm_mirror generate-progress.sh mirror
 pm_mirror ticket-ops.sh mirror
 pm_mirror absorption-trigger.sh mirror
 pm_mirror health-summary.sh mirror
+pm_mirror json-line.sh mirror
 pm_mirror run-record.sh mirror
 pm_mirror ticket-grade.sh mirror
 pm_mirror lane-commit.sh mirror
@@ -343,6 +348,7 @@ pm_mirror test-checkpoint-recovery.sh package-only
 pm_mirror verify-contract.sh package-only
 pm_mirror workflow-executor.sh package-only
 pm_mirror ticket-audit.sh package-only
+pm_mirror rules-lexer.sh package-only
 
 # ==== capability-primitives：能力基元名单与检查目标（检查 14）====
 # 九基元名自 references/adapters/capability-contract.md §2.1 权威表逐行现场提取登记

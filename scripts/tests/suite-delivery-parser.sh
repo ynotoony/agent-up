@@ -90,7 +90,7 @@ dp_probe_build() {
   mkdir -p "$1"
   cp "$SCRIPT_DIR/common-helpers.sh" "$1/"
   cp "$SCRIPT_DIR/$DP_LIB_NAME" "$1/$DP_LIB_NAME"
-  cp "$SCRIPT_DIR/check-artifacts.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/worktree-add.sh" "$1/" 2>/dev/null
+  cp "$SCRIPT_DIR/check-artifacts.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/worktree-add.sh" "$SCRIPT_DIR/artifacts-index.sh" "$1/" 2>/dev/null
   if [ -f "$SCRIPT_DIR/export-payload.sh" ]; then
     cp "$SCRIPT_DIR/export-payload.sh" "$1/"
   fi
@@ -332,6 +332,7 @@ suite_delivery_parser() {
     rm -rf "$D/miss"
     mkdir -p "$D/miss" "$D/references/templates"
     cp "$SCRIPT_DIR/common-helpers.sh" "$D/miss/"
+    cp "$SCRIPT_DIR/artifacts-index.sh" "$D/miss/"
     cp "$SCRIPT_DIR/$dp_c" "$D/miss/"
     cp "$SCRIPT_DIR/../references/templates/artifacts-yaml.tmpl" "$D/references/templates/"
     dp_run_consumer "$D/miss" "$dp_c" "$D/probe.unused.out" "$D/fx.valid" "miss.$dp_c"
@@ -352,6 +353,7 @@ suite_delivery_parser() {
     rm -rf "$D/drift"
     mkdir -p "$D/drift" "$D/references/templates"
     cp "$SCRIPT_DIR/common-helpers.sh" "$D/drift/"
+    cp "$SCRIPT_DIR/artifacts-index.sh" "$D/drift/"
     cp "$SCRIPT_DIR/$dp_c" "$D/drift/"
     sed 's/^DP_PARSER_VERSION=2$/DP_PARSER_VERSION=1/' "$SCRIPT_DIR/$DP_LIB_NAME" > "$D/drift/$DP_LIB_NAME"
     cp "$SCRIPT_DIR/../references/templates/artifacts-yaml.tmpl" "$D/references/templates/"

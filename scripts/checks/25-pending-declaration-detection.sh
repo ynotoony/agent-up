@@ -32,43 +32,10 @@ else
   if [ ! -s "$pd25_list" ]; then
     add_problem '  - 待定规范声明检测扫描面零 md 文件: references/adapters'
   else
-    awk_rc=0
-    # shellcheck disable=SC2046,SC2086  # $(cat) 文件清单刻意分词——find 逐文件作 awk 多文件参数（包路径无空白，清单校验禁空白路径，检查 22 同款形态）
-    LC_ALL=C awk -v pr="$pkg_root" '
-      BEGIN { tok = "<!-- pending-decl-exempt:" }
-      FNR == 1 { inmust = 0 }
-      /^#/ {
-        if ($0 ~ /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]([ \t]|$)/) {
-          t = $0
-          gsub(/`/, "", t)
-          inmust = (t ~ /(MUST NOT|MUST)[ \t]*$/) ? 1 : 0
-        } else {
-          inmust = 0
-        }
-        next
-      }
-      {
-        hastag = index($0, "【待定】") > 0
-        p = index($0, tok)
-        if (!hastag && p == 0) next
-        rel = FILENAME
-        if (index(rel, pr) == 1) rel = substr(rel, length(pr) + 2)
-        if (p > 0) {
-          rest = substr($0, p + length(tok))
-          e = index(rest, "-->")
-          reason = e > 1 ? substr(rest, 1, e - 1) : ""
-          gsub(/^[ \t]+/, "", reason)
-          gsub(/[ \t]+$/, "", reason)
-          if (!inmust || !hastag) printf "STALE\t%s\t%d\n", rel, FNR
-          else if (reason == "") printf "BADREASON\t%s\t%d\n", rel, FNR
-          else printf "EXEMPT\t%s\t%d\n", rel, FNR
-        } else if (inmust) {
-          printf "HIT\t%s\t%d\n", rel, FNR
-        }
-      }
-    ' $(cat "$pd25_list") > "$pd25_out" || awk_rc=$?
-    if [ "$awk_rc" -ne 0 ]; then
-      printf 'check-package: 错误：检查 25 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
+    pd25_rc=0
+    chk_must_block_scan "$pkg_root" "$pd25_list" adapters "$pd25_out" || pd25_rc=$?
+    if [ "$pd25_rc" -ne 0 ]; then
+      printf 'check-package: 错误：检查 25 扫描器异常（awk exit %s）\n' "$pd25_rc" >&2
       rm -f "$pd25_list" "$pd25_out"
       exit 2
     fi

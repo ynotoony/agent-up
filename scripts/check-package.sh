@@ -104,6 +104,17 @@ header_window() {
 }
 
 script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
+# ---- 共享非执行式规则表词法器（票 286 D1：与 install／generate-module-map／
+#      generate-adapter-diffs 同源；词法核心唯一实现＝同目录 rules-lexer.sh，本件只保留
+#      指令分发表与解析产物落盘口径）----
+_lexer_script=$(dirname "$0")/rules-lexer.sh
+if [ -f "$_lexer_script" ]; then
+  # shellcheck source=agent-up/scripts/rules-lexer.sh  # 路径动态计算，显式声明基线位置
+  . "$_lexer_script"
+else
+  printf 'check-package: 错误：共享规则表词法器缺失: %s\n' "$_lexer_script" >&2
+  exit 2
+fi
 # ---- 检查注册表上界派生（用法文本与汇总行同一来源）----
 chk_registry_file="$script_dir/checks/registry.rules"
 n_total_checks=''
@@ -379,80 +390,46 @@ if [ ! -f "$pm_rules" ]; then
   printf 'check-package: 错误：包清单数据文件缺失: %s\n' "$pm_rules" >&2
   exit 2
 fi
-# ---- 非执行式清单解析（票 145）：不再 source 清单——清单只作为受控文本数据解析，
-# 未知指令、恶意 shell 片段与结构破坏统一 fail-closed exit 2，不产生部分结论。awk 逐
-# 逻辑行处理「指令 参数...」——续行（行尾反斜杠）拼接、单引号词法取段（与 sh 单引号
-# 字面量同语义：引号内零解释原样承载）、引号外空白分词；指令名与参数数由引擎核验
-# （二十一指令各自参数数），未登记指令即 exit 2。解析在全部结构校验之前完成，恶意输入
-# （命令替换、重定向、管道、字段污染）在执行任何检查语义前即被拒绝：引号外禁止 shell
-# 语法元字符（` $ ( ) ; & | < >），引号内禁止命令替换形态（` 与 $( 与 ${）；解析期零
-# 求值零二次展开（awk 产出的 TAB 行只经引擎逐节再分发），字段值只作数据承载。行内制
-# 表符与 CR 为污染形态（字段边界唯一边界符＝解析器注入 TAB），直接拒绝。解析先落临时
-# 文件、末尾按指令名原子分发到各节账本（all-or-nothing：解析失败零行落账）。
+# ---- 非执行式清单解析（票 145；票 286 D1 词法核心下沉同目录 rules-lexer.sh）：不再
+# source 清单——清单只作为受控文本数据解析，未知指令、恶意 shell 片段与结构破坏统一
+# fail-closed exit 2，不产生部分结论。续行拼接、单引号词法取段、引号外 shell shell 保留元字符
+# 与引号内命令替换/参数展开拒绝、行内制表符拒绝的唯一实现＝rules-lexer.sh；本件只保留
+# 指令名/参数数分发表。解析先落临时文件、末尾按指令名原子分发（all-or-nothing：解析失败
+# 零行落账），字段值只作数据承载、解析期零求值零二次展开。
+# shellcheck disable=SC2016  # awk 程序刻意单引号形态：程序内 $0/$1 等禁 shell 展开（形态必需非缺陷）
+pm_dispatch_awk='
+{
+  if (!lex_line($0)) next
+  ar = -1
+  if (L_cmd == "pm_entry" || L_cmd == "pm_template" || L_cmd == "pm_platform" || L_cmd == "pm_capability" || L_cmd == "pm_capability_authority" || L_cmd == "pm_mechanism" || L_cmd == "pm_mechanism_marker" || L_cmd == "pm_vague_word" || L_cmd == "pm_layout_face" || L_cmd == "pm_enforcement_level" || L_cmd == "pm_retired_face" || L_cmd == "pm_legacy_marker" || L_cmd == "pm_ticket_status" || L_cmd == "pm_workflow_fixture_marker" || L_cmd == "pm_production_entry" || L_cmd == "pm_production_claim") ar = 1
+  else if (L_cmd == "pm_shortcode" || L_cmd == "pm_mirror" || L_cmd == "pm_layout_universe" || L_cmd == "pm_layout_legacy_file" || L_cmd == "pm_enforcement_target" || L_cmd == "pm_retired_token" || L_cmd == "pm_workflow" || L_cmd == "pm_readonly_site") ar = 2
+  else if (L_cmd == "pm_script" || L_cmd == "pm_vague_exempt" || L_cmd == "pm_cite_exempt" || L_cmd == "pm_capability_target" || L_cmd == "pm_layout_compat_exempt") ar = 3
+  else if (L_cmd == "pm_adapter_exec" || L_cmd == "pm_adapter_dialect") ar = 3
+  else if (L_cmd == "pm_adapter_cap" || L_cmd == "pm_adapter_role") ar = 4
+  else if (L_cmd == "pm_contract_pointer") ar = 5
+  else if (L_cmd == "pm_check") ar = 2
+  else if (L_cmd == "pm_check_total" || L_cmd == "pm_check_retired") ar = 1
+  else if (L_cmd == "chk") ar = 4
+  else if (L_cmd == "chk_total" || L_cmd == "chk_retired") ar = 1
+  else if (L_cmd == "pm_adapter") ar = 6
+  if (ar < 0) { lex_bad("未知指令或非指令行: " substr(L_raw, 1, 40)); next }
+  if (L_nf != ar) { lex_bad("参数数量不合预期（" L_cmd " 须恰 " ar " 个参数）: " L_nf); next }
+  print L_cmd "\t" substr(L_out, 1, length(L_out) - 1)
+}
+END { if (n > 0) exit 1 }
+'
 pm_parse_data() {
   # $1=数据文件（输入） $2=解析产物账本（覆盖写） $3=错误抬头文案（「包清单数据」／
   # 「适配差异数据表」） $4=（可选）字面反引号模式 1／0：差异数据表的强调记号（行内代码
   # 反引号）为惰性文本，须原样承载以支持生成器逐字节复现；清单侧保持默认 0（引号内
   # 反引号仍按命令替换形态拒绝，恶意输入门禁不放宽）。命令替换与参数展开形态两侧一律拒绝。
   pm_parse_bad=''
-  LC_ALL=C awk -v progin="$1" -v allow_bt="${4:-0}" '
-  function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
-  {
-    raw = $0; ln++
-    gsub(/\r/, "", raw)
-    while (raw ~ /\\$/) {
-      raw = substr(raw, 1, length(raw) - 1)
-      if ((getline nxt) <= 0) { bad("续行无后续物理行（行尾反斜杠悬空）"); next }
-      ln++
-      gsub(/\r/, "", nxt)
-      raw = raw nxt
-    }
-    sub(/^[[:space:]]+/, "", raw)
-    if (raw == "" || substr(raw, 1, 1) == "#") next
-    out = ""; tok = ""; first = 1; inq = 0; inqseen = 0; nf = 0
-    L = length(raw)
-    for (i = 1; i <= L; i++) {
-      c = substr(raw, i, 1)
-      if (c == "\t") { bad("行内制表符（字段边界污染，TAB 为解析器注入唯一边界符）"); next }
-      if (c == "'"'"'") { inq = 1 - inq; inqseen = 1; continue }
-      if (!inq && c == " ") {
-        if (tok != "" || inqseen) {
-          if (first) { cmd = tok; first = 0 } else { out = out tok "\t"; nf++ }
-          inqseen = 0
-        }
-        tok = ""
-        continue
-      }
-      if (!inq && index("`$(;|<>&", c) > 0) { bad("引号外 shell 语法元字符（非执行式解析拒绝）: " c); next }
-      if (inq && c == "`" && allow_bt != 1) { bad("引号内命令替换形态（反引号）——非执行式解析拒绝"); next }
-      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "(") { bad("引号内命令替换形态（美元括号）——非执行式解析拒绝"); next }
-      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "{") { bad("引号内参数展开形态（美元花括号）——非执行式解析拒绝"); next }
-      tok = tok c
-    }
-    if (inq) { bad("单引号未闭合（词法破坏）"); next }
-    if (tok != "" || inqseen) {
-      if (first) { cmd = tok } else { out = out tok "\t"; nf++ }
-      inqseen = 0
-    }
-    if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
-    ar = -1
-    if (cmd == "pm_entry" || cmd == "pm_template" || cmd == "pm_platform" || cmd == "pm_capability" || cmd == "pm_capability_authority" || cmd == "pm_mechanism" || cmd == "pm_mechanism_marker" || cmd == "pm_vague_word" || cmd == "pm_layout_face" || cmd == "pm_enforcement_level" || cmd == "pm_retired_face" || cmd == "pm_legacy_marker" || cmd == "pm_ticket_status" || cmd == "pm_workflow_fixture_marker" || cmd == "pm_production_entry" || cmd == "pm_production_claim") ar = 1
-    else if (cmd == "pm_shortcode" || cmd == "pm_mirror" || cmd == "pm_layout_universe" || cmd == "pm_layout_legacy_file" || cmd == "pm_enforcement_target" || cmd == "pm_retired_token" || cmd == "pm_workflow" || cmd == "pm_readonly_site") ar = 2
-    else if (cmd == "pm_script" || cmd == "pm_vague_exempt" || cmd == "pm_cite_exempt" || cmd == "pm_capability_target" || cmd == "pm_layout_compat_exempt") ar = 3
-    else if (cmd == "pm_adapter_exec" || cmd == "pm_adapter_dialect") ar = 3
-    else if (cmd == "pm_adapter_cap" || cmd == "pm_adapter_role") ar = 4
-    else if (cmd == "pm_contract_pointer") ar = 5
-    else if (cmd == "pm_check") ar = 2
-    else if (cmd == "pm_check_total" || cmd == "pm_check_retired") ar = 1
-    else if (cmd == "chk") ar = 4
-    else if (cmd == "chk_total" || cmd == "chk_retired") ar = 1
-    else if (cmd == "pm_adapter") ar = 6
-    if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
-    if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
-    print cmd "\t" substr(out, 1, length(out) - 1)
-  }
-  END { if (n > 0) exit 1 }
-  ' "$1" > "$2" || pm_parse_bad=1
+  LC_ALL=C awk -v lex_progin="$1" -v lex_style=pkg -v lex_allow_bt="${4:-0}" \
+    -v lex_lead='^[[:space:]]+' \
+    -v lex_tabmsg='行内制表符（字段边界污染，TAB 为解析器注入唯一边界符）' \
+    -v lex_noargmsg='未知指令或非指令行（无参数）' \
+    -v lex_dollarsuffix='——非执行式解析拒绝' \
+    -v q="'" "$RULES_LEXER_AWK$pm_dispatch_awk" "$1" > "$2" || pm_parse_bad=1
   pm_parse_bad=${pm_parse_bad:-}
   if [ -n "$pm_parse_bad" ]; then
     printf 'check-package: 错误：%s非执行式解析不合预期（fail-closed，不产生部分结论）: %s\n' "$3" "$1" >&2

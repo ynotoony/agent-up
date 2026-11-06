@@ -91,16 +91,9 @@ $l24_rel:$l24_ln
       ;;
   esac
 done < "$layout24_hits"
-# 失效豁免核对：登记行无命中即 FAIL（检查 12/18 同款，防漂移静默失效）
-while IFS= read -r l24_crow; do
-  [ -n "$l24_crow" ] || continue
-  l24_crel=${l24_crow%%"$TAB"*}
-  l24_crest=${l24_crow#*"$TAB"}
-  l24_cln=${l24_crest%%"$TAB"*}
-  if ! LC_ALL=C awk -F':' -v p="$l24_crel" -v l="$l24_cln" '$1 == p && $2 == l { f = 1 } END { exit f ? 0 : 1 }' "$layout24_hits"; then
-    add_problem "  - 失效豁免（登记行无 legacy 引用命中，须复核更新或删除登记）: $l24_crel:$l24_cln"
-  fi
-done < "$pm_layoutce"
+# 失效豁免核对：登记行无命中即 FAIL（检查 12/18 同款，防漂移静默失效）——核对唯一实现
+# ＝shared.sh chk_exempt_stale（票 286 D4）。
+chk_exempt_stale "$pm_layoutce" ' legacy 引用命中' fields < "$layout24_hits"
 # ②modern 相对链接解析（面内 *.tmpl；生成布局全集提取与链接核对）
 while IFS= read -r l24_urow; do
   [ -n "$l24_urow" ] || continue

@@ -7,67 +7,30 @@
 # 检查 8：脚本必需件存在（清单 scripts 节逐行，票 57 数据驱动；kind 区分普通脚本/规则
 # 表/test-harness，口径差定谳＝test-record-layer.sh 定为必需件；票 48 fail-closed 守卫：
 # 任一缺失即 FAIL 并逐件指名，不因部分存在而放宽）。
-# 票 177：worktree 环境豁免 main-only 脚本检查（delivery.rules dp_mainonly 清单），
-# 主检出保持原有检查（仍检测全部 scripts 节登记件）。
+# 票 177：worktree 环境豁免 main-only 脚本检查（delivery.rules dp_mainonly 清单）——
+# worktree/主检出两分支经 shared.sh 谓词（chk_is_mainonly／chk_worktree_suffix）合并为
+# 单分支（票 286 D4），判定逻辑零副本；主检出保持原有检查（仍检测全部 scripts 节登记件）。
 
 check_8() {
   # $1=包根（契约参数；检查件只读判定，报告问题经 add_problem）
 n_scripts=$(wc -l < "$pm_scripts" | tr -d ' ')
 missing_scripts=''
 sep=''
-
-if [ "$in_worktree" -eq 1 ]; then
-  _chk_skip='脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）'
-  # worktree 环境：检查非 main-only 脚本
-  OLDIFS=$IFS
-  IFS='
-'
-  while IFS= read -r row; do
-    rel=${row%%"$TAB"*}
-    # 判断是否为 main-only 脚本（delivery.rules 路径含 agent-up/ 前缀，需匹配 scripts/ 相对路径）
-    is_mainonly=0
-    for mo in $mainonly_list; do
-      # mo 形如 agent-up/scripts/export-payload.sh，rel 形如 scripts/export-payload.sh
-      # 匹配时去掉 agent-up/ 前缀
-      mo_rel="${mo#agent-up/}"
-      if [ "$rel" = "$mo_rel" ]; then
-        is_mainonly=1
-        break
-      fi
-    done
-    if [ "$is_mainonly" -eq 0 ] && [ ! -f "$pkg_root/$rel" ] && [ ! -d "$pkg_root/$rel" ]; then
-      missing_scripts="$missing_scripts$sep  - $rel"
-      sep='
-'
-    fi
-  done < "$pm_scripts"
-  IFS=$OLDIFS
-  if [ -n "$missing_scripts" ]; then
-    add_problem "$missing_scripts"
-    _chk_desc="脚本必需件存在（${n_scripts} 个文件，worktree 跳过 main-only）"
-  else
-    _chk_desc="脚本必需件存在（${n_scripts} 个文件，worktree 跳过 main-only）"
+_chk_skip=$(chk_worktree_suffix '脚本必需件存在（worktree 环境，跳过 main-only 脚本检查）')
+while IFS= read -r row; do
+  rel=${row%%"$TAB"*}
+  if [ "$in_worktree" -eq 1 ] && chk_is_mainonly "$rel" rel; then
+    continue
   fi
-else
-  # 主检出：检查全部 scripts 节登记件
-  OLDIFS=$IFS
-  IFS='
+  if [ ! -f "$pkg_root/$rel" ] && [ ! -d "$pkg_root/$rel" ]; then
+    missing_scripts="$missing_scripts$sep  - $rel"
+    sep='
 '
-  while IFS= read -r row; do
-    rel=${row%%"$TAB"*}
-    if [ ! -f "$pkg_root/$rel" ] && [ ! -d "$pkg_root/$rel" ]; then
-      missing_scripts="$missing_scripts$sep  - $rel"
-      sep='
-'
-    fi
-  done < "$pm_scripts"
-  IFS=$OLDIFS
-  if [ -n "$missing_scripts" ]; then
-    add_problem "$missing_scripts"
-    _chk_desc="脚本必需件存在（${n_scripts} 个文件）"
-  else
-    _chk_desc="脚本必需件存在（${n_scripts} 个文件）"
   fi
+done < "$pm_scripts"
+if [ -n "$missing_scripts" ]; then
+  add_problem "$missing_scripts"
 fi
+_chk_desc="脚本必需件存在（${n_scripts} 个文件$(chk_worktree_suffix '，worktree 跳过 main-only')）"
 :
 }

@@ -21,6 +21,16 @@ else
   printf 'absorption-trigger: FAIL: 共享库缺失: %s\n' "$_helper_script" >&2
   exit 1
 fi
+# ---- 共享内联 JSON 行解析库（票 286 D3：与 health-summary 同源；jval/jnum 唯一实现＝
+#      同目录 json-line.sh，本件只保留吸收面聚合主程序）----
+_json_line_script=$(dirname "$0")/json-line.sh
+if [ -f "$_json_line_script" ]; then
+  # shellcheck source=agent-up/scripts/json-line.sh  # 路径动态计算，显式声明基线位置
+  . "$_json_line_script"
+else
+  printf 'absorption-trigger: FAIL: 共享 JSON 行解析库缺失: %s\n' "$_json_line_script" >&2
+  exit 1
+fi
 
 repo_root=${1:-}
 if [ -z "$repo_root" ]; then
@@ -43,27 +53,8 @@ LC_ALL=C grep -E '"kind": ?"lesson"' "$_ledger" | LC_ALL=C grep -Eq 'score_contr
 _tmp=$(mktemp "${TMPDIR:-/tmp}/absorption.XXXXXX") || exit 1
 trap 'rm -f "$_tmp"' EXIT HUP INT TERM
 
-LC_ALL=C grep -E '"kind": ?"lesson"' "$_ledger" | LC_ALL=C grep -E '"score_contract"' | LC_ALL=C awk '
-  function jval(line, key,    i, rest, j) {
-    i = index(line, "\"" key "\": \"")
-    if (i == 0) { i = index(line, "\"" key "\": "); if (i == 0) return ""; rest = substr(line, i + length(key) + 3) }
-    else { rest = substr(line, i + length(key) + 5) }
-    j = index(rest, "\"")
-    if (j == 0) j = length(rest) + 1
-    return substr(rest, 1, j - 1)
-  }
-  function jnum(line, key,    i, rest, j) {
-    i = index(line, "\"" key "\": ")
-    if (i == 0) return ""
-    rest = substr(line, i + length(key) + 4)
-    j = index(rest, ",")
-    k = index(rest, "}")
-    if (j == 0 || (k != 0 && k < j)) j = k
-    if (j == 0) j = length(rest) + 1
-    v = substr(rest, 1, j - 1)
-    gsub(/^[ \\t]+|[ \\t]+$/, "", v)
-    return v
-  }
+# shellcheck disable=SC2016  # 主程序刻意单引号形态：awk 内建 $0 禁 shell 展开（形态必需非缺陷）
+LC_ALL=C grep -E '"kind": ?"lesson"' "$_ledger" | LC_ALL=C grep -E '"score_contract"' | json_line_parse '
   {
     sc = jval($0, "scope")
     c = jnum($0, "score_contract")

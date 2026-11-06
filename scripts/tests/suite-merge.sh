@@ -398,7 +398,7 @@ PY
   fi
   if [ -f "$SCRIPT_DIR/install.sh" ]; then
     mkdir -p "$D/inst"
-    sh "$SCRIPT_DIR/install.sh" --target "$D/inst" --fast-lane > "$D/inst.out" 2>&1
+    ( cd "$D" && sh "$SCRIPT_DIR/install.sh" --target "$D/inst" --fast-lane ) > "$D/inst.out" 2>&1
     rc=$?
     if [ "$rc" -eq 0 ] \
       && [ -f "$D/inst/rules/implementation/scripts/merge-ticket.sh" ] \

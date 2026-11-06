@@ -24,41 +24,12 @@
 
 link_resolve() {
   # $1=链接目标 $2=所在文件包根相对路径：输出目标相对所在文件目录词法折叠后的包根相对
-  # 路径；折出包根（含绝对路径目标）输出 ESCAPE。词法判定，不展开路径 symlink。
-  _lr_t=$1
-  case $_lr_t in
+  # 路径；折出包根（含绝对路径目标）输出 ESCAPE。词法折叠唯一实现＝shared.sh
+  # chk_lex_fold（票 286 D4）；词法判定，不展开路径 symlink。
+  case $1 in
     /*) printf 'ESCAPE'; return 0 ;;
   esac
-  _lr_acc=$(dirname "$2")/$_lr_t
-  _lr_out=''
-  _lr_i=1
-  _lr_n=$(printf '%s' "$_lr_acc" | LC_ALL=C awk '{ n = split($0, p, "/"); print n }')
-  while [ "$_lr_i" -le "$_lr_n" ]; do
-    _lr_seg=$(printf '%s' "$_lr_acc" | LC_ALL=C awk -v i="$_lr_i" '{ n = split($0, p, "/"); print p[i] }')
-    case $_lr_seg in
-      '') ;;
-      .) ;;
-      ..)
-        if [ -z "$_lr_out" ]; then
-          printf 'ESCAPE'
-          return 0
-        fi
-        case $_lr_out in
-          */*) _lr_out=${_lr_out%/*} ;;
-          *) _lr_out='' ;;
-        esac
-        ;;
-      *)
-        if [ -n "$_lr_out" ]; then
-          _lr_out="$_lr_out/$_lr_seg"
-        else
-          _lr_out=$_lr_seg
-        fi
-        ;;
-    esac
-    _lr_i=$((_lr_i + 1))
-  done
-  printf '%s' "$_lr_out"
+  printf '%s' "$(chk_lex_fold "$(dirname "$2")/$1")"
 }
 
 check_21() {

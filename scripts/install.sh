@@ -42,6 +42,16 @@ else
   die1() { printf 'install: FAIL: %s\n' "$1" >&2; exit 1; }
   die2() { printf 'install: %s\n' "$1" >&2; exit 2; }
 fi
+# ---- 共享非执行式规则表词法器（票 286 D1：与 check-package／generate-module-map／
+#      generate-adapter-diffs 同源；词法核心唯一实现＝同目录 rules-lexer.sh，本件只保留
+#      ip_* 指令分发表）----
+_lexer_script=$(dirname "$0")/rules-lexer.sh
+if [ -f "$_lexer_script" ]; then
+  # shellcheck source=agent-up/scripts/rules-lexer.sh  # 路径动态计算，显式声明基线位置
+  . "$_lexer_script"
+else
+  die2 "共享规则表词法器缺失: $_lexer_script（词法核心唯一实现＝同目录 rules-lexer.sh）"
+fi
 
 NL='
 '
@@ -101,7 +111,7 @@ tmp_data_copied=$(mktemp "${t_dir%/}/installpolicy.XXXXXX")
 #   ip_file <pkg-rel-path> <lifecycle> <gate> <说明>
 #   ip_data <pkg-rel-path> <target-rel-path> <lifecycle> <gate> <说明>
 # 逐行 TAB 连接落 tmp_gates / tmp_rows，供结构校验与集合选取。解析口径与两兄弟引擎同款：
-# awk 逐逻辑行（续行拼接）单引号词法取段、引号外空白分词；引号外禁 shell 语法元字符
+# awk 逐逻辑行（续行拼接）单引号词法取段、引号外空白分词；引号外禁 shell shell 保留元字符
 # （` $ ( ) ; & | < >），引号内禁命令替换形态（` 与 $( 与 ${）；指令名与参数数由引擎
 # 核验（ip_gate 恰 3、ip_file 恰 4、ip_data 恰 5），未登记指令即 exit 2；行内制表符与 CR 为污染形态
 # 直接拒绝；解析先落临时文件、末尾按指令名原子分发（all-or-nothing：解析失败零行落账）。
@@ -111,54 +121,24 @@ script_dir=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
 pkg_root_dir=$(CDPATH='' cd -P "$script_dir/.." && pwd)
 rules_path="$script_dir/install-policy.rules"
 [ -f "$rules_path" ] || die2 "安装政策规则表缺失: $rules_path"
+# shellcheck disable=SC2016  # awk 程序刻意单引号形态：程序内 $0/$1 等禁 shell 展开（形态必需非缺陷）
+install_dispatch_awk='
+{
+  if (!lex_line($0)) next
+  ar = L_cmd == "ip_gate" ? 3 : L_cmd == "ip_file" ? 4 : L_cmd == "ip_data" ? 5 : -1
+  if (ar < 0) { lex_bad("未知指令或非指令行: " substr(L_raw, 1, 40)); next }
+  if (L_nf != ar) { lex_bad("参数数量不合预期（" L_cmd " 须恰 " ar " 个参数）: " L_nf); next }
+  print L_cmd "\t" substr(L_out, 1, length(L_out) - 1)
+}
+END { if (n > 0) exit 1 }
+'
 install_parse_bad=''
-LC_ALL=C awk -v progin="$rules_path" '
-  function bad(msg) { printf "%s第 %d 逻辑行: %s\n", progin, ln, msg; n++ }
-  {
-    raw = $0; ln++
-    gsub(/\r/, "", raw)
-    while (raw ~ /\\$/) {
-      raw = substr(raw, 1, length(raw) - 1)
-      if ((getline nxt) <= 0) { bad("续行无后续物理行（行尾反斜杠悬空）"); next }
-      ln++
-      gsub(/\r/, "", nxt)
-      raw = raw nxt
-    }
-    sub(/^[[:space:]]+/, "", raw)
-    if (raw == "" || substr(raw, 1, 1) == "#") next
-    out = ""; tok = ""; first = 1; inq = 0; inqseen = 0; nf = 0
-    L = length(raw)
-    for (i = 1; i <= L; i++) {
-      c = substr(raw, i, 1)
-      if (c == "\t") { bad("行内制表符（字段边界污染，TAB 为解析器注入唯一边界符）"); next }
-      if (c == "'"'"'") { inq = 1 - inq; inqseen = 1; continue }
-      if (!inq && c == " ") {
-        if (tok != "" || inqseen) {
-          if (first) { cmd = tok; first = 0 } else { out = out tok "\t"; nf++ }
-          inqseen = 0
-        }
-        tok = ""
-        continue
-      }
-      if (!inq && index("`$(;|<>&", c) > 0) { bad("引号外 shell 语法元字符（非执行式解析拒绝）: " c); next }
-      if (inq && c == "`") { bad("引号内命令替换形态（反引号）——非执行式解析拒绝"); next }
-      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "(") { bad("引号内命令替换形态（美元括号）——非执行式解析拒绝"); next }
-      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "{") { bad("引号内参数展开形态（美元花括号）——非执行式解析拒绝"); next }
-      tok = tok c
-    }
-    if (inq) { bad("单引号未闭合（词法破坏）"); next }
-    if (tok != "" || inqseen) {
-      if (first) { cmd = tok } else { out = out tok "\t"; nf++ }
-      inqseen = 0
-    }
-    if (first) { bad("未知指令或非指令行（无参数）: " substr(raw, 1, 40)); next }
-    ar = cmd == "ip_gate" ? 3 : cmd == "ip_file" ? 4 : cmd == "ip_data" ? 5 : -1
-    if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
-    if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
-    print cmd "\t" substr(out, 1, length(out) - 1)
-  }
-  END { if (n > 0) exit 1 }
-' "$rules_path" > "$install_rules_tmp" || install_parse_bad=1
+LC_ALL=C awk -v lex_progin="$rules_path" -v lex_style=pkg -v lex_allow_bt=0 \
+  -v lex_lead='^[[:space:]]+' \
+  -v lex_tabmsg='行内制表符（字段边界污染，TAB 为解析器注入唯一边界符）' \
+  -v lex_noargmsg='未知指令或非指令行（无参数）' \
+  -v lex_dollarsuffix='——非执行式解析拒绝' \
+  -v q="'" "$RULES_LEXER_AWK$install_dispatch_awk" "$rules_path" > "$install_rules_tmp" || install_parse_bad=1
 install_parse_bad=${install_parse_bad:-}
 if [ -n "$install_parse_bad" ]; then
   printf 'install: FAIL: 安装政策规则表非执行式解析不合预期（fail-closed）: %s\n' "$rules_path" >&2

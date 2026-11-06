@@ -17,62 +17,20 @@ n33_hits=0
 n33_exempt=0
 p33_list=$(mktemp "${t_dir%/}/pend33.XXXXXX")
 p33_out=$(mktemp "${t_dir%/}/pend33.XXXXXX")
-(cd "$pkg_root" && find . -type f \( -name '*.md' -o -name '*.tmpl' \) | sed 's|^\./||' | LC_ALL=C sort) \
-  | grep -v '^references/adapters/' > "$p33_list" || true
+  # 扫描面组装（base 等价）：先在本地副本归一包根尾斜杠（find 对尾斜杠归一输出，
+  # 双重斜杠则原样保留），排除模式与文件路径同源——尾斜杠调用不再让适配器面排除静默
+  # 失效；chk_must_block_scan 内的 pr 归一负责把绝对/相对前缀都剥成包根相对路径。
+  p33_root=$pkg_root
+  while [ "${p33_root%/}" != "$p33_root" ]; do p33_root=${p33_root%/}; done
+  find "$p33_root" -type f \( -name '*.md' -o -name '*.tmpl' \) | LC_ALL=C sort \
+    | grep -vF "$p33_root/references/adapters/" > "$p33_list" || true
 if [ ! -s "$p33_list" ]; then
   add_problem '  - 待定规范声明检测整包面零 md/tmpl 文件（扫描面失效）'
 else
-  awk_rc=0
-  # shellcheck disable=SC2046,SC2086  # $(cat) 文件清单刻意分词——逐文件作 awk 多文件参数（包路径无空白，清单校验禁空白路径，检查 22/25 同款形态）
-  (cd "$pkg_root" && LC_ALL=C awk '
-    BEGIN { tok = "<!-- pending-decl-exempt:" }
-    FNR == 1 { inmust = 0 }
-    /^#/ {
-      if ($0 ~ /^#### R-[A-Z][A-Z]-[0-9][0-9][0-9]([ \t]|$)/) {
-        t = $0
-        gsub(/`/, "", t)
-        inmust = (t ~ /(MUST NOT|MUST)[ \t]*$/) ? 1 : 0
-      } else {
-        inmust = 0
-      }
-      next
-    }
-    {
-      # 标记形态＝行尾 HTML 注释（`-->` 之后仅空白）：散文提及豁免标记（表格说明、契约头
-      # 注释块）不是豁免指令本身；纯注释行（首个非空白字符起即 <!--）整行跳过。
-      trimmed = $0
-      sub(/^[ \t]+/, "", trimmed)
-      if (substr(trimmed, 1, 4) == "<!--") next
-      hastag = index($0, "【待定】") > 0
-      p = index($0, tok)
-      valid = 0
-      reason = ""
-      if (p > 0) {
-        rest = substr($0, p + length(tok))
-        e = index(rest, "-->")
-        if (e > 0) {
-          tail = substr(rest, e + 3)
-          gsub(/[ \t]+/, "", tail)
-          if (tail == "") {
-            valid = 1
-            reason = substr(rest, 1, e - 1)
-            gsub(/^[ \t]+/, "", reason)
-            gsub(/[ \t]+$/, "", reason)
-          }
-        }
-      }
-      if (!valid && !hastag) next
-      if (valid) {
-        if (!inmust || !hastag) printf "STALE\t%s\t%d\n", FILENAME, FNR
-        else if (reason == "") printf "BADREASON\t%s\t%d\n", FILENAME, FNR
-        else printf "EXEMPT\t%s\t%d\n", FILENAME, FNR
-      } else if (inmust) {
-        printf "HIT\t%s\t%d\n", FILENAME, FNR
-      }
-    }
-  ' $(cat "$p33_list")) > "$p33_out" || awk_rc=$?
-  if [ "$awk_rc" -ne 0 ]; then
-    printf 'check-package: 错误：检查 33 扫描器异常（awk exit %s）\n' "$awk_rc" >&2
+  pd33_rc=0
+  chk_must_block_scan "$pkg_root" "$p33_list" package "$p33_out" || pd33_rc=$?
+  if [ "$pd33_rc" -ne 0 ]; then
+    printf 'check-package: 错误：检查 33 扫描器异常（awk exit %s）\n' "$pd33_rc" >&2
     rm -f "$p33_list" "$p33_out"
     exit 2
   fi

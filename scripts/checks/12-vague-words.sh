@@ -76,21 +76,11 @@ if [ -n "$hits_all" ]; then
   done
   IFS=$OLDIFS
 fi
-if [ -s "$pm_exempts" ]; then
-  while IFS= read -r row; do
-    [ -n "$row" ] || continue
-    e_rel=${row%%"$TAB"*}
-    e_rest=${row#*"$TAB"}
-    e_ln=${e_rest%%"$TAB"*}
-    case $hits_all in
-      *"$e_rel:$e_ln:"*) : ;;
-      *)
-        # 花括号不可省略：全角字符相邻时防止变量名吞并
-        add_problem "  - 失效豁免（登记行无词表命中，须复核更新或删除登记）: $e_rel:$e_ln"
-        ;;
-    esac
-  done < "$pm_exempts"
-fi
+# 失效豁免核对：登记行无命中即 FAIL（检查 12 同款口径，防漂移静默失效）——核对唯一
+# 实现＝shared.sh chk_exempt_stale（票 286 D4）。
+chk_exempt_stale "$pm_exempts" '词表命中' substring <<EOF
+$hits_all
+EOF
 if [ -n "$problems" ]; then
   _chk_desc="规则块体无模糊措辞（词表 ${n_words} 词，豁免 ${n_exempt} 行）"
 else

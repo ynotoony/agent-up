@@ -23,45 +23,21 @@
 resolve_within() {
   # $1=symlink 路径（与 find 输出同形态）：输出 readlink 原始目标经词法规范化（点段
   # 折叠）后的包根相对路径；越出包根输出 ESCAPE，断链（折叠后不存在）输出 BROKEN。
-  # POSIX 通行路径：只用 readlink 原始目标＋词法折叠，不依赖 GNU readlink -f；中间
-  # 路径组件的 symlink 不展开（词法判定，注记见 README.md）。
+  # 词法折叠唯一实现＝shared.sh chk_lex_fold（票 286 D4；POSIX 通行路径：只用 readlink
+  # 原始目标＋词法折叠，不依赖 GNU readlink -f；中间路径组件的 symlink 不展开，词法判定）。
   _rl_target=$(readlink "$1")
   case $_rl_target in
     /*) _rl_acc=$_rl_target ;;
     *) _rl_acc=$(dirname "$1")/$_rl_target ;;
   esac
-  _rl_out=''
-  _rl_i=1
-  _rl_n=$(printf '%s' "$_rl_acc" | LC_ALL=C awk '{ n = split($0, p, "/"); print n }')
-  while [ "$_rl_i" -le "$_rl_n" ]; do
-    _rl_seg=$(printf '%s' "$_rl_acc" | LC_ALL=C awk -v i="$_rl_i" '{ n = split($0, p, "/"); print p[i] }')
-    case $_rl_seg in
-      '') ;;
-      .) ;;
-      ..)
-        if [ -z "$_rl_out" ]; then
-          printf 'ESCAPE'
-          return 0
-        fi
-        case $_rl_out in
-          */*) _rl_out=${_rl_out%/*} ;;
-          *) _rl_out='' ;;
-        esac
-        ;;
-      *)
-        if [ -n "$_rl_out" ]; then
-          _rl_out="$_rl_out/$_rl_seg"
-        else
-          _rl_out=$_rl_seg
-        fi
-        ;;
-    esac
-    _rl_i=$((_rl_i + 1))
-  done
+  _rl_out=$(chk_lex_fold "$_rl_acc")
+  case $_rl_out in
+    ESCAPE) printf 'ESCAPE'; return 0 ;;
+  esac
   # 折叠体为无前导斜杠的绝对路径词法形态，与包根词法体（pkg_root_rel）比对：
   # 前缀剥离＝包根内（输出包根相对路径）；恰等包根＝根外相对空间；其余＝包根外。
   case $_rl_out in
-    "${pkg_root_rel}"/*)
+    "$pkg_root_rel"/*)
       _rl_out=${_rl_out#"$pkg_root_rel"/}
       if [ -e "$pkg_root/$_rl_out" ]; then
         printf '%s' "$_rl_out"

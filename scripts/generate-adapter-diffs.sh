@@ -44,6 +44,15 @@ die() {
 }
 
 script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
+# ---- 共享非执行式规则表词法器（票 286 D1：词法核心唯一实现＝同目录 rules-lexer.sh）----
+_lexer_script=$(dirname "$0")/rules-lexer.sh
+if [ -f "$_lexer_script" ]; then
+  # shellcheck source=agent-up/scripts/rules-lexer.sh  # 路径动态计算，显式声明基线位置
+  . "$_lexer_script"
+else
+  printf '%s: 错误：共享规则表词法器缺失: %s\n' "$prog" "$_lexer_script" >&2
+  exit 2
+fi
 pkg_root=''
 platform_filter=''
 section='all'
@@ -102,59 +111,30 @@ gen="$t_root/gen"
 hostcanon="$t_root/host"
 anchors="$t_root/anchors"
 
-# ---- 非执行式解析（与 check-package.sh 加载段同词法：注释行、单引号词法、续行拼接；
-#      引号外 shell 元字符与行内制表符拒绝；四节指令各自字段数 fail-closed）----
-LC_ALL=C awk '
-  function bad(msg) { printf "%s: 数据表第 %d 逻辑行: %s\n", "generate-adapter-diffs", ln, msg > "/dev/stderr"; err = 1 }
-  {
-    raw = $0; ln++
-    gsub(/\r/, "", raw)
-    while (raw ~ /\\$/) {
-      raw = substr(raw, 1, length(raw) - 1)
-      if ((getline nxt) <= 0) { bad("续行无后续物理行（行尾反斜杠悬空）"); next }
-      ln++
-      gsub(/\r/, "", nxt)
-      raw = raw nxt
-    }
-    sub(/^[ \t]+/, "", raw)
-    if (raw == "" || substr(raw, 1, 1) == "#") next
-    out = ""; tok = ""; first = 1; inq = 0; inqseen = 0; nf = 0
-    L = length(raw)
-    for (i = 1; i <= L; i++) {
-      c = substr(raw, i, 1)
-      if (c == "\t") { bad("行内制表符（字段边界污染）"); next }
-      if (c == "'"'"'") { inq = 1 - inq; inqseen = 1; continue }
-      if (!inq && c == " ") {
-        if (tok != "" || inqseen) {
-          if (first) { cmd = tok; first = 0 } else { out = out tok "\t"; nf++ }
-          inqseen = 0
-        }
-        tok = ""
-        continue
-      }
-      if (!inq && index("`$(;|<>&", c) > 0) { bad("引号外 shell 语法元字符（非执行式解析拒绝）: " c); next }
-      # 引号内反引号＝本表强调记号（行内代码）的字面承载，非命令替换：数据表字段原文即
-      # 宿主 Markdown 原文，生成器须逐字节复现；命令替换与参数展开形态仍拒绝（见下行）。
-      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "(") { bad("引号内命令替换形态（美元括号）"); next }
-      if (inq && c == "$" && i < L && substr(raw, i + 1, 1) == "{") { bad("引号内参数展开形态（美元花括号）"); next }
-      tok = tok c
-    }
-    if (inq) { bad("单引号未闭合（词法破坏）"); next }
-    if (tok != "" || inqseen) {
-      if (first) { cmd = tok } else { out = out tok "\t"; nf++ }
-    }
-    if (first) { bad("非指令行（无参数）: " substr(raw, 1, 40)); next }
-    ar = -1; tag = ""
-    if (cmd == "pm_adapter_cap") { ar = 4; tag = "cap" }
-    else if (cmd == "pm_adapter_role") { ar = 4; tag = "role" }
-    else if (cmd == "pm_adapter_exec") { ar = 3; tag = "exec" }
-    else if (cmd == "pm_adapter_dialect") { ar = 3; tag = "dialect" }
-    if (ar < 0) { bad("未知指令或非指令行: " substr(raw, 1, 40)); next }
-    if (nf != ar) { bad("参数数量不合预期（" cmd " 须恰 " ar " 个参数）: " nf); next }
-    print tag "\t" substr(out, 1, length(out) - 1)
-  }
-  END { if (err) exit 1 }
-' "$rules" > "$dat" || die "适配差异数据表不合预期（fail-closed，不产生部分结论）: $rules"
+# ---- 非执行式解析（票 286 D1：词法核心见同目录 rules-lexer.sh——续行拼接、单引号词法
+#      取段、引号外 shell shell 保留元字符与引号内命令替换/参数展开拒绝、行内制表符拒绝；四节
+#      指令各自字段数 fail-closed，词法错误写 stderr 并以 END 汇总 exit 1）----
+# shellcheck disable=SC2016  # awk 程序刻意单引号形态：程序内 $0/$1 等禁 shell 展开（形态必需非缺陷）
+gad_dispatch_awk='
+{
+  if (!lex_line($0)) next
+  ar = -1; tag = ""
+  if (L_cmd == "pm_adapter_cap") { ar = 4; tag = "cap" }
+  else if (L_cmd == "pm_adapter_role") { ar = 4; tag = "role" }
+  else if (L_cmd == "pm_adapter_exec") { ar = 3; tag = "exec" }
+  else if (L_cmd == "pm_adapter_dialect") { ar = 3; tag = "dialect" }
+  if (ar < 0) { lex_bad("未知指令或非指令行: " substr(L_raw, 1, 40)); next }
+  if (L_nf != ar) { lex_bad("参数数量不合预期（" L_cmd " 须恰 " ar " 个参数）: " L_nf); next }
+  print tag "\t" substr(L_out, 1, length(L_out) - 1)
+}
+END { if (n > 0) exit 1 }
+'
+LC_ALL=C awk -v lex_progin="$prog" -v lex_style=stderr -v lex_allow_bt=1 \
+  -v lex_lead='^[ \t]+' \
+  -v lex_tabmsg='行内制表符（字段边界污染）' \
+  -v lex_noargmsg='非指令行（无参数）' \
+  -v lex_dollarsuffix='' \
+  -v q="'" "$RULES_LEXER_AWK$gad_dispatch_awk" "$rules" > "$dat" || die "适配差异数据表不合预期（fail-closed，不产生部分结论）: $rules"
 
 # ---- 段账本计数与平台序（数据表首次出现序＝宿主文档序）----
 sec_rows() {

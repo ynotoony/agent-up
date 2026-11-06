@@ -17,7 +17,7 @@ hs_build_fixture() {
   # （check-stale-claims 自票 284 起依赖同目录唯一 JSON 引擎，夹具须一并落位 json-validator.py）
   rm -rf "$1"
   mkdir -p "$1/repo/facts/project" "$1/repo/rules/implementation/scripts"
-  cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$SCRIPT_DIR/json-validator.py" "$1/repo/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-line.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$SCRIPT_DIR/json-validator.py" "$1/repo/rules/implementation/scripts/"
 }
 
 hs_run() {

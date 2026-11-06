@@ -16,8 +16,7 @@
 # Pos: 合并站独立脚本（票 93；车道＝全道，lane-commit.sh 同款脚本化收尾解耦）：
 #      ff 失败自动降级 --no-ff，仍冲突则 git merge --abort 清现场（审计要点二，禁悬挂
 #      merge-in-progress）；成功路径无条件强制清场（站内残渣视为可弃）；主仓不干净即拒绝；
-#      下一行是票 93 历史注记。
-#      本脚本——由调用方 chain 翻转前查 index 现值（审计要点三，票 93 四要点分工）；
+#      本脚本由调用方 chain 翻转前查 index 现值（审计要点三，票 93 四要点分工）；
 #      票 237 起合并前置证据门：只认 ticket-audit --operation merge conformant，未提交/
 #      diff 失配/unknown 一律拒绝（缺证据即 decision-required，不采信自报 PASS）；
 #      审计目标＝票分支绑定 worktree（主检出 HEAD 是 main，证据在票分支 HEAD 上）。
