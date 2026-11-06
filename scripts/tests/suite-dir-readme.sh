@@ -1684,5 +1684,22 @@ EOF
     bad '正例 --help 登记 --freshness／--blocks-only 与缺失行文案' "stdout=$(grep -F -- '--freshness' "$D/fresh.out" | head -n 1)"
   fi
 
+  # B9 截断输出不得报成功：stdout 管道被下游关闭（BrokenPipe）→ exit 3 且无 traceback。
+  python3 - "$G" "$B/repo" <<'PY'
+import os, subprocess, sys
+r, w = os.pipe()
+os.close(r)
+p = subprocess.run(["sh", sys.argv[1], "--target", sys.argv[2], "--brief", "docs"],
+                   stdout=w, stderr=subprocess.PIPE)
+os.close(w)
+sys.exit(0 if (p.returncode == 3 and b"Traceback" not in p.stderr) else 1)
+PY
+  dr_pipe_rc=$?
+  if [ "$dr_pipe_rc" -eq 0 ]; then
+    ok '负例 --brief stdout 被下游关闭 → exit 3（截断不报成功）且无 traceback'
+  else
+    bad '负例 --brief stdout 被下游关闭 → exit 3（截断不报成功）且无 traceback' '见 python 断言'
+  fi
+
   suite_summary 'dir-readme'
 }

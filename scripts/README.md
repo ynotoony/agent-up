@@ -698,6 +698,8 @@ sh scripts/generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] [--rules
 
 ### 输出与退出码
 
+退出码：0 成功；1 仅 `--freshness` 生成块漂移（本脚本唯一产生 exit 1 的路径）；2 用法／环境／校验异常（fail-closed，不产生部分结论）；3 stdout 管道被下游提前关闭（BrokenPipe，输出可能被截断，不报成功）。
+
 - `--check` 全部通过：exit 0，零输出（`--blocks-only` 时无生成块的 README 不参与）。
 - 不合规或异常形态：exit 2，逐条输出 `path:line: 原因`（不聚合）；含无文件、无四段标记可判、规则文件缺失或损坏、目标路径不存在。
 - `--freshness`：干净 exit 0 且零输出；漂移 exit 1，逐条 `path:line: 缺失行／多余行: <原文>` 与末行 `SUMMARY: 生成块漂移 N 件（缺失 X 行／多余 Y 行）`；块未闭合／重复起始／`dir` 值不符 exit 2。全程零写入，不调用 `--sync` 写路径。
@@ -705,7 +707,7 @@ sh scripts/generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] [--rules
 - `--init`：成功输出 `INIT: <rel>/README.md`。
 - `--migrate-dry-run`：默认 stdout 仅摘要机器行（`SUMMARY:`／`ZERO-WRITE:`／`NEEDS-CONFIRM:`，≤15 行），集合为空时零输出；`--diff` 连用改为逐件统一 diff（`--- a/<path>`／`+++ b/<path>`）与 `MIGRATE:`／`DROP:`／`NOTE:`／`SUMMARY:` 行。合规件跳过；形态异常时 stderr 全量 `path:line: 原因`、stdout 空、exit 2；全程零写入。
 - `--brief`：stdout 为四节固定标题的素材包，首行 `BRIEF: \`<rel>\`（只读素材包，零写入）`；判断证据给出 `id`／`path`／`kind`／`authority`／`read_when` 原文（目录外指针原样保留）；artifacts 降级时第二行 `DEGRADED: <原因>；本次仅输出目录清单与生成约定`，exit 0。目标目录不存在、缺 `--brief` 取值、与其它模式或 `--dir` 同用 → exit 2 且零输出；全程零写入。
-- exit 1 保留（当前不产生）。
+- `--freshness` 漂移是唯一 exit 1 路径（见上）；其余模式不产生 exit 1；stdout 被下游关闭（BrokenPipe）时 exit 3、stderr 不产生 traceback。
 
 ### 维护联动
 

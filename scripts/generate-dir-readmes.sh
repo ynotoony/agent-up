@@ -31,6 +31,8 @@
 #         原文照录（目录外指针保留）。artifacts.yaml 缺失或不可
 #         解析时降级为「目录清单＋生成约定」，输出一行 DEGRADED 原因并 exit 0，不静默。
 #         --brief 与 --check／--sync／--init／--migrate-dry-run 互斥，不接受 --dir。
+#         退出码：0 成功；1 仅 --freshness 生成块漂移；2 用法／环境／校验异常（fail-closed，
+#         不产生部分结论）；3 stdout 管道被下游提前关闭（BrokenPipe，输出可能被截断）。
 # Pos: 目录 README 结构校验、生成块同步、骨架生成与旧格式迁移预演器（Python 3 标准库
 #      实现，壳层只做解释器定位与转调）；契约与四段式骨架见
 #      references/templates/dir-README.md.tmpl，范围见同目录 dir-readme.rules；两件与
@@ -140,6 +142,8 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
      生成块未闭合或重复起始、dir 值不符、--init 目标已存在、--init／--sync --dir
      路径含空白、模式互斥冲突），fail-closed，逐条输出 `path:line: 原因`，写入模式
      零写入；迁移预演另对无 H1、表头残缺、不可读同上 exit 2 且不产生部分结论。
+  3  stdout 管道被下游提前关闭（BrokenPipe）：输出可能被截断，按失败退出且不写
+     traceback（下游提前退出时不得报成功）。
 """
 
 
@@ -193,31 +197,19 @@ def parse_args(argv):
             i += 1
             continue
         if arg == "--init":
-            if i + 1 >= len(argv):
-                die("%s 缺参数值" % arg)
-            value = argv[i + 1]
-            if value == "" or value.startswith("--"):
-                die("%s 缺参数值" % arg)
+            value = require_value(argv, i, arg)
             explicit.append("init")
             init_dir = value
             i += 2
             continue
         if arg == "--brief":
-            if i + 1 >= len(argv):
-                die("%s 缺参数值（须给目标根相对目录）" % arg)
-            value = argv[i + 1]
-            if value == "" or value.startswith("--"):
-                die("%s 缺参数值（须给目标根相对目录）" % arg)
+            value = require_value(argv, i, arg, "（须给目标根相对目录）")
             explicit.append("brief")
             brief_dir = value
             i += 2
             continue
         if arg in ("--target", "--dir", "--rules"):
-            if i + 1 >= len(argv):
-                die("%s 缺参数值" % arg)
-            value = argv[i + 1]
-            if value == "" or value.startswith("--"):
-                die("%s 缺参数值" % arg)
+            value = require_value(argv, i, arg)
             if arg == "--target":
                 target = value
             elif arg == "--dir":
@@ -1308,8 +1300,8 @@ def check_file(target, relpath):
         elif header_line + 1 >= len(body) or not is_separator(body[header_line + 1]):
             add(min(header_line + 2, len(body)), "子目录表头缺少分隔行 | --- | --- | --- |")
 
-    if len(lines) > 25:
-        add(26, "总行数 %d 超过上限 25" % len(lines))
+    if len(lines) > MIGRATE_LIMIT:
+        add(26, "总行数 %d 超过上限 %d" % (len(lines), MIGRATE_LIMIT))
 
     body_fences = fenced_mask(body)
     for i, line in enumerate(body, 1):
@@ -1576,39 +1568,70 @@ def render_brief_evidence(rel, entries):
     return lines
 
 
-def render_brief_state(target, rel):
+def readme_state(target, rel):
+    """结构化 README 现状（不解析人类消息）：exists/readable/line_count/no_h1/
+    missing_sections/placeholder_lines。"""
     readme_rel = join_rel(rel, "README.md")
     path = os.path.join(target, readme_rel)
-    lines = ["## BRIEF 现状"]
+    state = {"exists": False, "readable": False, "line_count": 0,
+             "no_h1": False, "missing_sections": [], "placeholder_lines": []}
     if not os.path.isfile(path):
-        lines.append("- README.md：不存在（可经 --init 起骨架，再按生成约定填写判断段）")
-        lines.append("- CHECK: 无文件可校验")
-        return lines
+        return state
+    state["exists"] = True
     try:
         with open(path, "rb") as fh:
             data = fh.read()
+        text = data.decode("utf-8", "replace")
     except OSError:
+        return state
+    state["readable"] = True
+    lines = text.splitlines()
+    state["line_count"] = len(lines)
+    body = strip_comments(lines)
+    h1 = None
+    for i, line in enumerate(body, 1):
+        if H1_RE.match(line):
+            h1 = i
+            break
+    if h1 is None:
+        state["no_h1"] = True
+        return state
+    names = set()
+    for i in range(h1, len(body)):
+        match = H2_RE.match(body[i])
+        if match:
+            names.add(match.group(1).strip())
+    state["missing_sections"] = [n for n in ("权威", "读取禁忌", "子目录") if n not in names]
+    fences = fenced_mask(body)
+    for i, line in enumerate(body, 1):
+        if fences[i - 1]:
+            continue
+        if PLACEHOLDER_MARK in strip_inline_code(line):
+            state["placeholder_lines"].append(i)
+    return state
+
+
+def render_brief_state(target, rel):
+    readme_rel = join_rel(rel, "README.md")
+    state = readme_state(target, rel)
+    lines = ["## BRIEF 现状"]
+    if not state["exists"]:
+        lines.append("- README.md：不存在（可经 --init 起骨架，再按生成约定填写判断段）")
+        lines.append("- CHECK: 无文件可校验")
+        return lines, state
+    if not state["readable"]:
         lines.append("- README.md：存在但不可读")
         lines.append("- CHECK: 不可读")
-        return lines
-    lines.append("- README.md：存在（%d 行）" % len(data.splitlines()))
+        return lines, state
+    lines.append("- README.md：存在（%d 行）" % state["line_count"])
     problems = check_file(target, readme_rel)
-    missing = []
-    placeholders = []
-    no_h1 = False
-    for _, line_no, reason in problems:
-        if reason.startswith("缺少一级标题"):
-            no_h1 = True
-        elif reason.startswith("缺少段："):
-            missing.append(reason.split("缺少段：", 1)[1])
-        elif reason.startswith("判断位未填"):
-            placeholders.append(line_no)
-    if no_h1:
+    if state["no_h1"]:
         lines.append("- 四段：无法判定（缺一级标题）")
-    elif missing:
-        lines.append("- 四段：缺 %s" % "、".join(missing))
+    elif state["missing_sections"]:
+        lines.append("- 四段：缺 %s" % "、".join("## " + n for n in state["missing_sections"]))
     else:
         lines.append("- 四段：齐全")
+    placeholders = state["placeholder_lines"]
     lines.append(
         "- 占位：%s"
         % ("无" if not placeholders else "、".join("第 %d 行" % n for n in sorted(set(placeholders))))
@@ -1619,14 +1642,14 @@ def render_brief_state(target, rel):
         lines.append("- CHECK: 不合规（%d 条）" % len(problems))
         for problem_path, line_no, reason in problems:
             lines.append("- CHECK 详情：%s:%d: %s" % (problem_path, line_no, reason))
-    return lines
+    return lines, state
 
 
 def render_brief_conventions():
     return [
         "## BRIEF 生成约定",
         "- 结构：三行工作登记注释（Input／Output／Pos）＋一级标题＋一句话职责＋## 权威＋"
-        "## 读取禁忌＋## 子目录；总行数 ≤ 25。",
+        "## 读取禁忌＋## 子目录；总行数 ≤ %d。" % MIGRATE_LIMIT,
         "- 头注：保留 Input／Output／Pos 三行，只把【填写：…】替换为事实，不删行。",
         "- 职责句：H1 后一句话，写本目录承载什么、服务谁；判断必须能追到本目录内文件或"
         "上方 artifacts 条目。",
@@ -1661,10 +1684,21 @@ def run_brief(target, brief_arg):
     else:
         lines.extend(render_brief_listing(target, rel))
         lines.extend(render_brief_evidence(rel, entries))
-        lines.extend(render_brief_state(target, rel))
+        state_lines, _state = render_brief_state(target, rel)
+        lines.extend(state_lines)
         lines.extend(render_brief_conventions())
     sys.stdout.write("\n".join(lines) + "\n")
     return 0
+
+
+def require_value(argv, i, arg, hint=""):
+    """取选项值：缺值（越界／空串／下一参数为选项）即 die，统一缺参数值检查。"""
+    if i + 1 >= len(argv):
+        die("%s 缺参数值%s" % (arg, hint))
+    value = argv[i + 1]
+    if value == "" or value.startswith("--"):
+        die("%s 缺参数值%s" % (arg, hint))
+    return value
 
 
 def main(argv):
@@ -1711,7 +1745,8 @@ try:
     _code = main(sys.argv[1:])
     sys.stdout.flush()
 except BrokenPipeError:
-    # 下游提前关闭管道（如 `| head -5`）时静默退出，不把 traceback 写到 stderr。
-    os._exit(0)
+    # 下游提前关闭管道（如 `| head -5`）：stdout 已被截断，不得报成功。exit 3
+    # 明确表示「输出可能不完整」，且不把 traceback 写到 stderr。
+    os._exit(3)
 sys.exit(_code)
 PY

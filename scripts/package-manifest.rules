@@ -310,6 +310,10 @@ pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden
 #      main-only 件归 delivery.rules dp_mainonly 管辖不入本节。
 
 # -- mirror：包侧源 → 仓侧生成物（检查 13 逐件核对） --
+# generate-dir-readmes.sh 新册 mirror：ticket-ops 收口门禁直接调用仓侧同名件（README
+# 结构 --check 与生成块 --freshness 两检），包侧演化须经 generate-mirrors 同步仓侧，
+# 手改仓侧副本即被检查 13 指名（漂移闭环；仓侧副本为生成物，维护责任在包侧源）。
+pm_mirror generate-dir-readmes.sh mirror
 pm_mirror generate-progress.sh mirror
 pm_mirror ticket-ops.sh mirror
 pm_mirror absorption-trigger.sh mirror
