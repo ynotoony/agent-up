@@ -684,6 +684,86 @@ PYTHON
     bad '正例 P-144 symlink 在场语境合法相对路径 micro 全链 → exit 0 两段提交＋微账本落行（票 144 零回归）' "exit=$rc $(tail -n 3 "$D/bm-p.out" | tr '\n' '|')"
   fi
 
+  # ---- 票 282：微道白名单条目计数按换行条目（含空格路径不被误拒）----
+  # 正例：3 条目其中一条含空格——按词计数会数成 4 词误拒；按换行条目计数应放行。
+  lc_build_fixture "$D/sp"
+  printf 'b\n' > "$D/sp/b.txt"
+  printf 'c\n' > "$D/sp/c d.txt"
+  lc_git_commit "$D/sp"
+  sp_n0=$(git -C "$D/sp" rev-list --count HEAD)
+  printf 'change-sp-a\n' >> "$D/sp/a.txt"
+  printf 'change-sp-b\n' >> "$D/sp/b.txt"
+  # 空格路径条目保持未改动：本票回归点是「条目计数不按词数误拒」（旧 wc -w 会数成 4 而拒）；
+  # 若空格路径本身进入改动集，git status 的引号行会被 check-gates 拒（独立限制，见 README 专节）。
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: a.txt,b.txt,c d.txt\n'
+    printf 'message: fixture micro space path\n'
+    printf 'verify: true\n'
+  } > "$D/sp.contract"
+  sh "$LC" "$D/sp" "$D/sp.contract" >"$D/sp.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(git -C "$D/sp" rev-list --count HEAD)" -eq "$((sp_n0 + 2))" ]; then
+    ok '正例 P-282 微道 3 条目含空格路径（条目未改动）→ exit 0 两段式收口（条目按换行计，不按词计数，票 282）'
+  else
+    bad '正例 P-282 微道 3 条目含空格路径（条目未改动）→ exit 0 两段式收口（条目按换行计，不按词计数，票 282）' "exit=$rc $(tail -n 2 "$D/sp.out" | tr '\n' '|')"
+  fi
+
+  # 负例：4 条目（含一条空格路径）→ 条目数 4 > 3 拒收，报文指名条目数且不落任何提交。
+  lc_build_fixture "$D/sp4"
+  printf 'b\n' > "$D/sp4/b.txt"
+  printf 'c\n' > "$D/sp4/c d.txt"
+  printf 'd\n' > "$D/sp4/e.txt"
+  lc_git_commit "$D/sp4"
+  sp4_n0=$(git -C "$D/sp4" rev-list --count HEAD)
+  printf 'chg-a\n' >> "$D/sp4/a.txt"
+  printf 'chg-b\n' >> "$D/sp4/b.txt"
+  printf 'chg-c\n' >> "$D/sp4/c d.txt"
+  printf 'chg-e\n' >> "$D/sp4/e.txt"
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: a.txt,b.txt,c d.txt,e.txt\n'
+    printf 'message: fixture micro four entries\n'
+    printf 'verify: true\n'
+  } > "$D/sp4.contract"
+  sh "$LC" "$D/sp4" "$D/sp4.contract" >"$D/sp4.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '白名单条目 4 个' "$D/sp4.out" \
+    && [ "$(git -C "$D/sp4" rev-list --count HEAD)" -eq "$sp4_n0" ]; then
+    ok '负例 N-282 微道 4 条目（含空格路径）→ exit 1 指名条目数且零提交（条数按换行计，仍 fail-closed）'
+  else
+    bad '负例 N-282 微道 4 条目（含空格路径）→ exit 1 指名条目数且零提交（条数按换行计，仍 fail-closed）' "exit=$rc $(tail -n 2 "$D/sp4.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 282 F1：通用 flip（非索引文件）落盘值必须等于合同 value ----
+  # 回归钉死「f_rest 被误清空 → 替换值恒空」的静默数据清空：锚点行须原样被 value 取代。
+  lc_build_fixture "$D/gf"
+  mkdir -p "$D/gf/facts/notes"
+  printf 'OLD-MARK\nother\n' > "$D/gf/facts/notes/n.md"
+  lc_git_commit "$D/gf"
+  printf 'change-gf\n' >> "$D/gf/a.txt"
+  gf_n0=$(git -C "$D/gf" rev-list --count HEAD)
+  {
+    printf 'lane: micro\n'
+    printf 'whitelist: a.txt,facts/notes/n.md\n'
+    printf 'message: fixture generic flip value\n'
+    printf 'verify: true\n'
+    printf 'flips: facts/notes/n.md:OLD-MARK:NEW-MARK\n'
+  } > "$D/gf.contract"
+  sh "$LC" "$D/gf" "$D/gf.contract" >"$D/gf.out" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && [ "$(git -C "$D/gf" rev-list --count HEAD)" -eq "$((gf_n0 + 2))" ] \
+    && [ "$(sed -n '1p' "$D/gf/facts/notes/n.md")" = 'NEW-MARK' ] \
+    && ! grep -q 'OLD-MARK' "$D/gf/facts/notes/n.md" \
+    && [ "$(git -C "$D/gf" show HEAD:facts/notes/n.md | sed -n '1p')" = 'NEW-MARK' ] \
+    && [ "$(git -C "$D/gf" show HEAD~1:facts/notes/n.md | sed -n '1p')" = 'OLD-MARK' ]; then
+    ok '正例 P-282-F1 通用 flip 落盘值＝合同 value（工作树与记录提交为 NEW-MARK，产品提交仍为 OLD-MARK：翻转属记录面后置写）'
+  else
+    bad '正例 P-282-F1 通用 flip 落盘值＝合同 value（工作树与记录提交为 NEW-MARK，产品提交仍为 OLD-MARK：翻转属记录面后置写）' \
+      "exit=$rc 行1=[$(sed -n '1p' "$D/gf/facts/notes/n.md" 2>/dev/null)] 提交=$(git -C "$D/gf" rev-list --count HEAD 2>/dev/null)/$((gf_n0 + 2)) $(tail -n 2 "$D/gf.out" | tr '\n' '|')"
+  fi
+
   # ---- 票 108 断言：user-review 道 .json 票体全链 ----
   # 正例 P-json：.json 票 user-review 全链收口（索引翻转 done＋README 票表生成块随索引派生＋
   # checkpoint 落独立 facts/requirements/tickets/33-lc-ticket-review-checkpoint.md＋正文

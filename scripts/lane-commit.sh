@@ -4,6 +4,8 @@
 #         verdict_at / flips），或记录提交入口形式 `--record-commit <repo-root>
 #         <message> <记录路径>...`（票 247）。
 # Output: 门禁核对、白名单产品提交、记录写入（票 229 记录写职责外移，本件零记录写入面：
+#         白名单条目按换行计数、路径可含空格；共享小原语（换行集合 lc_nlset_*／flips 字段
+#         lc_flip_field／代理定位 lc_locate）为同文件唯一实现（票 282 去重）；
 #         user-review 道经同目录优先/PATH 回退定位 checkpoint-write.sh review-checkpoint
 #         追加 User Review Checkpoint——.md 票追加票尾，.json 票体零追加、落独立
 #         facts/requirements/tickets/<id>-review-checkpoint.md（票 108）；micro 道经唯一
@@ -69,6 +71,59 @@ NL='
 '
 TAB=$(printf '\t')
 
+# ---- 共享小原语（换行集合与 TAB 字段；票 282 去重：原各写点内联 case/截取副本收敛到这里）----
+# 换行集合表示＝「元素+换行」顺序拼接（元素内不含换行；查重按整元素匹配，不按子串）。
+# lc_nlset_put: 去重追加并打印新集合；lc_nlset_contains: 成员判定（0＝在场）。
+lc_nlset_put() {
+  # 结果经 lc_nlset_result 回传（不用命令替换：$( ) 会剥掉尾换行，破坏集合表示）
+  _lnp_set=$1
+  _lnp_val=$2
+  case "${NL}${_lnp_set}" in
+    *"${NL}${_lnp_val}${NL}"*) lc_nlset_result=${_lnp_set}; return 0 ;;
+  esac
+  lc_nlset_result="${_lnp_set}${_lnp_val}${NL}"
+}
+lc_nlset_contains() {
+  case "${NL}$1" in
+    *"${NL}$2${NL}"*) return 0 ;;
+  esac
+  return 1
+}
+# 统一 TAB 记录（flips 规范化行）第 N 段解析：与合同解析阶段同源（TAB 分隔、末段无尾 TAB）。
+lc_flip_field() {
+  _lff_rest=$1
+  _lff_n=$2
+  _lff_i=1
+  while [ "${_lff_i}" -lt "${_lff_n}" ]; do
+    _lff_rest=${_lff_rest#*"${TAB}"}
+    _lff_i=$((_lff_i + 1))
+  done
+  printf '%s' "${_lff_rest%%"${TAB}"*}"
+}
+# 代理定位（同目录优先、PATH 回退；落位脚本不要求可执行位，恒经 sh 调用，
+# 故手动迭代 PATH 而不用 command -v）。命中打印路径，缺失 return 1。
+lc_locate() {
+  _llt_name=$1
+  if [ -f "${script_dir}/${_llt_name}" ] && [ -r "${script_dir}/${_llt_name}" ]; then
+    printf '%s\n' "${script_dir}/${_llt_name}"
+    return 0
+  fi
+  _llt_rest=${PATH:-}
+  while [ -n "${_llt_rest}" ]; do
+    _llt_dir=${_llt_rest%%:*}
+    case ${_llt_rest} in
+      *:*) _llt_rest=${_llt_rest#*:} ;;
+      *) _llt_rest='' ;;
+    esac
+    [ -n "${_llt_dir}" ] || continue
+    if [ -f "${_llt_dir}/${_llt_name}" ] && [ -r "${_llt_dir}/${_llt_name}" ]; then
+      printf '%s\n' "${_llt_dir}/${_llt_name}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # 用途: 打印用法、合同行格式、翻转语义与退出码说明（本脚本的唯一人读规格入口）。
 # 参数: 无。
 # 副作用: 仅写 stdout（调用方按场景重定向到 stderr）；无文件读写、不改全局状态。
@@ -89,7 +144,8 @@ usage() {
                                                        落独立 facts/requirements/tickets/<id>-review-
                                                        checkpoint.md（<id>＝票文件去后缀），
                                                        票 108；写入经 checkpoint-write.sh）
-                   whitelist: <逗号分隔相对路径>      （必填，单项或逗号多项）
+                   whitelist: <逗号分隔相对路径>      （必填，单项或逗号多项；条目按换行计、
+                                                       路径可含空格；micro 道上限 3 条目）
                    message: <产品提交说明>            （必填）
                    verify: <验证命令>                 （一行一条，可多行；普通快道至少一条）
                    record-only: <纯记录理由>          （仅纯记录例外；须同时带唯一 verify: N/A）
@@ -144,8 +200,14 @@ usage() {
   失败语义: 任一断言不成立即 exit 1、零提交、不改写任何历史行；前缀违规报首个违规行号
   （待提交版行号）。失败不自动回滚暂存内容（不改写他人提交）。
   注: commit-tree 不运行 Git 提交钩子，update-ref 不写 HEAD reflog。
-退出码: 0 全部完成；1 门禁不过或合同 fail-closed 条件（停止时未产生任何写入或提交）；
-        2 用法或环境错误。
+退出码: 0 全部完成；1 门禁不过或合同 fail-closed 条件（合同格式/车道组合/白名单条目数或越界/
+        写入代理缺失/索引排版或锚点/正文 Status 行/翻转锚点/暂存越界/记录提交门断言失败；
+        停止时未产生任何写入或提交；记录写入阶段之后的停止保留已创建的产品提交并输出指路）；
+        2 用法或环境错误（参数数量、仓库根非 Git、合同文件不可读、同目录 check-gates.sh 缺失等）。
+环境与测试钩子: RECORD_COMMIT_TEST_MARKER（私有索引快照后写标记文件）、
+        RECORD_COMMIT_TEST_HOLD_MS（标记后延迟毫秒，未设或 0＝零开销）、
+        RECORD_LOCK_TEST_HOLD_MS／RECORD_LOCK_BREAK_STALE／TICKET_OPS_LOCK_TIMEOUT／
+        TICKET_OPS_LOCK_STALE（记录层写锁，语义见 common-helpers.sh）。
 USAGE
 }
 
@@ -245,11 +307,7 @@ record_commit_run() {
       die1 "记录提交拒绝：记录路径在工作树不存在: ${_rcr_p}（删除与缺失不属于记录提交，零提交）"
     lc_in_repo "${_rcr_root}" "${_rcr_p}" '记录提交路径' || \
       die1 "记录提交路径边界校验未通过: ${_rcr_p}（须为仓库根内普通相对文件）"
-    _rcr_needle="${NL}${_rcr_p}${NL}"
-    case "${NL}${_rcr_paths}" in
-      *"${_rcr_needle}"*) : ;;
-      *) _rcr_paths="${_rcr_paths}${_rcr_p}${NL}" ;;
-    esac
+    lc_nlset_put "${_rcr_paths}" "${_rcr_p}"; _rcr_paths=${lc_nlset_result}
   done
 
   # 持锁（票 246 原语）：独立调用自取锁并负责释放；RECORD_LOCK_INHERITED=1 时按父进程
@@ -369,7 +427,7 @@ EOF_PATHS
   while IFS= read -r _rcr_p; do
     [ -n "${_rcr_p}" ] || continue
     if GIT_INDEX_FILE="${_rcr_index}" git -C "${_rcr_root}" diff --cached --quiet -- "${_rcr_p}"; then
-      _rcr_unchanged="${_rcr_unchanged}${_rcr_p}${NL}"
+      lc_nlset_put "${_rcr_unchanged}" "${_rcr_p}"; _rcr_unchanged=${lc_nlset_result}
     else
       _rcr_changed=1
     fi
@@ -410,11 +468,8 @@ EOF_PATHS
   [ -n "${_rcr_files}" ] || die1 '记录提交拒绝：待提交树与 HEAD 无差异（零提交）'
   while IFS= read -r _rcr_f; do
     [ -n "${_rcr_f}" ] || continue
-    _rcr_fneedle="${NL}${_rcr_f}${NL}"
-    case "${NL}${_rcr_paths}" in
-      *"${_rcr_fneedle}"*) : ;;
-      *) die1 "记录提交拒绝：待提交树含记录面外文件（记录提交与产品提交混提）: ${_rcr_f}——零提交；先提交或撤销该暂存后重跑" ;;
-    esac
+    lc_nlset_contains "${_rcr_paths}" "${_rcr_f}" || \
+      die1 "记录提交拒绝：待提交树含记录面外文件（记录提交与产品提交混提）: ${_rcr_f}——零提交；先提交或撤销该暂存后重跑"
   done <<EOF_FILES
 ${_rcr_files}
 EOF_FILES
@@ -496,14 +551,14 @@ EOF_PATHS
 #       写锁（票 247：独立记录提交失败路径不遗留锁；继承锁归父进程，不在此释放）。
 # 参数: 无（读取全局 tmp_gate / tmp_flip / tmp_rc_index / lock_owned）。
 # 副作用: 删除临时文件（rm -f 幂等，缺文件不报错）；lock_owned=1 时按令牌归属释放锁。
-#         注：tmp_flip 分支先清空变量再调 rm，实际只删得掉 tmp_gate；这是既有实现形态，
-#         本票仅文档化不改逻辑。（tmp_idx 随索引单写移交 ticket-ops flip-index 代理而撤除，票 228。）
+#         （tmp_idx 随索引单写移交 ticket-ops flip-index 代理而撤除，票 228；tmp_flip 先 rm
+#         再置空，失败路径的翻转临时件不再遗留。）
 #         记录提交私有索引（tmp_rc_index）在失败路径可能仍在场，一并清除；提交成功路径
 #         已先 rm 并置空，此处 rm -f 幂等。
 # 返回码: 恒 0（末条 if 不成立时 test 的假值不影响陷阱退出码语义）。
 cleanup() {
   if [ -n "${tmp_gate}" ]; then rm -f "${tmp_gate}"; fi
-  if [ -n "${tmp_flip}" ]; then tmp_flip=''; rm -f "${tmp_flip}"; fi
+  if [ -n "${tmp_flip}" ]; then rm -f "${tmp_flip}"; tmp_flip=''; fi
   if [ -n "${tmp_rc_index}" ]; then rm -f "${tmp_rc_index}"; tmp_rc_index=''; fi
   if [ "${lock_owned}" -eq 1 ]; then record_lock_release; lock_owned=0; fi
 }
@@ -787,9 +842,8 @@ for wpath in ${whitelist}; do
 done
 
 for flip in ${flips}; do
-  f_file=${flip%%"${TAB}"*}
-  f_rest=${flip#*"${TAB}"}
-  f_field=${f_rest%%"${TAB}"*}
+  f_file=$(lc_flip_field "${flip}" 1)
+  f_field=$(lc_flip_field "${flip}" 2)
   if [ "${f_file}" = "${FACTS_TICKETS_INDEX}" ] && [ "${f_field}" != 'index' ]; then
     die1 "通用 flips 不得直写索引文件: ${f_file}（index.json 唯一写入方＝ticket-ops.sh；索引翻转须用专用 index 段）"
   fi
@@ -807,13 +861,13 @@ for flip in ${flips}; do
 done
 
 # ---- 微道预检（票 58：微道只修不建不删；user-review 道不受此限，行为零变化）----
-# 两断言：①白名单条目 ≤3（超出属非微任务，改走 user-review 道开票收尾）；
+# 两断言：①白名单条目 ≤3（条目按换行计、路径可含空格；超出属非微任务，改走 user-review 道开票收尾）；
 # ②git status 改动集零新建（??）零删除（D）——微任务道准入即机械可验小改，新增/删除
 # 文件超出口径；stop 时零写入零提交（本段先于翻转预检与门禁，任何 die1 均安全）。
 
 if [ "${lane}" = 'micro' ]; then
-  n_wl=$(printf '%s' "${whitelist}" | wc -w | tr -d ' ')
-  [ "${n_wl}" -le 3 ] || die1 "微道白名单条目 ${n_wl} 个（须 ≤3，票 58）——超出属非微任务，改走 user-review 道开票收尾"
+  n_wl=$(printf '%s' "${whitelist}" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+  [ "${n_wl}" -le 3 ] || die1 "微道白名单条目 ${n_wl} 个（须 ≤3，票 58；按换行条目计数，路径可含空格）——超出属非微任务，改走 user-review 道开票收尾"
   st_out=$(git -C "${repo_root}" status --porcelain)
   while IFS= read -r stline; do
     [ -n "${stline}" ] || continue
@@ -830,20 +884,15 @@ n_flip=0
 record_files=''
 for flip in ${flips}; do
   n_flip=$((n_flip + 1))
-  f_file=${flip%%"${TAB}"*}
-  f_rest=${flip#*"${TAB}"}
-  f_field=${f_rest%%"${TAB}"*}
+  f_file=$(lc_flip_field "${flip}" 1)
+  f_field=$(lc_flip_field "${flip}" 2)
   [ -f "${repo_root}/${f_file}" ] || {
     if [ "${f_field}" = 'index' ]; then
       die1 "索引文件缺失: ${f_file}（票状态真相源，单写不可执行）——先由对应阶段执行体建立索引（issue-index.schema），或改走非快道收尾"
     fi
     die1 "翻转目标文件不存在: ${f_file}"
   }
-  fneedle="${NL}${f_file}${NL}"
-  case "${NL}${record_files}" in
-    *"${fneedle}"*) : ;;
-    *) record_files="${record_files}${f_file}${NL}" ;;
-  esac
+  lc_nlset_put "${record_files}" "${f_file}"; record_files=${lc_nlset_result}
 done
 
 # ---- 翻转锚点与索引/生成器预检（只扫描不写入；任何不合规在写入前停止） ----
@@ -925,55 +974,20 @@ index_precheck() {
 # command -v 对不可执行文件不报告。
 to_cmd=''
 if [ "${n_index_flip}" -gt 0 ]; then
-  if [ -f "${script_dir}/ticket-ops.sh" ] && [ -r "${script_dir}/ticket-ops.sh" ]; then
-    to_cmd="${script_dir}/ticket-ops.sh"
-    printf 'lane-commit: 票务代理定位: 同目录 %s\n' "${to_cmd}"
+  if to_cmd=$(lc_locate ticket-ops.sh); then
+    case ${to_cmd} in
+      "${script_dir}/"*) printf 'lane-commit: 票务代理定位: 同目录 %s\n' "${to_cmd}" ;;
+      *) printf 'lane-commit: 票务代理定位: PATH %s\n' "${to_cmd}" ;;
+    esac
   else
-    _rest=${PATH:-}
-    while [ -n "${_rest}" ]; do
-      _dir=${_rest%%:*}
-      case ${_rest} in
-        *:*) _rest=${_rest#*:} ;;
-        *) _rest='' ;;
-      esac
-      [ -n "${_dir}" ] || continue
-      if [ -f "${_dir}/ticket-ops.sh" ] && [ -r "${_dir}/ticket-ops.sh" ]; then
-        to_cmd="${_dir}/ticket-ops.sh"
-        break
-      fi
-    done
-    if [ -n "${to_cmd}" ]; then
-      printf 'lane-commit: 票务代理定位: PATH %s\n' "${to_cmd}"
-    else
-      die1 "票务代理 ticket-ops.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：index.json 唯一写入方＝ticket-ops.sh（票 228 F1/F2 写入方收敛，索引单写→投影再生→--check 收尾链全仓仅其一处），将 ticket-ops.sh 落位到本脚本同目录（${RULES_SCRIPTS_DIR}/）或 PATH 后重跑"
-    fi
+    die1 "票务代理 ticket-ops.sh 不可用（同目录与 PATH 均未找到）——收尾预检停止：index.json 唯一写入方＝ticket-ops.sh（票 228 F1/F2 写入方收敛，索引单写→投影再生→--check 收尾链全仓仅其一处），将 ticket-ops.sh 落位到本脚本同目录（${RULES_SCRIPTS_DIR}/）或 PATH 后重跑"
   fi
 fi
 
 # ---- 记录写入代理定位（票 229：checkpoint-write.sh／ledger-append.sh）----
 # 用途: 同目录优先、PATH 回退定位记录写入方（口径同票务代理定位：落位脚本不要求可执行位，
 #       恒经 sh 调用；PATH 回退手动迭代）。命中打印路径，缺失返回 1。
-lc_locate() {
-  _llt_name=$1
-  if [ -f "${script_dir}/${_llt_name}" ] && [ -r "${script_dir}/${_llt_name}" ]; then
-    printf '%s\n' "${script_dir}/${_llt_name}"
-    return 0
-  fi
-  _llt_rest=${PATH:-}
-  while [ -n "${_llt_rest}" ]; do
-    _llt_dir=${_llt_rest%%:*}
-    case ${_llt_rest} in
-      *:*) _llt_rest=${_llt_rest#*:} ;;
-      *) _llt_rest='' ;;
-    esac
-    [ -n "${_llt_dir}" ] || continue
-    if [ -f "${_llt_dir}/${_llt_name}" ] && [ -r "${_llt_dir}/${_llt_name}" ]; then
-      printf '%s\n' "${_llt_dir}/${_llt_name}"
-      return 0
-    fi
-  done
-  return 1
-}
+# （lc_locate 定义见脚本上方共享小原语区；票 282 去重后此处不再重复实现。）
 
 # 预检先于产品提交：任一记录写入方缺失即收尾停止（停止时零提交零写入）。
 cw_cmd=''
@@ -988,12 +1002,12 @@ if [ "${lane}" = 'micro' ]; then
 fi
 
 for flip in ${flips}; do
-  f_field=$(printf '%s' "${flip}" | cut -f 2)
-  f_file=${flip%%"${TAB}"*}
+  f_field=$(lc_flip_field "${flip}" 2)
+  f_file=$(lc_flip_field "${flip}" 1)
   if [ "${f_field}" = 'index' ]; then
-    f_id=$(printf '%s' "${flip}" | cut -f 3)
-    f_status=$(printf '%s' "${flip}" | cut -f 4)
-    f_updated=$(printf '%s' "${flip}" | cut -f 5)
+    f_id=$(lc_flip_field "${flip}" 3)
+    f_status=$(lc_flip_field "${flip}" 4)
+    f_updated=$(lc_flip_field "${flip}" 5)
     printf '%s' "${f_id}" | grep -Eq '^[0-9]{2,}-[a-z0-9-]+$' || \
       die1 "索引条目 id 不合 issue-index schema 口径（^[0-9]{2,}-[a-z0-9-]+\$）: ${f_id}"
     printf '%s' "${f_status}" | grep -Eq '^(ready|in_progress|blocked|review_ready|review_pass|review_fail|done|superseded)$' || \
@@ -1010,8 +1024,7 @@ for flip in ${flips}; do
   elif [ "${f_field}" = 'status' ]; then
     die1 "flips 行 field=status 已退役：票状态经索引条目翻转承载（flips: ${FACTS_TICKETS_INDEX}:index:<id>:<status>:<updated_at>，票 37）"
   else
-    f_rest=${flip#*"${TAB}"}
-    f_val=${f_rest#*"${TAB}"}
+    f_val=$(lc_flip_field "${flip}" 3)
     flip_run "${f_file}" /dev/null line "${f_field}" "${f_val}" || \
       die1 "翻转锚点预校验未通过: ${f_file}（${f_field}）"
   fi
@@ -1049,11 +1062,8 @@ done
 staged=$(git -c core.quotePath=false -C "${repo_root}" diff --cached --name-only)
 [ -n "${staged}" ] || die1 '白名单内无实际改动，无提交可创建'
 for spath in ${staged}; do
-  sneedle="${NL}${spath}${NL}"
-  case "${NL}${whitelist}" in
-    *"${sneedle}"*) : ;;
-    *) die1 "防御性核对失败：暂存内容越出白名单: ${spath}" ;;
-  esac
+  lc_nlset_contains "${whitelist}" "${spath}" || \
+    die1 "防御性核对失败：暂存内容越出白名单: ${spath}"
 done
 
 git -C "${repo_root}" commit -m "${message}" || die1 '产品提交创建失败'
@@ -1066,12 +1076,12 @@ diffsum1=$(git -C "${repo_root}" diff-tree --root --no-commit-id --name-status -
 date_today=$(date +%F)
 
 for flip in ${flips}; do
-  f_field=$(printf '%s' "${flip}" | cut -f 2)
-  f_file=${flip%%"${TAB}"*}
+  f_field=$(lc_flip_field "${flip}" 2)
+  f_file=$(lc_flip_field "${flip}" 1)
   if [ "${f_field}" = 'index' ]; then
-    f_id=$(printf '%s' "${flip}" | cut -f 3)
-    f_status=$(printf '%s' "${flip}" | cut -f 4)
-    f_updated=$(printf '%s' "${flip}" | cut -f 5)
+    f_id=$(lc_flip_field "${flip}" 3)
+    f_status=$(lc_flip_field "${flip}" 4)
+    f_updated=$(lc_flip_field "${flip}" 5)
     # 索引单写经 ticket-ops flip-index 代理（票 228 F1/F2 写入方收敛）：索引锚点整行替换
     # ＋投影再生＋--check 收尾链由代理一处承载；目标状态 done 时代理另在取锁与写入前
     # 跑目录 README 结构 --check／生成块 --freshness（票 266），失败即同等收尾停止——
@@ -1096,21 +1106,12 @@ for flip in ${flips}; do
       printf 'lane-commit: 正文 Status 回写（投影打印件）: %s → **Status:** `%s`\n' "${ticket}" "${f_status}"
     fi
     proj_file=${FACTS_TICKETS_PROGRESS}
-    fneedle="${NL}${proj_file}${NL}"
-    case "${NL}${record_files}" in
-      *"${fneedle}"*) : ;;
-      *) record_files="${record_files}${proj_file}${NL}" ;;
-    esac
+    lc_nlset_put "${record_files}" "${proj_file}"; record_files=${lc_nlset_result}
     # 票 277：票表生成块随索引翻转由生成器重算，作为记录面一并收编（不改写其内容文本）
     readme_file=${FACTS_TICKETS_README}
-    rneedle="${NL}${readme_file}${NL}"
-    case "${NL}${record_files}" in
-      *"${rneedle}"*) : ;;
-      *) record_files="${record_files}${readme_file}${NL}" ;;
-    esac
+    lc_nlset_put "${record_files}" "${readme_file}"; record_files=${lc_nlset_result}
   else
-    f_rest=${flip#*"${TAB}"}
-    f_val=${f_rest#*"${TAB}"}
+    f_val=$(lc_flip_field "${flip}" 3)
     tmp_flip=$(mktemp "${t_dir%/}/lane-flip.XXXXXX")
     flip_run "${f_file}" "${tmp_flip}" line "${f_field}" "${f_val}" || {
       rm -f "${tmp_flip}"

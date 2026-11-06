@@ -477,8 +477,13 @@ lane-commit: PASS（两段式完成：门禁 PASS、索引单写 N 处、翻转 
 ### 微账本与维护联动
 
 - 记录写入面（职责拆分后）：user-review 道 User Review Checkpoint 由 `checkpoint-write.sh` 独占写，微账本 `facts/project/micro.jsonl`（替代竖线格式 `micro.md`；无存量迁移负担）由 `ledger-append.sh --micro` 独占写——本脚本只做代理定位与记录提交面登记，零直接 checkpoint/账本写入。微账本懒创建（空文件起步，JSONL 不承载注释行），一行一操作，agent 不手写、其他流程不得代写。JSON 行字段与键序固定：`date`（`YYYY-MM-DD`）、`lane`（`micro`）、`whitelist`（逗号分隔白名单，JSON 转义 `"` 与 `\`）、`gates`（`PASS`）、`verify`（重跑验证命令条数）、`commit`（产品提交 ID）、`actual`（净工时文本——微道提交合同 `actual:` 行承载，JSON 转义同 whitelist，缺省空串；既有六键行向后兼容，合同不带 `actual:` 行即落空串）；每行均可被 `json.loads` 解析，禁裸换行。
+- 白名单条目按换行计数（逗号分隔输入解析为逐条目，路径可含空格；旧实现按 wc -w 词数计数，含空格路径会被误拒，已修正）。micro 道条目上限 3 亦按条目数计。空格路径若本身进入改动集，check-gates 现状拒绝 git status 的引号行（check-gates 为另一脚本，限制登记为其专节/另票，不在本文件修复面）。
 - 白名单与 flips 目标均须为仓库根相对文件路径；索引条目翻转锚点依赖 `facts/requirements/tickets/index.json` 一条目一行排版与条目行内 `"status"`/`"updated_at"` 字段同行（排版破坏即预检停止），排版口径见 `../references/schemas/issue-index.schema.json`；正文 Status 回写锚点依赖票面 `**Status:**` 行格式（`.json` 票体不承载 Status 行，无此锚点依赖），格式变化须同步脚本锚点语义与本 README。
 - 生成器 `generate-progress.sh` 与本脚本同目录落位（生成项目随道脚本由 SKILL 步骤 5 一并复制到 `rules/implementation/scripts/`；旧布局 `scripts/` 兼容副本保留、不自动迁移）；仅 PATH 回退形态运行时，投影再生依赖 PATH 上的同名脚本（再生调用点仍在 ticket-ops flip-index 代理内）。索引、票务代理或记录写入代理缺失的停止属 fail-closed（对齐 development-process R-DP-031 兜底），不存在"缺失就跳过继续"路径。
+- 退出码与环境/测试钩子以脚本 usage 文本为准（0 完成；1 门禁或合同 fail-closed；2 用法/环境错误；RECORD_COMMIT_TEST_MARKER／RECORD_COMMIT_TEST_HOLD_MS 与记录层锁变量见 usage 与 common-helpers.sh）。
+- 共享小原语去重：换行集合追加/成员判定经 lc_nlset_put／lc_nlset_contains（结果变量回传，避免命令替换剥尾换行）、flips 规范化行字段经 lc_flip_field 统一 TAB 解析、代理定位复用 lc_locate；新增同类写点须复用这些原语，不再内联 case/截取副本。
+- 包侧为唯一手写源，仓侧镜像件由 generate-mirrors.sh 生成（不得手改）；本专节与接线变化须同步包侧脚本、usage 与本 README。
+- 通用 flips（`flips: <facts 文件>:<锚点>:<替换行>`）的落盘值＝合同第三段原文（行翻转整行替换），且翻转属记录面后置写：产品提交保留翻转前内容、记录提交承载替换后内容；该值不得为空串（回归 P-282-F1 钉死静默清空）。
 - 本脚本用法、合同行格式或退出码变化须同步脚本 usage 文本与本 README 专节；门禁清单格式口径以 check-gates.sh 专节为准。
 
 ## checkpoint-write.sh（User Review Checkpoint 写入方）
