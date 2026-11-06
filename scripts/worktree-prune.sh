@@ -82,40 +82,44 @@ ticket_done() {
 
 wt_rows="$tmpdir/rows"
 git -C "$repo_root" worktree list --porcelain | LC_ALL=C awk '
-  $1 == "worktree" { if (p != "") print p "	" b "	" d; p = $2; b = ""; d = 0; next }
+  $1 == "worktree" { if (p != "") print p "	" (b == "" ? "-" : b) "	" d; p = $2; b = ""; d = 0; next }
   $1 == "branch" { b = $2 }
   $1 == "detached" { d = 1 }
-  END { if (p != "") print p "	" b "	" d }
+  END { if (p != "") print p "	" (b == "" ? "-" : b) "	" d }
 ' > "$wt_rows"
 
 total=0
 while IFS="$(printf '	')" read -r wt_path wt_branch wt_detached; do
   [ -n "$wt_path" ] || continue
+  case $wt_branch in '-') wt_branch='' ;; esac
+  wt_branch_field=$wt_branch
+  [ -n "$wt_branch_field" ] || wt_branch_field='-'
+  [ -n "$wt_detached" ] || wt_detached=0
   [ "$wt_path" = "$main_wt" ] && continue
   total=$((total + 1))
   if [ ! -d "$wt_path" ]; then
     printf '%s	%s	0	missing
-' "$wt_path" "$wt_branch" >> "$keep_list"
+' "$wt_path" "$wt_branch_field" >> "$keep_list"
     continue
   fi
   wt_kb=$(du -sk "$wt_path" 2>/dev/null | awk '{ print $1 + 0 }')
   [ -n "$wt_kb" ] || wt_kb=0
   if [ "$wt_detached" -eq 1 ] || [ -z "$wt_branch" ]; then
     printf '%s	%s	%s	detached
-' "$wt_path" "" "$wt_kb" >> "$keep_list"
+' "$wt_path" "$wt_branch_field" "$wt_kb" >> "$keep_list"
     continue
   fi
   if [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
     printf '%s	%s	%s	dirty
-' "$wt_path" "$wt_branch" "$wt_kb" >> "$skip_list"
+' "$wt_path" "$wt_branch_field" "$wt_kb" >> "$skip_list"
     continue
   fi
   if git -C "$repo_root" merge-base --is-ancestor "$wt_branch" main >/dev/null 2>&1     || ticket_done "$wt_branch"; then
     printf '%s	%s	%s	merged
-' "$wt_path" "$wt_branch" "$wt_kb" >> "$prune_list"
+' "$wt_path" "$wt_branch_field" "$wt_kb" >> "$prune_list"
   else
     printf '%s	%s	%s	unmerged
-' "$wt_path" "$wt_branch" "$wt_kb" >> "$keep_list"
+' "$wt_path" "$wt_branch_field" "$wt_kb" >> "$keep_list"
   fi
 done < "$wt_rows"
 
@@ -127,6 +131,7 @@ list_kb() { LC_ALL=C awk -F'	' 'NF { n += $3 } END { print n + 0 }' "$1"; }
 print_list() {
   while IFS="$(printf '	')" read -r _p _b _k _why; do
     [ -n "$_p" ] || continue
+    [ "$_b" = '-' ] && _b=''
     if [ -n "$_b" ]; then
       printf '  - %s（分支 %s，约 %s）
 ' "$_p" "$_b" "$(fmt_size "$_k")"
@@ -185,6 +190,7 @@ apply_one() {
   _a_b=$2
   _a_k=$3
   # worktree list 的 branch 为完整 ref；git branch -d/-D 只接受短名
+  [ "$_a_b" = '-' ] && _a_b=''
   _a_b=$(printf '%s' "$_a_b" | sed 's|^refs/heads/||')
   if ! git -C "$repo_root" worktree remove --force "$_a_p" >/dev/null 2>&1; then
     printf '%s: 错误：worktree 强制移除失败: %s

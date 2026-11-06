@@ -464,5 +464,58 @@ FAKE_NPM
     bad '负例 U2 目标根不存在 → exit 2 指名' "exit=$rc $(tail -n 2 "$D/u2.out" | tr '\n' '|')"
   fi
 
+  # ---- 票 285：worktree-prune 空字段整数比较缺陷回归（detached／无分支行不得字段错位）----
+  pr_fixture() {
+    _pr=$1
+    rm -rf "$_pr"
+    mkdir -p "$_pr"
+    git_repo "$_pr"
+    git -C "$_pr" config user.email fixture@t
+    git -C "$_pr" config user.name fixture
+    printf 'seed\n' > "$_pr/a.txt"
+    git -C "$_pr" add -A
+    git -C "$_pr" -c commit.gpgsign=false commit -qm seed
+    # 已并入 main 的分支 worktree（应判「可清」）
+    git -C "$_pr" worktree add -q -b feature/merged "${_pr}-merged" HEAD
+    # 未合并的分支 worktree（应判「保留 unmerged」）
+    git -C "$_pr" worktree add -q -b feature/unmerged "${_pr}-unmerged" HEAD
+    printf 'ahead\n' > "${_pr}-unmerged/ahead.txt"
+    git -C "${_pr}-unmerged" add -A
+    git -C "${_pr}-unmerged" -c user.email=f@t -c user.name=f commit -qm ahead
+    # 有未提交改动的分支 worktree（应判「跳过 dirty」）
+    git -C "$_pr" worktree add -q -b feature/dirty "${_pr}-dirty" HEAD
+    printf 'dirty\n' > "${_pr}-dirty/dirty.txt"
+    # detached worktree（无绑定分支，应判「保留 detached」——修复前字段折叠致误判）
+    git -C "$_pr" worktree add -q --detach "${_pr}-detached" HEAD
+  }
+  pr_fixture "$D/pr1"
+  PR="$SCRIPT_DIR/worktree-prune.sh"
+  sh "$PR" --repo-root "$D/pr1" > "$D/pr1.out" 2> "$D/pr1.err"
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && [ ! -s "$D/pr1.err" ] \
+    && ! grep -q 'integer expression expected' "$D/pr1.err" \
+    && grep -q '可清 1 个' "$D/pr1.out" \
+    && grep -q '跳过 1 个' "$D/pr1.out" \
+    && grep -q '保留 2 个' "$D/pr1.out" \
+    && grep -q '可清' "$D/pr1.out" \
+    && grep -q 'feature/merged' "$D/pr1.out" \
+    && grep -q 'feature/unmerged' "$D/pr1.out" \
+    && grep -q 'feature/dirty' "$D/pr1.out" \
+    && grep -q '无绑定分支' "$D/pr1.out"; then
+    ok '票285 P-pr1 空字段整数比较缺陷消失：detached 判保留、未合并且保留、dirty 跳过、merged 可清且 stderr 零报错'
+  else
+    bad '票285 P-pr1 空字段整数比较缺陷消失：detached 判保留、未合并且保留、dirty 跳过、merged 可清且 stderr 零报错' "exit=$rc err=$(head -1 "$D/pr1.err" 2>/dev/null) $(grep -E '可清|跳过|保留' "$D/pr1.out" | tr '\n' '|')"
+  fi
+  # 判定结果不变对照：dry-run 缺省零删除（四个 worktree 与四条分支原样在场）
+  if [ -d "$D/pr1-merged" ] && [ -d "$D/pr1-unmerged" ] && [ -d "$D/pr1-dirty" ] && [ -d "$D/pr1-detached" ] \
+    && git -C "$D/pr1" rev-parse --verify -q refs/heads/feature/merged >/dev/null 2>&1 \
+    && git -C "$D/pr1" rev-parse --verify -q refs/heads/feature/unmerged >/dev/null 2>&1; then
+    ok '票285 P-pr2 dry-run 缺省零删除（四 worktree 与分支原样，判定不改写现场）'
+  else
+    bad '票285 P-pr2 dry-run 缺省零删除（四 worktree 与分支原样，判定不改写现场）' '存在被删除的 worktree 或分支'
+  fi
+
   suite_summary 'worktree'
+
 }

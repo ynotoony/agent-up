@@ -117,6 +117,47 @@ PY
   fi
 }
 
+sm_make_flip_fixture() {
+  # $1=主仓根 $2=worktree 根：在证据/合并夹具之上补**记录层**（索引一条目一行＋票本体
+  # actual_time＋账本种子＋审计策略＋投影），使 --flip 的 ticket-ops flip 可全链落地；
+  # 分支基于含记录层的 main tip 创建，保证首次合并为快进。
+  R=$1
+  WT=$2
+  rm -rf "$R" "$WT"
+  mkdir -p "$R/facts/requirements/tickets" "$R/facts/project"
+  git_repo "$R"
+  cat > "$R/facts/requirements/tickets/${SM_ID}.json" <<'EOF'
+{
+  "id": "41-merge-fixture",
+  "kind": "task",
+  "title": "merge fixture",
+  "created_at": "2026-10-01",
+  "actual_time": "1h（fixture 净工时占位）"
+}
+EOF
+  printf '{\n  "issues": [\n    {"id": "%s", "status": "review_pass", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-01T00:00"}\n  ]\n}\n' \
+    "${SM_ID}" > "$R/facts/requirements/tickets/index.json"
+  printf '# 票据索引\n\n占位。\n' > "$R/facts/requirements/tickets/README.md"
+  printf '%s\n' '{"date":"2026-10-01","kind":"change","scope":"41","decision":"fixture seed","evidence_ref":"facts/requirements/tickets/41-merge-fixture.json"}' \
+    > "$R/facts/project/changes.jsonl"
+  printf 'seed\n' > "$R/a.txt"
+  sm_commit "$R" impl@example.com '2026-10-01T00:00:00Z' 'ticket seed'
+  _smf_base=$(git -C "$R" rev-parse HEAD)
+  printf '{"schema_version":1,"policy_id":"merge-flip-fixture","effective_from":"2026-10-01","baseline_sha":"%s","release_baseline":"none","trusted_reviewers":["reviewer@example.com"],"implementation_identities":["impl@example.com"]}\n' \
+    "${_smf_base}" > "$R/${SM_POLICY_REL}"
+  sm_commit "$R" impl@example.com '2026-10-01T00:00:00Z' 'audit policy'
+  # 投影再生（生成器缺省同目录定位；夹具无票表生成块时只生成投影，--check-readme SKIP 放行）
+  sh "$SCRIPT_DIR/generate-progress.sh" "$R" >/dev/null 2>&1 || true
+  sm_commit "$R" impl@example.com '2026-10-01T00:00:00Z' 'record projection'
+  _smf_base2=$(git -C "$R" rev-parse HEAD)
+  git -C "$R" worktree add -q -b "${SM_BRANCH}" "$WT" "${_smf_base2}"
+  printf 'product\n' >> "$WT/a.txt"
+  sm_commit "$WT" impl@example.com '2026-10-02T00:00:00Z' 'product change'
+  _smf_head=$(git -C "$WT" rev-parse HEAD)
+  sm_write_evidence "$WT" "${_smf_base2}" "${_smf_head}"
+  sm_commit "$WT" reviewer@example.com '2026-10-03T00:00:00Z' 'review evidence'
+}
+
 sm_run() {
   # $1=主仓根 $2=输出文件；其余参数原样传给被测脚本
   _sm_repo=$1
@@ -370,6 +411,135 @@ PY
     fi
   else
     printf 'SKIP  [merge] install.sh 不在场（worktree 栅栏）——安装闭包真跑覆盖归主检出\n'
+  fi
+
+
+  # ---- 票 285：--flip 合并+收尾原子化 / 合并锁 / 自动 rebase ----
+
+  # P1f：--flip → 合并成功后同一把锁内翻转 done（索引/账本/投影），随后清场
+  sm_make_flip_fixture "$D/f1" "$D/f1-wt"
+  f1_tip=$(git -C "$D/f1-wt" rev-parse HEAD)
+  sm_run "$D/f1" "$D/f1.out" --flip "$SM_BRANCH" "$SM_ID"
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '合并锁: 已取得记录层写锁' "$D/f1.out" \
+    && grep -q 'merge-ticket: 翻转: 票据 41-merge-fixture → done' "$D/f1.out" \
+    && grep -q "merge-ticket: PASS（模式 fast-forward，提交 ${f1_tip}，已翻转 done" "$D/f1.out" \
+    && [ "$(git -C "$D/f1" rev-parse HEAD)" = "${f1_tip}" ] \
+    && grep -q '"status": "done"' "$D/f1/facts/requirements/tickets/index.json" \
+    && grep -q '"decision":"merge-ticket --flip：票 41-merge-fixture 合并收口（done）"' "$D/f1/facts/project/changes.jsonl" \
+    && grep -q '| 41-merge-fixture | done |' "$D/f1/facts/requirements/tickets/progress-current.md" \
+    && [ ! -d "$D/f1-wt" ] \
+    && ! git -C "$D/f1" rev-parse --verify -q "refs/heads/${SM_BRANCH}" >/dev/null 2>&1; then
+    ok '票285 P1f --flip → 合并后同锁内翻转 done（索引/账本/投影）并清场'
+  else
+    bad '票285 P1f --flip → 合并后同锁内翻转 done（索引/账本/投影）并清场' "exit=$rc $(tail -n 3 "$D/f1.out" | tr '\n' '|')"
+  fi
+
+  # N1f：--flip 翻转失败（分支在证据后提交破坏目录 README 结构的记录面改动，合并审计
+  # 允许 README 变更→合并成功；收尾目录 README 两检失败）→ 如实报告、exit 1、不清场
+  sm_make_flip_fixture "$D/f2" "$D/f2-wt"
+  printf '# 票据索引\n\n<!-- dir-readme: generated dir=facts/requirements/tickets -->\n| 子目录 |\n| --- |\n<!-- /dir-readme -->\n' \
+    > "$D/f2-wt/facts/requirements/tickets/README.md"
+  sm_commit "$D/f2-wt" impl@example.com '2026-10-04T00:00:00Z' 'break dir readme'
+  f2_tip=$(git -C "$D/f2-wt" rev-parse HEAD)
+  sm_run "$D/f2" "$D/f2.out" --flip "$SM_BRANCH" "$SM_ID"
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q 'merge-ticket: 合并成功' "$D/f2.out" \
+    && grep -q "合并已成功（提交 ${f2_tip}），但收尾翻转失败" "$D/f2.out" \
+    && [ "$(git -C "$D/f2" rev-parse HEAD)" = "${f2_tip}" ] \
+    && [ -d "$D/f2-wt" ] \
+    && git -C "$D/f2" rev-parse --verify -q "refs/heads/${SM_BRANCH}" >/dev/null 2>&1 \
+    && ! grep -q '"status": "done"' "$D/f2/facts/requirements/tickets/index.json"; then
+    ok '票285 N1f --flip 翻转失败 → 合并结果如实报告、exit 1 且不清场（索引未翻 done）'
+  else
+    bad '票285 N1f --flip 翻转失败 → 合并结果如实报告、exit 1 且不清场（索引未翻 done）' "exit=$rc $(tail -n 3 "$D/f2.out" | tr '\n' '|')"
+  fi
+
+  # N2f：合并锁 fail-closed——持锁期间合并不得开始（有界等待超时 exit 1「并发冲突」）
+  sm_make_fixture "$D/l1" "$D/l1-wt" committed
+  l1_head=$(git -C "$D/l1" rev-parse HEAD)
+  cat > "$D/hold-lock.sh" <<'HOLD'
+#!/bin/sh
+set -eu
+. "$1/common-helpers.sh"
+record_lock_init "$2"
+record_lock_acquire
+sleep 3
+record_lock_release
+HOLD
+  sh "$D/hold-lock.sh" "$SCRIPT_DIR" "$D/l1" >/dev/null 2>&1 &
+  l1_pid=$!
+  sleep 0.4
+  TICKET_OPS_LOCK_TIMEOUT=1 sh "$SM" "$D/l1" "$SM_BRANCH" "$SM_ID" > "$D/l1.out" 2>&1
+  rc=$?
+  wait "$l1_pid"
+  if [ "$rc" -eq 1 ] && grep -q '并发冲突' "$D/l1.out" \
+    && [ "$(git -C "$D/l1" rev-parse HEAD)" = "$l1_head" ] \
+    && git -C "$D/l1" rev-parse --verify -q "refs/heads/${SM_BRANCH}" >/dev/null 2>&1; then
+    ok '票285 N2f 合并锁被占 → exit 1「并发冲突」零合并（分支保留）'
+  else
+    bad '票285 N2f 合并锁被占 → exit 1「并发冲突」零合并（分支保留）' "exit=$rc $(tail -n 2 "$D/l1.out" | tr '\n' '|')"
+  fi
+
+  # P2f：合并前自动 rebase——main 在分支期间前进（记录面允许集提交）→ rebase 后快进
+  sm_make_fixture "$D/r1" "$D/r1-wt" committed
+  mkdir -p "$D/r1/facts/project"
+  printf '%s\n' '{"date":"2026-10-05","kind":"change","scope":"x","decision":"main advance","evidence_ref":"x"}' >> "$D/r1/facts/project/changes.jsonl"
+  sm_commit "$D/r1" impl@example.com '2026-10-05T00:00:00Z' 'main advance record commit'
+  r1_maintip=$(git -C "$D/r1" rev-parse HEAD)
+  sm_run "$D/r1" "$D/r1.out" "$SM_BRANCH" "$SM_ID"
+  rc=$?
+  if [ "$rc" -eq 0 ] \
+    && grep -q '合并前 rebase: 票分支尚未包含最新 main' "$D/r1.out" \
+    && grep -q 'rebase 完成:' "$D/r1.out" \
+    && grep -q '模式: fast-forward' "$D/r1.out" \
+    && git -C "$D/r1" merge-base --is-ancestor "${r1_maintip}" HEAD \
+    && git -C "$D/r1" cat-file -e 'HEAD:a.txt' 2>/dev/null \
+    && [ ! -d "$D/r1-wt" ]; then
+    ok '票285 P2f main 已前进 → 合并前自动 rebase 到最新 main 后快进成功并清场'
+  else
+    bad '票285 P2f main 已前进 → 合并前自动 rebase 到最新 main 后快进成功并清场' "exit=$rc $(tail -n 3 "$D/r1.out" | tr '\n' '|')"
+  fi
+
+
+  # P3f：--flip × main 已前进（触发 rebase）→ 自动重绑审查证据后合并、翻转、清场全链
+  sm_make_flip_fixture "$D/f3" "$D/f3-wt"
+  f3_ev_wt="$D/f3-wt/facts/requirements/tickets/${SM_ID}.review-evidence.json"
+  f3_old_head=$(python3 "$SCRIPT_DIR/json-validator.py" json get "$f3_ev_wt" head_sha 2>/dev/null) || f3_old_head=''
+  mkdir -p "$D/f3/facts/project"
+  printf '%s\n' '{"date":"2026-10-05","kind":"change","scope":"x","decision":"main advance","evidence_ref":"x"}' >> "$D/f3/facts/project/changes.jsonl"
+  sm_commit "$D/f3" impl@example.com '2026-10-05T00:00:00Z' 'main advance record commit'
+  f3_maintip=$(git -C "$D/f3" rev-parse HEAD)
+  sm_run "$D/f3" "$D/f3.out" --flip "$SM_BRANCH" "$SM_ID"
+  rc=$?
+  f3_ev_main="$D/f3/facts/requirements/tickets/${SM_ID}.review-evidence.json"
+  f3_new_base=$(python3 "$SCRIPT_DIR/json-validator.py" json get "$f3_ev_main" base_sha 2>/dev/null) || f3_new_base=''
+  f3_new_head=$(python3 "$SCRIPT_DIR/json-validator.py" json get "$f3_ev_main" head_sha 2>/dev/null) || f3_new_head=''
+  f3_new_diff=$(python3 "$SCRIPT_DIR/json-validator.py" json get "$f3_ev_main" diff_sha 2>/dev/null) || f3_new_diff=''
+  f3_diff_expect=$(git -C "$D/f3" diff --binary "$f3_maintip" "$f3_new_head" 2>/dev/null | git -C "$D/f3" hash-object --stdin 2>/dev/null) || f3_diff_expect=''
+  f3_subject=$(git -C "$D/f3" log -1 --format=%s HEAD 2>/dev/null) || f3_subject=''
+  f3_email=$(git -C "$D/f3" log -1 --format=%ae HEAD 2>/dev/null) || f3_email=''
+  if [ "$rc" -eq 0 ] \
+    && grep -q '合并前 rebase: 票分支尚未包含最新 main' "$D/f3.out" \
+    && grep -q '证据重绑: base ' "$D/f3.out" \
+    && grep -q 'merge-ticket: 翻转: 票据 41-merge-fixture → done' "$D/f3.out" \
+    && grep -q '已翻转 done' "$D/f3.out" \
+    && grep -q '"status": "done"' "$D/f3/facts/requirements/tickets/index.json" \
+    && grep -q '"decision":"merge-ticket --flip：票 41-merge-fixture 合并收口（done）"' "$D/f3/facts/project/changes.jsonl" \
+    && grep -q '| 41-merge-fixture | done |' "$D/f3/facts/requirements/tickets/progress-current.md" \
+    && [ -n "$f3_new_head" ] && [ "$f3_new_head" != "$f3_old_head" ] \
+    && [ "$f3_new_base" = "$f3_maintip" ] \
+    && [ -n "$f3_new_diff" ] && [ "$f3_new_diff" = "$f3_diff_expect" ] \
+    && git -C "$D/f3" merge-base --is-ancestor "$f3_new_head" HEAD \
+    && [ "$f3_subject" = 'chore(records): 审查证据复绑至 rebase 后 HEAD' ] \
+    && [ "$f3_email" = 'reviewer@example.com' ] \
+    && [ ! -d "$D/f3-wt" ] \
+    && ! git -C "$D/f3" rev-parse --verify -q "refs/heads/$SM_BRANCH" >/dev/null 2>&1; then
+    ok '票285 P3f --flip × main 已前进 → rebase 后自动重绑证据（base/head/diff 改写＋reviewer 身份提交）→ 合并翻转 done 并清场'
+  else
+    bad '票285 P3f --flip × main 已前进 → rebase 后自动重绑证据（base/head/diff 改写＋reviewer 身份提交）→ 合并翻转 done 并清场' "exit=$rc old_head=$f3_old_head new_head=$f3_new_head base=$f3_new_base main=$f3_maintip diff_ok=$([ "$f3_new_diff" = "$f3_diff_expect" ] && echo y || echo n) subject=$f3_subject email=$f3_email $(tail -n 2 "$D/f3.out" | tr '\n' '|')"
   fi
 
   suite_summary 'merge'

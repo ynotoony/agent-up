@@ -206,7 +206,7 @@ pm_script scripts/host-config.sh script '宿主无关的宿主用户级配置对
 pm_script scripts/export-payload.sh script '公开载荷导出单命令（delivery.rules 驱动六步：split→树比对→导出树 check-package→ff 断言→push→ls-remote 复核；--dry-run；永不 force；真跑主检出门禁）'
 pm_script scripts/worktree-add.sh script 'worktree 栅栏化创建单命令（delivery.rules main-only 节驱动 sparse-checkout 排除＋主检出自拒＋分支形态断言）'
 pm_script scripts/worktree-deps.sh script 'worktree 依赖准备单命令（符号链接 node_modules 拒绝＋安装前 workspace 清单断言零安装＋非 npm 仓库 skip exit 0＋克隆加速显式开关）'
-pm_script scripts/worktree-prune.sh script '工作树清理独立命令：三判据（非主检出／工作区干净／分支已并入 main 或票 done）分可清/跳过/保留三类并报回收体积；dry-run 缺省零删除，--apply 执行 worktree remove --force＋branch -d（未合并且 --force 用 -D）；不接会话开始与 pre-push、不写账本'
+pm_script scripts/worktree-prune.sh script '工作树清理独立命令：三判据（非主检出／工作区干净／分支已并入 main 或票 done）分可清/跳过/保留三类并报回收体积（worktree 列表空 branch 段稳健解析，detached 行不误判）；dry-run 缺省零删除，--apply 执行 worktree remove --force＋branch -d（未合并且 --force 用 -D）；不接会话开始与 pre-push、不写账本'
 pm_script scripts/upgrade-check.sh script '落地面升级对账器（已治理仓对包新基线逐件三态 cmp：同步/落后/漂移；全程只读 fail-closed；升级流程入口 references/upgrade.md）'
 pm_script scripts/module-map.rules rules '模块地图语言规则表（generate-module-map.sh 数据）'
 pm_script scripts/dir-readme.rules rules '目录 README 四段式契约范围规则表（generate-dir-readmes.sh 数据：include/exclude 行，非执行式解析 fail-closed）'
@@ -225,7 +225,7 @@ pm_script scripts/check-dispatch-contract.sh script '四模式派发合同校验
 pm_script scripts/contract-build.sh script '派发合同渲染器（<stage> <NN>：票 JSON dispatch 节→stdout 派发合同，纯函数零落盘；输出前自调 check-dispatch-contract.sh --check 自校验，不过零输出；安装闭包随 ticket-ops 门控）'
 pm_script scripts/ticket-run.sh script '主 agent 编排入口（可恢复协调器 next/start/contract/record/verify-dispatch：next 只读推导下一步且 decision-required 时 exit 1，恢复提示先核 start 前置、next --clear-intent 为残留 intent 登记清除路径，start 建站＋ticket-ops take 幂等收敛，contract 产出站路径＋合同文件，record 按 receipt.schema.json 字段合同幂等落位收据，verify-dispatch 重渲染比对三类拒绝；intent 操作记录落 Git 公共目录，失败重跑收敛，无法判定返回 decision-required；legacy implementation/review/commit 行为保留，commit 经 Review pass 与 check-gates 后自动两段提交；索引翻转委托 ticket-ops，脚本不 spawn 子 agent）'
 pm_script scripts/ticket-audit.sh script '证据审计引擎（<NN> 票审查收据＋十一谓词 P01～P11 只读审计出 PASS/FAIL/UNKNOWN，操作面窗口 analyze/read 放行未知、merge/push 以 conformant 为门；P04 允许集由调用方逐条 --allow-after 显式传入（缺省仅证据，禁止整体放开 facts 面）；证据位置打印 路径@提交:blob；策略数据 facts/requirements/audit-policy.json，收据 schema 见 references/schemas/receipt.schema.json；全程零写入）'
-pm_script scripts/merge-ticket.sh script '合并站脚本（票分支→main：ff 失败降级 --no-ff，冲突 abort 清现场 exit 3 停等，成功无条件清 worktree/分支；合并前在票分支绑定 worktree 上跑 ticket-audit --operation merge，缺 conformant 证据拒绝合并 decision-required；主仓不干净即拒绝）'
+pm_script scripts/merge-ticket.sh script '合并站脚本（合并与收尾原子化：先取记录层写锁作合并锁——同一把锁、有界等待后并发冲突 exit 1 零合并；合并前 main 已前进则自动 rebase 到最新 main 保证快进（冲突 abort 后 exit 3）；ff 失败降级 --no-ff；成功无条件清 worktree/分支；--flip 合并成功后同锁内调 ticket-ops flip --status done 落账本，翻转失败 exit 1 不清场如实报告；合并前在票分支绑定 worktree 上跑 ticket-audit --operation merge，缺 conformant 证据拒绝合并 decision-required；主仓不干净即拒绝）'
 pm_script scripts/test-checkpoint-recovery.sh test-harness 'Checkpoint 中断续传回归测试（workflow-executor.sh 中断续传机制自检）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====

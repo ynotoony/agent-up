@@ -202,7 +202,9 @@ usage() {
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
 环境变量:
-    TEST_SUITE_TIMEOUT   单套件超时秒数（缺省 300）；超时记 FAIL 行、继续后续套件、整轮 exit 1
+    TEST_SUITE_TIMEOUT   单套件超时秒数（缺省 900；check-package 等重套件实测 400–600s，
+                         缺省 300 会误判超时——超时机制保留，仅放宽默认值可覆盖）；超时记
+                         FAIL 行、继续后续套件、整轮 exit 1
     TEST_ASSERTION_FLOOR 断言数下限；缺省仅 --suite all 生效（1100）；显式设置时对任意车道生效
 退出码: 0 全部断言通过；1 存在失败断言（逐项 FAIL 行见输出）；2 用法或环境错误；130 收到 INT/TERM（清理后退出）
 suite 覆盖场景表与维护规则见同目录 README.md 专节。
@@ -280,9 +282,11 @@ if [ -n "${TEST_ASSERTION_FLOOR:-}" ]; then
   ASSERTION_FLOOR_EXPLICIT=1
 fi
 
-# ---- 单套件超时（票 258 AC1）----
+# ---- 单套件超时（票 258 AC1；票 285 放宽默认值）----
 # macOS 无 timeout(1)：后台 pid＋kill -0 轮询，超时先 TERM 后 KILL；零新依赖。
-SUITE_TIMEOUT=300
+# 缺省 900s：check-package 与其它重套件实测 400–600s，缺省 300 在门禁 4（--suite all）
+# 造成超时误判；只放宽默认值，超时机制与 TEST_SUITE_TIMEOUT 覆盖语义不变。
+SUITE_TIMEOUT=900
 if [ -n "${TEST_SUITE_TIMEOUT:-}" ]; then
   case $TEST_SUITE_TIMEOUT in
     ''|*[!0-9]*)
