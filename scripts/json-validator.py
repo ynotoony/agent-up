@@ -2,22 +2,27 @@
 """JSON engine for agent-up scripts (票 227 F3：脚本层唯一 JSON 引擎).
 
 Entry points:
-- ticket: Validate ticket JSON against schema
-- grade: Grade ticket complexity
+- ticket: Validate ticket JSON against schema (strict parse: duplicate keys and
+  NaN/Infinity/-Infinity literals are invalid input)
+- grade: Grade ticket complexity (the profile .md argument is interface-reserved:
+  all countable criteria come from the ticket body, the file is not read)
 - run: Validate/seal run records and compute stats
-- json: Generic JSON operations (get/type/fields/len/pick/count-key) for the shell
-  script layer — the single JSON engine replacing embedded python heredocs and
-  awk JSON parsing
+- json: Generic JSON operations (get/type/fields/len/pick/count-key/set) for the
+  shell script layer — the single JSON engine replacing embedded python heredocs
+  and awk JSON parsing; set is the record-layer field rewrite serializer
+  (pure function, atomic replace belongs to record-store.sh)
 - workflow: workflow-executor.sh JSON operations (steps/state-machine parsing,
-  preflight, index status, checkpoint sidecar lifecycle, state_to_ticket_status
-  mapping enforcement (票 221), condition vocabulary check/evaluation over
-  structured step results (票 209))
+  map-status/check-status mapping enforcement (票 221), check-conditions/
+  eval-condition condition vocabulary check and evaluation over structured step
+  results (票 209), preflight, checkpoint sidecar lifecycle)
 - ticket-check: ticket-ops.sh gates (close/deps/open-body)
 - contract: dispatch-contract TICKET_ID extraction (worktree-add.sh)
+- help: print usage to stderr; aliases -h/--help (exit 0)
 
 Exit codes:
-  0 = operation completed
-  1 = validation failed or invalid input (3 = path/element miss for json ops)
+  0 = operation completed (含 BrokenPipeError：下游管道提前关闭按完成处理，不报失败)
+  1 = validation failed or invalid input (含 KeyboardInterrupt：Ctrl-C 中断按失败退出)
+      (3 = path/element miss, json ops only)
   2 = usage error, missing dependencies, or non-standard JSON document in json ops
       (NaN/Infinity/-Infinity literals, duplicate keys in one object)
 """
@@ -61,6 +66,22 @@ def _strict_load(fp):
                      object_pairs_hook=_reject_duplicate_keys)
 
 
+def _load_json_file(path, on_error, strict=False):
+    """单一 JSON 文件读取器（票 280：四处 open+load+FAIL 副本收敛于此）。
+
+    读取并解析 path；失败时调用 on_error(exc) 由调用方输出既有合同报文，
+    返回 None（调用方据此 return 1 / sys.exit(1)）。strict=True 时经
+    _strict_load（拒绝 NaN/Infinity/-Infinity 与重复键），缺省保持 json.load
+    既有语义（四处 ticket-check 门的行为不变）。
+    """
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            return _strict_load(handle) if strict else json.load(handle)
+    except (IOError, json.JSONDecodeError) as exc:
+        on_error(exc)
+        return None
+
+
 # ============================================================
 # Ticket validation (extracted from ticket-ops.sh)
 # ============================================================
@@ -75,13 +96,17 @@ def validate_ticket(schema_path, ticket_path, new_ticket=False):
     Returns:
         0 on success, 1 on validation failure
     """
-    try:
-        with open(schema_path, 'r', encoding='utf-8') as f:
-            schema = json.load(f)
-        with open(ticket_path, 'r', encoding='utf-8') as f:
-            body = json.load(f)
-    except (IOError, json.JSONDecodeError) as e:
-        print(f"ticket-validate: FAIL: 无法读取文件: {e}", file=sys.stderr)
+    def _load_fail(exc):
+        print(f"ticket-validate: FAIL: 无法读取文件: {exc}", file=sys.stderr)
+
+    # schema 为受信规则数据件，按 json.load 既有语义读取（其文档面允许重复键：
+    # expect_exit 在 verification oneOf 两分支各出现一次，严格键检会误判 schema 非法）；
+    # 票本体是输入面，改走 _strict_load（拒绝 NaN/Infinity/-Infinity 与重复键）。
+    schema = _load_json_file(schema_path, _load_fail)
+    if schema is None:
+        return 1
+    body = _load_json_file(ticket_path, _load_fail, strict=True)
+    if body is None:
         return 1
 
     errs = []
@@ -362,10 +387,14 @@ def grade_ticket(ticket_path, profile_path):
 
     Args:
         ticket_path: Path to ticket JSON file
-        profile_path: Path to complexity-profile.md
+        profile_path: 接口保留参数（complexity-profile.md 路径）：可数判据全部取自
+            票本体（scope/forbidden/risks/title），当前实现不读取该文件——与
+            ticket-grade.sh 传递面保持接口一致（其脚本头注声明票的七维 profile
+            字段不在可算面）
 
     Returns:
-        Tuple of (ticket_id, alignment_status, suggested_grade)
+        五元组 (ticket_id, alignment_status, suggested_grade, hits, actual)：
+        hits 为各档命中理由字典、actual 为票本体登记的复杂度值
     """
     try:
         with open(ticket_path, 'r', encoding='utf-8') as f:
@@ -426,7 +455,7 @@ def grade_tickets_batch(ticket_paths, profile_path):
 
     Args:
         ticket_paths: List of ticket JSON paths
-        profile_path: Path to complexity-profile.md
+        profile_path: 接口保留参数（同上，仅逐票透传；当前实现不读取）
 
     Returns:
         0 on success
@@ -1194,40 +1223,6 @@ def wf_map_status(raw_state_machine, to_state):
     return 0 if TICKET_STATUS_RE.fullmatch(value) else 1
 
 
-def wf_index_status(index_file, ticket_id, new_status):
-    """Atomically update one ticket's status/updated_at in issues index.json."""
-    # 写票索引值域死守（票 221）：越枚举值零写入 fail-closed；workflow 私有状态
-    # 不经 state_to_ticket_status 映射不得到达本写面。
-    if TICKET_STATUS_RE.fullmatch(new_status) is None:
-        print(f'FAIL: {new_status!r} 不在 issue-index 票状态枚举（Task 流转值）内；拒绝写票索引', file=sys.stderr)
-        return 1
-
-    with open(index_file, 'r') as f:
-        data = json.load(f)
-
-    found = False
-    for issue in data.get('issues', []):
-        if issue.get('id') == ticket_id:
-            issue['status'] = new_status
-            issue['updated_at'] = datetime.utcnow().strftime('%Y-%m-%dT%H:%M')
-            found = True
-            break
-
-    if not found:
-        print(f'FAIL: 票 {ticket_id} 不在索引中', file=sys.stderr)
-        return 1
-
-    index_dir = os.path.dirname(index_file)
-    with tempfile.NamedTemporaryFile('w', dir=index_dir, delete=False, suffix='.json') as tmp_f:
-        json.dump(data, tmp_f, indent=2, ensure_ascii=False)
-        tmp_f.write('\n')
-        tmp_name = tmp_f.name
-
-    os.rename(tmp_name, index_file)
-    print(f'状态已更新: {new_status}')
-    return 0
-
-
 def wf_checkpoint_init(ticket_file):
     """Register the workflow checkpoint sidecar and anchor ticket checkpoint_ref."""
     def atomic_write(path, document):
@@ -1552,11 +1547,9 @@ def wf_record_step(checkpoint_file, ticket_file, checkpoint_field, step_id,
 
 def ticket_check_close(ticket_path, tid):
     """flip-to-done gate: task ticket body must carry a non-empty actual_time."""
-    try:
-        with open(ticket_path, "r", encoding="utf-8") as fh:
-            body = json.load(fh)
-    except (OSError, json.JSONDecodeError) as exc:
-        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——票 100\n")
+    body = _load_json_file(ticket_path, lambda exc: sys.stderr.write(
+        f"ticket-ops: FAIL: 票 {tid} 收口缺 actual_time：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——票 100\n"))
+    if body is None:
         return 1
 
     if not isinstance(body, dict):
@@ -1576,11 +1569,9 @@ def ticket_check_close(ticket_path, tid):
 
 def ticket_check_deps(ticket_path, index_path, tid):
     """take gate: task ticket blocked_by entries must exist in the index and be done."""
-    try:
-        with open(ticket_path, "r", encoding="utf-8") as fh:
-            body = json.load(fh)
-    except (OSError, json.JSONDecodeError) as exc:
-        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——blocked_by 完整性门\n")
+    body = _load_json_file(ticket_path, lambda exc: sys.stderr.write(
+        f"ticket-ops: FAIL: 票 {tid} 领取预检失败：票本体不可读或非合法 JSON: {ticket_path}（{exc}）——blocked_by 完整性门\n"))
+    if body is None:
         return 1
 
     if not isinstance(body, dict):
@@ -1595,11 +1586,9 @@ def ticket_check_deps(ticket_path, index_path, tid):
         sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：task 票本体 blocked_by 须为数组（schema 口径）——blocked_by 完整性门\n")
         return 1
 
-    try:
-        with open(index_path, "r", encoding="utf-8") as fh:
-            index = json.load(fh)
-    except (OSError, json.JSONDecodeError) as exc:
-        sys.stderr.write(f"ticket-ops: FAIL: 票 {tid} 领取预检失败：索引不可读或非合法 JSON: {index_path}（{exc}）——blocked_by 完整性门\n")
+    index = _load_json_file(index_path, lambda exc: sys.stderr.write(
+        f"ticket-ops: FAIL: 票 {tid} 领取预检失败：索引不可读或非合法 JSON: {index_path}（{exc}）——blocked_by 完整性门\n"))
+    if index is None:
         return 1
 
     status_by_id = {}
@@ -1627,11 +1616,9 @@ def ticket_check_deps(ticket_path, index_path, tid):
 
 def ticket_check_open_body(ticket_path, want_id):
     """open gate: body id must match --id; reason fields must be non-empty."""
-    try:
-        with open(ticket_path, "r", encoding="utf-8") as f:
-            body = json.load(f)
-    except (IOError, json.JSONDecodeError) as e:
-        sys.stderr.write(f"ticket-ops: FAIL: 无法读取文件: {e}\n")
+    body = _load_json_file(ticket_path, lambda exc: sys.stderr.write(
+        f"ticket-ops: FAIL: 无法读取文件: {exc}\n"))
+    if body is None:
         return 1
 
     problems = []
@@ -1722,7 +1709,7 @@ def print_usage():
       退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
 
   workflow <steps|state-machine|map-status|check-status|check-conditions|
-            eval-condition|preflight|index-status|checkpoint-init|read-checkpoint|
+            eval-condition|preflight|checkpoint-init|read-checkpoint|
             checkpoint-check|step-check|record-step> [args]
       workflow-executor.sh 专用 JSON 操作（逐行等价迁移自原内嵌 heredoc；map-status/
       check-status 为票 221 映射强制：map-status 退出码 0=映射合法/3=未映射/1=越枚举；
@@ -1840,7 +1827,7 @@ def main():
 
     elif mode == 'workflow':
         if len(sys.argv) < 3:
-            print("用法: python3 json-validator.py workflow <steps|state-machine|map-status|check-status|preflight|index-status|checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]", file=sys.stderr)
+            print("用法: python3 json-validator.py workflow <steps|state-machine|map-status|check-status|preflight|checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]", file=sys.stderr)
             sys.exit(2)
         sub = sys.argv[2]
         try:
@@ -1858,8 +1845,6 @@ def main():
                 sys.exit(wf_eval_condition(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
             elif sub == 'preflight' and len(sys.argv) == 5:
                 sys.exit(wf_preflight(sys.argv[3], sys.argv[4]))
-            elif sub == 'index-status' and len(sys.argv) == 6:
-                sys.exit(wf_index_status(sys.argv[3], sys.argv[4], sys.argv[5]))
             elif sub == 'checkpoint-init' and len(sys.argv) == 4:
                 sys.exit(wf_checkpoint_init(sys.argv[3]))
             elif sub == 'read-checkpoint' and len(sys.argv) == 4:
