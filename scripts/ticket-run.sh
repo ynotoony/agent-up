@@ -105,9 +105,15 @@ usage() {
                               打印登记清除路径。--clear-intent 仅清除已判不可收敛的残留：
                               先打印将被删除的原内容再删日志；残留仍可收敛时拒绝清除并
                               exit 1，指名须重跑的子命令（只删该日志，不碰状态载体）。
-  start                       建站（worktree-add 两参接口）→ 领取（ticket-ops take）。
+  start [--parallel-ok]       建站（worktree-add 两参接口）→ 领取（ticket-ops take）。
                               站已在位且分支为 ticket/<id> 时跳过建站；索引已 in_progress
                               时经 ticket-ops 幂等重放补齐 README/账本/投影。
+                              串行开工闸（票 295）：索引中其他票 status=in_progress 且其站
+                              目录在位时拒绝并指名在途票（零写入）——默认一次只开一张票；
+                              --parallel-ok 显式豁免并打印「并行豁免」记账行。
+                              站基线收敛：站分支为 main 祖先且差异仅 facts/ 记录面时自动
+                              merge --ff-only 至 main 并打印「站基线快进至 main」；差异含
+                              产品文件即 decision-required（不自动改写产品历史）。
                               输出站路径、票状态与下一步。
   contract <stage>            渲染 stage 合同（implementation|review），stdout 恰两行：
                                 ticket-run: 站路径: <绝对 worktree 路径>
@@ -158,6 +164,7 @@ receipt_file=''
 contract_arg=''
 repo_root=''
 clear_intent=0
+parallel_ok=0
 case $cmd in
   next)
     while [ $# -gt 0 ]; do
@@ -172,8 +179,18 @@ case $cmd in
     done
     ;;
   start)
-    [ $# -le 1 ] || { usage >&2; die2 "${cmd} 至多接受 [repo-root]"; }
-    repo_root=${1:-}
+    # 票 295：串行开工闸的显式豁免开关（--parallel-ok）；位置自由，repo-root 至多一个。
+    parallel_ok=0
+    while [ $# -gt 0 ]; do
+      case $1 in
+        --parallel-ok) parallel_ok=1 ;;
+        *)
+          [ -z "$repo_root" ] || { usage >&2; die2 "${cmd} 至多接受 [repo-root]"; }
+          repo_root=$1
+          ;;
+      esac
+      shift
+    done
     ;;
   contract)
     [ $# -ge 1 ] && [ $# -le 2 ] || { usage >&2; die2 'contract 需要 <implementation|review> [repo-root]'; }
@@ -291,6 +308,73 @@ worktree_path_valid() {
 
 worktree_branch() {
   git -C "$worktree" rev-parse --abbrev-ref HEAD 2>/dev/null
+}
+
+# ---- 票 295 成本治理闸：串行开工闸与站基线自动快进 ----
+
+station_path_for() {
+  # $1=票 id（<NN>-<slug>）：打印该票站目录路径（与 worktree 同源派生，不建目录）
+  _sp_id=$1
+  _sp_nn=${_sp_id%%-*}
+  printf '%s/%s-wt/wt%s' "$repo_parent" "$repo_name" "$_sp_nn"
+}
+
+station_is_valid() {
+  # $1=站路径：目录存在、非符号链接且可被 Git 识别为 worktree 即视为在位
+  [ -d "$1" ] && [ ! -L "$1" ] && git -C "$1" rev-parse --git-dir >/dev/null 2>&1
+}
+
+serial_start_gate() {
+  # 串行开工闸（票 295）：索引中除本票外存在 status=in_progress 且站目录在位的票即拒绝，
+  # 指名在途票与站路径；--parallel-ok 显式豁免并在 stdout 打印「并行豁免」记账行。
+  # 只读判定，拒绝路径零写入（不建站、不领取、不落 intent）。
+  _ss_rows=$(python3 "$_engine" json rows "$index_file" issues id status 2>/dev/null) || _ss_rows=''
+  _ss_busy=''
+  _ss_busy_n=0
+  if [ -n "$_ss_rows" ]; then
+    while IFS="$TAB" read -r _ss_id _ss_status; do
+      [ -n "$_ss_id" ] || continue
+      [ "$_ss_status" = 'in_progress' ] || continue
+      [ "$_ss_id" = "$ticket_id" ] && continue
+      _ss_wt=$(station_path_for "$_ss_id")
+      station_is_valid "$_ss_wt" || continue
+      _ss_busy="${_ss_busy}${_ss_busy:+, }${_ss_id}（站 ${_ss_wt}）"
+      _ss_busy_n=$((_ss_busy_n + 1))
+    done <<EOF
+$_ss_rows
+EOF
+  fi
+  if [ "$_ss_busy_n" -eq 0 ]; then
+    return 0
+  fi
+  if [ "$parallel_ok" -eq 1 ]; then
+    printf 'ticket-run: 并行豁免: --parallel-ok 显式放行（在途票站: %s）——本次为显式并行开工，记入输出；未传该开关时默认串行\n' "$_ss_busy"
+    return 0
+  fi
+  die1 "串行开工闸: 检测到其他在途票站: ${_ss_busy}——默认一次只开一张票（一票一会话，避免并行旧基线开工与 rebase 返工）；确需并行请显式传 --parallel-ok（将打印「并行豁免」记账行后放行）"
+}
+
+station_baseline_converge() {
+  # 站基线收敛（票 295）：站分支是 main 祖先且差异仅限 facts/ 记录面（无产品文件）时，
+  # 自动 git -C <station> merge --ff-only <main-tip> 并打印一行记账；差异含产品文件则
+  # fail-closed 报错（decision-required），不改写历史、不自动 rebase。
+  station_is_valid "$worktree" || return 0
+  _bc_main=$(repair_main_ref 2>/dev/null) || return 0
+  _bc_head=$(git -C "$worktree" rev-parse HEAD 2>/dev/null) || return 0
+  [ "$_bc_head" != "$_bc_main" ] || return 0
+  git -C "$repo_root" merge-base --is-ancestor "$_bc_head" "$_bc_main" 2>/dev/null || return 0
+  _bc_diff=$(git -C "$repo_root" diff --name-only "${_bc_head}..${_bc_main}" 2>/dev/null) || return 0
+  [ -n "$_bc_diff" ] || return 0
+  _bc_bad=$(printf '%s\n' "$_bc_diff" | LC_ALL=C grep -v '^facts/' | sed -n '1p')
+  if [ -n "$_bc_bad" ]; then
+    die1 "decision-required: 站基线落后 main 且差异含产品文件（${_bc_bad}）——不自动快进（不改写产品历史），须人工 rebase 后重跑: ${worktree}"
+  fi
+  _bc_main_short=$(printf '%s' "$_bc_main" | cut -c1-12)
+  _bc_head_short=$(printf '%s' "$_bc_head" | cut -c1-12)
+  git -C "$worktree" merge --ff-only "$_bc_main" >/dev/null 2>&1 || \
+    die1 "站基线自动快进失败（差异仅记录面但 ff 未成功）——须人工核对后重跑: ${worktree}（${_bc_head_short} → ${_bc_main_short}）"
+  printf 'ticket-run: 站基线快进至 main（%s → %s，仅记录面 %s 件）\n' \
+    "$_bc_head_short" "$_bc_main_short" "$(printf '%s\n' "$_bc_diff" | grep -c .)"
 }
 
 # intent 操作记录：有副作用动作前先落一行 started，完成后落 done；重跑据此报告未完成
@@ -606,7 +690,11 @@ conveyor_start() {
     *) die1 "decision-required: start 只接受 ready|in_progress，实际 ${_status}" ;;
   esac
 
+  # 串行开工闸（先于任何建站/领取副作用）：其他在途票站存在即拒绝，--parallel-ok 显式豁免。
+  serial_start_gate
   if [ -e "$worktree" ]; then
+    # 站基线收敛：main 只前进记录面时自动 ff（打印记账行）；含产品文件即 fail-closed。
+    station_baseline_converge
     station_guard_existing ''
     worktree_fence_require
     intent_record worktree "done"

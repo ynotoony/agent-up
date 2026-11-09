@@ -120,6 +120,46 @@ tr_carriers_unchanged() {
   done
 }
 
+tr_add_inflight() {
+  # $1=主仓根 $2=其他在途票 id：索引追加 in_progress 条目（一条目一行）＋建其真实站
+  # （git worktree add -b ticket/<id>），供串行开工闸正负例使用。
+  _tai_repo=$1
+  _tai_id=$2
+  _tai_nn=${_tai_id%%-*}
+  python3 - "$_tai_repo" "$_tai_id" <<'PY'
+import json
+import sys
+
+repo, tid = sys.argv[1], sys.argv[2]
+path = repo + '/facts/requirements/tickets/index.json'
+data = json.load(open(path, encoding='utf-8'))
+data['issues'].append({'id': tid, 'status': 'in_progress', 'complexity': 'C1', 'blocked_by': [], 'updated_at': '2026-10-28T11:00'})
+with open(path, 'w', encoding='utf-8') as fh:
+    fh.write('{\n  "issues": [\n')
+    rows = [json.dumps(item, ensure_ascii=False) for item in data['issues']]
+    fh.write(',\n'.join('    ' + row for row in rows))
+    fh.write('\n  ]\n}\n')
+PY
+  _tai_station="$(realpath "$(dirname "$_tai_repo")")/$(basename "$_tai_repo")-wt/wt${_tai_nn}"
+  mkdir -p "$(dirname "$_tai_station")"
+  git -C "$_tai_repo" worktree add -b "ticket/${_tai_id}" "$_tai_station" >/dev/null 2>&1 || return 1
+  printf '%s' "$_tai_station"
+}
+
+tr_index_status_of() {
+  # $1=主仓根 $2=票 id：打印索引中该票 status（无条目输出空）
+  python3 - "$1" "$2" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1] + '/facts/requirements/tickets/index.json', encoding='utf-8'))
+for item in data.get('issues', []):
+    if item.get('id') == sys.argv[2]:
+        print(item.get('status', ''))
+        break
+PY
+}
+
 tr_intent_state() {
   # $1=仓库根 $2=步骤；打印 intent 中该步骤最后一条状态
   awk -F "$(printf '\t')" -v step="$2" '$1 == step { state = $2 } END { print state }' \
@@ -1274,6 +1314,82 @@ PY
     ok 'AC2b ticket-chain 无内嵌索引解析，状态读取经唯一 JSON 引擎'
   else
     bad 'AC2b ticket-chain 无内嵌索引解析，状态读取经唯一 JSON 引擎' '静态边界不符'
+  fi
+
+  # ---- 票 295：串行开工闸（其他在途票站存在时默认拒绝；--parallel-ok 显式豁免）----
+  SG1="$D/sg1"
+  tr_build_fixture "$SG1" ready
+  _sg_other=$(tr_add_inflight "$SG1" 91-other-fixture) || _sg_other=''
+  _sg_station="$(realpath "$D")/sg1-wt/wt90"
+  tr_run_in "$SG1" 90 start > "$D/sg1-neg.out" 2> "$D/sg1-neg.err"
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '串行开工闸' "$D/sg1-neg.err" \
+    && grep -q '91-other-fixture' "$D/sg1-neg.err" \
+    && ! grep -q '并行豁免' "$D/sg1-neg.out" \
+    && [ ! -e "$_sg_station" ] \
+    && [ "$(tr_index_status_of "$SG1" 90-run-fixture)" = 'ready' ] \
+    && [ ! -e "$SG1/.git/ticket-run/90.intent" ]; then
+    ok '串行闸负例：其他在途票站存在 → start 拒绝并指名在途票（不建站、不领取、零写入）'
+  else
+    bad '串行闸负例：其他在途票站存在 → start 拒绝并指名在途票（不建站、不领取、零写入）' \
+      "exit=$rc other=$_sg_other status=$(tr_index_status_of "$SG1" 90-run-fixture) station=$([ -e "$_sg_station" ] && echo exists || echo absent) $(tail -n 2 "$D/sg1-neg.err" | tr '\n' '|')"
+  fi
+  tr_run_in "$SG1" 90 start --parallel-ok > "$D/sg1-pos.out" 2> "$D/sg1-pos.err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '并行豁免' "$D/sg1-pos.out" && grep -q '91-other-fixture' "$D/sg1-pos.out" \
+    && [ -d "$_sg_station" ] && [ "$(tr_index_status_of "$SG1" 90-run-fixture)" = 'in_progress' ]; then
+    ok '串行闸正例：--parallel-ok 显式豁免 → start 放行并打印并行豁免记账行（含在途票）'
+  else
+    bad '串行闸正例：--parallel-ok 显式豁免 → start 放行并打印并行豁免记账行（含在途票）' \
+      "exit=$rc out=$(head -n 3 "$D/sg1-pos.out" | tr '\n' '|') err=$(tail -n 2 "$D/sg1-pos.err" | tr '\n' '|')"
+  fi
+
+  # 单票场景行为不变：无在途票时不打印并行豁免行、start 照常 exit 0
+  SG2="$D/sg2"
+  tr_build_fixture "$SG2" ready
+  tr_run_in "$SG2" 90 start > "$D/sg2.out" 2> "$D/sg2.err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! grep -q '并行豁免' "$D/sg2.out" && [ -d "$(realpath "$D")/sg2-wt/wt90" ]; then
+    ok '串行闸单票正例：无其他在途票时 start 行为不变（exit 0，不打印并行豁免行）'
+  else
+    bad '串行闸单票正例：无其他在途票时 start 行为不变（exit 0，不打印并行豁免行）' \
+      "exit=$rc out=$(head -n 3 "$D/sg2.out" | tr '\n' '|')"
+  fi
+
+  # ---- 票 295：站基线自动快进（main 只前进记录面）／含产品文件即 fail-closed ----
+  BC1="$D/bc1"
+  tr_build_fixture "$BC1" in_progress
+  _bc1_station="$(realpath "$D")/bc1-wt/wt90"
+  tr_run_in "$BC1" 90 start > /dev/null 2>&1
+  printf 'record-only note\n' > "$BC1/facts/project/records-note.md"
+  tr_git_commit "$BC1" 'record-only commit on main'
+  _bc1_main=$(git -C "$BC1" rev-parse HEAD)
+  tr_run_in "$BC1" 90 start > "$D/bc1.out" 2> "$D/bc1.err"
+  rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '站基线快进至 main（' "$D/bc1.out" \
+    && [ "$(git -C "$_bc1_station" rev-parse HEAD 2>/dev/null)" = "$_bc1_main" ]; then
+    ok '站基线快进正例：差异仅 facts/ 记录面 → 自动 merge --ff-only 至 main 并打印快进行'
+  else
+    bad '站基线快进正例：差异仅 facts/ 记录面 → 自动 merge --ff-only 至 main 并打印快进行' \
+      "exit=$rc head=$(git -C "$_bc1_station" rev-parse --short HEAD 2>/dev/null)/$(git -C "$BC1" rev-parse --short HEAD) $(tail -n 2 "$D/bc1.err" | tr '\n' '|')"
+  fi
+
+  BC2="$D/bc2"
+  tr_build_fixture "$BC2" in_progress
+  _bc2_station="$(realpath "$D")/bc2-wt/wt90"
+  tr_run_in "$BC2" 90 start > /dev/null 2>&1
+  _bc2_head_before=$(git -C "$_bc2_station" rev-parse HEAD)
+  printf 'product change on main\n' >> "$BC2/product.txt"
+  tr_git_commit "$BC2" 'product commit on main'
+  tr_run_in "$BC2" 90 start > "$D/bc2.out" 2> "$D/bc2.err"
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q 'decision-required' "$D/bc2.err" \
+    && grep -q '差异含产品文件' "$D/bc2.err" \
+    && [ "$(git -C "$_bc2_station" rev-parse HEAD 2>/dev/null)" = "$_bc2_head_before" ]; then
+    ok '站基线快进负例：差异含产品文件 → decision-required 且站零改写（不自动 rebase/ff）'
+  else
+    bad '站基线快进负例：差异含产品文件 → decision-required 且站零改写（不自动 rebase/ff）' \
+      "exit=$rc head=$(git -C "$_bc2_station" rev-parse --short HEAD 2>/dev/null)/$(git -C "$BC2" rev-parse --short HEAD) $(tail -n 2 "$D/bc2.err" | tr '\n' '|')"
   fi
 
   suite_summary 'ticket-run'

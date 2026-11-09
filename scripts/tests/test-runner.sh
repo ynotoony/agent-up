@@ -102,10 +102,10 @@ export TEST_RECORD_SOURCE_ONLY
 . "$TESTS_DIR/test-world.sh"
 
 # ---- 套件名单（唯一枚举；ALL_SUITES 恰此一处，source／派发／用法／孤儿校验均读本变量）----
-ALL_SUITES='module-map ticket-ops ticket-ops-locks progress json-engine check-package check-package-groups check-package-direct append-only check-artifacts delivery-parser stale-claims lane-commit lane-commit-boundary lane-commit-record ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract workflow-trust workflow-recovery role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge record-commit evidence-rebind ticket-split context-cost dir-readme dir-readme-migrate dir-readme-freshness runtime-closure adversarial harness'
+ALL_SUITES='module-map ticket-ops ticket-ops-locks progress json-engine check-package check-package-groups check-package-direct append-only check-artifacts delivery-parser stale-claims lane-commit lane-commit-boundary lane-commit-record ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract workflow-trust workflow-recovery role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge record-commit evidence-rebind ticket-split context-cost dir-readme dir-readme-migrate dir-readme-freshness runtime-closure adversarial harness usage'
 # ---- fast 车道（票 258）：ALL_SUITES 的短套件子集，日常回归目标 ≤180s。重活留给
 #      --suite all；成员是否 ⊆ all 由启动核对与 self-check 双向钉死 ----
-FAST_SUITES='module-map progress json-engine append-only check-artifacts delivery-parser stale-claims ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health role-permissions check-gates docs-generation governance-size context-cost ticket-repair dispatch-contract role-prompt dir-readme adversarial ticket-run'
+FAST_SUITES='module-map progress json-engine append-only check-artifacts delivery-parser stale-claims ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health role-permissions check-gates docs-generation governance-size context-cost ticket-repair dispatch-contract role-prompt dir-readme adversarial ticket-run usage'
 # ---- 套件家族批（票 292 并行能力与票 291 结构整合）：ALL_SUITES 内的一组成员在
 #      --suite all（及显式请求家族代表名）时按家族顺序并行执行——每成员保留自有
 #      journal/日志，父进程保序回放并逐成员打印其汇总与用时行（与串行输出同形）；
@@ -188,7 +188,9 @@ usage() {
   cat <<'USAGE' | sed "s#@ALL_SUITES@#$_usage_suites#"
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      @ALL_SUITES@ | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
+    --suite <name>      @ALL_SUITES@ | fast | verify | all（缺省 all；fast／verify＝⊆all 的
+                        FAST_SUITES 短套件子集，日常回归 ≤180s；verify 为验证分层入口，
+                        成员完全取 FAST_SUITES，空集即用法错误 exit 2）
   --script-dir <dir>  被测脚本所在目录（须含 package-manifest scripts 节登记的被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   --jobs <n>          并行度：套件声明 worker 时的并行上限；缺省 auto（＝该套件 worker 数），
@@ -200,6 +202,8 @@ usage() {
                          FAIL 行、继续后续套件、整轮 exit 1
     TEST_ASSERTION_FLOOR 断言数下限；缺省仅 --suite all 生效（1100）；显式设置时对任意车道生效
     TEST_RUNNER_JOBS     并行度（同 --jobs；整型 ≥1；缺省 auto＝按套件声明 worker 数）
+    TEST_RUNNER_MAX_WALL 整轮硬墙钟秒数（缺省 1800；超时打印已跑套件并 exit 1，不写部分
+                         结论；0/非法即用法错误）
 退出码: 0 全部断言通过；1 存在失败断言（逐项 FAIL 行见输出）；2 用法或环境错误；130 收到 INT/TERM（清理后退出）
 suite 覆盖场景表与维护规则见包内 scripts/README.md「test-record-layer.sh」专节。
 USAGE
@@ -226,7 +230,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $SUITE in
-  all|fast) ;;
+  all|fast|verify) ;;
   *)
     suite_listed "$SUITE" || {
       printf 'test-record-layer: --suite 不合口径: %s\n' "$SUITE" >&2
@@ -248,6 +252,12 @@ for _s in $FAST_SUITES; do
     exit 2
   }
 done
+# 票 295 验证分层：--suite verify 成员完全取 FAST_SUITES，空集即用法错误 fail-closed。
+if [ "$SUITE" = 'verify' ] && [ -z "$FAST_SUITES" ]; then
+  printf 'test-record-layer: --suite verify 不可用：FAST_SUITES 为空（验证分层要求短套件集合非空）\n' >&2
+  usage >&2
+  exit 2
+fi
 for _s in $(family_members); do
   in_family "$_s" || { printf 'test-record-layer: 家族成员校验异常: %s\n' "$_s" >&2; exit 2; }
 done
@@ -347,6 +357,32 @@ if [ -n "${TEST_SUITE_TIMEOUT:-}" ]; then
 fi
 [ "$SUITE_TIMEOUT" -ge 1 ] || { printf 'test-record-layer: TEST_SUITE_TIMEOUT 须 ≥1: %s\n' "$SUITE_TIMEOUT" >&2; exit 2; }
 
+# ---- 整轮硬墙钟（票 295）：TEST_RUNNER_MAX_WALL 秒（缺省 1800）----
+# 超时在下一个套件边界前终止整轮：打印上限与已跑套件名单并 exit 1（不产出残缺的
+# PASS 汇总）。per-suite 超时（TEST_SUITE_TIMEOUT）语义不变，二者独立叠加。
+MAX_WALL=1800
+if [ -n "${TEST_RUNNER_MAX_WALL:-}" ]; then
+  case $TEST_RUNNER_MAX_WALL in
+    ''|*[!0-9]*)
+      printf 'test-record-layer: TEST_RUNNER_MAX_WALL 须为正整数秒: %s\n' "$TEST_RUNNER_MAX_WALL" >&2
+      exit 2
+      ;;
+  esac
+  MAX_WALL=$TEST_RUNNER_MAX_WALL
+fi
+[ "$MAX_WALL" -ge 1 ] || { printf 'test-record-layer: TEST_RUNNER_MAX_WALL 须 >=1: %s\n' "$MAX_WALL" >&2; exit 2; }
+WALL_START=$(date +%s)
+_WALL_RUN=''
+wall_check() {
+  [ "$MAX_WALL" -ge 1 ] || return 0
+  _wc_now=$(date +%s)
+  _wc_el=$((_wc_now - WALL_START))
+  [ "$_wc_el" -lt "$MAX_WALL" ] && return 0
+  printf 'test-record-layer: FAIL: 整轮墙钟超时（TEST_RUNNER_MAX_WALL=%ss，已耗时 %ss）——已跑套件:%s\n' \
+    "$MAX_WALL" "$_wc_el" "${_WALL_RUN:-（无）}"
+  exit 1
+}
+
 # ---- 临时目录与清理（票 11/26 纪律：异常退出路径也清；票 258 中断路径 exit 130）----
 
 T=''
@@ -370,6 +406,7 @@ run_suite() {
   # $T/journal.<name> 回传（ok/bad 各写一行），父进程按日志行数累加 TOTAL/FAILS。
   _rs_name=$1
   _rs_fn=$2
+  _WALL_RUN="${_WALL_RUN} ${_rs_name}"
   CUR_SUITE=$_rs_name
   _rs_journal="$T/journal.$_rs_name"
   CUR_JOURNAL=$_rs_journal
@@ -442,6 +479,7 @@ run_suite_group() {
   # 顺序与声明序一致，断言行与串行输出逐字相同；最后只打印一条套件汇总与用时。
   _sg_name=$1
   _sg_count=$2
+  _WALL_RUN="${_WALL_RUN} ${_sg_name}"
   CUR_SUITE=$_sg_name
   _sg_dir="$T/group.$_sg_name"
   mkdir -p "$_sg_dir" || exit 2
@@ -571,6 +609,7 @@ run_suite_family() {
   # PASS/FAIL 行、汇总行与用时行原样保留，顺序与串行一致；TOTAL/FAILS 由回放日志中的
   # 断言行计数（不依赖跨进程 journal）。组超时先 TERM 后 KILL 全部成员任务。
   _ff_lead=$1
+  _WALL_RUN="${_WALL_RUN} ${_ff_lead}(族)"
   _ff_members=$(family_members)
   _ff_dir="$T/family.$_ff_lead"
   mkdir -p "$_ff_dir" || exit 2
@@ -694,6 +733,7 @@ run_suite_family() {
 
 # 单个套件调度：声明 worker 的走并行池（栅栏套件经 gate 回退串行），否则维持既有串行。
 dispatch_one() {
+  wall_check
   _do_count=$(suite_worker_count "$1")
   if [ "$_do_count" -gt 1 ]; then
     _do_gate=$(suite_fn "$1")_gate
@@ -705,14 +745,20 @@ dispatch_one() {
   else
     run_suite "$1" "$(suite_fn "$1")"
   fi
+  wall_check
 }
 
 dispatch_suite() {
   # 家族批（票 292×291 整合）：ALL_SUITES 中家族成员在代表名位置一次性并行执行并保序
   # 回放（成员各自的汇总/用时行保留）；其余成员在该轮跳过，不得重复执行。显式请求代表名
   # 同样走家族批（覆盖整个家族）；显式请求非代表成员仍只跑该成员（githooks 逐名调用口径）。
+  # 票 295：verify＝验证分层入口，成员完全取 FAST_SUITES（与 fast 同集合，语义上属
+  # 「实现/审查阶段只跑短套件」的显式车道）；all 打印一次「全量仅合并门禁跑一次」提示，
+  # 不改既有执行语义。整轮硬墙钟在每个套件边界前检查。
+  wall_check
   case $SUITE in
     all)
+      printf 'test-record-layer: 提示: 全量套件仅合并门禁跑一次（日常/实现/审查请用 --suite verify|fast 或单套件；票 295 成本治理）\n'
       for _d in $ALL_SUITES; do
         if [ "$_d" = "$PARALLEL_FAMILY_LEAD" ]; then
           run_suite_family "$_d"
@@ -724,7 +770,12 @@ dispatch_suite() {
       done
       run_suite self-check self_check_injection
       ;;
-    fast)
+    fast|verify)
+      if [ "$SUITE" = 'verify' ]; then
+        _vn=0
+        for _d in $FAST_SUITES; do _vn=$((_vn + 1)); done
+        printf 'test-record-layer: 验证分层 --suite verify：成员＝FAST_SUITES（%s 个短套件）\n' "$_vn"
+      fi
       for _d in $FAST_SUITES; do
         if [ "$_d" = "$PARALLEL_FAMILY_LEAD" ]; then
           run_suite_family "$_d"

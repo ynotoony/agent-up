@@ -160,8 +160,8 @@ self_check_injection() {
       "exit=${_si_rc}；$(tail -2 "$D/control.log" 2>/dev/null | tr '\n' '|')"
   fi
   # 自检：套件名名单三向一致——ALL_SUITES ⊆ 用法行、FAST_SUITES ⊆ ALL_SUITES、
-  # 用法行 ⊆ ALL_SUITES∪{all,fast}。缺名会让 --suite <name> 被拒而派发成为死码
-  # （票 257 删重复行时丢过 merge）。
+  # 用法行 ⊆ ALL_SUITES∪{all,fast,verify}（verify 为成本治理验证分层车道关键字，非套件名）。
+  # 缺名会让 --suite <name> 被拒而派发成为死码（票 257 删重复行时丢过 merge）。
   _si_runner=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)/test-runner.sh
   _si_all=$(sed -n "s/^ALL_SUITES='\(.*\)'$/\1/p" "$_si_runner" | tr ' ' '\n' | sed '/^$/d')
   _si_fast=$(sed -n "s/^FAST_SUITES='\(.*\)'$/\1/p" "$_si_runner" | tr ' ' '\n' | sed '/^$/d')
@@ -185,15 +185,15 @@ self_check_injection() {
   else
     bad '套件名自检：FAST_SUITES ⊆ ALL_SUITES' "fast=${_si_fast:-<空>}${_si_bad}"
   fi
-  _si_known=$(printf 'all\nfast\n%s\n' "$_si_all")
+  _si_known=$(printf 'all\nfast\nverify\n%s\n' "$_si_all")
   _si_bad=''
   for _si_n in $_si_usage; do
     printf '%s\n' "$_si_known" | grep -qx -- "$_si_n" || _si_bad="$_si_bad 未登记名:$_si_n"
   done
   if [ -n "$_si_usage" ] && [ -z "$_si_bad" ]; then
-    ok '套件名自检：用法行 ⊆ ALL_SUITES∪{all,fast}'
+    ok '套件名自检：用法行 ⊆ ALL_SUITES∪{all,fast,verify}'
   else
-    bad '套件名自检：用法行 ⊆ ALL_SUITES∪{all,fast}' "用法名单=${_si_usage:-<空>}${_si_bad}"
+    bad '套件名自检：用法行 ⊆ ALL_SUITES∪{all,fast,verify}' "用法名单=${_si_usage:-<空>}${_si_bad}"
   fi
   suite_summary 'self-check'
 }

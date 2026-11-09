@@ -367,5 +367,89 @@ suite_progress() {
 EOF
   _h_signal_case TERM 130 "$_h_sigpar_root" --jobs 2
 
+  # ---- 票 295：验证分层 --suite verify（成员完全取 FAST_SUITES）----
+  _h_ver_root="$T/h-verify"
+  _h_build "$_h_ver_root"
+  TEST_ASSERTION_FLOOR=0 sh "$_h_ver_root/tests/test-runner.sh" --suite verify \
+    --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-verify.log" 2>&1
+  _h_rc=$?
+  _h_fast_n=0
+  for _h_n in $FAST_SUITES; do _h_fast_n=$((_h_fast_n + 1)); done
+  _h_ver_actual=$(grep -oE '^PASS  \[[a-z-]+\] 桩套件' "$T/h-verify.log" | sed 's/^PASS  \[//; s/\] 桩套件$//' | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//')
+  _h_ver_want=$(printf '%s' "$FAST_SUITES" | tr ' ' '\n' | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//')
+  if [ "$_h_rc" -eq 0 ] && grep -q "^test-record-layer: 验证分层 --suite verify：成员＝FAST_SUITES（${_h_fast_n} 个短套件）$" "$T/h-verify.log" \
+    && [ "$_h_ver_actual" = "$_h_ver_want" ]; then
+    ok "verify 正例：只跑 FAST_SUITES 成员（恰 ${_h_fast_n} 个，集合逐名相等）且 exit 0"
+  else
+    bad 'verify 正例：只跑 FAST_SUITES 成员（集合逐名相等）' "exit=$_h_rc actual=[$_h_ver_actual] want=[$_h_ver_want] $(tail -2 "$T/h-verify.log" 2>/dev/null | tr '\n' '|')"
+  fi
+  if ! grep -qE '^PASS  \[(install|merge|ticket-audit)\] 桩套件' "$T/h-verify.log"; then
+    ok 'verify 正例：非 FAST_SUITES 套件一律不派发（install/merge/ticket-audit 无输出行）'
+  else
+    bad 'verify 正例：非 FAST_SUITES 套件一律不派发（install/merge/ticket-audit 无输出行）' \
+      "$(grep -E '^PASS  \[(install|merge|ticket-audit)\]' "$T/h-verify.log" 2>/dev/null | head -2 | tr '\n' '|')"
+  fi
+
+  # ---- 票 295：FAST_SUITES 为空时 --suite verify 用法错误 fail-closed exit 2 ----
+  _h_ver0_root="$T/h-verify0"
+  _h_build "$_h_ver0_root"
+  sed "s/^FAST_SUITES='.*'/FAST_SUITES=''/" "$_h_ver0_root/tests/test-runner.sh" >"$_h_ver0_root/tests/test-runner-partial" 2>/dev/null
+  mv "$_h_ver0_root/tests/test-runner-partial" "$_h_ver0_root/tests/test-runner.sh"
+  chmod 755 "$_h_ver0_root/tests/test-runner.sh"
+  sh "$_h_ver0_root/tests/test-runner.sh" --suite verify \
+    --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-verify0.log" 2>&1
+  _h_rc=$?
+  if [ "$_h_rc" -eq 2 ] && grep -q 'FAST_SUITES 为空' "$T/h-verify0.log"; then
+    ok 'verify 负例：FAST_SUITES 为空 → 用法错误 exit 2 并指名（fail-closed，不静默跑空集）'
+  else
+    bad 'verify 负例：FAST_SUITES 为空 → 用法错误 exit 2 并指名' "exit=$_h_rc $(tail -2 "$T/h-verify0.log" 2>/dev/null | tr '\n' '|')"
+  fi
+
+  # ---- 票 295：整轮硬墙钟 TEST_RUNNER_MAX_WALL 超时负例（极小墙钟触发）----
+  _h_wall_root="$T/h-wall"
+  _h_build "$_h_wall_root"
+  cat >"$_h_wall_root/tests/suite-progress.sh" <<'EOF'
+#!/bin/sh
+suite_progress() {
+  CUR_SUITE='progress'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  ok '墙钟超时前断言'
+  sleep 2
+  suite_summary 'progress'
+}
+EOF
+  TEST_ASSERTION_FLOOR=0 TEST_RUNNER_MAX_WALL=1 sh "$_h_wall_root/tests/test-runner.sh" --suite progress \
+    --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-wall.log" 2>&1
+  _h_rc=$?
+  if [ "$_h_rc" -eq 1 ] && grep -q '整轮墙钟超时（TEST_RUNNER_MAX_WALL=1s' "$T/h-wall.log" \
+    && grep -q '已跑套件:.*progress' "$T/h-wall.log"; then
+    ok 'wall 负例：TEST_RUNNER_MAX_WALL=1 超时 → 整轮 exit 1 且指名上限与已跑套件'
+  else
+    bad 'wall 负例：TEST_RUNNER_MAX_WALL=1 超时 → 整轮 exit 1 且指名上限与已跑套件' \
+      "exit=$_h_rc $(tail -2 "$T/h-wall.log" 2>/dev/null | tr '\n' '|')"
+  fi
+  TEST_RUNNER_MAX_WALL=0 sh "$_h_wall_root/tests/test-runner.sh" --suite progress \
+    --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-wall0.log" 2>&1
+  _h_rc=$?
+  if [ "$_h_rc" -eq 2 ] && grep -q 'TEST_RUNNER_MAX_WALL' "$T/h-wall0.log"; then
+    ok 'wall 负例：TEST_RUNNER_MAX_WALL=0 非法 → 用法错误 exit 2'
+  else
+    bad 'wall 负例：TEST_RUNNER_MAX_WALL=0 非法 → 用法错误 exit 2' "exit=$_h_rc $(tail -2 "$T/h-wall0.log" 2>/dev/null | tr '\n' '|')"
+  fi
+
+  # ---- 票 295：--suite all 打印「全量仅合并门禁跑一次」提示（语义不变）----
+  _h_all_root="$T/h-allhint"
+  _h_build "$_h_all_root"
+  TEST_ASSERTION_FLOOR=0 sh "$_h_all_root/tests/test-runner.sh" --suite all \
+    --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-allhint.log" 2>&1
+  _h_rc=$?
+  if [ "$_h_rc" -eq 0 ] && grep -q '提示: 全量套件仅合并门禁跑一次' "$T/h-allhint.log"; then
+    ok 'all 提示行：--suite all 打印「全量仅合并门禁跑一次」且整轮仍 exit 0（语义不变）'
+  else
+    bad 'all 提示行：--suite all 打印「全量仅合并门禁跑一次」且整轮仍 exit 0' \
+      "exit=$_h_rc $(tail -2 "$T/h-allhint.log" 2>/dev/null | tr '\n' '|')"
+  fi
+
   suite_summary 'harness'
 }

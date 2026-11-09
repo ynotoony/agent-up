@@ -230,7 +230,7 @@ pm_script scripts/dir-readme.rules rules '目录 README 四段式契约范围规
 pm_script scripts/install-policy.rules rules '安装政策数据表（install.sh 数据）'
 pm_script scripts/project-dashboard.html rules '本地项目仪表盘（单文件只读 HTML：Chrome/Edge 目录授权后读 module-map.json、票索引与全部卡片，页面打开期间轮询刷新；零网络零写入；kind=rules 意为非可执行数据件）'
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
-pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋test-world.sh 公共 fixture builder＋tests/suite-*.sh 全部套件；套件清单以 test-runner.sh 的 ALL_SUITES 唯一枚举为真源，启动即校验磁盘 suite-*.sh 与名单双向一致（孤儿套件 fail-closed）；经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
+pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋test-world.sh 公共 fixture builder＋tests/suite-*.sh 全部套件；套件清单以 test-runner.sh 的 ALL_SUITES 唯一枚举为真源，启动即校验磁盘 suite-*.sh 与名单双向一致（孤儿套件 fail-closed）；经 test-record-layer.sh 入口委托；成本治理轮增 usage 套件与 verify／MAX_WALL 车道回归；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/generate-mirrors.sh script '镜像生成器：从包侧 scripts/ 手写源幂等生成仓侧 rules/implementation/scripts/ 生成物（--check 只读核对；写模式逐件 cmp 自证；package-only 不生成）'
 pm_script scripts/checks dir '包检引擎检查件与引擎模块目录（registry.rules 注册表＋每检查一件 NN-slug.sh＋配置加载/校验模块 config-load.sh＋检查注册表与分发模块 registry-dispatch.sh；统一 interface：引擎传入包根，检查件只判定与报告问题，不生成 PASS/FAIL 行与汇总；kind=dir 目录成员无 mode 语义）；另含八件脚本拆分模块（artifacts-fix／workspace-snapshot／dispatch-contract-modes／evidence-gate／record-lock／module-map-fingerprint／ledger-row-families／run-record-cmds）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
