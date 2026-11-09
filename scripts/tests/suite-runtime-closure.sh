@@ -34,7 +34,7 @@ rc_build_repo() {
               dir-readme.rules common-helpers.sh json-validator.py ticket-audit.sh \
               contract-build.sh check-dispatch-contract.sh ticket-run.sh worktree-add.sh \
               dp-load-rules.sh check-gates.sh run-record.sh test-checkpoint-recovery.sh \
-              workflow-executor.sh; do
+              workflow-executor.sh ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$rc_f" "$RC_REPO/rules/implementation/scripts/$rc_f" || return 1
   done
   cp "$PKG_ROOT/references/schemas/ticket-record.schema.json" \

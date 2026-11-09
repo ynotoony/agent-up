@@ -36,6 +36,7 @@ sc_build_fixture() {
   cp "$SC" "$1/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$1/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$1/eng/dp-load-rules.sh")"
   cp "$SCRIPT_DIR/json-validator.py" "$1/eng/json-validator.py"
   printf '# progress\n\nGit 恢复基线：占位锚点（S1 权威位置在位）\n' > "$R/facts/project/archive/progress.md"
   printf '{\n  "issues": [\n    {"id": "90-fixture", "status": "ready", "updated_at": "2026-09-22T00:00:00Z"}\n  ]\n}\n' > "$R/facts/requirements/tickets/index.json"
@@ -66,6 +67,16 @@ suite_stale_claims() {
   D=$T/scl
   mkdir -p "$D"
   SC="$SCRIPT_DIR/check-stale-claims.sh"
+  # 断言组注册表与八件分片（引擎同目录定位；分片化后夹具须随引擎一并落位）
+  sc_copy_shard_set() {
+    # $1=目标引擎目录
+    cp "$SCRIPT_DIR/stale-claims-checks.rules" "$1/stale-claims-checks.rules"
+    cp "$SCRIPT_DIR/stale-s1-git-status.sh" "$SCRIPT_DIR/stale-s2-release-status.sh" \
+       "$SCRIPT_DIR/stale-s3-frontier-projection.sh" "$SCRIPT_DIR/stale-s4-count-drift.sh" \
+       "$SCRIPT_DIR/stale-s5-conclusion-annotation.sh" "$SCRIPT_DIR/stale-s6-terminal-state.sh" \
+       "$SCRIPT_DIR/stale-s7-superseded-marker.sh" "$SCRIPT_DIR/stale-s8-lesson-pointer.sh" \
+       "$1/"
+  }
 
   # 正例 P1：未点亮（无 delivery.rules）→ S1/S2 SKIP 行、零 STALE、exit 0、汇总登记数 2
   sc_build_fixture "$D/p1"
@@ -73,6 +84,7 @@ suite_stale_claims() {
   cp "$SC" "$D/p1/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p1/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p1/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p1/eng/dp-load-rules.sh")"
   sc_run "$D/p1" > "$D/p1.out" 2>&1
   rc=$?
   if require_out 'suite-stale-claims 目标输出在场' "$D/p1.out" \
@@ -93,6 +105,7 @@ suite_stale_claims() {
   cp "$SC" "$D/p2/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p2/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p2/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p2/eng/dp-load-rules.sh")"
   cat > "$D/p2/repo/delivery.rules" <<'EOF'
 # ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====
 
@@ -118,6 +131,7 @@ EOF
   cp "$SC" "$D/n1/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n1/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n1/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n1/eng/dp-load-rules.sh")"
   printf '# ==== calibration：校准豁免与点亮（check-artifacts/check-stale-claims 读）====\n\ndp_bogus x\n' > "$D/n1/repo/delivery.rules"
   sc_run "$D/n1" > "$D/n1.out" 2>&1
   rc=$?
@@ -134,6 +148,7 @@ EOF
   cp "$SC" "$D/p3/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p3/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p3/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p3/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/p3/repo"
   printf '# 调研夹具\n\n结论：采用方案 X（出处 file:facts/requirements/research/ref.md；轨:本仓自用）\n' > "$D/p3/repo/facts/requirements/research/2026-09-24-p3.md"
   sc_run "$D/p3" > "$D/p3.out" 2>&1
@@ -154,6 +169,7 @@ EOF
   cp "$SC" "$D/n2/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n2/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n2/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n2/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/n2/repo"
   printf '# 调研夹具\n\n- 结论：采用方案 Y\n' > "$D/n2/repo/facts/requirements/research/2026-09-24-n2.md"
   sc_run "$D/n2" > "$D/n2.out" 2>&1
@@ -171,6 +187,7 @@ EOF
   cp "$SC" "$D/p4/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p4/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p4/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p4/eng/dp-load-rules.sh")"
   printf '# 调研夹具\n\n结论：存量行不标注（历史零改写）\n' > "$D/p4/repo/facts/requirements/research/2026-09-24-p4.md"
   sc_git_baseline "$D/p4/repo"
   sc_run "$D/p4" > "$D/p4.out" 2>&1
@@ -188,6 +205,7 @@ EOF
   cp "$SC" "$D/n3/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n3/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n3/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n3/eng/dp-load-rules.sh")"
   printf '# 调研夹具\n\n结论：基线行标注齐（出处 file:ref.md；轨:agent-up）\n' > "$D/n3/repo/facts/requirements/research/2026-09-24-n3.md"
   sc_git_baseline "$D/n3/repo"
   printf '\n结论：追加行未标注\n' >> "$D/n3/repo/facts/requirements/research/2026-09-24-n3.md"
@@ -215,6 +233,7 @@ EOF
   cp "$SC" "$D/p5/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p5/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p5/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p5/eng/dp-load-rules.sh")"
   sc_s6_write "$D/p5/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/p5/repo"
   sc_run "$D/p5" > "$D/p5.out" 2>&1
@@ -236,6 +255,7 @@ EOF
   cp "$SC" "$D/n4/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n4/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n4/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n4/eng/dp-load-rules.sh")"
   sc_s6_write "$D/n4/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/n4/repo"
   sc_s6_write "$D/n4/repo" in_progress 2026-09-28T01:00:00Z superseded 2026-09-28T00:00:00Z
@@ -257,6 +277,7 @@ EOF
   cp "$SC" "$D/n5/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n5/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n5/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n5/eng/dp-load-rules.sh")"
   sc_s6_write "$D/n5/repo" 'done' 2026-09-28T00:00:00Z superseded 2026-09-28T00:00:00Z
   sc_git_baseline "$D/n5/repo"
   sc_s6_write "$D/n5/repo" 'done' 2026-09-28T00:00:00Z ready 2026-09-28T01:00:00Z
@@ -277,6 +298,7 @@ EOF
   cp "$SC" "$D/p6/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p6/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p6/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p6/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/p6/repo"
   printf '{\n  "issues": [\n    {"id": "90-fixture", "status": "in_progress", "updated_at": "2026-09-28T01:00:00Z"}\n  ]\n}\n' > "$D/p6/repo/facts/requirements/tickets/index.json"
   printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | in_progress | - | 2026-09-28T01:00:00Z |\n' > "$D/p6/repo/facts/requirements/tickets/progress-current.md"
@@ -315,6 +337,7 @@ EOF
   cp "$SC" "$D/p7/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p7/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p7/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p7/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/p7/repo"
   sc_s7_write "$D/p7/repo" superseded 92-s7 'done'
   sc_run "$D/p7" > "$D/p7.out" 2>&1
@@ -335,6 +358,7 @@ EOF
   cp "$SC" "$D/n6/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n6/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n6/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n6/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/n6/repo"
   sc_s7_write "$D/n6/repo" superseded 99-none 'done'
   sc_run "$D/n6" > "$D/n6.out" 2>&1
@@ -354,6 +378,7 @@ EOF
   cp "$SC" "$D/p8/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p8/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p8/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p8/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/p8/repo"
   sc_s7_write "$D/p8/repo" superseded '' 'done'
   sc_run "$D/p8" > "$D/p8.out" 2>&1
@@ -374,6 +399,7 @@ EOF
   cp "$SC" "$D/n7/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n7/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n7/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n7/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/n7/repo"
   sc_s7_write "$D/n7/repo" superseded 92-s7 in_progress
   sc_run "$D/n7" > "$D/n7.out" 2>&1
@@ -406,6 +432,7 @@ EOF
   cp "$SC" "$D/p9/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p9/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p9/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p9/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/p9/repo"
   sc_s8_write "$D/p9/repo" '沉淀到 rules/x.md#锚点文本在这里' rules 1
   sc_run "$D/p9" > "$D/p9.out" 2>&1
@@ -422,6 +449,7 @@ EOF
   cp "$SC" "$D/n8b/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n8b/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n8b/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n8b/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/n8b/repo"
   sc_s8_write "$D/n8b/repo" '沉淀到 rules/gone.md' rules 0
   sc_run "$D/n8b" > "$D/n8b.out" 2>&1
@@ -438,6 +466,7 @@ EOF
   cp "$SC" "$D/n9/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/n9/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/n9/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/n9/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/n9/repo"
   sc_s8_write "$D/n9/repo" '沉淀到 rules/x.md#锚点已不在' rules 1
   sc_run "$D/n9" > "$D/n9.out" 2>&1
@@ -454,6 +483,7 @@ EOF
   cp "$SC" "$D/p10/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p10/eng/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p10/eng/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p10/eng/dp-load-rules.sh")"
   sc_git_baseline "$D/p10/repo"
   sc_s8_write "$D/p10/repo" '教训无沉淀指针' none 0
   sc_run "$D/p10" > "$D/p10.out" 2>&1
@@ -475,10 +505,12 @@ EOF
     cp "$SC" "$1/repo/$2"
     cp "$SCRIPT_DIR/common-helpers.sh" "$1/repo/$(dirname "$2")/common-helpers.sh"
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/$(dirname "$2")/dp-load-rules.sh"
+    sc_copy_shard_set "$(dirname "$1/repo/$(dirname "$2")/dp-load-rules.sh")"
     cp "$SCRIPT_DIR/json-validator.py" "$1/repo/$(dirname "$2")/json-validator.py"
     cp "$SC" "$1/repo/eng/check-stale-claims.sh"
     cp "$SCRIPT_DIR/common-helpers.sh" "$1/repo/eng/common-helpers.sh"
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/eng/dp-load-rules.sh"
+    sc_copy_shard_set "$(dirname "$1/repo/eng/dp-load-rules.sh")"
     cp "$SCRIPT_DIR/json-validator.py" "$1/repo/eng/json-validator.py"
     ( cd "$1/repo" && sh "$2" ) > "$4" 2>&1
     _bare_rc=$?
@@ -505,6 +537,7 @@ EOF
   cp "$SC" "$D/p12/repo/agent-up/scripts/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$D/p12/repo/agent-up/scripts/common-helpers.sh"
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p12/repo/agent-up/scripts/dp-load-rules.sh"
+  sc_copy_shard_set "$(dirname "$D/p12/repo/agent-up/scripts/dp-load-rules.sh")"
   cp "$SCRIPT_DIR/json-validator.py" "$D/p12/repo/agent-up/scripts/json-validator.py"
   ( cd "$D/p12/repo" && sh agent-up/scripts/check-stale-claims.sh ) > "$D/p12.out" 2>&1
   rc=$?
@@ -543,6 +576,7 @@ EOF
     cp "$SC" "$1/eng/check-stale-claims.sh"
   cp "$SCRIPT_DIR/common-helpers.sh" "$1/eng/common-helpers.sh"
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/eng/dp-load-rules.sh"
+    sc_copy_shard_set "$(dirname "$1/eng/dp-load-rules.sh")"
   }
   sc_eng_setup_full() {
     # $1=夹具目录：追加生成器与唯一 JSON 引擎副本（S4 生成块新鲜度断言语境——生成器在位）
@@ -561,12 +595,12 @@ EOF
   }
   sc_s4_exempt_inject() {
     # $1=夹具目录 $2=注入豁免行（s4_exempt 路径 行号 理由 形态，空串不注入）；
-    # 注入点＝副本 s4_load_exempts heredoc 闭标行前（恰整行匹配 S4_EXEMPT_DATA
-    # 闭标行，开头 <<'S4_EXEMPT_DATA' 形态不等值不误中）。
+    # 注入点＝副本 S4 分片 s4_load_exempts heredoc 闭标行前（恰整行匹配 S4_EXEMPT_DATA
+    # 闭标行，开头 <<'S4_EXEMPT_DATA' 形态不等值不误中；断言组已分片化，注入落 S4 分片）。
     # shellcheck disable=SC2016  # awk 程序单引号防 shell 展开 $0（家族先例同款形态必需）
     awk -v ex="$2" '$0 == "S4_EXEMPT_DATA" { if (ex != "") print ex } { print }' \
-      "$1/eng/check-stale-claims.sh" > "$1/eng/csc.injected" || return 2
-    mv "$1/eng/csc.injected" "$1/eng/check-stale-claims.sh"
+      "$1/eng/stale-s4-count-drift.sh" > "$1/eng/s4.injected" || return 2
+    mv "$1/eng/s4.injected" "$1/eng/stale-s4-count-drift.sh"
   }
 
   # S4-T1（生成块新鲜度正向）：README 票表生成块＝索引派生 → exit 0、零 S4 报文

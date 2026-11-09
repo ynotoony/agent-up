@@ -216,7 +216,8 @@ adv_lane_fixture() {
   rm -rf "$_alf"
   mkdir -p "$_alf/rules/implementation/scripts" "$_alf/facts/project" "$_alf/facts/requirements/tickets"
   for _alf_f in lane-commit.sh record-commit.sh check-gates.sh common-helpers.sh json-validator.py ticket-ops.sh \
-    generate-progress.sh generate-dir-readmes.sh dir-readme.rules checkpoint-write.sh ledger-append.sh record-store.sh ticket-audit.sh; do
+    generate-progress.sh generate-dir-readmes.sh dir-readme.rules checkpoint-write.sh ledger-append.sh record-store.sh ticket-audit.sh \
+    ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$_alf_f" "$_alf/rules/implementation/scripts/$_alf_f"
   done
   printf '{"date": "2026-10-01", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' \
@@ -313,7 +314,8 @@ adv_ticket_run_fixture() {
     "$_atr/rules/implementation/references/prompts" "$_atr/facts/requirements/tickets" "$_atr/facts/project"
   for _atr_f in ticket-run.sh record-commit.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
     check-gates.sh ticket-ops.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ledger-append.sh \
-    record-store.sh common-helpers.sh json-validator.py ticket-audit.sh; do
+    record-store.sh common-helpers.sh json-validator.py ticket-audit.sh \
+    ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$_atr_f" "$_atr/rules/implementation/scripts/$_atr_f"
   done
   cp "$PKG_ROOT/references/schemas/dispatch-contract.schema.json" "$_atr/rules/implementation/references/schemas/"
@@ -688,7 +690,8 @@ adv_normal_path() {
   _np_need=0
   for _f in ticket-run.sh record-commit.sh worktree-add.sh contract-build.sh check-dispatch-contract.sh dp-load-rules.sh \
     ticket-ops.sh check-gates.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ledger-append.sh \
-    record-store.sh common-helpers.sh json-validator.py ticket-audit.sh; do
+    record-store.sh common-helpers.sh json-validator.py ticket-audit.sh \
+    ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     [ -s "$SCRIPT_DIR/$_f" ] || { bad '正常路径 前置件在场' "缺件: $SCRIPT_DIR/$_f"; _np_need=1; }
   done
   [ "$_np_need" -eq 0 ] || return 0

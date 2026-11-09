@@ -92,6 +92,8 @@ tix_build_fixture() {
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/rules/implementation/references/schemas" "$F/facts/requirements/tickets" "$F/facts/project"
   cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/ticket-audit.sh" "$F/rules/implementation/scripts/"
+  # 票 289 分片化：门禁函数库＋审计谓词注册表与分片（同目录定位，夹具须一并落位）
+  cp "$SCRIPT_DIR/ticket-gates.sh"   "$SCRIPT_DIR/audit-predicates.rules"   "$SCRIPT_DIR/audit-p01-receipt-parseable.sh"   "$SCRIPT_DIR/audit-p02-evidence-committed.sh"   "$SCRIPT_DIR/audit-p03-base-sha-present.sh"   "$SCRIPT_DIR/audit-p04-review-boundary-clean.sh"   "$SCRIPT_DIR/audit-p05-diff-sha-bound.sh"   "$SCRIPT_DIR/audit-p06-reviewer-identity-present.sh"   "$SCRIPT_DIR/audit-p07-reviewer-identity-corroborated.sh"   "$SCRIPT_DIR/audit-p08-reviewer-distinct-from-implementer.sh"   "$SCRIPT_DIR/audit-p09-reviewed-at-valid.sh"   "$SCRIPT_DIR/audit-p10-acceptance-results-present.sh"   "$SCRIPT_DIR/audit-p11-policy-applicable.sh" "$F/rules/implementation/scripts/"
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
   cp "$SCHEMA_SRC" "$F/rules/implementation/references/schemas/ticket-record.schema.json"
@@ -916,7 +918,7 @@ EOF
   if [ "$rc" -eq 1 ] && [ "$n_after" -eq "$n_before" ] && grep -q '键序' "$D/lg1.log"; then
     ok '负例 N-100e ledger 账本行键序违规 → exit 1 零写入（形状校验先于写入，票 100）'
   else
-    bad '负例 N-100e ledger 账本行键序违规 → exit 1 零写入（形状校验先于写入，票 100）' "exit=$rc 行数 $n_before→$n_after $(head -n 2 "$D/lg1.log" | tr '\n' '|')"
+    bad '负例 N-100e ledger 账本行键序违规 → exit 1 零写入（形状校验先于写入，票 100）' "exit=$rc 行数 ${n_before}→${n_after} $(head -n 2 "$D/lg1.log" | tr '\n' '|')"
   fi
 
   # 正例 N-100f：ledger 合法行 → exit 0 账本收录且无索引/README/投影写入
@@ -934,6 +936,7 @@ EOF
   # 按引擎缺省根推导现值重述，票 158 修复）同款工作
   mkdir -p "$D/fix-l/rules/implementation/scripts" "$D/fix-l/facts/project"
   cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/fix-l/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-gates.sh" "$D/fix-l/rules/implementation/scripts/"
   : > "$D/fix-l/facts/project/changes.jsonl"
   ( cd "$D/fix-l" && sh rules/implementation/scripts/ticket-ops.sh ledger --ledger-line "$LED_LEDGER_OK" ) >"$D/lg3.log" 2>&1
   rc=$?

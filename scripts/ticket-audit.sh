@@ -19,6 +19,9 @@
 #      不宣称能证明不可验证的独立身份——无法核验即 unknown，不以 unknown 阻断读/分析。
 #      POSIX sh＋python3（唯一 JSON 引擎）＋source common-helpers.sh；安装闭包随
 #      ticket-ops 门控同落位。回归＝tests/ 的 ticket-audit 套件。
+#      谓词注册表化并分片（票 289）：执行顺序与分片定位单源＝同目录 audit-predicates.rules，
+#      每谓词一件 audit-pNN-slug.sh 分片同进程 source；引擎只做配置加载、Git 事实定位、
+#      分派与汇总判定，谓词判定逻辑全在分片内（新增谓词＝加分片＋注册表一行）。
 #      票 237 补正：base==head 或 base..head 为空 diff 时 P05 判非 conformant 并指名
 #      原因——零实现 diff 不得作为绑定实现的审查收据收口。
 #      票 262 补批量/推送面：显式 --range 逐提交判定，无收据 merge 提交指名票 id 与
@@ -26,6 +29,7 @@
 #      时按 head 树索引 ^<NN>- 前缀唯一解析为全 slug（零命中/多命中均指名拒绝）；
 #      不替代、不放宽单票 merge 面证据门，未给 --range 时单票行为逐字不变。
 
+# shellcheck disable=SC2034,SC2329  # 分片共享上下文（TICKET_ID/辅助函数由同进程 source 的谓词分片消费），单文件视野误报
 set -eu
 set -f
 
@@ -530,41 +534,6 @@ if [ -n "$EVIDENCE_REL" ] && [ -f "$EVIDENCE" ]; then
   WORKTREE_BLOB=$(git -C "$REPO" hash-object -- "$EVIDENCE_REL" 2>/dev/null) || WORKTREE_BLOB=''
 fi
 
-# ---- P01 收据可解析 ----
-
-if [ -z "$EVIDENCE_REL" ]; then
-  p_fail P01 receipt-parseable "$EVIDENCE:1 — 证据文件不在仓库内（无法绑定 Git 事实）"
-  printf 'ticket-audit: 提示: P01 失败，依赖证据内容的谓词未评估\n'
-elif [ ! -f "$EVIDENCE" ]; then
-  p_fail P01 receipt-parseable "$EVIDENCE_REL:1 — 证据文件缺失"
-  printf 'ticket-audit: 提示: P01 失败，依赖证据内容的谓词未评估\n'
-elif ! json_readable "$EVIDENCE"; then
-  p_fail P01 receipt-parseable "$EVIDENCE_REL:1 — 证据不可解析为 JSON"
-  printf 'ticket-audit: 提示: P01 失败，依赖证据内容的谓词未评估\n'
-else
-  R_SCHEMA=$(jget "$EVIDENCE" schema_version) || R_SCHEMA=''
-  R_KIND=$(jget "$EVIDENCE" receipt_kind) || R_KIND=''
-  R_TICKET=$(jget "$EVIDENCE" ticket_id) || R_TICKET=''
-  if [ "$R_SCHEMA" != '1' ]; then
-    p_fail P01 receipt-parseable "$EVIDENCE_REL:$(field_line "$EVIDENCE" schema_version) — schema_version 非 1（实际: ${R_SCHEMA:-缺失}）"
-    printf 'ticket-audit: 提示: P01 失败，依赖证据内容的谓词未评估\n'
-  elif [ "$R_KIND" != 'review' ]; then
-    p_fail P01 receipt-parseable "$EVIDENCE_REL:$(field_line "$EVIDENCE" receipt_kind) — receipt_kind 非 review（实际: ${R_KIND:-缺失}）"
-    printf 'ticket-audit: 提示: P01 失败，依赖证据内容的谓词未评估\n'
-  elif [ "$R_TICKET" != "$TICKET_ID" ]; then
-    p_fail P01 receipt-parseable "$EVIDENCE_REL:$(field_line "$EVIDENCE" ticket_id) — ticket_id 与票文件不一致（票: ${TICKET_ID}，收据: ${R_TICKET:-缺失}）"
-    printf 'ticket-audit: 提示: P01 失败，依赖证据内容的谓词未评估\n'
-  else
-    p_pass P01 receipt-parseable "$EVIDENCE_REL:$(field_line "$EVIDENCE" receipt_kind) — review 收据可解析且 ticket_id 匹配"
-  fi
-fi
-
-if [ "$FAILS" -gt 0 ]; then
-  printf 'ticket-audit: 操作面: %s 拒绝（证据不可解析，无法进入谓词判定）\n' "$OPERATION"
-  printf 'ticket-audit: 判定: nonconformant（P01 失败）\n'
-  exit 1
-fi
-
 # ---- 证据字段读取 ----
 
 R_BASE=$(jget "$EVIDENCE" base_sha) || R_BASE=''
@@ -573,16 +542,6 @@ R_DIFF=$(jget "$EVIDENCE" diff_sha) || R_DIFF=''
 R_REVIEWER=$(jget "$EVIDENCE" reviewer_identity) || R_REVIEWER=''
 R_REVIEWED_AT=$(jget "$EVIDENCE" reviewed_at) || R_REVIEWED_AT=''
 R_VERDICT=$(jget "$EVIDENCE" verdict) || R_VERDICT=''
-
-# ---- P02 证据已提交 ----
-
-if [ "$EVIDENCE_TRACKED" -eq 1 ] && [ -n "$EVIDENCE_BLOB" ] && [ "$WORKTREE_BLOB" = "$EVIDENCE_BLOB" ]; then
-  p_pass P02 evidence-committed "$EVIDENCE_REL:1 — 证据在 HEAD 跟踪且工作树内容与 HEAD blob 一致"
-elif [ "$EVIDENCE_TRACKED" -eq 1 ]; then
-  p_fail P02 evidence-committed "$EVIDENCE_REL:1 — 工作树内容与 HEAD blob 不一致（提交后又改动）"
-else
-  p_fail P02 evidence-committed "$EVIDENCE_REL:1 — 证据未被 HEAD 跟踪（未提交不判 conformant）"
-fi
 
 # ---- 策略加载（P07/P08/P09 依赖；判定行在 P11 输出）----
 
@@ -646,203 +605,63 @@ else
     POLICY_IMPL=$(load_ids implementation_identities) || POLICY_IMPL=''
   fi
 fi
-
-# ---- P03 base 可溯 ----
-
-if ! _is_sha "$R_BASE"; then
-  p_fail P03 base-sha-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" base_sha) — base_sha 非 40 位小写十六进制: ${R_BASE:-缺失}"
-elif ! git -C "$REPO" cat-file -e "$R_BASE^{commit}" 2>/dev/null; then
-  p_fail P03 base-sha-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" base_sha) — base_sha 不可解析: $R_BASE"
-elif ! _is_sha "$R_HEAD" || ! git -C "$REPO" cat-file -e "$R_HEAD^{commit}" 2>/dev/null; then
-  p_unknown P03 base-sha-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" base_sha) — head_sha 不可解析，base 祖先关系无从判断"
-elif git -C "$REPO" merge-base --is-ancestor "$R_BASE" "$R_HEAD" 2>/dev/null; then
-  p_pass P03 base-sha-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" base_sha) — base 可解析且为 head 祖先"
-else
-  p_fail P03 base-sha-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" base_sha) — base_sha 非 head 祖先: $R_BASE"
+# ---- 谓词注册表加载与统一分派（P01-P11 注册表化、每谓词分片；引擎零谓词逻辑，
+#      只做 Git 事实准备与汇总判定）----
+_audit_registry="$SCRIPT_DIR/audit-predicates.rules"
+[ -f "$_audit_registry" ] || die2 "谓词注册表缺失（同目录定位）: $_audit_registry"
+_audit_rc=0
+_audit_rows=$(LC_ALL=C awk '
+  function bad(msg) { printf "  - 注册表第 %d 行: %s\n", FNR, msg > "/dev/stderr"; n++ }
+  /^[[:space:]]*$/ { next }
+  /^[[:space:]]*#/ { next }
+  {
+    if ($1 != "pr") { bad("未知指令: " $1 "（预期 pr）"); next }
+    if (NF != 5) { bad("字段数 " NF "（预期 5：pr、谓词号、slug、分片、halt 标记）"); next }
+    if ($2 !~ /^P[0-9][0-9]$/) bad("谓词号须 P 加两位数字: " $2)
+    if ($3 !~ /^[a-z][a-z0-9-]*$/) bad("slug 须小写 token: " $3)
+    if ($4 !~ /^[a-z0-9][a-z0-9-]*\.sh$/) bad("分片须单段 *.sh 文件名: " $4)
+    if ($5 != "halt" && $5 != "-") bad("halt 标记须 halt 或 -: " $5)
+    if ($2 in seen_id) bad("谓词号跨行重复: " $2); else seen_id[$2] = 1
+    if ($4 in seen_file) bad("分片跨行重复: " $4); else seen_file[$4] = 1
+    if (n == 0) print $2 "\t" $3 "\t" $4 "\t" $5
+  }
+  END { exit (n ? 1 : 0) }
+' "$_audit_registry") || _audit_rc=$?
+if [ "$_audit_rc" -ne 0 ]; then
+  printf 'ticket-audit: 错误：谓词注册表结构不合预期（fail-closed，不产生部分结论）: %s\n' "$_audit_registry" >&2
+  exit 2
 fi
 
-# ---- P04 审阅边界干净 ----
+# 先载入校验后分派（两段式）：载入段逐谓词 source 分片并核对统一 interface，缺件/
+# 载入失败/函数缺失即 exit 2 fail-closed——此段在输出任何谓词判定行之前完成，故缺件
+# 场景零部分结论（只输出 stderr 指名，不产生 PASS/FAIL 或判定行）。分片统一 interface＝
+# check_pNN，只经 p_pass/p_fail/p_unknown 报告。
+while IFS="$(printf '\t')" read -r _pr_id _pr_slug _pr_file _pr_halt; do
+  [ -n "$_pr_id" ] || continue
+  _pr_path="$SCRIPT_DIR/$_pr_file"
+  [ -f "$_pr_path" ] || die2 "谓词分片缺失: ${_pr_path}（谓词 ${_pr_id}）"
+  # shellcheck disable=SC1090  # 分片路径由注册表现算（动态发现），静态视野不可跟随
+  . "$_pr_path" || die2 "谓词分片载入失败: ${_pr_path}（谓词 ${_pr_id}）"
+  _pr_fn=check_$(printf '%s' "$_pr_id" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+  command -v "$_pr_fn" >/dev/null 2>&1 || \
+    die2 "谓词分片未定义统一 interface 函数: ${_pr_fn}（${_pr_path}）"
+done <<EOF
+$_audit_rows
+EOF
 
-if ! _is_sha "$R_HEAD" || ! git -C "$REPO" cat-file -e "$R_HEAD^{commit}" 2>/dev/null; then
-  p_fail P04 review-boundary-clean "$EVIDENCE_REL:$(field_line "$EVIDENCE" head_sha) — head_sha 不可解析: ${R_HEAD:-缺失}"
-elif ! git -C "$REPO" merge-base --is-ancestor "$R_HEAD" "$TARGET" 2>/dev/null; then
-  p_fail P04 review-boundary-clean "$EVIDENCE_REL:$(field_line "$EVIDENCE" head_sha) — head_sha 非 target 祖先（证据所绑产品提交不在此历史）"
-else
-  _changed=$(git -C "$REPO" diff --name-only "$R_HEAD" "$TARGET" 2>/dev/null) || _changed='@@DIFF-FAILED@@'
-  _extra=''
-  _old_ifs=$IFS
-  IFS='
-'
-  for _path in $_changed; do
-    [ "$_path" = "$EVIDENCE_REL" ] && continue
-    _allowed=0
-    for _ap in $ALLOW_AFTER; do
-      [ "$_path" = "$_ap" ] && { _allowed=1; break; }
-    done
-    [ "$_allowed" -eq 1 ] || { _extra=$_path; break; }
-  done
-  IFS=$_old_ifs
-  if [ -n "$_extra" ]; then
-    p_fail P04 review-boundary-clean "$_extra:1 — head 之后出现证据文件与显式允许集以外的改动（审阅边界被污染）"
-  else
-    p_pass P04 review-boundary-clean "$EVIDENCE_REL:$(field_line "$EVIDENCE" head_sha) — head 之后仅证据文件与显式允许集文件提交（边界干净）"
+# 分派段：注册表顺序逐谓词调用；halt 标记谓词失败即停止后续评估（收据可解析门）。
+while IFS="$(printf '\t')" read -r _pr_id _pr_slug _pr_file _pr_halt; do
+  [ -n "$_pr_id" ] || continue
+  _pr_fn=check_$(printf '%s' "$_pr_id" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+  "$_pr_fn"
+  if [ "$_pr_halt" = 'halt' ] && [ "$FAILS" -gt 0 ]; then
+    printf 'ticket-audit: 操作面: %s 拒绝（证据不可解析，无法进入谓词判定）\n' "$OPERATION"
+    printf 'ticket-audit: 判定: nonconformant（%s 失败）\n' "$_pr_id"
+    exit 1
   fi
-fi
-
-# ---- P05 diff 指纹绑定 ----
-
-if ! _is_sha "$R_BASE" || ! _is_sha "$R_HEAD" \
-  || ! git -C "$REPO" cat-file -e "$R_BASE^{commit}" 2>/dev/null \
-  || ! git -C "$REPO" cat-file -e "$R_HEAD^{commit}" 2>/dev/null; then
-  p_unknown P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — base/head 不可解析，diff 指纹无从重算"
-elif ! _is_sha "$R_DIFF"; then
-  p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — diff_sha 非 40 位小写十六进制: ${R_DIFF:-缺失}"
-else
-  _actual=$(git -C "$REPO" diff --no-color --no-ext-diff --no-textconv --binary "$R_BASE" "$R_HEAD" 2>/dev/null | git -C "$REPO" hash-object --stdin 2>/dev/null) || _actual=''
-  _empty_diff=$(git -C "$REPO" hash-object --stdin </dev/null 2>/dev/null) || _empty_diff=''
-  if [ "$R_BASE" = "$R_HEAD" ]; then
-    p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" head_sha) — base_sha 与 head_sha 相同（零实现 diff，证据未绑定任何实现变更）"
-  elif [ -n "$_actual" ] && [ -n "$_empty_diff" ] && [ "$_actual" = "$_empty_diff" ]; then
-    p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — base..head 无差异（空 diff，diff_sha 未绑定任何实现变更）"
-  elif [ -n "$_actual" ] && [ "$_actual" = "$R_DIFF" ]; then
-    p_pass P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — diff_sha 等于 base..head 重算指纹"
-  else
-    p_fail P05 diff-sha-bound "$EVIDENCE_REL:$(field_line "$EVIDENCE" diff_sha) — diff_sha 与 base..head 重算指纹不符（声明: ${R_DIFF}，实测: ${_actual:-重算失败}）"
-  fi
-fi
-
-# ---- P06 审查者字段在场 ----
-
-case $R_REVIEWER in
-  '') p_fail P06 reviewer-identity-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — reviewer_identity 缺失或为空" ;;
-  *[[:space:]]*) p_fail P06 reviewer-identity-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — reviewer_identity 含空白字符" ;;
-  *) p_pass P06 reviewer-identity-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — reviewer_identity 非空无空白" ;;
-esac
-
-# ---- P07 审查者身份可佐证 ----
-
-if [ -z "$R_REVIEWER" ]; then
-  p_unknown P07 reviewer-identity-corroborated "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — reviewer_identity 缺失，身份无从佐证"
-elif [ "$EVIDENCE_TRACKED" -ne 1 ] || [ -z "$EVIDENCE_COMMIT" ]; then
-  p_unknown P07 reviewer-identity-corroborated "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — 证据未提交，收据 author 身份无从读取"
-else
-  _ev_email=$(_commit_email "$EVIDENCE_COMMIT")
-  if [ -z "$_ev_email" ]; then
-    p_unknown P07 reviewer-identity-corroborated "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — 证据提交无 author email，身份无从佐证"
-  elif [ "$(_lc "$R_REVIEWER")" != "$(_lc "$_ev_email")" ]; then
-    p_unknown P07 reviewer-identity-corroborated "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — reviewer_identity 与证据提交 author（${_ev_email}）不一致，无法佐证"
-  elif [ "$POLICY_STATE" = 'known' ] && ! _id_in "$R_REVIEWER" "$POLICY_TRUSTED"; then
-    p_unknown P07 reviewer-identity-corroborated "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — 身份不在策略 trusted_reviewers 名单，不宣称独立审查"
-  else
-    p_pass P07 reviewer-identity-corroborated "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — 与证据提交 author 一致$([ "$POLICY_STATE" = 'known' ] && printf '且属可信审查者名单')"
-  fi
-fi
-
-# ---- P08 审查者非实现者（自签拒绝）----
-
-_impl_heads=''
-if _is_sha "$R_HEAD" && git -C "$REPO" cat-file -e "$R_HEAD^{commit}" 2>/dev/null; then
-  _impl_heads=$(_commit_email "$R_HEAD")
-fi
-if [ -z "$R_REVIEWER" ]; then
-  p_unknown P08 reviewer-distinct-from-implementer "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — reviewer_identity 缺失，自签判定无从进行"
-elif [ -z "$_impl_heads" ] && [ "$POLICY_STATE" != 'known' ]; then
-  p_unknown P08 reviewer-distinct-from-implementer "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — 实现者身份不可得（head 无 author email 且无策略），自签判定无从进行"
-else
-  _impl_set=$_impl_heads
-  if [ "$POLICY_STATE" = 'known' ] && [ -n "$POLICY_IMPL" ]; then
-    _impl_set="$_impl_heads
-$POLICY_IMPL"
-  fi
-  if _id_in "$R_REVIEWER" "$_impl_set"; then
-    p_fail P08 reviewer-distinct-from-implementer "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — 审查者与实现者身份相同（自签不作独立审查证据）"
-  else
-    p_pass P08 reviewer-distinct-from-implementer "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewer_identity) — 审查者不在实现者身份集内"
-  fi
-fi
-
-# ---- P09 审查时间有效 ----
-
-case $R_REVIEWED_AT in
-  [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) _ra_ok=1 ;;
-  *) _ra_ok=0 ;;
-esac
-if [ "$_ra_ok" -eq 0 ]; then
-  p_fail P09 reviewed-at-valid "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewed_at) — reviewed_at 非 UTC ISO 8601 秒粒度: ${R_REVIEWED_AT:-缺失}"
-else
-  _ra_date=$(printf '%s' "$R_REVIEWED_AT" | cut -c1-10)
-  _head_date=''
-  if _is_sha "$R_HEAD" && git -C "$REPO" cat-file -e "$R_HEAD^{commit}" 2>/dev/null; then
-    _head_date=$(_commit_date "$R_HEAD")
-  fi
-  _ev_date=''
-  if [ "$EVIDENCE_TRACKED" -eq 1 ] && [ -n "$EVIDENCE_COMMIT" ]; then
-    _ev_date=$(_commit_date "$EVIDENCE_COMMIT")
-  fi
-  if [ -z "$_head_date" ]; then
-    p_unknown P09 reviewed-at-valid "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewed_at) — head 提交日期不可取，时间边界无从判断"
-  elif [ -z "$_ev_date" ]; then
-    p_unknown P09 reviewed-at-valid "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewed_at) — 证据未提交，reviewed_at 上界无从判断"
-  elif _date_lt "$_ra_date" "$_head_date"; then
-    p_fail P09 reviewed-at-valid "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewed_at) — reviewed_at（${_ra_date}）早于 head 提交日（${_head_date}）"
-  elif _date_lt "$_ev_date" "$_ra_date"; then
-    p_fail P09 reviewed-at-valid "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewed_at) — reviewed_at（${_ra_date}）晚于证据提交日（${_ev_date}）"
-  elif [ "$POLICY_STATE" = 'known' ] && _date_lt "$_ra_date" "$POLICY_EFFECTIVE"; then
-    p_fail P09 reviewed-at-valid "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewed_at) — 旧 PASS：reviewed_at（${_ra_date}）早于策略生效日（${POLICY_EFFECTIVE}）"
-  else
-    p_pass P09 reviewed-at-valid "$EVIDENCE_REL:$(field_line "$EVIDENCE" reviewed_at) — reviewed_at 落在 head 提交日与证据提交日之间$([ "$POLICY_STATE" = 'known' ] && printf '且不早于策略生效日')"
-  fi
-fi
-
-# ---- P10 验收结果完备 ----
-
-_p10_reason=''
-case $R_VERDICT in
-  PASS|PASS_WITH_NOTES|FAIL) ;;
-  *) _p10_reason="verdict 非受控三值（实际: ${R_VERDICT:-缺失}；自由文本结论不作证据）" ;;
-esac
-if [ -z "$_p10_reason" ]; then
-  _alen=$(jlen "$EVIDENCE" acceptance) || _alen=''
-  case $_alen in
-    ''|0|*[!0-9]*) _p10_reason='acceptance 缺失、非数组或空数组' ;;
-  esac
-fi
-if [ -z "$_p10_reason" ]; then
-  [ "$R_VERDICT" = 'FAIL' ] && _p10_reason='verdict=FAIL：审查结论未通过，不构成可放行证据'
-fi
-if [ -z "$_p10_reason" ]; then
-  _ai=0
-  while [ "$_ai" -lt "$_alen" ]; do
-    _ac=$(jget "$EVIDENCE" "acceptance.$_ai.ac_id") || _ac=''
-    _ar=$(jget "$EVIDENCE" "acceptance.$_ai.result") || _ar=''
-    if [ -z "$_ac" ]; then
-      _p10_reason="acceptance[$_ai].ac_id 缺失或为空"
-      break
-    fi
-    case $_ar in
-      pass|fail|unknown) ;;
-      *) _p10_reason="acceptance[$_ai]（${_ac}）result 非受控三值（实际: ${_ar:-缺失}）"; break ;;
-    esac
-    if [ "$R_VERDICT" = 'PASS' ] && [ "$_ar" != 'pass' ]; then
-      _p10_reason="verdict=PASS 但 acceptance[$_ai]（${_ac}）result=$_ar"
-      break
-    fi
-    _ai=$((_ai + 1))
-  done
-fi
-if [ -z "$_p10_reason" ]; then
-  p_pass P10 acceptance-results-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" acceptance) — verdict=$R_VERDICT 且 $_alen 条验收结果齐备"
-else
-  p_fail P10 acceptance-results-present "$EVIDENCE_REL:$(field_line "$EVIDENCE" acceptance) — $_p10_reason"
-fi
-
-# ---- P11 策略适用 ----
-
-if [ "$POLICY_STATE" = 'known' ]; then
-  p_pass P11 policy-applicable "$POLICY_REL:$(field_line "$POLICY" effective_from) — 策略合法且适用于 target（生效日 ${POLICY_EFFECTIVE}）"
-else
-  p_unknown P11 policy-applicable "$POLICY_REL:$(field_line "$POLICY" schema_version) — $POLICY_REASON"
-fi
+done <<EOF
+$_audit_rows
+EOF
 
 # ---- 证据位置、操作面与三值判定 ----
 

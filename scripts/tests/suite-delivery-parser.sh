@@ -91,6 +91,7 @@ dp_probe_build() {
   cp "$SCRIPT_DIR/common-helpers.sh" "$1/"
   cp "$SCRIPT_DIR/$DP_LIB_NAME" "$1/$DP_LIB_NAME"
   cp "$SCRIPT_DIR/check-artifacts.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/worktree-add.sh" "$SCRIPT_DIR/artifacts-index.sh" "$1/" 2>/dev/null
+  cp "$SCRIPT_DIR/stale-claims-checks.rules" "$SCRIPT_DIR/stale-s1-git-status.sh" "$SCRIPT_DIR/stale-s2-release-status.sh" "$SCRIPT_DIR/stale-s3-frontier-projection.sh" "$SCRIPT_DIR/stale-s4-count-drift.sh" "$SCRIPT_DIR/stale-s5-conclusion-annotation.sh" "$SCRIPT_DIR/stale-s6-terminal-state.sh" "$SCRIPT_DIR/stale-s7-superseded-marker.sh" "$SCRIPT_DIR/stale-s8-lesson-pointer.sh" "$1/" 2>/dev/null
   if [ -f "$SCRIPT_DIR/export-payload.sh" ]; then
     cp "$SCRIPT_DIR/export-payload.sh" "$1/"
   fi

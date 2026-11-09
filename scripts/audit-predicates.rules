@@ -1,0 +1,20 @@
+# Input: ticket-audit.sh 启动期非执行式解析（同目录 audit-predicates.rules）：每行一个
+#        谓词登记——pr <谓词号> <slug> <分片文件名> <halt|->（halt＝该谓词失败即停止后续
+#        谓词评估，只用于收据可解析门）。
+# Output: 谓词执行顺序与分片定位单源；引擎按本表顺序 source 分片、分派并统一汇总判定。
+# Pos: 证据审计引擎谓词注册表（引擎零谓词硬编码）：新增一条谓词＝加一件
+#      audit-pNN-slug.sh 分片＋本表一行；分片统一 interface＝同进程函数 check_pNN，只经
+#      p_pass/p_fail/p_unknown 报告判定、不打印汇总与退出码。未知指令、字段数、谓词号/
+#      slug/分片形态、编号与分片跨行重复任一不合即引擎 exit 2 fail-closed。
+
+pr P01 receipt-parseable audit-p01-receipt-parseable.sh halt
+pr P02 evidence-committed audit-p02-evidence-committed.sh -
+pr P03 base-sha-present audit-p03-base-sha-present.sh -
+pr P04 review-boundary-clean audit-p04-review-boundary-clean.sh -
+pr P05 diff-sha-bound audit-p05-diff-sha-bound.sh -
+pr P06 reviewer-identity-present audit-p06-reviewer-identity-present.sh -
+pr P07 reviewer-identity-corroborated audit-p07-reviewer-identity-corroborated.sh -
+pr P08 reviewer-distinct-from-implementer audit-p08-reviewer-distinct-from-implementer.sh -
+pr P09 reviewed-at-valid audit-p09-reviewed-at-valid.sh -
+pr P10 acceptance-results-present audit-p10-acceptance-results-present.sh -
+pr P11 policy-applicable audit-p11-policy-applicable.sh -

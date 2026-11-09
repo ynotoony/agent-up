@@ -727,6 +727,34 @@ suite_ticket_audit() {
     bad '批量 B4 批量审计零写入（cksum 与 HEAD 前后一致）' "exit=$rc"
   fi
 
+  # ---- 负例 S1：谓词分片缺件 → exit 2 fail-closed，stderr 指名且零部分结论（289）
+  # 夹具副本删 audit-p06 分片后实跑：载入段先于任何谓词判定输出，故 stdout 必须为空
+  # （零 PASS/FAIL 行、零判定行），退出码 2 而非 1，stderr 指名缺失分片绝对路径。
+  _ms_eng="$D/misshard"
+  mkdir -p "$_ms_eng"
+  cp "$SCRIPT_DIR/ticket-audit.sh" "$SCRIPT_DIR/audit-predicates.rules" \
+     "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$_ms_eng/"
+  for _ms_shard in audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh \
+      audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh \
+      audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh \
+      audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh \
+      audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh \
+      audit-p11-policy-applicable.sh; do
+    cp "$SCRIPT_DIR/$_ms_shard" "$_ms_eng/$_ms_shard"
+  done
+  rm -f "$_ms_eng/audit-p06-reviewer-identity-present.sh"
+  sh "$_ms_eng/ticket-audit.sh" 07 --repo "$D/p1" --operation analyze > "$D/misshard.out" 2> "$D/misshard.err"
+  rc=$?
+  if [ "$rc" -eq 2 ] \
+    && grep -q '谓词分片缺失' "$D/misshard.err" \
+    && grep -q 'audit-p06-reviewer-identity-present.sh' "$D/misshard.err" \
+    && [ ! -s "$D/misshard.out" ]; then
+    ok '负例 S1 谓词分片缺件 → exit 2 且 stderr 指名分片路径，stdout 零谓词行/零判定行（fail-closed 不产生部分结论）'
+  else
+    bad '负例 S1 谓词分片缺件 → exit 2 且 stderr 指名分片路径，stdout 零谓词行/零判定行（fail-closed 不产生部分结论）' \
+      "exit=$rc out=$(head -n 2 "$D/misshard.out" | tr '\n' '|') err=$(head -n 2 "$D/misshard.err" | tr '\n' '|')"
+  fi
+
   # ---- 用法与环境错误 exit 2 ----
 
   sh "$TA" > "$D/u1.out" 2>&1

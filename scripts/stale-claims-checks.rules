@@ -1,0 +1,18 @@
+# Input: check-stale-claims.sh 启动期非执行式解析（同目录 stale-claims-checks.rules）：
+#        每行一个断言组登记——sc <断言组号> <分片文件名> <点亮位|-> <前置钩子|->
+#        （点亮位＝该组由 delivery.rules dp_stale_lit 点名点亮才执行，未点名即 SKIP；
+#        前置钩子＝分派前先调用的同进程函数名，用于装载该组的配置数据节）。
+# Output: 断言组执行顺序与分片定位单源；引擎按本表顺序 source 分片、分派并统一汇总。
+# Pos: 易腐断言扫描器断言组注册表（引擎零断言组硬编码）：新增一组＝加一件
+#      stale-sN-slug.sh 分片＋本表一行；分片统一 interface＝同进程函数 check_sN，只经
+#      emit_stale/emit_warn 报告、不打印汇总与判定行。未知指令、字段数、断言组号/分片/
+#      点亮位/钩子形态、编号与分片跨行重复任一不合即引擎 exit 2 fail-closed。
+
+sc S1 stale-s1-git-status.sh S1 -
+sc S2 stale-s2-release-status.sh S2 -
+sc S3 stale-s3-frontier-projection.sh - -
+sc S4 stale-s4-count-drift.sh - s4_parse_exempts
+sc S5 stale-s5-conclusion-annotation.sh - -
+sc S6 stale-s6-terminal-state.sh - -
+sc S7 stale-s7-superseded-marker.sh - -
+sc S8 stale-s8-lesson-pointer.sh - -

@@ -22,7 +22,8 @@ tr_build_fixture() {
   mkdir -p "$R/rules/implementation/scripts" "$R/rules/implementation/references/schemas" \
     "$R/rules/implementation/references/prompts" "$R/facts/requirements/tickets" "$R/facts/project"
   for f in ticket-run.sh record-commit.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
-    check-gates.sh ticket-ops.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ledger-append.sh record-store.sh common-helpers.sh json-validator.py ticket-audit.sh; do
+    check-gates.sh ticket-ops.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ledger-append.sh record-store.sh common-helpers.sh json-validator.py ticket-audit.sh \
+    ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$f" "$R/rules/implementation/scripts/$f"
   done
   cp "$PKG_ROOT/references/schemas/dispatch-contract.schema.json" "$R/rules/implementation/references/schemas/"
