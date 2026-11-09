@@ -84,6 +84,10 @@
 #      安装面收敛后新增 docs-generation（规则索引生成器回归）与 governance-size（安装面预算回归）；票 233 新增 project-dashboard 套件（本地项目仪表盘：Node 抽取运行页面核心逻辑，缺 node 即 exit 2；静态零写入/零网络面与安装闭包真跑）；票 234 新增 ticket-audit 套件（证据审计引擎十一谓词：正例三操作面 conformant 与证据位置可追溯，负例/未知分支逐谓词分离，零写入断言以 cksum 与 HEAD 前后比对承载）；新增 context-cost 套件（成本治理度量：合成 wire.jsonl 夹具、基线逐项差值、样本不足 fail-closed 零 stdout、治理体积与每阶段读取集差值）；票 236 新增 ticket-repair 套件（repair 四类纠偏动作：补站/派生投影/禁 main 直提/Review 收据在场，终态与不合口径分支 fail-closed，站与投影外零写入）；票 258 执行模型硬化与快慢分层（ALL_SUITES 唯一枚举＋FAST_SUITES 短车道、per-suite 超时 TEST_SUITE_TIMEOUT 缺省 300s、子 shell 隔离、INT/TERM 清理后 exit 130、断言数下限 ASSERTION_FLOOR=1100、self-check 扩到四目标；新增 suite-harness 常驻覆盖四条负例）；票 269 新增 runtime-closure 套件（六运行脚本运行时依赖只认安装闭包：静态零工作树回退扫描、本地闭包与包工作树副本分歧时以本地为准、五入口闭包缺失 fail-closed 零写入、checkpoint-recovery 邻接 references/ 缺失 fail-closed）；POSIX sh 零外部
 #      依赖（夹具 git init/commit 依赖被测脚本自身声明的 Git；self-check 中断负例经 python3 重置 SIGINT 处置）。用法、suite 覆盖表、退出码
 #      与维护规则见包内 scripts/README.md「test-record-layer.sh」专节。
+#      并行能力（票 292）：--jobs <n>／TEST_RUNNER_JOBS 控制并行度（缺省 auto＝按套件声明的
+#      worker 数，--jobs 1 回退既有串行）；声明 worker 的套件（suite_<fn>_worker_count）由
+#      runner 分波并行执行、per-worker 独立 journal 与输出捕获，按 worker 序号保序回放并
+#      合并为单条套件汇总（断言行顺序与串行输出逐字一致）；栅栏套件经 suite_<fn>_gate 回退串行。
 
 set -u
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -102,6 +106,13 @@ ALL_SUITES='module-map ticket-ops ticket-ops-locks progress json-engine check-pa
 # ---- fast 车道（票 258）：ALL_SUITES 的短套件子集，日常回归目标 ≤180s。重活留给
 #      --suite all；成员是否 ⊆ all 由启动核对与 self-check 双向钉死 ----
 FAST_SUITES='module-map progress json-engine append-only check-artifacts delivery-parser stale-claims ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health role-permissions check-gates docs-generation governance-size context-cost ticket-repair dispatch-contract role-prompt dir-readme adversarial ticket-run'
+# ---- 套件家族批（票 292 并行能力与票 291 结构整合）：ALL_SUITES 内的一组成员在
+#      --suite all（及显式请求家族代表名）时按家族顺序并行执行——每成员保留自有
+#      journal/日志，父进程保序回放并逐成员打印其汇总与用时行（与串行输出同形）；
+#      成员须同在 ALL_SUITES 内（启动核对 fail-closed）；缺省 auto＝成员数，--jobs 覆盖。
+PARALLEL_FAMILY_LEAD='check-package'
+PARALLEL_FAMILY='check-package check-package-groups check-package-direct'
+
 
 # 套件文件按名单动态 source（名单单一来源；孤儿文件在下方磁盘校验中 fail-closed）
 for _s in $ALL_SUITES; do
@@ -132,6 +143,9 @@ fi
 SUITE='all'
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd) || exit 2
 PKG_ROOT=''
+# 并行度（票 292）：0＝auto（按套件声明的 worker 数）；>=1＝并行上限；--jobs 1 串行。
+# 初值必须在参数解析前设定，否则会覆盖已解析的 --jobs。
+JOBS=0
 
 
 suite_listed() {
@@ -145,6 +159,30 @@ suite_fn() {
   printf 'suite_%s\n' "$(printf '%s' "$1" | tr '-' '_')"
 }
 
+suite_worker_count() {
+  # 套件声明的 worker 数（票 292）：suite_<fn>_worker_count 未定义＝1（串行）。
+  _swc_fn=$(suite_fn "$1")_worker_count
+  if ! command -v "$_swc_fn" >/dev/null 2>&1; then
+    printf '1'
+    return 0
+  fi
+  "$_swc_fn"
+}
+
+in_family() {
+  case " $PARALLEL_FAMILY " in
+    *" $1 "*) return 0 ;;
+  esac
+  return 1
+}
+
+family_members() {
+  # 输出家族成员（ALL_SUITES 顺序子集；仅打印实际在册者）
+  for _fm in $ALL_SUITES; do
+    in_family "$_fm" && printf '%s ' "$_fm"
+  done
+}
+
 usage() {
   _usage_suites=$(printf '%s' "$ALL_SUITES" | tr ' ' '|')
   cat <<'USAGE' | sed "s#@ALL_SUITES@#$_usage_suites#"
@@ -153,12 +191,15 @@ usage() {
     --suite <name>      @ALL_SUITES@ | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
   --script-dir <dir>  被测脚本所在目录（须含 package-manifest scripts 节登记的被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
+  --jobs <n>          并行度：套件声明 worker 时的并行上限；缺省 auto（＝该套件 worker 数），
+                      --jobs 1 回退串行（既有行为逐行不变）；未声明 worker 的套件始终串行
   -h / --help         打印本用法
 环境变量:
     TEST_SUITE_TIMEOUT   单套件超时秒数（缺省 900；check-package 等重套件实测 400–600s，
                          缺省 300 会误判超时——超时机制保留，仅放宽默认值可覆盖）；超时记
                          FAIL 行、继续后续套件、整轮 exit 1
     TEST_ASSERTION_FLOOR 断言数下限；缺省仅 --suite all 生效（1100）；显式设置时对任意车道生效
+    TEST_RUNNER_JOBS     并行度（同 --jobs；整型 ≥1；缺省 auto＝按套件声明 worker 数）
 退出码: 0 全部断言通过；1 存在失败断言（逐项 FAIL 行见输出）；2 用法或环境错误；130 收到 INT/TERM（清理后退出）
 suite 覆盖场景表与维护规则见包内 scripts/README.md「test-record-layer.sh」专节。
 USAGE
@@ -170,6 +211,17 @@ while [ $# -gt 0 ]; do
     --suite) [ $# -ge 2 ] || { usage >&2; exit 2; }; SUITE=$2; shift 2 ;;
     --script-dir) [ $# -ge 2 ] || { usage >&2; exit 2; }; SCRIPT_DIR=$2; shift 2 ;;
     --pkg-root) [ $# -ge 2 ] || { usage >&2; exit 2; }; PKG_ROOT=$2; shift 2 ;;
+    --jobs)
+      [ $# -ge 2 ] || { usage >&2; exit 2; }
+      case $2 in
+        ''|*[!0-9]*|0)
+          printf 'test-record-layer: --jobs 须为整数 >=1: %s\n' "$2" >&2
+          exit 2
+          ;;
+      esac
+      JOBS=$2
+      shift 2
+      ;;
     *) printf 'test-record-layer: 未知参数: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 done
@@ -196,9 +248,39 @@ for _s in $FAST_SUITES; do
     exit 2
   }
 done
+for _s in $(family_members); do
+  in_family "$_s" || { printf 'test-record-layer: 家族成员校验异常: %s\n' "$_s" >&2; exit 2; }
+done
+for _s in $PARALLEL_FAMILY; do
+  suite_listed "$_s" || {
+    printf 'test-record-layer: PARALLEL_FAMILY 成员不在 ALL_SUITES 内: %s\n' "$_s" >&2
+    exit 2
+  }
+done
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
 if [ -z "$PKG_ROOT" ]; then
   PKG_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd) || exit 2
+fi
+
+# ---- 并行度（票 292）：env 仅在未显式给 --jobs 时生效 ----
+if [ -n "${TEST_RUNNER_JOBS:-}" ] && [ "$JOBS" -eq 0 ]; then
+  case $TEST_RUNNER_JOBS in
+    ''|*[!0-9]*)
+      printf 'test-record-layer: TEST_RUNNER_JOBS 须为整数 >=1: %s\n' "$TEST_RUNNER_JOBS" >&2
+      exit 2
+      ;;
+  esac
+  JOBS=$TEST_RUNNER_JOBS
+fi
+case $JOBS in
+  ''|*[!0-9]*)
+    printf 'test-record-layer: --jobs 须为整数 >=1: %s\n' "$JOBS" >&2
+    exit 2
+    ;;
+esac
+if [ "$JOBS" -ne 0 ] && [ "$JOBS" -lt 1 ]; then
+  printf 'test-record-layer: --jobs 须为整数 >=1: %s\n' "$JOBS" >&2
+  exit 2
 fi
 [ -d "$PKG_ROOT" ] || { printf 'test-record-layer: 包根不存在: %s\n' "$PKG_ROOT" >&2; exit 2; }
 # 被测成员清单权威＝package-manifest.rules scripts 节（票 291：取消 runner 内硬编码清单与
@@ -229,6 +311,9 @@ CUR_SUITE=''
 # 当前套件的结果日志（子 shell 内 ok/bad 写入，父进程按行汇总）
 CUR_JOURNAL=''
 CURRENT_CHILD=''
+# 并行 worker 组 pid 列表（票 292；中断路径经 test-helpers.sh on_signal 逐个停止）
+# shellcheck disable=SC2034  # 由 test-helpers.sh on_signal 消费（跨件视野误报）
+CURRENT_CHILDREN=''
 
 # ---- 断言数下限（票 258 AC5）----
 # 缺省只对 --suite all 生效（1100＝票 257 收口后的实跑基线）；显式设置时对任意车道生效，
@@ -348,21 +433,314 @@ run_suite() {
   CUR_JOURNAL=''
 }
 
+# ---- 多 worker 套件：分波并行＋per-worker journal＋保序回放＋单条汇总（票 292）----
+
+run_suite_group() {
+  # $1=套件名 $2=worker 数
+  # 每个 worker：独立 $T/journal.<name>.wN 与 $T/group.<name>/wN.log（零共享临时文件；
+  # worker 内部另用 $T/cpkg.wN 作为自己的夹具根）；父进程按 worker 序号 wait 后回放日志，
+  # 顺序与声明序一致，断言行与串行输出逐字相同；最后只打印一条套件汇总与用时。
+  _sg_name=$1
+  _sg_count=$2
+  CUR_SUITE=$_sg_name
+  _sg_dir="$T/group.$_sg_name"
+  mkdir -p "$_sg_dir" || exit 2
+  _sg_conc=$JOBS
+  if [ "$_sg_conc" -le 0 ]; then _sg_conc=$_sg_count; fi
+  if [ "$_sg_conc" -gt "$_sg_count" ]; then _sg_conc=$_sg_count; fi
+  _sg_start=$(date +%s)
+  _sg_total=0
+  _sg_fails=0
+  _sg_timedout=0
+  _sg_exit_bad=0
+  _sg_badrc=0
+  _sg_i=1
+  while [ "$_sg_i" -le "$_sg_count" ]; do
+    _sg_hi=$((_sg_i + _sg_conc - 1))
+    if [ "$_sg_hi" -gt "$_sg_count" ]; then _sg_hi=$_sg_count; fi
+    _sg_wave_pids=''
+    _sg_wave_idx=''
+    _sg_j=$_sg_i
+    while [ "$_sg_j" -le "$_sg_hi" ]; do
+      _sg_journal="$T/journal.$_sg_name.w$_sg_j"
+      : >"$_sg_journal"
+      CUR_JOURNAL=$_sg_journal
+      CUR_SUITE=$_sg_name
+      ( "$(suite_fn "$_sg_name")_w$_sg_j" ) >"$_sg_dir/w$_sg_j.log" 2>&1 &
+      _sg_wave_pids="$_sg_wave_pids $!"
+      _sg_wave_idx="$_sg_wave_idx $_sg_j"
+      _sg_j=$((_sg_j + 1))
+    done
+    # shellcheck disable=SC2034  # 由 test-helpers.sh on_signal 消费（跨件视野误报）
+    CURRENT_CHILDREN=$_sg_wave_pids
+    _sg_running=1
+    while [ "$_sg_running" -eq 1 ]; do
+      _sg_running=0
+      for _sg_p in $_sg_wave_pids; do
+        if kill -0 "$_sg_p" 2>/dev/null; then
+          _sg_running=1
+          break
+        fi
+      done
+      if [ "$_sg_running" -eq 0 ]; then
+        break
+      fi
+      _sg_now=$(date +%s)
+      if [ $((_sg_now - _sg_start)) -ge "$SUITE_TIMEOUT" ]; then
+        _sg_timedout=1
+        for _sg_p in $_sg_wave_pids; do
+          kill -TERM "$_sg_p" 2>/dev/null
+        done
+        sleep 0.2
+        for _sg_p in $_sg_wave_pids; do
+          kill -KILL "$_sg_p" 2>/dev/null
+        done
+        break
+      fi
+      sleep 0.05
+    done
+    _sg_pids_tmp=$_sg_wave_pids
+    _sg_idx_tmp=$_sg_wave_idx
+    while [ -n "$_sg_pids_tmp" ]; do
+      # shellcheck disable=SC2086  # 有意按空白分词为多参数（worker pid 列表，逐项 shift）
+      set -- $_sg_pids_tmp
+      _sg_p=$1
+      shift
+      _sg_pids_tmp=$*
+      # shellcheck disable=SC2086  # 有意按空白分词为多参数（worker 序号列表，逐项 shift）
+      set -- $_sg_idx_tmp
+      _sg_k=$1
+      shift
+      _sg_idx_tmp=$*
+      wait "$_sg_p" 2>/dev/null
+      _sg_rc=$?
+      cat "$_sg_dir/w$_sg_k.log"
+      _sg_journal="$T/journal.$_sg_name.w$_sg_k"
+      _sg_n=$(wc -l <"$_sg_journal" | tr -d ' ')
+      _sg_f=$(grep -c '^FAIL' "$_sg_journal" 2>/dev/null || true)
+      [ -n "$_sg_f" ] || _sg_f=0
+      _sg_total=$((_sg_total + _sg_n))
+      _sg_fails=$((_sg_fails + _sg_f))
+      if [ "$_sg_rc" -ne 0 ] && [ "$_sg_timedout" -eq 0 ]; then
+        _sg_exit_bad=1
+        _sg_badrc=$_sg_rc
+      fi
+    done
+    # shellcheck disable=SC2034  # 由 test-helpers.sh on_signal 消费（跨件视野误报）
+    CURRENT_CHILDREN=''
+    if [ "$_sg_timedout" -eq 1 ]; then
+      break
+    fi
+    _sg_i=$((_sg_hi + 1))
+  done
+  _sg_end=$(date +%s)
+  _sg_secs=$((_sg_end - _sg_start))
+  TOTAL=$((TOTAL + _sg_total))
+  FAILS=$((FAILS + _sg_fails))
+  if [ "$_sg_timedout" -eq 1 ]; then
+    CUR_JOURNAL=''
+    bad "套件超时（上限 $SUITE_TIMEOUT s，TEST_SUITE_TIMEOUT 可覆盖）→ 终止本套件并继续后续" \
+      "超时前已记录 $_sg_total 项断言（$_sg_fails 失败）"
+    _sg_total=$((_sg_total + 1))
+    _sg_fails=$((_sg_fails + 1))
+  elif [ "$_sg_exit_bad" -eq 1 ]; then
+    CUR_JOURNAL=''
+    bad "套件提前退出（exit ${_sg_badrc}）→ 子 shell 隔离，后续套件照跑并出汇总" \
+      "退出前已记录 $_sg_total 项断言（$_sg_fails 失败）"
+    _sg_total=$((_sg_total + 1))
+    _sg_fails=$((_sg_fails + 1))
+  fi
+  if [ "$_sg_fails" -eq 0 ]; then
+    printf 'test-record-layer: [%s] 断言 %d/%d 通过\n' "$_sg_name" "$_sg_total" "$_sg_total"
+  else
+    printf 'test-record-layer: [%s] 断言 %d/%d 通过（%d 失败）\n' \
+      "$_sg_name" "$((_sg_total - _sg_fails))" "$_sg_total" "$_sg_fails"
+  fi
+  printf 'test-record-layer: [%s] 用时 %ss\n' "$_sg_name" "$_sg_secs"
+  # shellcheck disable=SC2034  # 由下一次调度重置（单文件视野误报）
+  CUR_JOURNAL=''
+}
+
+# ---- 套件家族批：成员并行＋保序回放（票 292 并行能力 × 票 291 拆分结构）----
+
+run_suite_family() {
+  # $1=家族代表名（日志目录标识；成员集合取 family_members，顺序＝ALL_SUITES）
+  # 每个成员作为一个独立任务在子 shell 内经 dispatch_one 执行（故成员内部的 worker 并行与
+  # 栅栏回退口径完全复用），输出重定向到 $T/family.<lead>/<name>.log；父进程分波并发
+  # （上限＝JOBS，缺省 auto＝成员数），按家族顺序 wait 后回放日志——各成员自身的
+  # PASS/FAIL 行、汇总行与用时行原样保留，顺序与串行一致；TOTAL/FAILS 由回放日志中的
+  # 断言行计数（不依赖跨进程 journal）。组超时先 TERM 后 KILL 全部成员任务。
+  _ff_lead=$1
+  _ff_members=$(family_members)
+  _ff_dir="$T/family.$_ff_lead"
+  mkdir -p "$_ff_dir" || exit 2
+  _ff_start=$(date +%s)
+  _ff_total=0
+  _ff_fails=0
+  _ff_timedout=0
+  _ff_n=0
+  for _ff_m in $_ff_members; do _ff_n=$((_ff_n + 1)); done
+  _ff_conc=$JOBS
+  if [ "$_ff_conc" -le 0 ]; then _ff_conc=$_ff_n; fi
+  if [ "$_ff_conc" -gt "$_ff_n" ]; then _ff_conc=$_ff_n; fi
+  _ff_i=1
+  while [ "$_ff_i" -le "$_ff_n" ]; do
+    _ff_hi=$((_ff_i + _ff_conc - 1))
+    if [ "$_ff_hi" -gt "$_ff_n" ]; then _ff_hi=$_ff_n; fi
+    _ff_pids=''
+    _ff_names=''
+    _ff_k=1
+    for _ff_m in $_ff_members; do
+      if [ "$_ff_k" -ge "$_ff_i" ] && [ "$_ff_k" -le "$_ff_hi" ]; then
+        date +%s >"$_ff_dir/$_ff_m.start"
+        ( dispatch_one "$_ff_m"; date +%s >"$_ff_dir/$_ff_m.end" ) >"$_ff_dir/$_ff_m.log" 2>&1 &
+        _ff_pids="$_ff_pids $!"
+        _ff_names="$_ff_names $_ff_m"
+      fi
+      _ff_k=$((_ff_k + 1))
+    done
+    # shellcheck disable=SC2034  # 由 test-helpers.sh on_signal 消费（跨件视野误报）
+    CURRENT_CHILDREN=$_ff_pids
+    _ff_running=1
+    while [ "$_ff_running" -eq 1 ]; do
+      _ff_running=0
+      for _ff_p in $_ff_pids; do
+        if kill -0 "$_ff_p" 2>/dev/null; then
+          _ff_running=1
+          break
+        fi
+      done
+      if [ "$_ff_running" -eq 0 ]; then
+        break
+      fi
+      _ff_now=$(date +%s)
+      if [ $((_ff_now - _ff_start)) -ge "$SUITE_TIMEOUT" ]; then
+        _ff_timedout=1
+        for _ff_p in $_ff_pids; do
+          kill -TERM "$_ff_p" 2>/dev/null
+        done
+        sleep 0.2
+        for _ff_p in $_ff_pids; do
+          kill -KILL "$_ff_p" 2>/dev/null
+        done
+        break
+      fi
+      sleep 0.05
+    done
+    _ff_pids_tmp=$_ff_pids
+    _ff_names_tmp=$_ff_names
+    while [ -n "$_ff_pids_tmp" ]; do
+      # shellcheck disable=SC2086  # 有意按空白分词为多参数（成员 pid 列表，逐项 shift）
+      set -- $_ff_pids_tmp
+      _ff_p=$1
+      shift
+      _ff_pids_tmp=$*
+      # shellcheck disable=SC2086  # 有意按空白分词为多参数（成员名列表，逐项 shift）
+      set -- $_ff_names_tmp
+      _ff_m=$1
+      shift
+      _ff_names_tmp=$*
+      wait "$_ff_p" 2>/dev/null
+      _ff_rc=$?
+      cat "$_ff_dir/$_ff_m.log"
+      _ff_p=$(grep -c '^PASS  \[' "$_ff_dir/$_ff_m.log" 2>/dev/null || true)
+      [ -n "$_ff_p" ] || _ff_p=0
+      _ff_f=$(grep -c '^FAIL  \[' "$_ff_dir/$_ff_m.log" 2>/dev/null || true)
+      [ -n "$_ff_f" ] || _ff_f=0
+      _ff_t=$((_ff_p + _ff_f))
+      TOTAL=$((TOTAL + _ff_t))
+      FAILS=$((FAILS + _ff_f))
+      _ff_total=$((_ff_total + _ff_t))
+      _ff_fails=$((_ff_fails + _ff_f))
+      _ff_end=$(date +%s)
+      if [ -f "$_ff_dir/$_ff_m.end" ]; then
+        _ff_end=$(cat "$_ff_dir/$_ff_m.end")
+      fi
+      _ff_secs=0
+      if [ -f "$_ff_dir/$_ff_m.start" ]; then
+        _ff_secs=$((_ff_end - $(cat "$_ff_dir/$_ff_m.start")))
+      fi
+      # 回放日志须含该成员汇总行（run_suite／run_suite_group 自带；异常早退时按既有口径补）
+      if ! grep -q "^test-record-layer: \[$_ff_m\] 断言" "$_ff_dir/$_ff_m.log" 2>/dev/null; then
+        if [ "$_ff_f" -eq 0 ]; then
+          printf 'test-record-layer: [%s] 断言 %d/%d 通过\n' "$_ff_m" "$_ff_t" "$_ff_t"
+        else
+          printf 'test-record-layer: [%s] 断言 %d/%d 通过（%d 失败；套件未产出汇总行）\n' \
+            "$_ff_m" "$((_ff_t - _ff_f))" "$_ff_t" "$_ff_f"
+        fi
+        printf 'test-record-layer: [%s] 用时 %ss\n' "$_ff_m" "$_ff_secs"
+      fi
+      if [ "$_ff_rc" -ne 0 ] && [ "$_ff_timedout" -eq 0 ]; then
+        _ff_exit_bad=1
+        _ff_badrc=$_ff_rc
+      fi
+    done
+    # shellcheck disable=SC2034  # 由 test-helpers.sh on_signal 消费（跨件视野误报）
+    CURRENT_CHILDREN=''
+    if [ "$_ff_timedout" -eq 1 ]; then
+      break
+    fi
+    _ff_i=$((_ff_hi + 1))
+  done
+  if [ "$_ff_timedout" -eq 1 ]; then
+    CUR_SUITE=$_ff_lead
+    CUR_JOURNAL=''
+    bad "套件超时（上限 $SUITE_TIMEOUT s，TEST_SUITE_TIMEOUT 可覆盖）→ 终止本套件并继续后续" \
+      "超时前已记录 $_ff_total 项断言（$_ff_fails 失败）"
+  fi
+  # shellcheck disable=SC2034  # 由下一次调度重置（单文件视野误报）
+  CUR_JOURNAL=''
+}
+
+# 单个套件调度：声明 worker 的走并行池（栅栏套件经 gate 回退串行），否则维持既有串行。
+dispatch_one() {
+  _do_count=$(suite_worker_count "$1")
+  if [ "$_do_count" -gt 1 ]; then
+    _do_gate=$(suite_fn "$1")_gate
+    if command -v "$_do_gate" >/dev/null 2>&1 && "$_do_gate"; then
+      run_suite "$1" "$(suite_fn "$1")"
+    else
+      run_suite_group "$1" "$_do_count"
+    fi
+  else
+    run_suite "$1" "$(suite_fn "$1")"
+  fi
+}
+
 dispatch_suite() {
+  # 家族批（票 292×291 整合）：ALL_SUITES 中家族成员在代表名位置一次性并行执行并保序
+  # 回放（成员各自的汇总/用时行保留）；其余成员在该轮跳过，不得重复执行。显式请求代表名
+  # 同样走家族批（覆盖整个家族）；显式请求非代表成员仍只跑该成员（githooks 逐名调用口径）。
   case $SUITE in
     all)
       for _d in $ALL_SUITES; do
-        run_suite "$_d" "$(suite_fn "$_d")"
+        if [ "$_d" = "$PARALLEL_FAMILY_LEAD" ]; then
+          run_suite_family "$_d"
+        elif in_family "$_d"; then
+          continue
+        else
+          dispatch_one "$_d"
+        fi
       done
       run_suite self-check self_check_injection
       ;;
     fast)
       for _d in $FAST_SUITES; do
-        run_suite "$_d" "$(suite_fn "$_d")"
+        if [ "$_d" = "$PARALLEL_FAMILY_LEAD" ]; then
+          run_suite_family "$_d"
+        elif in_family "$_d"; then
+          continue
+        else
+          dispatch_one "$_d"
+        fi
       done
       ;;
     *)
-      run_suite "$SUITE" "$(suite_fn "$SUITE")"
+      if [ "$SUITE" = "$PARALLEL_FAMILY_LEAD" ]; then
+        run_suite_family "$SUITE"
+      else
+        dispatch_one "$SUITE"
+      fi
       ;;
   esac
 }

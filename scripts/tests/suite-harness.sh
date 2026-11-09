@@ -66,14 +66,18 @@ _h_run_all() {
 }
 
 _h_signal_case() {
-  # $1=信号名 $2=期望退出码：中断后须 exit 约定码且临时目录已清
+  # $1=信号名 $2=期望退出码 $3=可选合成 harness 根 $4...=附加 runner 参数（并行负例用）
+  # 中断后须 exit 约定码且临时目录已清
   # 后台任务在 POSIX 下继承 SIGINT=ignore，runner 的 trap 将失效；故经 python3 把
   # INT 处置重置为 SIG_DFL 后再 exec（python3 已是 harness 声明的环境依赖）。
   _hs_sig=$1
   _hs_want=$2
+  _hs_root=${3:-$_h_sig_root}
+  shift 2
+  [ $# -gt 0 ] && shift
   _hs_log="$T/h-signal-$_hs_sig.log"
   python3 -c 'import signal,os,sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' \
-    sh "$_h_sig_root/tests/test-runner.sh" --suite all --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" \
+    sh "$_hs_root/tests/test-runner.sh" --suite all --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" "$@" \
     >"$_hs_log" 2>&1 &
   _hs_pid=$!
   _hs_i=0
@@ -270,6 +274,98 @@ EOF
   else
     bad '缺件负例：名单有而磁盘缺 suite 文件 → 启动 exit 2 指名缺失文件' "exit=$_h_rc $(tail -2 "$T/h-missing.log" 2>/dev/null | tr '\n' '|')"
   fi
+
+  # ---- 负例 5（票 292）：并行 worker 组保序回放＋临时目录回收 ----
+  _h_par_root="$T/h-par"
+  _h_build "$_h_par_root"
+  cat >"$_h_par_root/tests/suite-absorption.sh" <<'EOF'
+#!/bin/sh
+suite_absorption_worker_count() { printf '%s' 2; }
+suite_absorption_w1() { ok '并行 w1 可辨识断言'; return 0; }
+suite_absorption_w2() { ok '并行 w2 可辨识断言'; return 0; }
+suite_absorption() {
+  CUR_SUITE='absorption'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  suite_absorption_w1
+  suite_absorption_w2
+  suite_summary 'absorption'
+}
+EOF
+  TEST_ASSERTION_FLOOR=0 sh "$_h_par_root/tests/test-runner.sh" --suite absorption --jobs 2 \
+    --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-par.log" 2>&1
+  _h_rc=$?
+  _h_par_tmp=$(sed -n 's/.*tmp=\([^ ]*\).*/\1/p' "$T/h-par.log" | head -1)
+  if [ "$_h_rc" -eq 0 ] && [ "$(grep -c '^PASS  \[absorption\]' "$T/h-par.log")" -eq 2 ] \
+    && grep -q '^test-record-layer: \[absorption\] 断言 2/2 通过' "$T/h-par.log"; then
+    ok '并行负例：worker 组断言经 journal 合并计数（2/2 通过，单条套件汇总）'
+  else
+    bad '并行负例：worker 组断言经 journal 合并计数（2/2 通过，单条套件汇总）' \
+      "exit=$_h_rc $(grep '^test-record-layer: \[absorption\]' "$T/h-par.log" 2>/dev/null | tr '\n' '|')"
+  fi
+  if grep -n '并行 w1 可辨识断言' "$T/h-par.log" | head -1 | cut -d: -f1 >"$T/h-par.w1ln" \
+    && grep -n '并行 w2 可辨识断言' "$T/h-par.log" | head -1 | cut -d: -f1 >"$T/h-par.w2ln" \
+    && [ "$(cat "$T/h-par.w1ln")" -lt "$(cat "$T/h-par.w2ln")" ]; then
+    ok '并行负例：worker 输出按序号保序回放（w1 断言行在 w2 之前）'
+  else
+    bad '并行负例：worker 输出按序号保序回放（w1 断言行在 w2 之前）' '顺序不符'
+  fi
+  if [ -n "$_h_par_tmp" ] && [ ! -d "$_h_par_tmp" ]; then
+    ok '并行负例：并行运行结束后临时目录已回收（含 per-worker 日志）'
+  else
+    bad '并行负例：并行运行结束后临时目录已回收（含 per-worker 日志）' "tmp=${_h_par_tmp:-<未捕获>}"
+  fi
+
+  # ---- 负例 6（票 292）：并行 worker 组超时 → 终止全部 worker、保留已产出断言计数 ----
+  _h_pto_root="$T/h-pto"
+  _h_build "$_h_pto_root"
+  cat >"$_h_pto_root/tests/suite-progress.sh" <<'EOF'
+#!/bin/sh
+suite_progress_worker_count() { printf '%s' 2; }
+suite_progress_w1() { ok '并行超时前断言 w1'; sleep 5; ok '超时后不该到达 w1'; return 0; }
+suite_progress_w2() { ok '并行超时前断言 w2'; sleep 5; ok '超时后不该到达 w2'; return 0; }
+suite_progress() {
+  CUR_SUITE='progress'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  suite_progress_w1
+  suite_progress_w2
+  suite_summary 'progress'
+}
+EOF
+  TEST_ASSERTION_FLOOR=0 TEST_SUITE_TIMEOUT=1 sh "$_h_pto_root/tests/test-runner.sh" --suite progress --jobs 2 \
+    --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-pto.log" 2>&1
+  _h_rc=$?
+  if [ "$_h_rc" -eq 1 ] && grep -q '^FAIL  \[progress\] 套件超时' "$T/h-pto.log"; then
+    ok '并行超时负例：组超时记 FAIL 行且整轮 exit 1（不静默当通过）'
+  else
+    bad '并行超时负例：组超时记 FAIL 行且整轮 exit 1（不静默当通过）' "exit=$_h_rc"
+  fi
+  if grep -q '退出前已记录 2 项断言\|超时前已记录 2 项断言' "$T/h-pto.log"; then
+    ok '并行超时负例：超时前已产出断言计数保留（2 项，不丢）'
+  else
+    bad '并行超时负例：超时前已产出断言计数保留（2 项，不丢）' \
+      "$(grep '套件超时' "$T/h-pto.log" 2>/dev/null | head -2 | tr '\n' '|')"
+  fi
+
+  # ---- 负例 7（票 292）：并行 worker 组收到 TERM → 停全部 worker 并清临时目录 exit 130 ----
+  _h_sigpar_root="$T/h-sigpar"
+  _h_build "$_h_sigpar_root"
+  cat >"$_h_sigpar_root/tests/suite-progress.sh" <<'EOF'
+#!/bin/sh
+suite_progress_worker_count() { printf '%s' 2; }
+suite_progress_w1() { ok '并行中断前断言 w1'; sleep 5; return 0; }
+suite_progress_w2() { ok '并行中断前断言 w2'; sleep 5; return 0; }
+suite_progress() {
+  CUR_SUITE='progress'
+  SUITE_FAILS=0
+  SUITE_START=$TOTAL
+  suite_progress_w1
+  suite_progress_w2
+  suite_summary 'progress'
+}
+EOF
+  _h_signal_case TERM 130 "$_h_sigpar_root" --jobs 2
 
   suite_summary 'harness'
 }

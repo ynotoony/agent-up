@@ -27,8 +27,9 @@ suite_check_package_groups() {
     suite_summary 'check-package-groups'
     return 0
   fi
-  # 正例基线输出（P29～P35 逐行断言读本文件）：与主套件同一生成命令（零写入审计面）。
-  sh "$SCRIPT_DIR/check-package.sh" "$PKG_ROOT" > "$D/act.positive" 2>&1 || true
+  # 正例基线输出（P29～P37 逐行断言读本文件）：本套件只读 29～37 的 PASS 行，故以同一
+  # 引擎的选中检查定向运行生成（输出行与全量正例逐字一致；省去与主套件重复的全量运行）。
+  sh "$SCRIPT_DIR/check-package.sh" --only 29,30,31,32,33,34,35,36,37 "$PKG_ROOT" > "$D/act.positive" 2>&1 || true
   cp_manifest="$PKG_ROOT/scripts/package-manifest.rules"
   cp_n_entries=$(LC_ALL=C grep -c '^pm_entry ' "$cp_manifest" 2>/dev/null || true)
   cp_n_templates=$(LC_ALL=C grep -c '^pm_template ' "$cp_manifest" 2>/dev/null || true)

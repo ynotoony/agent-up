@@ -72,6 +72,16 @@ on_signal() {
     sleep 0.2
     kill -KILL "$CURRENT_CHILD" 2>/dev/null
   fi
+  # 并行 worker 组（票 292）：逐个停掉在跑的 worker 子 shell，再清理临时目录
+  if [ -n "${CURRENT_CHILDREN:-}" ]; then
+    for _os_p in $CURRENT_CHILDREN; do
+      kill -TERM "$_os_p" 2>/dev/null
+    done
+    sleep 0.2
+    for _os_p in $CURRENT_CHILDREN; do
+      kill -KILL "$_os_p" 2>/dev/null
+    done
+  fi
   cleanup
   printf 'test-record-layer: 中断（%s）——已停止在跑套件并清理临时目录，exit %s\n' "$1" "$2" >&2
   exit "$2"
