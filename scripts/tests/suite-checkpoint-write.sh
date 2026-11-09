@@ -41,6 +41,7 @@ cw_lock_dir() {
   cat > "$cw_probe" <<'PROBE'
 #!/bin/sh
 set -eu
+COMMON_HELPERS_DIR=$1
 . "$1/common-helpers.sh"
 record_lock_init "$2"
 printf '%s\n' "$RECORD_LOCK_DIR"
@@ -218,7 +219,7 @@ suite_checkpoint_write() {
   ac1_lock=$(cw_lock_dir "$D/ac1")
   ac1_ck0=$(cksum "$D/ac1/facts/requirements/tickets/271-ac1.md")
   (
-    RECORD_LOCK_TEST_HOLD_MS=3000 sh -c '. "$1"; record_lock_init "$2"; trap "record_lock_release" EXIT; record_lock_acquire' \
+    RECORD_LOCK_TEST_HOLD_MS=3000 COMMON_HELPERS_DIR="$SCRIPT_DIR" sh -c '. "$1"; record_lock_init "$2"; trap "record_lock_release" EXIT; record_lock_acquire' \
       sh "$SCRIPT_DIR/common-helpers.sh" "$D/ac1" >"$D/ac1-hold.log" 2>&1
   ) &
   ac1_holder=$!
@@ -252,7 +253,7 @@ suite_checkpoint_write() {
   # shellcheck disable=SC2016  # fixture 文本字面量（刻意单引号）
   printf '# 票 271-ac2\n\n**Status:** `in_progress`\n' > "$D/ac2/facts/requirements/tickets/271-ac2.md"
   mkdir -p "$D/ac2-state"
-  sh -c '
+  COMMON_HELPERS_DIR="$SCRIPT_DIR" sh -c '
     . "$1"
     record_lock_init "$2"
     record_lock_acquire

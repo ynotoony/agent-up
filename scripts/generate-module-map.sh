@@ -499,33 +499,13 @@ if [ -n "$filter_labels" ] && [ -s "$tmp_edges" ]; then
   mv -f "$tmp_modf" "$tmp_edges"
 fi
 
-# ---- fp-v1 工作区指纹（R-DP-015 算法；输入排除本图自身，避免自引用漂移）----
-
-fp_list=$(cd "$repo_root" && LC_ALL=C find . \
-  \( -name .git -o -name node_modules -o -name dist -o -name build -o -name coverage \
-     -o -name __pycache__ -o -name .venv -o -path "./$RUNS_DIR_REL" \) -prune -o \
-  -type f -print \
-  | sed 's|^\./||' | LC_ALL=C sort | grep -v -x -F -e "$out_rel") || fp_list=''
-
-[ -n "$fp_list" ] || die1 '工作区文件清单为空——无法计算 fp-v1 指纹'
-
-IFS=$NL
-for rel in ${fp_list}; do
-  case ${rel} in
-    *"$tab"*) die1 "文件路径含制表符，无法承载指纹行格式: ${rel}" ;;
-  esac
-  meta=$(stat "$stat_flag" "$stat_fmt" "$repo_root/$rel") || die1 "stat 取文件元数据失败: ${rel}"
-  printf '%s' "$meta" | grep -Eq '^[0-9]+ [0-9]+$' || die1 "stat 输出不合预期（非字节/秒对）: ${rel}"
-  bytes=${meta%% *}
-  mtime=${meta##* }
-  printf '%s\t%s\t%s\n' "$rel" "$bytes" "$mtime" >> "$tmp_fp"
-done
-IFS=$OLDIFS
-
-fp_hex=$(LC_ALL=C ${sha_cmd} < "$tmp_fp" | sed -n 's/.*\([0-9a-f]\{64\}\).*/\1/p' | cut -c1-16)
-[ -n "$fp_hex" ] || die1 'SHA-256 计算失败（工具输出未含 64 位十六进制）'
-fingerprint="fp-v1:${fp_hex}"
-
+# ---- fp-v1 工作区指纹（票 294：独立为同目录 module-map-fingerprint.sh）----
+# 指纹模块赋值全局 fingerprint（此处显式初始化仅为静态分析可见性，值由模块覆写）
+fingerprint=''
+: "$stat_flag" "$stat_fmt"  # stat 方言由指纹模块消费（跨件共享）
+# shellcheck disable=SC1090,SC1091  # 指纹模块路径由脚本目录推导（动态源，静态视野不可跟随）
+. "$mm_script_dir/module-map-fingerprint.sh"
+mm_compute_fingerprint
 # ---- JSON 组装（转义与排版惯例参照 generate-progress.sh；json.loads 可解析）----
 
 if [ -s "$tmp_edges" ]; then

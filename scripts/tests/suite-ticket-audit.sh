@@ -733,7 +733,7 @@ suite_ticket_audit() {
   _ms_eng="$D/misshard"
   mkdir -p "$_ms_eng"
   cp "$SCRIPT_DIR/ticket-audit.sh" "$SCRIPT_DIR/audit-predicates.rules" \
-     "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$_ms_eng/"
+     "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$SCRIPT_DIR/json-validator.py" "$_ms_eng/"
   for _ms_shard in audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh \
       audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh \
       audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh \

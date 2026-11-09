@@ -93,7 +93,7 @@ RULES
   wt_build_fixture "$D/p5/repo"
   mkdir -p "$D/p5/bin"
   cp "$WA" "$D/p5/bin/worktree-add.sh"
-  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$D/p5/bin/"
+  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$D/p5/bin/"
   cd "$D/p5/repo" || exit 1
   sh "$D/p5/bin/worktree-add.sh" ../wt7 ticket/48-test >"$D/p5.out" 2>&1
   rc=$?

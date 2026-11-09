@@ -463,6 +463,7 @@ PY
   cat > "$D/hold-lock.sh" <<'HOLD'
 #!/bin/sh
 set -eu
+COMMON_HELPERS_DIR=$1
 . "$1/common-helpers.sh"
 record_lock_init "$2"
 record_lock_acquire

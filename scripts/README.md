@@ -77,6 +77,14 @@
 | `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器（ALL_SUITES 唯一枚举＋fast 短车道＋per-suite 超时／信号清理／断言下限）＋test-helpers.sh 共享断言（结果日志回传）＋`tests/suite-*.sh` 全部套件（各 suite 可独立运行 `sh tests/suite-<name>.sh`；套件数以文件系统实计数为唯一真源；含 harness 自身硬化负例）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
 | `generate-mirrors.sh` | 镜像生成器 | 包侧 `scripts/` 手写源 → 仓侧 `rules/implementation/scripts/` 生成物单入口：按 `package-manifest.rules` mirrors 节 mirror 类逐件生成，幂等、逐件 cmp 自证；`--check` 只读核对，漂移/缺件指名 exit 1；package-only 不生成。生成物不得手工编辑。 |
 | `checks` | 包检引擎检查件与引擎模块目录 | 检查注册表与检查件分片：`registry.rules`（`chk_total`／`chk_retired` 声明＋每项检查一行号/slug/件/必需数据节）＋每项检查一件 `NN-slug.sh`（统一 interface：引擎传入包根，检查件只判定并经 `add_problem` 报告问题、置描述与 SKIP 面，不打印 PASS/FAIL 行、不碰汇总计数；由 `check-package.sh` 按注册表发现与分发）＋引擎模块两件：`config-load.sh`（共享词法器接入、逐节 schema 登记、通用行校验器与跨节专用校验器、清单加载接口）与 `registry-dispatch.sh`（注册表纯查询、三向完整性断言、检查件载入与统一分发、输出完整性守卫）；清单 kind=dir |
+| `artifacts-fix.sh` | 包检 --fix 写面模块 | check-artifacts --fix 写面模块：未登记受管件的登记条目骨架生成与 --apply 追加落盘（预览与落盘同源、dry-run 缺省零写入；与对账面分离）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
+| `workspace-snapshot.sh` | 快道快照子系统模块 | 快道门禁工作区快照子系统模块：路径/类型/状态快照生成、两次快照分类与 verify 越界报告（check-gates 同目录加载；快照格式与哈希口径唯一承载点）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
+| `dispatch-contract-modes.sh` | 派发合同四模式实现模块 | 派发合同校验器四模式实现模块：模板漂移、执行体自查、派发前置、步数预算四模式解析与判定（CLI 只留参数与分派）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
+| `evidence-gate.sh` | 证据门策略模块 | 证据门策略模块：Review Checkpoint 允许集形态判定唯一实现（ticket-ops 证据门与 merge-ticket 合并门经 common-helpers 共用）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
+| `record-lock.sh` | 记录层写锁原语模块 | 记录层写锁原语模块：mkdir 原子取锁、有界等待、陈旧锁仅诊断、显式夺锁、令牌归属校验、嵌套继承与所有权感知释放的唯一实现（经 common-helpers 转发）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
+| `module-map-fingerprint.sh` | 模块地图指纹算法模块 | 模块地图 fp-v1 工作区指纹算法模块：清单排除本图自身、字节+mtime 行序稳定、SHA-256 前 16 位（generate-module-map 同目录加载）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
+| `ledger-row-families.sh` | 账本行族校验模块 | 两账本行族校验模块：micro 七键与 changes 行族字段/键序/形状校验＋JSON 解析门（ledger-append 同目录加载，写点仍经 record-store）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
+| `run-record-cmds.sh` | run record 子命令模块 | run record 三子命令分层模块：stats 只读聚合、new 骨架生成、seal 校验刷新（主件只留用法/子命令解析/工具探测/共享机械字段）（由主件同目录加载；主件 CLI／输出行／退出码不变）。 |
 | `ticket-gates.sh` | ticket-ops 门禁函数库 | 同进程 source 载入的三套收口门禁函数：actual_time 收口硬拦（flip 至 done）、done 证据门（只认 ticket-audit --operation merge conformant）、blocked_by 领取完整性门（take 专属）；只定义函数、不取锁不改状态，记录锁窗口与锁令牌继承语义不变；调用点与输出文案保持抽取前形态。 |
 | `audit-predicates.rules` | 证据审计谓词注册表 | 每谓词一行（`pr <谓词号> <slug> <分片文件名> <halt 或 ->`）：执行顺序与分片定位单源，引擎非执行式解析并 fail-closed 校验（未知指令/字段数/形态/重复即 exit 2）；新增谓词＝加分片＋本表一行。 |
 | `audit-p01-receipt-parseable.sh` | 证据审计谓词分片 P01 | 收据可解析（halt 门）；同进程函数 `check_p01` 只经 `p_pass/p_fail/p_unknown` 报告判定与文件:行号，不打印汇总与退出码。 |

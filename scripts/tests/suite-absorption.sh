@@ -16,7 +16,7 @@ at_build_fixture() {
   # $1=夹具目录：repo/facts/project/changes.jsonl（脚本缺省根推导 ../..）
   rm -rf "$1"
   mkdir -p "$1/repo/facts/project" "$1/repo/rules/implementation/scripts"
-  cp "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-line.sh" "$1/repo/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$SCRIPT_DIR/json-line.sh" "$1/repo/rules/implementation/scripts/"
 }
 
 at_run() {

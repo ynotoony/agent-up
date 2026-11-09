@@ -50,6 +50,8 @@ set -eu
 set -f
 _sd=$1
 shift
+COMMON_HELPERS_DIR=$_sd
+export COMMON_HELPERS_DIR
 . "$_sd/common-helpers.sh"
 . "$_sd/record-store.sh"
 "$@"
@@ -299,7 +301,7 @@ EOF
 
   # ---- 正例 R1-①：持锁窗口内第二方写被挡（RECORD_LOCK_TEST_HOLD_MS 放大窗口） ----
   rs_fixture "$D/fix10"
-  rs_lock_dir10=$(sh -c '. "$1/common-helpers.sh"; record_lock_init "$2"; printf "%s" "$RECORD_LOCK_DIR"' sh "$SCRIPT_DIR" "$D/fix10")
+  rs_lock_dir10=$(COMMON_HELPERS_DIR="$SCRIPT_DIR" sh -c '. "$1/common-helpers.sh"; record_lock_init "$2"; printf "%s" "$RECORD_LOCK_DIR"' sh "$SCRIPT_DIR" "$D/fix10")
   before=$(cksum "$D/fix10/facts/requirements/tickets/index.json" | awk '{print $1}')
   RECORD_LOCK_TEST_HOLD_MS=3000 \
     sh "$D/probe.sh" "$SCRIPT_DIR" record_append "$D/fix10" changes "$D/append.txt" >"$D/lockhold.log" 2>&1 &
@@ -324,11 +326,12 @@ EOF
   # ---- 正例 R1-②：调用方持锁时令牌归属校验生效（篡改令牌后写入被拒） ----
   rs_fixture "$D/fix11"
   before=$(cksum "$D/fix11/facts/requirements/tickets/index.json" | awk '{print $1}')
-  rs_lock_dir3=$(sh -c '. "$1/common-helpers.sh"; record_lock_init "$2"; printf "%s" "$RECORD_LOCK_DIR"' sh "$SCRIPT_DIR" "$D/fix11")
+  rs_lock_dir3=$(COMMON_HELPERS_DIR="$SCRIPT_DIR" sh -c '. "$1/common-helpers.sh"; record_lock_init "$2"; printf "%s" "$RECORD_LOCK_DIR"' sh "$SCRIPT_DIR" "$D/fix11")
   cat > "$D/probe-tamper.sh" <<PROBE
 #!/bin/sh
 set -eu
 set -f
+COMMON_HELPERS_DIR="$SCRIPT_DIR"
 . "$SCRIPT_DIR/common-helpers.sh"
 . "$SCRIPT_DIR/record-store.sh"
 record_lock_ensure "\$1"
@@ -347,7 +350,7 @@ PROBE
 
   # ---- 正例：记录写入自取写锁并在本次写入后释放（独立调用形态） ----
   rs_fixture "$D/fix7"
-  rs_lock_dir=$(sh -c '. "$1/common-helpers.sh"; record_lock_init "$2"; printf "%s" "$RECORD_LOCK_DIR"' sh "$SCRIPT_DIR" "$D/fix7")
+  rs_lock_dir=$(COMMON_HELPERS_DIR="$SCRIPT_DIR" sh -c '. "$1/common-helpers.sh"; record_lock_init "$2"; printf "%s" "$RECORD_LOCK_DIR"' sh "$SCRIPT_DIR" "$D/fix7")
   rs_probe record_write "$D/fix7" index "$D/new-index.json" >"$D/lock.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && [ ! -e "$rs_lock_dir" ] && [ ! -L "$rs_lock_dir" ]; then

@@ -88,7 +88,7 @@ dp_probe_build() {
   # $1=布局目录：消费件副本＋解析器原样副本＋common-helpers 副本；DP_DUMP_FILE 环境变量
   # 指向采集文件。解析器不再改名实现体做探针——采集经只读输出缝隙 dp_dump_state 承载。
   mkdir -p "$1"
-  cp "$SCRIPT_DIR/common-helpers.sh" "$1/"
+  cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$1/"
   cp "$SCRIPT_DIR/$DP_LIB_NAME" "$1/$DP_LIB_NAME"
   cp "$SCRIPT_DIR/check-artifacts.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/worktree-add.sh" "$SCRIPT_DIR/artifacts-index.sh" "$1/" 2>/dev/null
   cp "$SCRIPT_DIR/stale-claims-checks.rules" "$SCRIPT_DIR/stale-s1-git-status.sh" "$SCRIPT_DIR/stale-s2-release-status.sh" "$SCRIPT_DIR/stale-s3-frontier-projection.sh" "$SCRIPT_DIR/stale-s4-count-drift.sh" "$SCRIPT_DIR/stale-s5-conclusion-annotation.sh" "$SCRIPT_DIR/stale-s6-terminal-state.sh" "$SCRIPT_DIR/stale-s7-superseded-marker.sh" "$SCRIPT_DIR/stale-s8-lesson-pointer.sh" "$1/" 2>/dev/null
@@ -332,7 +332,7 @@ suite_delivery_parser() {
     fi
     rm -rf "$D/miss"
     mkdir -p "$D/miss" "$D/references/templates"
-    cp "$SCRIPT_DIR/common-helpers.sh" "$D/miss/"
+    cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$D/miss/"
     cp "$SCRIPT_DIR/artifacts-index.sh" "$D/miss/"
     cp "$SCRIPT_DIR/$dp_c" "$D/miss/"
     cp "$SCRIPT_DIR/../references/templates/artifacts-yaml.tmpl" "$D/references/templates/"
@@ -353,7 +353,7 @@ suite_delivery_parser() {
     fi
     rm -rf "$D/drift"
     mkdir -p "$D/drift" "$D/references/templates"
-    cp "$SCRIPT_DIR/common-helpers.sh" "$D/drift/"
+    cp "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$D/drift/"
     cp "$SCRIPT_DIR/artifacts-index.sh" "$D/drift/"
     cp "$SCRIPT_DIR/$dp_c" "$D/drift/"
     sed 's/^DP_PARSER_VERSION=2$/DP_PARSER_VERSION=1/' "$SCRIPT_DIR/$DP_LIB_NAME" > "$D/drift/$DP_LIB_NAME"

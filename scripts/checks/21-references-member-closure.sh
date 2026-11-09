@@ -153,32 +153,10 @@ if [ -n "$link_raw" ]; then
   done
   IFS=$OLDIFS
 fi
-# ④目录 README 兜底（票 266，只读两检；与收口链、升级流程同口径）
-#   ①--check --blocks-only：只校验含生成块的 README 四段结构，旧格式无生成块跳过；
-#   ②--freshness：在内存重算 --sync 应产出块逐行比对，漂移即指名缺失／多余行。
-#   两检都不写文件；生成器缺失由检查 8 覆盖，本段不重复报；无启用目录时零动作（不作为即通过）。
-if [ -f "$pkg_root/scripts/generate-dir-readmes.sh" ]; then
-  dr_gen="$pkg_root/scripts/generate-dir-readmes.sh"
-  dr_rules="$pkg_root/scripts/dir-readme.rules"
-  _dr_err=''
-  if ! _dr_err=$(sh "$dr_gen" --target "$pkg_root" --rules "$dr_rules" --check --blocks-only 2>&1); then
-    while IFS= read -r _dr_line; do
-      [ -n "$_dr_line" ] || continue
-      add_problem "  - 目录 README 结构校验未过: $_dr_line"
-    done <<EOF
-${_dr_err}
-EOF
-  fi
-  _dr_err=''
-  if ! _dr_err=$(sh "$dr_gen" --target "$pkg_root" --rules "$dr_rules" --freshness 2>&1); then
-    while IFS= read -r _dr_line; do
-      [ -n "$_dr_line" ] || continue
-      add_problem "  - 目录 README 生成块新鲜度未过: $_dr_line"
-    done <<EOF
-${_dr_err}
-EOF
-  fi
-fi
+# ④目录 README 兜底（票 266；票 294：判定面独立为同目录 21-dir-readme-contract.sh）
+# shellcheck disable=SC1090,SC1091  # 目录 README 契约模块由引擎 checks 目录推导（动态源）
+. "${chk_dir}/21-dir-readme-contract.sh"
+chk21_readme_contract
 if [ -n "$problems" ]; then
   _chk_desc="references 树成员闭合与导航（成员 ${n_ref_files} 件，链接 ${n_links} 个）"
 else

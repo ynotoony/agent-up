@@ -27,7 +27,7 @@ inst_build_pkg() {
   P=$1
   rm -rf "$P"; mkdir -p "$P/scripts" "$P/references/schemas" "$P/references/protocol" "$P/references/prompts"
   cp "$SCRIPT_DIR/install.sh" "$SCRIPT_DIR/install-policy.rules" "$P/scripts/"
-  for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ticket-ops.sh ledger-append.sh checkpoint-write.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-validator.py dp-load-rules.sh rules-lexer.sh artifacts-index.sh json-line.sh contract-build.sh check-dispatch-contract.sh ticket-run.sh project-dashboard.html ticket-audit.sh merge-ticket.sh record-store.sh ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh progress-readme.sh jv_contract.py jv_grade.py jv_json_ops.py jv_run.py jv_ticket.py jv_ticket_check.py jv_workflow.py dir_readmes_brief.py dir_readmes_check.py dir_readmes_migrate.py dir_readmes_model.py dir_readmes_sync.py record-commit.sh evidence-rebind.sh ticket-split.sh; do
+for f in check-gates.sh lane-commit.sh worktree-add.sh upgrade-check.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ticket-ops.sh ledger-append.sh checkpoint-write.sh run-record.sh ticket-grade.sh absorption-trigger.sh health-summary.sh common-helpers.sh json-validator.py dp-load-rules.sh rules-lexer.sh artifacts-index.sh json-line.sh contract-build.sh check-dispatch-contract.sh ticket-run.sh project-dashboard.html ticket-audit.sh merge-ticket.sh record-store.sh ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh progress-readme.sh jv_contract.py jv_grade.py jv_json_ops.py jv_run.py jv_ticket.py jv_ticket_check.py jv_workflow.py dir_readmes_brief.py dir_readmes_check.py dir_readmes_migrate.py dir_readmes_model.py dir_readmes_sync.py record-commit.sh evidence-rebind.sh ticket-split.sh workspace-snapshot.sh evidence-gate.sh record-lock.sh ledger-row-families.sh run-record-cmds.sh dispatch-contract-modes.sh module-map-fingerprint.sh artifacts-fix.sh workspace-snapshot.sh evidence-gate.sh record-lock.sh ledger-row-families.sh run-record-cmds.sh dispatch-contract-modes.sh module-map-fingerprint.sh artifacts-fix.sh; do
     if [ ! -f "$SCRIPT_DIR/$f" ]; then
       printf 'test-record-layer: 夹具依赖缺失: %s/%s（安装闭包登记源）\n' "$SCRIPT_DIR" "$f" >&2
       exit 2
@@ -138,7 +138,7 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p1.out" 2>&1
   rc=$?
   p1_n=$(grep -c '^install: OK:' "$D/p1.out")
-  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 61 ] && grep -q '^install: DONE: 复制 61 件（脚本 55＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
+  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 67 ] && grep -q '^install: DONE: 复制 67 件（脚本 61＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
     && [ -f "$D/proj1/rules/implementation/scripts/check-gates.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-ops.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ledger-append.sh" ] \
@@ -146,9 +146,9 @@ suite_install() {
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-run.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/generate-dir-readmes.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/dir-readme.rules" ]; then
-    ok '正例 P1 合法表双门控安装 → exit 0 复制 61 件（脚本 55＋数据 6）落位'
+    ok '正例 P1 合法表双门控安装 → exit 0 复制 67 件（脚本 61＋数据 6）落位'
   else
-    bad '正例 P1 合法表双门控安装 → exit 0 复制 61 件（脚本 55＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
+    bad '正例 P1 合法表双门控安装 → exit 0 复制 67 件（脚本 61＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
   fi
 
   # 正例 P1b（票 244 AC1）：安装后每个可执行脚本 --help 冒烟运行 exit 0
@@ -170,11 +170,11 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p2.out" 2>&1
   rc=$?
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
-  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 61 件' "$D/p2.out" \
+  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 67 件' "$D/p2.out" \
     && cmp -s "$D/p2.tree.before" "$D/p2.tree.after"; then
-    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 61 件（文件集零变化）'
+    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 67 件（文件集零变化）'
   else
-    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 61 件（文件集零变化）' "exit=$rc"
+    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 67 件（文件集零变化）' "exit=$rc"
   fi
 
   # 负例 N1：规则表缺失 → exit 2 零写入

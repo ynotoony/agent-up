@@ -134,6 +134,7 @@ dcon_build_drift_pkg() {
   _dir="$2"
   mkdir -p "$_dp/scripts" "$_dp/references/schemas" "$_dp/references/prompts"
   cp "$SCRIPT_DIR/check-dispatch-contract.sh" "$_dp/scripts/check-dispatch-contract.sh"
+  cp "$SCRIPT_DIR/dispatch-contract-modes.sh" "$_dp/scripts/dispatch-contract-modes.sh"
   cp "$SCRIPT_DIR/../references/schemas/dispatch-contract.schema.json" "$_dp/references/schemas/dispatch-contract.schema.json"
   cp "$SCRIPT_DIR/../references/prompts/implementation-prompt.md" "$SCRIPT_DIR/../references/prompts/review-prompt.md" "$SCRIPT_DIR/../references/prompts/commit-prompt.md" "$_dp/references/prompts/"
   if [ "$_dir" = "schema-only" ]; then

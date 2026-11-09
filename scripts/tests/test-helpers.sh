@@ -360,6 +360,34 @@ test_runtime_closure() {
     measure-context-cost.sh)
       printf '%s\n' 'measure-context-cost.sh measure-context-governance.sh measure-context-session.sh'
       ;;
+    common-helpers.sh)
+      printf '%s
+' 'common-helpers.sh evidence-gate.sh record-lock.sh'
+      ;;
+    check-gates.sh)
+      printf '%s
+' 'check-gates.sh workspace-snapshot.sh'
+      ;;
+    ledger-append.sh)
+      printf '%s
+' 'ledger-append.sh ledger-row-families.sh common-helpers.sh evidence-gate.sh record-lock.sh'
+      ;;
+    run-record.sh)
+      printf '%s
+' 'run-record.sh run-record-cmds.sh common-helpers.sh evidence-gate.sh record-lock.sh'
+      ;;
+    generate-module-map.sh)
+      printf '%s
+' 'generate-module-map.sh module-map-fingerprint.sh'
+      ;;
+    check-artifacts.sh)
+      printf '%s
+' 'check-artifacts.sh artifacts-fix.sh'
+      ;;
+    check-dispatch-contract.sh)
+      printf '%s
+' 'check-dispatch-contract.sh dispatch-contract-modes.sh'
+      ;;
     *)
       printf '%s\n' "$1"
       ;;

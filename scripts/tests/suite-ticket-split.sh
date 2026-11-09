@@ -31,7 +31,7 @@ suite_ticket_split() {
     suite_summary 'ticket-split'
     return 0
   }
-  TS_SRCS='ticket-split.sh ticket-ops.sh record-commit.sh record-store.sh ledger-append.sh common-helpers.sh ticket-gates.sh'
+  TS_SRCS='ticket-split.sh ticket-ops.sh record-commit.sh record-store.sh ledger-append.sh ledger-row-families.sh common-helpers.sh evidence-gate.sh record-lock.sh ticket-gates.sh'
 
   ts_body() {
     # $1=落盘路径 $2=票 id $3=complexity [$4=bad-profile：缺 profile_reason 的负例形态]
@@ -88,7 +88,7 @@ EOF
     done
     # 拆分引擎按运行闭包整组复制（generate-progress→progress-readme.sh；json-validator→
     # jv_* 七模块；闭包登记单源＝test-helpers.sh test_runtime_closure，随生成器拆分自动随动）
-    test_copy_closure "$SCRIPT_DIR" "$_ts_f/rules/implementation/scripts" generate-progress.sh json-validator.py || return 1
+    test_copy_closure "$SCRIPT_DIR" "$_ts_f/rules/implementation/scripts" generate-progress.sh json-validator.py common-helpers.sh ledger-append.sh || return 1
     cp "$SCHEMAS/ticket-record.schema.json" "$_ts_f/rules/implementation/references/schemas/" || return 1
     cat > "$_ts_f/facts/requirements/tickets/index.json" <<'EOF'
 {

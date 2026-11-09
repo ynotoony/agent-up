@@ -91,10 +91,10 @@ tix_build_fixture() {
   F=$1
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/rules/implementation/references/schemas" "$F/facts/requirements/tickets" "$F/facts/project"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/ticket-audit.sh" "$F/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/ticket-audit.sh" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$SCRIPT_DIR/ledger-row-families.sh" "$F/rules/implementation/scripts/"
   # 票 289 分片化：门禁函数库＋审计谓词注册表与分片（同目录定位，夹具须一并落位）
   cp "$SCRIPT_DIR/ticket-gates.sh"   "$SCRIPT_DIR/audit-predicates.rules"   "$SCRIPT_DIR/audit-p01-receipt-parseable.sh"   "$SCRIPT_DIR/audit-p02-evidence-committed.sh"   "$SCRIPT_DIR/audit-p03-base-sha-present.sh"   "$SCRIPT_DIR/audit-p04-review-boundary-clean.sh"   "$SCRIPT_DIR/audit-p05-diff-sha-bound.sh"   "$SCRIPT_DIR/audit-p06-reviewer-identity-present.sh"   "$SCRIPT_DIR/audit-p07-reviewer-identity-corroborated.sh"   "$SCRIPT_DIR/audit-p08-reviewer-distinct-from-implementer.sh"   "$SCRIPT_DIR/audit-p09-reviewed-at-valid.sh"   "$SCRIPT_DIR/audit-p10-acceptance-results-present.sh"   "$SCRIPT_DIR/audit-p11-policy-applicable.sh" "$F/rules/implementation/scripts/"
-  test_copy_closure "$SCRIPT_DIR" "$F/rules/implementation/scripts" generate-progress.sh generate-dir-readmes.sh json-validator.py
+  test_copy_closure "$SCRIPT_DIR" "$F/rules/implementation/scripts" generate-progress.sh generate-dir-readmes.sh json-validator.py common-helpers.sh ledger-append.sh
   SCHEMA_SRC="${SCRIPT_DIR}/../references/schemas/ticket-record.schema.json"
   [ -f "$SCHEMA_SRC" ] || { printf 'test-record-layer: 夹具依赖缺失: %s（ticket-ops open 本体校验的 schema 权威）\n' "$SCHEMA_SRC" >&2; exit 2; }
   cp "$SCHEMA_SRC" "$F/rules/implementation/references/schemas/ticket-record.schema.json"
@@ -401,6 +401,7 @@ tix246_lock_dir() {
   cat > "$tix246_probe" <<'PROBE'
 #!/bin/sh
 set -eu
+COMMON_HELPERS_DIR="$1/rules/implementation/scripts"
 . "$1/rules/implementation/scripts/common-helpers.sh"
 record_lock_init "$1"
 printf '%s\n' "$RECORD_LOCK_DIR"
@@ -936,9 +937,9 @@ EOF
   # 缺省根＝脚本所在目录上三级，即仓根——账本落 facts/project/changes.jsonl，
   # 按引擎缺省根推导现值重述，票 158 修复）同款工作
   mkdir -p "$D/fix-l/rules/implementation/scripts" "$D/fix-l/facts/project"
-  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/fix-l/rules/implementation/scripts/"
+  cp "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$SCRIPT_DIR/ledger-row-families.sh" "$D/fix-l/rules/implementation/scripts/"
   cp "$SCRIPT_DIR/ticket-gates.sh" "$D/fix-l/rules/implementation/scripts/"
-  test_copy_closure "$SCRIPT_DIR" "$D/fix-l/rules/implementation/scripts" generate-progress.sh json-validator.py
+  test_copy_closure "$SCRIPT_DIR" "$D/fix-l/rules/implementation/scripts" generate-progress.sh json-validator.py common-helpers.sh ledger-append.sh
   : > "$D/fix-l/facts/project/changes.jsonl"
   ( cd "$D/fix-l" && sh rules/implementation/scripts/ticket-ops.sh ledger --ledger-line "$LED_LEDGER_OK" ) >"$D/lg3.log" 2>&1
   rc=$?
@@ -1997,6 +1998,8 @@ PYTHON
   cat > "$D/probe-lock-git.sh" <<'PROBE'
 #!/bin/sh
 set -eu
+COMMON_HELPERS_DIR=$(dirname -- "$1")
+export COMMON_HELPERS_DIR
 . "$1"
 record_lock_init "$2"
 record_lock_acquire
@@ -2023,7 +2026,7 @@ PROBE
   F261L=$D/fix261-lockguard
   rm -rf "$F261L"
   mkdir -p "$F261L"
-  ( cd "$F261L" && RECORD_LOCK_DIR='' sh -c '. "$1"; record_lock_acquire' sh "$SCRIPT_DIR/common-helpers.sh" ) >"$D/ac1-261-lockguard.log" 2>&1
+  ( cd "$F261L" && RECORD_LOCK_DIR='' COMMON_HELPERS_DIR="$SCRIPT_DIR" sh -c '. "$1"; record_lock_acquire' sh "$SCRIPT_DIR/common-helpers.sh" ) >"$D/ac1-261-lockguard.log" 2>&1
   tix261_lg_rc=$?
   tix261_lg_entries=0
   tix261_lg_steal=0
@@ -2055,10 +2058,10 @@ PROBE
   if grep -qE '^record_lock_[a-z_]+\(\)' "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/ledger-append.sh"; then
     tix246_impl="$tix246_impl [重复定义 record_lock_*]"
   fi
-  if [ "$(grep -c '^record_lock_acquire() {' "$SCRIPT_DIR/common-helpers.sh")" = '1' ] && [ -z "$tix246_impl" ]; then
-    ok 'AC8 锁原语唯一定义在 common-helpers.sh，ticket-ops/ledger-append 无锁目录拼接、取锁、陈旧判定与夺锁实现'
+  if [ "$(grep -c '^record_lock_acquire() {' "$SCRIPT_DIR/record-lock.sh")" = '1' ] && [ "$(grep -c '^record_lock_acquire() {' "$SCRIPT_DIR/common-helpers.sh")" = '0' ] && [ -z "$tix246_impl" ]; then
+    ok 'AC8 锁原语唯一定义在 record-lock.sh（common-helpers 转发），ticket-ops/ledger-append 无锁目录拼接、取锁、陈旧判定与夺锁实现'
   else
-    bad 'AC8 锁原语唯一定义在 common-helpers.sh，ticket-ops/ledger-append 无锁目录拼接、取锁、陈旧判定与夺锁实现' "命中=${tix246_impl:-无} acquire定义数=$(grep -c '^record_lock_acquire() {' "$SCRIPT_DIR/common-helpers.sh")"
+    bad 'AC8 锁原语唯一定义在 record-lock.sh（common-helpers 转发），ticket-ops/ledger-append 无锁目录拼接、取锁、陈旧判定与夺锁实现' "命中=${tix246_impl:-无} acquire定义数=$(grep -c '^record_lock_acquire() {' "$SCRIPT_DIR/common-helpers.sh")"
   fi
   tix246_mirror_dir="$SCRIPT_DIR/../../rules/implementation/scripts"
   if [ -f "$tix246_mirror_dir/common-helpers.sh" ]; then

@@ -23,8 +23,8 @@ la_build_fixture() {
   F=$1
   rm -rf "$F"
   mkdir -p "$F/rules/implementation/scripts" "$F/facts/project"
-  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$F/rules/implementation/scripts/"
-  test_copy_closure "$SCRIPT_DIR" "$F/rules/implementation/scripts" json-validator.py
+  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$SCRIPT_DIR/ledger-row-families.sh" "$F/rules/implementation/scripts/"
+  test_copy_closure "$SCRIPT_DIR" "$F/rules/implementation/scripts" json-validator.py common-helpers.sh ledger-append.sh
   printf '%s\n' '{"date": "2026-10-26", "kind": "scope", "scope": "facts/project", "decision": "fixture seed", "evidence_ref": "facts/project/changes.jsonl"}' > "$F/facts/project/changes.jsonl"
 }
 
@@ -43,6 +43,7 @@ la_lock_dir() {
   cat > "$la_probe" <<'PROBE'
 #!/bin/sh
 set -eu
+COMMON_HELPERS_DIR="$1/rules/implementation/scripts"
 . "$1/rules/implementation/scripts/common-helpers.sh"
 record_lock_init "$1"
 printf '%s\n' "$RECORD_LOCK_DIR"
@@ -143,8 +144,8 @@ suite_ledger_append() {
   la_build_fixture "$D/p8"
   FP8="$D/p8"
   mkdir -p "$FP8/agent-up/scripts"
-  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$FP8/agent-up/scripts/"
-  test_copy_closure "$SCRIPT_DIR" "$FP8/agent-up/scripts" json-validator.py
+  cp "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/evidence-gate.sh" "$SCRIPT_DIR/record-lock.sh" "$SCRIPT_DIR/ledger-row-families.sh" "$FP8/agent-up/scripts/"
+  test_copy_closure "$SCRIPT_DIR" "$FP8/agent-up/scripts" json-validator.py common-helpers.sh ledger-append.sh
   rm -rf "$FP8/rules"
   ( cd "$FP8" && sh agent-up/scripts/ledger-append.sh --ledger-line '{"date": "2026-10-26", "kind": "change", "scope": "s", "decision": "pkg-layout", "evidence_ref": "e"}' ) >"$D/p8.log" 2>&1
   rc=$?

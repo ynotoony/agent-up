@@ -46,6 +46,7 @@ trp_build_fixture() {
     "$R/rules/implementation/references/prompts" "$R/facts/requirements/tickets" "$R/facts/project"
   for f in ticket-run.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
     generate-progress.sh ticket-audit.sh common-helpers.sh json-validator.py record-store.sh \
+    workspace-snapshot.sh evidence-gate.sh record-lock.sh ledger-row-families.sh run-record-cmds.sh dispatch-contract-modes.sh module-map-fingerprint.sh artifacts-fix.sh \
     audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$f" "$R/rules/implementation/scripts/$f"
   done
