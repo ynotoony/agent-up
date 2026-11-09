@@ -215,7 +215,7 @@ adv_lane_fixture() {
   _alf=$1
   rm -rf "$_alf"
   mkdir -p "$_alf/rules/implementation/scripts" "$_alf/facts/project" "$_alf/facts/requirements/tickets"
-  for _alf_f in lane-commit.sh check-gates.sh common-helpers.sh json-validator.py ticket-ops.sh \
+  for _alf_f in lane-commit.sh record-commit.sh check-gates.sh common-helpers.sh json-validator.py ticket-ops.sh \
     generate-progress.sh generate-dir-readmes.sh dir-readme.rules checkpoint-write.sh ledger-append.sh record-store.sh ticket-audit.sh; do
     cp "$SCRIPT_DIR/$_alf_f" "$_alf/rules/implementation/scripts/$_alf_f"
   done
@@ -311,7 +311,7 @@ adv_ticket_run_fixture() {
   rm -rf "$_atr"
   mkdir -p "$_atr/rules/implementation/scripts" "$_atr/rules/implementation/references/schemas" \
     "$_atr/rules/implementation/references/prompts" "$_atr/facts/requirements/tickets" "$_atr/facts/project"
-  for _atr_f in ticket-run.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
+  for _atr_f in ticket-run.sh record-commit.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
     check-gates.sh ticket-ops.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ledger-append.sh \
     record-store.sh common-helpers.sh json-validator.py ticket-audit.sh; do
     cp "$SCRIPT_DIR/$_atr_f" "$_atr/rules/implementation/scripts/$_atr_f"
@@ -686,7 +686,7 @@ adv_g5() {
 
 adv_normal_path() {
   _np_need=0
-  for _f in ticket-run.sh worktree-add.sh contract-build.sh check-dispatch-contract.sh dp-load-rules.sh \
+  for _f in ticket-run.sh record-commit.sh worktree-add.sh contract-build.sh check-dispatch-contract.sh dp-load-rules.sh \
     ticket-ops.sh check-gates.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ledger-append.sh \
     record-store.sh common-helpers.sh json-validator.py ticket-audit.sh; do
     [ -s "$SCRIPT_DIR/$_f" ] || { bad '正常路径 前置件在场' "缺件: $SCRIPT_DIR/$_f"; _np_need=1; }

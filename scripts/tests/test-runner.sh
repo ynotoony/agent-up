@@ -157,6 +157,10 @@ export TEST_RECORD_SOURCE_ONLY
 . "$TESTS_DIR/suite-ticket-audit.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，合并站证据门回归）
 . "$TESTS_DIR/suite-merge.sh"
+# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，记录提交单点入口回归，票 288）
+. "$TESTS_DIR/suite-record-commit.sh"
+# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，审查证据重绑授权回归，票 288）
+. "$TESTS_DIR/suite-evidence-rebind.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，成本度量回归）
 . "$TESTS_DIR/suite-context-cost.sh"
 # shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，目录 README 结构契约回归）
@@ -176,7 +180,7 @@ SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd) || exit 2
 PKG_ROOT=''
 
 # ---- 套件名单（唯一枚举；--suite all 的执行顺序）----
-ALL_SUITES='module-map ticket-ops progress json-engine check-package append-only check-artifacts delivery-parser stale-claims lane-commit ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge context-cost dir-readme runtime-closure adversarial harness'
+ALL_SUITES='module-map ticket-ops progress json-engine check-package append-only check-artifacts delivery-parser stale-claims lane-commit ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge record-commit evidence-rebind context-cost dir-readme runtime-closure adversarial harness'
 # ---- fast 车道（票 258）：ALL_SUITES 的短套件子集，日常回归目标 ≤180s。重活
 #      （ticket-ops 全量、ticket-audit、lane-commit、check-package、install、workflow-contract
 #      等）留给 --suite all；成员是否 ⊆ all 由启动核对与 self-check 双向钉死 ----
@@ -197,7 +201,7 @@ usage() {
   cat <<'USAGE'
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | record-store | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | ticket-repair | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | context-cost | dir-readme | runtime-closure | adversarial | harness | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
+    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | record-store | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | ticket-repair | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | record-commit | evidence-rebind | context-cost | dir-readme | runtime-closure | adversarial | harness | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
   --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法

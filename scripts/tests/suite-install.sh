@@ -17,7 +17,7 @@ fi
 # check-dispatch-contract.sh 脚本件＋dispatch-contract.schema.json＋三模板数据件），
 # P1/P2 金样 15→21 件（脚本 13→15＋数据 2→6），R1 闭包断言扩渲染器面，
 # open 夹具票本体补 dispatch 节（开票门强制）；目录 README 收口生成器与范围规则表
-# 随两门控各登记一件：脚本 21→24、合计 27→30（票 266））
+# 随两门控各登记一件：脚本 21→26、合计 27→32（票 266））
 # ============================================================
 
 inst_build_pkg() {
@@ -122,17 +122,18 @@ suite_install() {
     return 0
   fi
 
-  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 32 件（脚本 26＋数据 6；stdout 摘要行计数）
+  # 正例 P1：合法表双门控安装 → exit 0 目标恰落 34 件（脚本 28＋数据 6；stdout 摘要行计数）
   # ticket-run 编排闭包在 ticket-ops 单门控补四依赖；双门控仅 ticket-run 为新增唯一文件。
   # 票 234 证据审计引擎随 ticket-ops 门控新增一件：脚本 19→20、合计 25→26；
   # 票 237 合并站入包与 fast-lane 审计依赖新增两件：脚本 20→21、合计 26→27；
   # 票 266 目录 README 生成器与范围规则表两门控各登记：脚本 21→24、合计 27→30；
-  # 票 286 共享解析件两门控各登记：脚本 24→26、合计 30→32。
+  # 票 286 共享解析件两门控各登记：脚本 24→26、合计 30→32；
+  # 票 288 记录提交 plumbing 收敛两门控各登记：脚本 26→28、合计 32→34。
   inst_build_pkg "$D/pkg1"; mkdir -p "$D/proj1"
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p1.out" 2>&1
   rc=$?
   p1_n=$(grep -c '^install: OK:' "$D/p1.out")
-  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 32 ] && grep -q '^install: DONE: 复制 32 件（脚本 26＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
+  if [ "$rc" -eq 0 ] && [ "$p1_n" -eq 34 ] && grep -q '^install: DONE: 复制 34 件（脚本 28＋数据 6）、幂等跳过 0 件' "$D/p1.out" \
     && [ -f "$D/proj1/rules/implementation/scripts/check-gates.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-ops.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/ledger-append.sh" ] \
@@ -140,9 +141,9 @@ suite_install() {
     && [ -f "$D/proj1/rules/implementation/scripts/ticket-run.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/generate-dir-readmes.sh" ] \
     && [ -f "$D/proj1/rules/implementation/scripts/dir-readme.rules" ]; then
-    ok '正例 P1 合法表双门控安装 → exit 0 复制 32 件（脚本 26＋数据 6）落位'
+    ok '正例 P1 合法表双门控安装 → exit 0 复制 34 件（脚本 28＋数据 6）落位'
   else
-    bad '正例 P1 合法表双门控安装 → exit 0 复制 32 件（脚本 26＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
+    bad '正例 P1 合法表双门控安装 → exit 0 复制 34 件（脚本 28＋数据 6）落位' "exit=$rc ok_lines=$p1_n"
   fi
 
   # 正例 P1b（票 244 AC1）：安装后每个可执行脚本 --help 冒烟运行 exit 0
@@ -164,11 +165,11 @@ suite_install() {
   ( cd "$D" && sh "$INST" --target "$D/proj1" --fast-lane --ticket-ops ) >"$D/p2.out" 2>&1
   rc=$?
   ( cd "$D/proj1" && LC_ALL=C find . -type f | LC_ALL=C sort ) > "$D/p2.tree.after"
-  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 32 件' "$D/p2.out" \
+  if [ "$rc" -eq 0 ] && grep -q '^install: DONE: 复制 0 件（脚本 0＋数据 0）、幂等跳过 34 件' "$D/p2.out" \
     && cmp -s "$D/p2.tree.before" "$D/p2.tree.after"; then
-    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 32 件（文件集零变化）'
+    ok '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 34 件（文件集零变化）'
   else
-    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 32 件（文件集零变化）' "exit=$rc"
+    bad '正例 P2 幂等重跑 → exit 0 复制 0 件幂等跳过 34 件（文件集零变化）' "exit=$rc"
   fi
 
   # 负例 N1：规则表缺失 → exit 2 零写入

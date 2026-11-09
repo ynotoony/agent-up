@@ -489,7 +489,7 @@ HOLD
   printf '%s\n' '{"date":"2026-10-05","kind":"change","scope":"x","decision":"main advance","evidence_ref":"x"}' >> "$D/r1/facts/project/changes.jsonl"
   sm_commit "$D/r1" impl@example.com '2026-10-05T00:00:00Z' 'main advance record commit'
   r1_maintip=$(git -C "$D/r1" rev-parse HEAD)
-  sm_run "$D/r1" "$D/r1.out" "$SM_BRANCH" "$SM_ID"
+  sm_run "$D/r1" "$D/r1.out" --authorize-rebind 'fixture 授权：main 前进重绑' "$SM_BRANCH" "$SM_ID"
   rc=$?
   if [ "$rc" -eq 0 ] \
     && grep -q '合并前 rebase: 票分支尚未包含最新 main' "$D/r1.out" \
@@ -504,7 +504,30 @@ HOLD
   fi
 
 
-  # P3f：--flip × main 已前进（触发 rebase）→ 自动重绑审查证据后合并、翻转、清场全链
+  # N3f：main 已前进但未显式授权重绑审查证据 → exit 1 fail-closed（不 rebase、不合并、
+  # 不改写证据；worktree 与分支保留）——票 288 AC3 未授权路径。
+  sm_make_fixture "$D/n3f" "$D/n3f-wt" committed
+  n3f_branch_tip=$(git -C "$D/n3f-wt" rev-parse HEAD)
+  n3f_ev_before=$(cksum "$D/n3f-wt/$SM_EVIDENCE_REL")
+  mkdir -p "$D/n3f/facts/project"
+  printf '%s\n' '{"date":"2026-10-05","kind":"change","scope":"x","decision":"main advance","evidence_ref":"x"}' >> "$D/n3f/facts/project/changes.jsonl"
+  sm_commit "$D/n3f" impl@example.com '2026-10-05T00:00:00Z' 'main advance record commit'
+  n3f_main_before=$(git -C "$D/n3f" rev-parse HEAD)
+  sm_run "$D/n3f" "$D/n3f.out" "$SM_BRANCH" "$SM_ID"
+  rc=$?
+  if [ "$rc" -eq 1 ] \
+    && grep -q '未显式授权' "$D/n3f.out" \
+    && grep -q 'decision-required' "$D/n3f.out" \
+    && [ "$(git -C "$D/n3f" rev-parse HEAD)" = "$n3f_main_before" ] \
+    && [ "$(git -C "$D/n3f" rev-parse "refs/heads/$SM_BRANCH")" = "$n3f_branch_tip" ] \
+    && [ "$(cksum "$D/n3f-wt/$SM_EVIDENCE_REL")" = "$n3f_ev_before" ] \
+    && [ -d "$D/n3f-wt" ]; then
+    ok '票288 N3f main 已前进但未授权重绑 → exit 1 fail-closed（未 rebase、未合并、证据零改写）'
+  else
+    bad '票288 N3f main 已前进但未授权重绑 → exit 1 fail-closed（未 rebase、未合并、证据零改写）' "exit=$rc main=$(git -C "$D/n3f" rev-parse HEAD) branch=$(git -C "$D/n3f" rev-parse "refs/heads/$SM_BRANCH" 2>/dev/null) $(tail -n 2 "$D/n3f.out" | tr '\n' '|')"
+  fi
+
+  # P3f：--flip × main 已前进（触发 rebase）→ 授权重绑审查证据后合并、翻转、清场全链
   sm_make_flip_fixture "$D/f3" "$D/f3-wt"
   f3_ev_wt="$D/f3-wt/facts/requirements/tickets/${SM_ID}.review-evidence.json"
   f3_old_head=$(python3 "$SCRIPT_DIR/json-validator.py" json get "$f3_ev_wt" head_sha 2>/dev/null) || f3_old_head=''
@@ -512,7 +535,7 @@ HOLD
   printf '%s\n' '{"date":"2026-10-05","kind":"change","scope":"x","decision":"main advance","evidence_ref":"x"}' >> "$D/f3/facts/project/changes.jsonl"
   sm_commit "$D/f3" impl@example.com '2026-10-05T00:00:00Z' 'main advance record commit'
   f3_maintip=$(git -C "$D/f3" rev-parse HEAD)
-  sm_run "$D/f3" "$D/f3.out" --flip "$SM_BRANCH" "$SM_ID"
+  sm_run "$D/f3" "$D/f3.out" --flip --authorize-rebind 'fixture 授权：并行收口重绑' "$SM_BRANCH" "$SM_ID"
   rc=$?
   f3_ev_main="$D/f3/facts/requirements/tickets/${SM_ID}.review-evidence.json"
   f3_new_base=$(python3 "$SCRIPT_DIR/json-validator.py" json get "$f3_ev_main" base_sha 2>/dev/null) || f3_new_base=''
@@ -523,6 +546,9 @@ HOLD
   f3_email=$(git -C "$D/f3" log -1 --format=%ae HEAD 2>/dev/null) || f3_email=''
   if [ "$rc" -eq 0 ] \
     && grep -q '合并前 rebase: 票分支尚未包含最新 main' "$D/f3.out" \
+    && grep -q 'evidence-rebind: 授权: fixture 授权：并行收口重绑' "$D/f3.out" \
+    && grep -q '"kind":"rebind"' "$D/f3/facts/project/changes.jsonl" \
+    && grep -q '审查证据复绑授权：fixture 授权：并行收口重绑' "$D/f3/facts/project/changes.jsonl" \
     && grep -q '证据重绑: base ' "$D/f3.out" \
     && grep -q 'merge-ticket: 翻转: 票据 41-merge-fixture → done' "$D/f3.out" \
     && grep -q '已翻转 done' "$D/f3.out" \
@@ -537,9 +563,9 @@ HOLD
     && [ "$f3_email" = 'reviewer@example.com' ] \
     && [ ! -d "$D/f3-wt" ] \
     && ! git -C "$D/f3" rev-parse --verify -q "refs/heads/$SM_BRANCH" >/dev/null 2>&1; then
-    ok '票285 P3f --flip × main 已前进 → rebase 后自动重绑证据（base/head/diff 改写＋reviewer 身份提交）→ 合并翻转 done 并清场'
+    ok '票285 P3f --flip × main 已前进 → rebase 后授权重绑证据（base/head/diff 改写＋reviewer 身份提交）→ 合并翻转 done 并清场'
   else
-    bad '票285 P3f --flip × main 已前进 → rebase 后自动重绑证据（base/head/diff 改写＋reviewer 身份提交）→ 合并翻转 done 并清场' "exit=$rc old_head=$f3_old_head new_head=$f3_new_head base=$f3_new_base main=$f3_maintip diff_ok=$([ "$f3_new_diff" = "$f3_diff_expect" ] && echo y || echo n) subject=$f3_subject email=$f3_email $(tail -n 2 "$D/f3.out" | tr '\n' '|')"
+    bad '票285 P3f --flip × main 已前进 → rebase 后授权重绑证据（base/head/diff 改写＋reviewer 身份提交）→ 合并翻转 done 并清场' "exit=$rc old_head=$f3_old_head new_head=$f3_new_head base=$f3_new_base main=$f3_maintip diff_ok=$([ "$f3_new_diff" = "$f3_diff_expect" ] && echo y || echo n) subject=$f3_subject email=$f3_email $(tail -n 2 "$D/f3.out" | tr '\n' '|')"
   fi
 
   suite_summary 'merge'

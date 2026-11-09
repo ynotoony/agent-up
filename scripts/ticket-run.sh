@@ -41,6 +41,9 @@
 #                   改写经记录写入 module record-store.sh 的 record_set_json（唯一 JSON 引擎
 #                   json set 序列化＝ensure_ascii=False＋indent=2＋末尾换行，形态与拆出前
 #                   逐字节一致；票本体与索引路径经其路径表 ticket:<id>／index 解析）。
+#                   票 288 起纯记录提交经独立入口 record-commit.sh（--name ticket-run，
+#                   继承同锁窗口）创建，与 lane-commit 两段式第二段同一提交 plumbing；
+#                   记录路径白名单/前缀门/混提与 CAS 语义见该件头注，本件零提交实现。
 # Pos: 主 agent 唯一编排入口（可恢复协调器）；只组合 contract-build/worktree-add/
 #      ticket-ops 原子层，不读取或改写票状态逻辑，不直接写 index/README/账本/投影；
 #      状态写入唯一经 ticket-ops（票 243 核心）。intent 日志只落 Git 公共目录，不进
@@ -131,7 +134,8 @@ usage() {
                               结果 token：converged|repaired|pending-review（exit 0）、
                               decision-required（exit 1）。
   implementation|review       legacy 语义：渲染合同；implementation 缺站时自动建站（两行输出）。
-  commit                      legacy 语义不变：Review 结论位＋check-gates 后产品/记录两段提交。
+  commit                      legacy 语义不变：Review 结论位＋check-gates 后产品/记录两段提交
+                              （记录提交经同目录 record-commit.sh 统一入口创建，票 288）。
 退出码: 0 完成（next＝有下一步；repair＝converged/repaired/pending-review）；
         1 fail-closed（含 next 与 repair 的 decision-required、合同/Review/门禁/收据未过）；
         2 用法或环境错误（参数、仓库根、原子层缺失）。
@@ -1202,6 +1206,10 @@ fi
 
 check_gates="${script_dir}/check-gates.sh"
 [ -r "$check_gates" ] || die2 "门禁原子层缺失: ${check_gates}"
+# 记录提交实现（票 288）：与 lane-commit 两段式第二段同一入口；缺失即预检停止（先于产品
+# 提交，零提交零记录写入）。
+record_commit_cmd="${script_dir}/record-commit.sh"
+[ -r "$record_commit_cmd" ] || die2 "记录提交实现缺失（同目录定位）: ${record_commit_cmd}"
 gate_file=$(mktemp "${TMPDIR:-/tmp}/ticket-run-gates.XXXXXX") || die2 '门禁临时文件创建失败'
 cleanup() {
   rm -f "$gate_file"
@@ -1242,9 +1250,10 @@ printf 'ticket-run: 产品提交: %s\n' "$product_commit"
 
   # 记录收口段（票 283：不以「有无授权翻转」为前提——无翻转同样写 checkpoint.commit 并
   # 创建记录提交，契约：stdout 恒有产品提交／checkpoint.commit／记录提交三行）。
-  # 记录收口段单一锁窗口（票 271）：本进程自取记录层写锁（锁目录由站的 Git 公共目录
-  # 推导，与主检同一把），覆盖「flip-index → checkpoint.commit → 记录提交」；flip-index
-  # 以继承标记接管同一把锁（不自行取锁，避免两段锁范围不连续），段末按所有权释放。
+  # 记录收口段单一锁窗口（票 271／272／288）：本进程自取记录层写锁（锁目录由站的 Git
+  # 公共目录推导，与主检同一把），覆盖「flip-index → checkpoint.commit → 记录提交」；
+  # flip-index 与记录提交入口均以继承标记接管同一把锁（不自行取锁，避免两段锁范围不
+  # 连续），段末按所有权释放。
   record_lock_ensure "$worktree"
   for line in $record_flips; do
     # 无授权翻转时该循环零迭代（不跳过后续 checkpoint.commit／记录提交）
@@ -1265,12 +1274,20 @@ printf 'ticket-run: 产品提交: %s\n' "$product_commit"
   checkpoint_doc_set="checkpoint.commit={\"committed_at\": \"${committed_at}\", \"commit\": \"${product_commit}\"}"
   record_set_json "$worktree" "ticket:${ticket_id}" --doc-set "$checkpoint_doc_set" || \
     die1 "checkpoint.commit 写入失败——产品提交 ${product_commit} 已创建、记录提交未创建"
-  printf 'ticket-run: checkpoint.commit: %s\n' "$product_commit"
+  printf 'ticket-run: checkpoint.commit: %s\n' "${product_commit}"
   _commit_ticket_rel=$(record_path "ticket:${ticket_id}")
-  # 票 277：README 票表生成块由生成器从索引重算，作为记录面一并暂存（不手写其内容）
-  git -C "$worktree" add -- "$_commit_ticket_rel" "$(record_path index)" "$(record_path tickets-readme)" facts/requirements/tickets/progress-current.md || die1 '记录文件暂存失败'
-  git -C "$worktree" commit -m "chore(ticket): 记录翻转 — ${commit_message}" || die1 '纯记录提交创建失败'
-  record_commit=$(git -C "$worktree" rev-parse HEAD)
+  # 票 277 记录面三件（票本体／索引／README 票表生成块）＋投影，统一经记录提交入口
+  # record-commit.sh（票 288：与 lane-commit 第二段同一实现；私有索引/前缀门/CAS 全仓
+  # 唯一），继承本进程已持有的记录层写锁。README 票表生成块由生成器从索引重算，本件不手写。
+  record_commit_out=$(RECORD_LOCK_INHERITED=1 RECORD_LOCK_DIR="${RECORD_LOCK_DIR}" \
+    RECORD_LOCK_TOKEN="${RECORD_LOCK_TOKEN}" \
+    sh "$record_commit_cmd" --name ticket-run "$worktree" \
+    "chore(ticket): 记录翻转 — ${commit_message}" \
+    "$_commit_ticket_rel" "$(record_path index)" "$(record_path tickets-readme)" \
+    facts/requirements/tickets/progress-current.md) || \
+    die1 "记录提交未创建（record-commit.sh fail-closed，详见上方输出）——产品提交 ${product_commit} 已创建、记录提交未创建"
+  record_commit=$(printf '%s\n' "$record_commit_out" | sed -n 's/^ticket-run: 记录提交 \(.*\)$/\1/p' | tail -n 1)
+  [ -n "$record_commit" ] || die1 "记录提交入口未返回提交 ID（record-commit.sh 输出契约破坏）——产品提交 ${product_commit} 已创建、记录提交未创建"
   printf 'ticket-run: 记录提交: %s\n' "$record_commit"
   # 记录收口段结束：按所有权释放自取的写锁（EXIT 陷阱为失败路径兜底）
   record_lock_release_owned

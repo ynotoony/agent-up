@@ -183,7 +183,8 @@ pm_entry references/why/decisions.md
 # kind 口径差定谳：test-record-layer.sh 定为必需件，kind 标 test-harness。
 
 pm_script scripts/check-gates.sh script '道脚本：快道门禁核对器（白名单＋验证命令前后完整工作区快照；allow-output 缺省为空，白名单外变化一律失败）'
-pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾（白名单提交与合同预检；索引翻转经 ticket-ops flip-index、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append 三代理承载，本件零记录写入面；另提供记录提交单点入口 --record-commit：持同一把记录层写锁、只暂存记录路径、前缀断言与部分暂存/混提拒绝）'
+pm_script scripts/lane-commit.sh script '道脚本：快道合同驱动收尾（白名单提交与合同预检；索引翻转经 ticket-ops flip-index、Review Checkpoint 经 checkpoint-write、微账本经 ledger-append 三代理承载，本件零记录写入面；--record-commit 为两段式第二段兼容委托入口——提交实现独立为 record-commit.sh，本件以 --name lane-commit 透传保持输出行与失败语义）'
+pm_script scripts/record-commit.sh script '记录提交单点实现（全仓唯一提交 plumbing，自 lane-commit --record-commit 迁出）：持记录层写锁、记录路径白名单（facts/ 下）、拒绝部分暂存、只追加账本前缀门（与 check-append-only 同源）、私有索引写树文件集断言（混提拒绝）、write-tree/commit-tree/update-ref CAS；--name 指定输出与报错前缀（lane-commit/ticket-run 委托保持原口径）；失败零提交并报首个违规行号'
 pm_script scripts/check-stale-claims.sh script '易腐断言扫描器（登记表 S1-S8：票收口拦截＋会话启动警告；索引条目与账本指针解析经同目录唯一 JSON 引擎 json rows，缺件即 exit 2 fail-closed；教训账本缺失＝WARN 显式退化不静默放行）'
 pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/warn 函数，另提供记录层写锁原语 record_lock_*——ticket-ops 与 ledger-append 及 lane-commit 记录提交门共用；只追加前缀语义原语 record_append_only_path/record_prefix_ok/record_first_bad_line 与账本清单——check-append-only 与记录提交门共用）'
 pm_script scripts/rules-lexer.sh script '共享非执行式规则表词法器（lex_bad/lex_line 唯一实现：续行拼接、单引号词法取段、引号外 shell 语法元字符与引号内命令替换/参数展开拒绝、行内制表符拒绝；check-package／install／generate-module-map／generate-adapter-diffs 四引擎只保留指令分发表；package-only，不落仓侧镜像、不入安装闭包）'
@@ -226,9 +227,10 @@ pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAM
 pm_script scripts/verify-contract.sh script '结构化验收谓词执行器（verification 对象数组逐条执行与断言；普通任务禁止空验证，纯记录须显式 record-only）'
 pm_script scripts/check-dispatch-contract.sh script '四模式派发合同校验器（--check-template 模板零漂移核对＋--check 合同文件自查＋--check-dispatch 派发前置校验：目标须 linked worktree 且票 status=in_progress＋--check-step-budget 步数预算校验：步数上限与到线收尾缺项四类指名拒绝；schema 数据件在 references/schemas/）'
 pm_script scripts/contract-build.sh script '派发合同渲染器（<stage> <NN>：票 JSON dispatch 节→stdout 派发合同，纯函数零落盘；输出前自调 check-dispatch-contract.sh --check 自校验，不过零输出；安装闭包随 ticket-ops 门控）'
-pm_script scripts/ticket-run.sh script '主 agent 编排入口（可恢复协调器 next/start/contract/record/verify-dispatch：next 只读推导下一步且 decision-required 时 exit 1，恢复提示先核 start 前置、next --clear-intent 为残留 intent 登记清除路径，start 建站＋ticket-ops take 幂等收敛，contract 产出站路径＋合同文件，record 按 receipt.schema.json 字段合同幂等落位收据，verify-dispatch 重渲染比对三类拒绝；intent 操作记录落 Git 公共目录，失败重跑收敛，无法判定返回 decision-required；legacy implementation/review/commit 行为保留，commit 经 Review pass 与 check-gates 后自动两段提交；索引翻转委托 ticket-ops，脚本不 spawn 子 agent）'
+pm_script scripts/ticket-run.sh script '主 agent 编排入口（可恢复协调器 next/start/contract/record/verify-dispatch：next 只读推导下一步且 decision-required 时 exit 1，恢复提示先核 start 前置、next --clear-intent 为残留 intent 登记清除路径，start 建站＋ticket-ops take 幂等收敛，contract 产出站路径＋合同文件，record 按 receipt.schema.json 字段合同幂等落位收据，verify-dispatch 重渲染比对三类拒绝；intent 操作记录落 Git 公共目录，失败重跑收敛，无法判定返回 decision-required；legacy implementation/review/commit 行为保留，commit 经 Review pass 与 check-gates 后自动两段提交（纯记录提交经同目录 record-commit.sh 统一入口创建）；索引翻转委托 ticket-ops，脚本不 spawn 子 agent）'
 pm_script scripts/ticket-audit.sh script '证据审计引擎（<NN> 票审查收据＋十一谓词 P01～P11 只读审计出 PASS/FAIL/UNKNOWN，操作面窗口 analyze/read 放行未知、merge/push 以 conformant 为门；P04 允许集由调用方逐条 --allow-after 显式传入（缺省仅证据，禁止整体放开 facts 面）；证据位置打印 路径@提交:blob；策略数据 facts/requirements/audit-policy.json，收据 schema 见 references/schemas/receipt.schema.json；全程零写入）'
-pm_script scripts/merge-ticket.sh script '合并站脚本（合并与收尾原子化：先取记录层写锁作合并锁——同一把锁、有界等待后并发冲突 exit 1 零合并；合并前 main 已前进则自动 rebase 到最新 main 保证快进（冲突 abort 后 exit 3）；ff 失败降级 --no-ff；成功无条件清 worktree/分支；--flip 合并成功后同锁内调 ticket-ops flip --status done 落账本，翻转失败 exit 1 不清场如实报告；合并前在票分支绑定 worktree 上跑 ticket-audit --operation merge，缺 conformant 证据拒绝合并 decision-required；主仓不干净即拒绝）'
+pm_script scripts/merge-ticket.sh script '合并站脚本（合并与收尾原子化：先取记录层写锁作合并锁——同一把锁、有界等待后并发冲突 exit 1 零合并；合并前 main 已前进则须 --authorize-rebind 显式授权后 rebase 到最新 main 保证快进（未授权 exit 1 fail-closed；冲突 abort 后 exit 3），证据重绑由独立入口 evidence-rebind.sh 承载；ff 失败降级 --no-ff；成功无条件清 worktree/分支；--flip 合并成功后同锁内调 ticket-ops flip --status done 落账本，翻转失败 exit 1 不清场如实报告；合并前在票分支绑定 worktree 上跑 ticket-audit --operation merge，缺 conformant 证据拒绝合并 decision-required；主仓不干净即拒绝）'
+pm_script scripts/evidence-rebind.sh script '审查证据重绑单点实现（自 merge-ticket 抽出）：--authorize <授权依据> 显式授权必填（缺失/空白 exit 1 fail-closed 零改写）；改写 review-evidence.json 三 sha、同步 cp md 描述、经 ledger-append 追加复绑账本行（留痕）、以 reviewer_identity 身份提交；未授权不静默改写证据'
 pm_script scripts/test-checkpoint-recovery.sh test-harness 'Checkpoint 中断续传回归测试（workflow-executor.sh 中断续传机制自检）'
 
 # ==== templates：.tmpl 模板清单（检查 5，与 templates/README.md manifest 表双向）====
@@ -326,6 +328,7 @@ pm_mirror json-line.sh mirror
 pm_mirror run-record.sh mirror
 pm_mirror ticket-grade.sh mirror
 pm_mirror lane-commit.sh mirror
+pm_mirror record-commit.sh mirror
 pm_mirror check-gates.sh mirror
 pm_mirror upgrade-check.sh mirror
 pm_mirror dp-load-rules.sh mirror
@@ -340,6 +343,7 @@ pm_mirror record-store.sh mirror
 pm_mirror contract-build.sh mirror
 pm_mirror ticket-run.sh mirror
 pm_mirror merge-ticket.sh mirror
+pm_mirror evidence-rebind.sh mirror
 
 # -- package-only：包侧独有（不生成不核对） --
 pm_mirror generate-docs-index.sh package-only

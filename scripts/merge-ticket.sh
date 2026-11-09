@@ -1,8 +1,10 @@
 #!/bin/sh
 # Input: 主仓根目录、票分支名（ticket/ 前缀）、票 id 三参数；可选 --flip（合并成功后
-#        同锁内调 ticket-ops flip 至 done 并落账本行＝合并与收尾原子化）；主仓须干净，
-#        各票票务写入由调用方按票独立落账；合并前另取票分支绑定 worktree 作审查证据
-#        审计目标（ticket-audit.sh <NN> --repo <worktree> --operation merge）。
+#        同锁内调 ticket-ops flip 至 done 并落账本行＝合并与收尾原子化）；可选
+#        --authorize-rebind <授权依据>（main 已前进需 rebase 后重绑审查证据时的显式授权；
+#        未给即 fail-closed，不 rebase 不合并、不静默改写证据）；主仓须干净，各票票务写入
+#        由调用方按票独立落账；合并前另取票分支绑定 worktree 作审查证据审计目标
+#        （ticket-audit.sh <NN> --repo <worktree> --operation merge）。
 # Output: 单票合并收口逐步输出——证据门三值结论、实际合并模式（fast-forward
 #         或 no-ff）、合并提交哈希（审计要点四）、强制清场（worktree remove --force＋branch -d；
 #         站内残渣视为可弃，失败即报错非静默）
@@ -24,12 +26,12 @@
 #      set -eu fail-closed、零外部依赖（git＋POSIX 工具）；已知限制：worktree 路径含
 #      空白不受理（家族先例 S4 同款口径）。行为语义变化经 Review 门禁。
 #      票 285：合并与收尾原子化——合并前若 main 已前进（非票分支祖先）则在源站自动
-#      rebase 到最新 main 以保证快进（rebase 冲突 abort 后 exit 3），rebase 成功后自动
-#      重绑审查证据：按证据 head 之后的提交数定位 rebase 后的新产品提交，改写
-#      base_sha/head_sha/diff_sha（diff 以 git diff --binary | git hash-object 重算）、
-#      同步 cp md 的 base/head/diff 描述，并以证据 reviewer_identity 作为 author/
-#      committer 在合并前提交「审查证据复绑至 rebase 后 HEAD」——使 --flip 的 P04/P05
-#      在并行收口场景仍 conformant；重绑失败 fail-closed（不合并、如实报错、保留现场）。
+#      rebase 到最新 main 以保证快进（rebase 冲突 abort 后 exit 3）；票 288 起重绑审查
+#      证据须显式授权（--authorize-rebind <授权依据>），未授权即 fail-closed；授权后由
+#      独立入口 evidence-rebind.sh 完成重绑（按证据 head 之后提交数定位 rebase 后新产品
+#      提交，改写 base_sha/head_sha/diff_sha 并同步 cp md，以 reviewer_identity 身份提交
+#      「审查证据复绑至 rebase 后 HEAD」，并向 changes.jsonl 追加复绑记录）——本件只编排，
+#      不再兼任审查证据写入方；重绑失败 fail-closed（不合并、如实报错、保留现场）。
 #      --flip 在同一把合并锁内完成翻转，消除「合并成功→翻转」空窗。
 #      票 237 补正：actual_time 预检读被合并票分支 tip（主检出仅回退）；证据允许集与
 #      done 门同源（含票面声明的规范 Review Checkpoint md，判定在 common-helpers）。
@@ -57,10 +59,14 @@ _helper_script="${script_dir}/common-helpers.sh"
 
 usage() {
   cat <<'USAGE'
-用法: sh merge-ticket.sh [--flip] <repo-root> <branch> <ticket-id>
+用法: sh merge-ticket.sh [--flip] [--authorize-rebind <授权依据>] <repo-root> <branch> <ticket-id>
 参数:
   --flip      合并成功后在同一把合并锁内调 ticket-ops flip --status done 并落账本行
               （合并与收尾原子化；翻转失败如实报错 exit 1 且不清场）。
+  --authorize-rebind <授权依据>
+              main 已前进（票分支未含最新 main）需 rebase 后重绑审查证据时的显式授权
+              （授权原文或可检索引用）；缺省即 fail-closed（不 rebase、不合并、不静默
+              改写证据）。重绑写入方＝独立入口 evidence-rebind.sh（账本留痕）。
   repo-root   主仓根目录（当前分支须 main；合并目标＝当前分支）。
   branch      票分支名，须 ticket/ 前缀。
   ticket-id   票 id（用于核对分支绑定并生成合并提交说明）。
@@ -71,8 +77,9 @@ usage() {
   ①票分支绑定 worktree 上核审查证据：调 ticket-audit.sh --operation merge，只认
   conformant；证据缺失/未提交/diff 失配/unknown → 拒绝合并（exit 1，decision-required）
   且保留 worktree/分支；②主仓不干净即拒绝，不代为提交共享票务记录；③合并前若 main
-  已前进（非票分支祖先）→ 在源站自动 rebase 到最新 main 以保证快进（冲突 abort 后
-  exit 3）；④git merge --ff-only 失败自动降级 --no-ff；⑤仍失败且存在冲突现场 →
+  已前进（非票分支祖先）→ 须 --authorize-rebind 显式授权，未授权即 exit 1 fail-closed
+  （未 rebase 未合并）；授权后在源站自动 rebase 到最新 main（冲突 abort 后 exit 3），
+  并由 evidence-rebind.sh 重绑审查证据（账本留痕）；④git merge --ff-only 失败自动降级 --no-ff；⑤仍失败且存在冲突现场 →
   git merge --abort 清现场后 exit 3 停等（worktree 保留）；⑥--flip 时在同一把锁内调
   ticket-ops flip --status done（失败 exit 1 且不清场）；⑦成功（任一方式）→ 无条件删
   worktree 与分支；⑧输出实际合并模式与合并提交哈希。
@@ -106,25 +113,63 @@ wt_of_branch() {
   '
 }
 
+# 协作脚本定位（同目录优先、PATH 回退；落位脚本不要求可执行位，恒经 sh 调用，故手动
+# 迭代 PATH 而不用 command -v）。命中打印路径，缺失 return 1。票 288：ticket-ops／
+# ticket-audit／evidence-rebind 三处定位统一经本函数，零重复副本。
+locate_tool() {
+  _lt_name=$1
+  if [ -f "${script_dir}/${_lt_name}" ] && [ -r "${script_dir}/${_lt_name}" ]; then
+    printf '%s\n' "${script_dir}/${_lt_name}"
+    return 0
+  fi
+  _lt_rest=${PATH:-}
+  while [ -n "${_lt_rest}" ]; do
+    _lt_dir=${_lt_rest%%:*}
+    case ${_lt_rest} in
+      *:*) _lt_rest=${_lt_rest#*:} ;;
+      *) _lt_rest='' ;;
+    esac
+    [ -n "${_lt_dir}" ] || continue
+    if [ -f "${_lt_dir}/${_lt_name}" ] && [ -r "${_lt_dir}/${_lt_name}" ]; then
+      printf '%s\n' "${_lt_dir}/${_lt_name}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 [ $# -eq 1 ] && case $1 in -h|--help) usage; exit 0 ;; esac
 # 票 285：--flip 可出现在任意位置（首个非选项参数起为三位置参）；缺省行为不变（只合并）。
+# 票 288：--authorize-rebind <授权依据> 为审查证据重绑的显式授权参数（main 已前进时必需；
+# 未授权即 fail-closed，不静默改写审查证据）。
 do_flip=0
-_args=''
-for _arg in "$@"; do
-  case ${_arg} in
-    --flip) do_flip=1 ;;
+rebind_authorization=''
+_p1='' _p2='' _p3='' _pn=0
+while [ $# -gt 0 ]; do
+  case $1 in
+    --flip) do_flip=1; shift ;;
+    --authorize-rebind)
+      [ $# -ge 2 ] || { usage >&2; exit 2; }
+      rebind_authorization=$2
+      shift 2
+      ;;
     -h|--help) usage; exit 0 ;;
     *)
-      if [ -n "${_args}" ]; then _args="${_args} ${_arg}"; else _args=${_arg}; fi
+      _pn=$((_pn + 1))
+      case ${_pn} in
+        1) _p1=$1 ;;
+        2) _p2=$1 ;;
+        3) _p3=$1 ;;
+        *) usage >&2; exit 2 ;;
+      esac
+      shift
       ;;
   esac
 done
-# shellcheck disable=SC2086  # 位置参按空白复原（三参均禁空白，token 形态已由下方正则断言）
-set -- ${_args}
-[ $# -eq 3 ] || { usage >&2; exit 2; }
-repo_root=$1
-branch=$2
-ticket_id=$3
+[ "${_pn}" -eq 3 ] || { usage >&2; exit 2; }
+repo_root=${_p1}
+branch=${_p2}
+ticket_id=${_p3}
 
 [ -d "${repo_root}" ] || die2 "仓库根不存在: ${repo_root}"
 git -C "${repo_root}" rev-parse --git-dir >/dev/null 2>&1 || die2 "仓库根不是 Git 仓库: ${repo_root}"
@@ -202,24 +247,8 @@ printf 'merge-ticket: 合并锁: 已取得记录层写锁（%s）——合并/�
 # --flip 时同锁内调票务收口：ticket-ops 同目录优先／PATH 回退（缺失即预检停止，未产生写入）
 ticket_ops=''
 if [ "${do_flip}" -eq 1 ]; then
-  if [ -f "${script_dir}/ticket-ops.sh" ] && [ -r "${script_dir}/ticket-ops.sh" ]; then
-    ticket_ops="${script_dir}/ticket-ops.sh"
-  else
-    _trest=${PATH:-}
-    while [ -n "${_trest}" ]; do
-      _tdir=${_trest%%:*}
-      case ${_trest} in
-        *:*) _trest=${_trest#*:} ;;
-        *) _trest='' ;;
-      esac
-      [ -n "${_tdir}" ] || continue
-      if [ -f "${_tdir}/ticket-ops.sh" ] && [ -r "${_tdir}/ticket-ops.sh" ]; then
-        ticket_ops="${_tdir}/ticket-ops.sh"
-        break
-      fi
-    done
-  fi
-  [ -n "${ticket_ops}" ] || die1 "票务运维脚本 ticket-ops.sh 不可用（同目录与 PATH 均未找到）——--flip 收尾停止；未产生任何写入"
+  ticket_ops=$(locate_tool ticket-ops.sh) || \
+    die1 "票务运维脚本 ticket-ops.sh 不可用（同目录与 PATH 均未找到）——--flip 收尾停止；未产生任何写入"
 fi
 
 
@@ -228,25 +257,8 @@ fi
 # HEAD 上；在 worktree 上跑只读审计才能核到「已提交、绑定 diff」的证据。无绑定
 # worktree 即无法核验 → 拒绝（decision-required），不退回 main 估计。
 
-audit_cmd=''
-if [ -f "${script_dir}/ticket-audit.sh" ] && [ -r "${script_dir}/ticket-audit.sh" ]; then
-  audit_cmd="${script_dir}/ticket-audit.sh"
-else
-  _arest=${PATH:-}
-  while [ -n "${_arest}" ]; do
-    _adir=${_arest%%:*}
-    case ${_arest} in
-      *:*) _arest=${_arest#*:} ;;
-      *) _arest='' ;;
-    esac
-    [ -n "${_adir}" ] || continue
-    if [ -f "${_adir}/ticket-audit.sh" ] && [ -r "${_adir}/ticket-audit.sh" ]; then
-      audit_cmd="${_adir}/ticket-audit.sh"
-      break
-    fi
-  done
-fi
-[ -n "${audit_cmd}" ] || die1 "证据审计引擎 ticket-audit.sh 不可用（同目录与 PATH 均未找到），拒绝合并（decision-required；未产生任何写入）"
+audit_cmd=$(locate_tool ticket-audit.sh) || \
+  die1 "证据审计引擎 ticket-audit.sh 不可用（同目录与 PATH 均未找到），拒绝合并（decision-required；未产生任何写入）"
 
 json_engine="${script_dir}/json-validator.py"
 if [ ! -f "${json_engine}" ]; then
@@ -281,7 +293,7 @@ case ${audit_rc} in
   *) die1 "decision-required: 票 ${ticket_id} 的审查证据未判 conformant（ticket-audit --operation merge exit ${audit_rc}）——证据缺失/未提交/diff 失配/身份或策略不可核验一律拒绝合并；worktree 与分支保留" ;;
 esac
 
-# ---- 合并前自动 rebase 到最新 main（票 285：保证快进＋审查证据自动重绑）----
+# ---- 合并前 rebase 到最新 main（票 285：保证快进；票 288：证据重绑须显式授权）----
 # main 已是票分支祖先＝可直接 ff；否则先把票分支 rebase 到 main，再按「证据 head 之后的
 # 提交数」定位 rebase 后的新产品提交，改写审查证据 base_sha/head_sha/diff_sha 并同步 cp md
 # 描述，以 reviewer_identity 身份在合并前提交——使 --flip 的 P04/P05 在并行收口（main
@@ -303,6 +315,12 @@ else
   done
   _ev_reviewer=$(python3 "${json_engine}" json get "${_ev_file}" reviewer_identity 2>/dev/null) || _ev_reviewer=''
   [ -n "${_ev_reviewer}" ] || die1 "审查证据缺 reviewer_identity，无法以审查者身份提交重绑（未 rebase、未合并）: ${_ev_rel}"
+  # 票 288：重绑须显式授权（--authorize-rebind <授权依据>）；未授权即 fail-closed，不 rebase、
+  # 不合并、不静默改写审查证据——证据写入方独立为 evidence-rebind.sh，本件只编排。
+  [ -n "${rebind_authorization}" ] || \
+    die1 "decision-required: main 已前进（票分支未含最新 main），需 rebase 后重绑审查证据，但未显式授权（缺 --authorize-rebind <授权依据>）——fail-closed：未 rebase、未合并；worktree 与分支保留"
+  evidence_rebind=$(locate_tool evidence-rebind.sh) || \
+    die1 "审查证据重绑实现 evidence-rebind.sh 不可用（同目录与 PATH 均未找到）——未 rebase、未合并；worktree 与分支保留"
   _after_n=$(git -C "${wt}" rev-list --count "${_ev_head}..${tip}")
   _rebase_base=$(git -C "${repo_root}" rev-parse main)
   printf 'merge-ticket: 合并前 rebase: 票分支尚未包含最新 main，rebase 到 main 以保证快进\n'
@@ -324,60 +342,14 @@ else
   _new_diff=$(git -C "${wt}" diff --binary "${_rebase_base}" "${_new_head}" | git -C "${wt}" hash-object --stdin) || _new_diff=''
   printf '%s' "${_new_diff}" | grep -Eq '^[0-9a-f]{40}$' || \
     die1 "rebase 后 diff 指纹重算失败（未合并；worktree 与分支保留）: ${branch}"
-  _ev_mode=$(stat -f '%Lp' "${_ev_file}" 2>/dev/null) || _ev_mode=$(stat -c '%a' "${_ev_file}" 2>/dev/null) || _ev_mode=''
-  [ -n "${_ev_mode}" ] || _ev_mode='644'
-  for _pair in "base_sha:${_rebase_base}" "head_sha:${_new_head}" "diff_sha:${_new_diff}"; do
-    _key=${_pair%%:*}
-    _val=${_pair#*:}
-    _ev_tmp="${_ev_file}.rebind.$$"
-    if ! python3 "${json_engine}" json set "${_ev_file}" "${_key}" "\"${_val}\"" > "${_ev_tmp}"; then
-      rm -f "${_ev_tmp}"
-      die1 "审查证据 ${_key} 重写失败（未合并；worktree 与分支保留）: ${_ev_rel}"
-    fi
-    mv "${_ev_tmp}" "${_ev_file}" || {
-      rm -f "${_ev_tmp}"
-      die1 "审查证据原子替换失败（未合并；worktree 与分支保留）: ${_ev_rel}"
-    }
-  done
-  chmod "${_ev_mode}" "${_ev_file}" 2>/dev/null || true
-  _cp_file="${wt}/${_cp_rel}"
-  _cp_changed=0
-  if [ -f "${_cp_file}" ]; then
-    _cp_mode=$(stat -f '%Lp' "${_cp_file}" 2>/dev/null) || _cp_mode=$(stat -c '%a' "${_cp_file}" 2>/dev/null) || _cp_mode=''
-    [ -n "${_cp_mode}" ] || _cp_mode='644'
-    _cp_tmp="${_cp_file}.rebind.$$"
-    _cp_sed=''
-    for _pair in "${_ev_base}:${_rebase_base}" "${_ev_head}:${_new_head}" "${_ev_diff}:${_new_diff}"; do
-      _o=${_pair%%:*}
-      _n=${_pair#*:}
-      [ "${_o}" = "${_n}" ] && continue
-      _cp_sed="${_cp_sed}s/${_o}/${_n}/g;"
-      _os=$(printf '%s' "${_o}" | cut -c1-7)
-      _ns=$(printf '%s' "${_n}" | cut -c1-7)
-      [ "${_os}" = "${_ns}" ] || _cp_sed="${_cp_sed}s/${_os}/${_ns}/g;"
-    done
-    if [ -n "${_cp_sed}" ]; then
-      sed "${_cp_sed}" "${_cp_file}" > "${_cp_tmp}" || {
-        rm -f "${_cp_tmp}"
-        die1 "cp md 证据描述同步失败（未合并；worktree 与分支保留）: ${_cp_rel}"
-      }
-      mv "${_cp_tmp}" "${_cp_file}" || {
-        rm -f "${_cp_tmp}"
-        die1 "cp md 原子替换失败（未合并；worktree 与分支保留）: ${_cp_rel}"
-      }
-      chmod "${_cp_mode}" "${_cp_file}" 2>/dev/null || true
-      _cp_changed=1
-    fi
-  fi
-  if [ "${_cp_changed}" -eq 1 ]; then
-    git -C "${wt}" add -- "${_ev_rel}" "${_cp_rel}" || die1 "审查证据复绑暂存失败（未合并；worktree 与分支保留）: ${_ev_rel}"
-  else
-    git -C "${wt}" add -- "${_ev_rel}" || die1 "审查证据复绑暂存失败（未合并；worktree 与分支保留）: ${_ev_rel}"
-  fi
-  GIT_AUTHOR_NAME="reviewer" GIT_AUTHOR_EMAIL="${_ev_reviewer}" \
-    GIT_COMMITTER_NAME="reviewer" GIT_COMMITTER_EMAIL="${_ev_reviewer}" \
-    git -C "${wt}" -c commit.gpgsign=false commit -qm 'chore(records): 审查证据复绑至 rebase 后 HEAD' || \
-    die1 "审查证据复绑提交失败（未合并；worktree 与分支保留）: ${branch}"
+  # 票 288：重绑改写与以 reviewer 身份的提交归 evidence-rebind.sh；继承本进程合并锁
+  # （同锁窗口内改证据/落账本/提交），失败 fail-closed 不合并、保留 worktree 与分支。
+  _er_rc=0
+  RECORD_LOCK_INHERITED=1 RECORD_LOCK_DIR="${RECORD_LOCK_DIR}" RECORD_LOCK_TOKEN="${RECORD_LOCK_TOKEN}" \
+    sh "${evidence_rebind}" --authorize "${rebind_authorization}" "${wt}" "${ticket_id}" \
+      "${_rebase_base}" "${_new_head}" || _er_rc=$?
+  [ "${_er_rc}" -eq 0 ] || \
+    die1 "审查证据重绑失败（evidence-rebind exit ${_er_rc}；未合并；worktree 与分支保留）: ${_ev_rel}"
   tip=$(git -C "${repo_root}" rev-parse "refs/heads/${branch}")
   printf 'merge-ticket: 证据重绑: base %s → head %s（diff %s；以 %s 身份提交于合并前）\n' \
     "${_rebase_base}" "${_new_head}" "${_new_diff}" "${_ev_reviewer}"

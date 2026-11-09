@@ -21,7 +21,7 @@ tr_build_fixture() {
   status=${2:-in_progress}
   mkdir -p "$R/rules/implementation/scripts" "$R/rules/implementation/references/schemas" \
     "$R/rules/implementation/references/prompts" "$R/facts/requirements/tickets" "$R/facts/project"
-  for f in ticket-run.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
+  for f in ticket-run.sh record-commit.sh contract-build.sh check-dispatch-contract.sh worktree-add.sh dp-load-rules.sh \
     check-gates.sh ticket-ops.sh generate-progress.sh generate-dir-readmes.sh dir-readme.rules ledger-append.sh record-store.sh common-helpers.sh json-validator.py ticket-audit.sh; do
     cp "$SCRIPT_DIR/$f" "$R/rules/implementation/scripts/$f"
   done
