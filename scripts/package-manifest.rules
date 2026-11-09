@@ -6,7 +6,7 @@
 #        9/10/11/12/13/14/15/16/17/21/24/25/26/27/28/29/30/31/32/34/35/36 以本表为比对
 #        基准（27 另读适配差异数据表四节；28 经 scripts/generate-adapter-diffs.sh 渲染后
 #        比对宿主差异段；33 的扫描面与词表语义同检查 25，引擎常量为窄锚点）。
-# Output: check-package.sh 引擎启动时 source 本表——每行一个 pm_* 调用：
+# Output: check-package.sh 引擎启动时以非执行式解析加载本表（不 source）——每行一个 pm_* 调用：
 #         pm_entry <pkg-rel-path>（必需入口文件，包根相对路径）；
 #         pm_script <pkg-rel-path> <kind> <说明>（脚本必需件：scripts/ 前缀单段文件名，
 #           kind ∈ script 普通脚本 / rules 规则表与非可执行数据件 / test-harness 回归
@@ -218,7 +218,7 @@ pm_script scripts/project-dashboard.html rules '本地项目仪表盘（单文�
 pm_script scripts/test-record-layer.sh test-harness '记录层回归 harness（多 suite 常驻自检；定为必需件）'
 pm_script scripts/tests dir '记录层 harness 拆分套件目录（test-runner.sh 派发器＋test-helpers.sh 共享断言＋tests/suite-*.sh 全部套件，套件数以文件系统实计数为唯一真源，经 test-record-layer.sh 入口委托；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/generate-mirrors.sh script '镜像生成器：从包侧 scripts/ 手写源幂等生成仓侧 rules/implementation/scripts/ 生成物（--check 只读核对；写模式逐件 cmp 自证；package-only 不生成）'
-pm_script scripts/checks dir '包检引擎检查件目录（registry.rules 注册表＋每检查一件 NN-slug.sh；统一 interface：引擎传入包根，检查件只判定与报告问题，不生成 PASS/FAIL 行与汇总；kind=dir 目录成员无 mode 语义）'
+pm_script scripts/checks dir '包检引擎检查件与引擎模块目录（registry.rules 注册表＋每检查一件 NN-slug.sh＋配置加载/校验模块 config-load.sh＋检查注册表与分发模块 registry-dispatch.sh；统一 interface：引擎传入包根，检查件只判定与报告问题，不生成 PASS/FAIL 行与汇总；kind=dir 目录成员无 mode 语义）'
 pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸收面：同 scope 分数聚合出固化/禁区候选提示，提示不裁决；全程只读零写入）'
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
 pm_script scripts/json-line.sh script '内联 JSON 行解析唯一实现（jval／jnum 取值原语：字符串与裸值两形态；absorption-trigger 与 health-summary 同源；同目录定位，随 ticket-ops 安装闭包）'

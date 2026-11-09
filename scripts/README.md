@@ -60,7 +60,7 @@
 | `test-record-layer.sh` | 记录层回归 harness | 六票 fixture 沉淀的常驻自检工具（历次扩 suite）：suite 集合与权威枚举见下文专节（`--suite` 参数化，缺省 all），一条命令回归记录层全链，逐项 PASS/FAIL＋计数，任一失败 exit 非零；缺省自测同目录包内脚本（对被测脚本只以显式 mktemp 夹具根/包根参数驱动，与 ticket-ops.sh「包内不运行」口径不冲突）；POSIX sh、无 jq；open 本体校验路径依赖 python3，缺失即 exit 2；夹具 trap 清理、仓库零写入。详见下文专节。 |
 | `tests` | harness 拆分套件目录 | 记录层回归 harness 的套件分片：test-runner.sh 派发器（ALL_SUITES 唯一枚举＋fast 短车道＋per-suite 超时／信号清理／断言下限）＋test-helpers.sh 共享断言（结果日志回传）＋`tests/suite-*.sh` 全部套件（各 suite 可独立运行 `sh tests/suite-<name>.sh`；套件数以文件系统实计数为唯一真源；含 harness 自身硬化负例）；test-record-layer.sh 为兼容入口委托 tests/test-runner.sh；清单 kind=dir。 |
 | `generate-mirrors.sh` | 镜像生成器 | 包侧 `scripts/` 手写源 → 仓侧 `rules/implementation/scripts/` 生成物单入口：按 `package-manifest.rules` mirrors 节 mirror 类逐件生成，幂等、逐件 cmp 自证；`--check` 只读核对，漂移/缺件指名 exit 1；package-only 不生成。生成物不得手工编辑。 |
-| `checks` | 包检引擎检查件目录 | 检查注册表与检查件分片：`registry.rules`（`chk_total`／`chk_retired` 声明＋每项检查一行号/slug/件/必需数据节）＋每项检查一件 `NN-slug.sh`（统一 interface：引擎传入包根，检查件只判定并经 `add_problem` 报告问题、置描述与 SKIP 面，不打印 PASS/FAIL 行、不碰汇总计数；由 `check-package.sh` 按注册表发现与分发；清单 kind=dir） |
+| `checks` | 包检引擎检查件与引擎模块目录 | 检查注册表与检查件分片：`registry.rules`（`chk_total`／`chk_retired` 声明＋每项检查一行号/slug/件/必需数据节）＋每项检查一件 `NN-slug.sh`（统一 interface：引擎传入包根，检查件只判定并经 `add_problem` 报告问题、置描述与 SKIP 面，不打印 PASS/FAIL 行、不碰汇总计数；由 `check-package.sh` 按注册表发现与分发）＋引擎模块两件：`config-load.sh`（共享词法器接入、逐节 schema 登记、通用行校验器与跨节专用校验器、清单加载接口）与 `registry-dispatch.sh`（注册表纯查询、三向完整性断言、检查件载入与统一分发、输出完整性守卫）；清单 kind=dir |
 
 旧项目已有 `<target>/scripts/` 副本属于兼容布局，安装器不搬迁、覆盖或删除。
 
@@ -76,6 +76,18 @@ sh scripts/check-package.sh [package-root]
 - 带参数：以第一参数为包根（对 subtree 导出目录或临时目录副本复跑时使用）。
 - `-h` / `--help`：打印用法。
 - 脚本只读：除向 stdout/stderr 打印外无任何写操作；无网络依赖（不出网、无下载行为）。
+
+### 引擎组成（三块）
+
+核对工具按三块职责分层：加一节清单数据或加一项检查只动登记表，不改分发与汇总代码。
+
+| 块 | 落位 | 职责 |
+| --- | --- | --- |
+| 配置加载/校验 | `checks/config-load.sh` | 共享非执行式词法器接入（`rules-lexer.sh`）、逐节 schema 登记表与通用行校验器（字段数、字段规格、唯一键、非空下限）、跨节专用校验器（适配注册表闭合、适配差异表一致性、能力目标并集、enforcement 目标词表等）、清单加载接口 `pm_load_manifests`；任一结构异常 exit 2 fail-closed（不产生部分结论） |
+| 检查注册表与分发 | `checks/registry-dispatch.sh` | 注册表纯查询（编号上界、定向运行必需数据节）、注册表加载与三向完整性断言、定向选择集规范化、检查件载入与统一 interface 断言、逐项分发与输出缓冲、输出完整性守卫 |
+| 薄 CLI | `check-package.sh` | 参数解析、包根与共享只读派生量、worktree 语境、三块编排、PASS/FAIL/SKIP 行与汇总/退出码 |
+
+加一节清单数据＝在 `checks/config-load.sh` 的 schema 登记表加一行（节名、行标签、字段数、字段规格、唯一键、标志、非空下限文案、跨节依赖、专用校验器各列），账本分发、非空下限与定向运行的数据节闭包随之生效；加一项检查＝`checks/registry.rules` 加一行＋`checks/NN-slug.sh` 加一件。`--only` 的必需数据节闭包＝注册表纯查询结果＋schema 依赖列的传递闭包（引擎侧不再维护手工闭包表）。
 
 ## 检查项（编号 1–37，检查 23 已退役；编号与实现件由 `checks/registry.rules` 注册表钉住，本表为说明投影，分发与汇总计数不在本表重复登记）
 
@@ -144,7 +156,7 @@ check-package: PASS
 
 ## package-manifest.rules（包清单数据表）
 
-包结构清单唯一承载点（单源化定稿；逐次扩节；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）。`check-package.sh` 启动时 source 本表（与脚本同目录），检查 1/5/8 的清单与计数、检查 9/10/11/12/13/14/15/16/17/21/23/24/25/26/27/29/30/31/32/34/35/36 的比对基准全部自数据读取，引擎零文件名零短码零枚举值零词表零基元名清单零机制词表零退役 token 零工作流路径零声明面——加成员、加短码、加 platform 值、加措辞词、加豁免、加镜像、加能力基元/目标、加机制词表值、加注册表宿主行、加退役 token/活动面、加工作流登记、加 readonly 声明面、加契约指针＝加一行数据＋改对应实物，零引擎改动。注意：引擎按自身所在目录加载本表（与脚本同目录），对包副本核对时以副本自带引擎＋副本 manifest 才能读到副本数据（harness 豁免负例即此口径）。
+包结构清单唯一承载点（单源化定稿；逐次扩节；先例 `install-policy.rules`：外置数据＋引擎零专名＋结构校验 fail-closed）。`check-package.sh` 启动时以非执行式解析加载本表（与脚本同目录；解析器不 source 数据文件），检查 1/5/8 的清单与计数、检查 9/10/11/12/13/14/15/16/17/21/23/24/25/26/27/29/30/31/32/34/35/36 的比对基准全部自数据读取，引擎零文件名零短码零枚举值零词表零基元名清单零机制词表零退役 token 零工作流路径零声明面——加成员、加短码、加 platform 值、加措辞词、加豁免、加镜像、加能力基元/目标、加机制词表值、加注册表宿主行、加退役 token/活动面、加工作流登记、加 readonly 声明面、加契约指针＝加一行数据＋改对应实物，零引擎改动。注意：引擎按自身所在目录加载本表（与脚本同目录），对包副本核对时以副本自带引擎＋副本 manifest 才能读到副本数据（harness 豁免负例即此口径）。
 
 ### 行格式（二十二节）
 
@@ -1392,7 +1404,7 @@ sh scripts/measure-context-cost.sh --governance [--templates <dir>] [--baseline 
 
 注意：`*.rules` 是机器数据件，**不属于纯文档**，一律按其映射执行（`package-manifest.rules` 跑 `check-package`、`dir-readme.rules` 跑 `dir-readme`、其余规则文件跑 `delivery-parser`）；只有 `*.md`／`*.tmpl` 才触发冒烟。
 
-引擎定向运行入口 `check-package.sh --only N[,N] [package-root]`：只跑选中检查、输出仅含选中行；未设时全量输出与退出码逐字节不变；未注册/非法号 exit 2 fail-closed。
+引擎定向运行入口 `check-package.sh --only N[,N] [package-root]`：只跑选中检查、输出仅含选中行；未设时全量输出与退出码逐字节不变；未注册/非法号 exit 2 fail-closed。定向运行需要的数据节闭包＝注册表纯查询结果＋schema 依赖列的传递闭包（跨节校验所需的邻接数据节一并落账，避免读到空账本而假阳）；未选中检查的数据节不校验其数据面。
 
 定向运行的校验面：只校验被选中检查声明的清单节与注册表中被选中的行（行级形态/重复、号集合与 slug 对）；全局计数（`chk_total`、在役项数、退役号行数）仍按全表校验，故「注册表与清单整体错位」在定向运行下照样 exit 2。退役号集合全等与编号连续性属全表性质，只在全量模式校验——**定向运行不能替代提交门禁的全量运行**。
 
