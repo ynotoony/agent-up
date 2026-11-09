@@ -576,10 +576,10 @@ suite_project_dashboard() {
     bad '安装政策登记仪表盘复制行（ticket-ops 门控）' '缺少 ip_file ticket-ops 行'
   fi
 
-  if grep -q 'suite-project-dashboard.sh' "$SCRIPT_DIR/tests/test-runner.sh"; then
-    ok 'runner 派发表登记 project-dashboard 套件'
+  if grep -E '^ALL_SUITES=' "$SCRIPT_DIR/tests/test-runner.sh" | grep -qw 'project-dashboard'; then
+    ok 'runner 派发表登记 project-dashboard 套件（ALL_SUITES 唯一清单成员）'
   else
-    bad 'runner 派发表登记 project-dashboard 套件' 'test-runner.sh 未登记'
+    bad 'runner 派发表登记 project-dashboard 套件（ALL_SUITES 唯一清单成员）' 'test-runner.sh ALL_SUITES 未登记'
   fi
 
   # 栅栏环境跳过（口径同 check-package 检查 8/9 与 suite-install：worktree-add.sh 按

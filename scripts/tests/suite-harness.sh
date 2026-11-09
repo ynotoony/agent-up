@@ -24,6 +24,7 @@ _h_build() {
   mkdir -p "$_hb_root/tests"
   cp "$TESTS_DIR/test-runner.sh" "$_hb_root/tests/test-runner.sh"
   cp "$TESTS_DIR/test-helpers.sh" "$_hb_root/tests/test-helpers.sh"
+  cp "$TESTS_DIR/test-world.sh" "$_hb_root/tests/test-world.sh"
   for _hb_n in $ALL_SUITES; do
     _hb_fn="suite_$(printf '%s' "$_hb_n" | tr '-' '_')"
     cat >"$_hb_root/tests/suite-$_hb_n.sh" <<EOF
@@ -242,6 +243,32 @@ EOF
     ok '断言下限缺省固定为 1100（票 257 收口基线）'
   else
     bad '断言下限缺省固定为 1100（票 257 收口基线）' '未找到 ASSERTION_FLOOR=1100'
+  fi
+
+  # ---- 票 291：套件清单单一来源与磁盘孤儿校验（负例常驻）----
+  # ①磁盘多出未登记 suite-*.sh → 启动即 exit 2 并指名孤儿；②名单有而磁盘缺 → exit 2 指名缺件。
+  _h_root="$T/h-orphan"
+  _h_build "$_h_root"
+  cat >"$_h_root/tests/suite-orphan-zzz.sh" <<'EOF'
+#!/bin/sh
+suite_orphan_zzz() { :; }
+EOF
+  TEST_ASSERTION_FLOOR=0 sh "$_h_root/tests/test-runner.sh" --suite all --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-orphan.log" 2>&1
+  _h_rc=$?
+  if [ "$_h_rc" -eq 2 ] && grep -q '孤儿套件' "$T/h-orphan.log"; then
+    ok '孤儿负例：磁盘多出未登记 suite-*.sh → 启动 exit 2 且指名孤儿套件'
+  else
+    bad '孤儿负例：磁盘多出未登记 suite-*.sh → 启动 exit 2 且指名孤儿套件' "exit=$_h_rc $(tail -2 "$T/h-orphan.log" 2>/dev/null | tr '\n' '|')"
+  fi
+  _h_root="$T/h-missing"
+  _h_build "$_h_root"
+  rm -f "$_h_root/tests/suite-progress.sh"
+  TEST_ASSERTION_FLOOR=0 sh "$_h_root/tests/test-runner.sh" --suite all --script-dir "$SCRIPT_DIR" --pkg-root "$PKG_ROOT" >"$T/h-missing.log" 2>&1
+  _h_rc=$?
+  if [ "$_h_rc" -eq 2 ] && grep -q '套件文件缺失' "$T/h-missing.log"; then
+    ok '缺件负例：名单有而磁盘缺 suite 文件 → 启动 exit 2 指名缺失文件'
+  else
+    bad '缺件负例：名单有而磁盘缺 suite 文件 → 启动 exit 2 指名缺失文件' "exit=$_h_rc $(tail -2 "$T/h-missing.log" 2>/dev/null | tr '\n' '|')"
   fi
 
   suite_summary 'harness'

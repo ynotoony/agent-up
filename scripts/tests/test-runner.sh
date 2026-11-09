@@ -83,7 +83,7 @@
 #      `FAST_SUITES` 为短套件子集，成员历次随票扩）＋完整运行（--suite all）末尾注入自检；
 #      安装面收敛后新增 docs-generation（规则索引生成器回归）与 governance-size（安装面预算回归）；票 233 新增 project-dashboard 套件（本地项目仪表盘：Node 抽取运行页面核心逻辑，缺 node 即 exit 2；静态零写入/零网络面与安装闭包真跑）；票 234 新增 ticket-audit 套件（证据审计引擎十一谓词：正例三操作面 conformant 与证据位置可追溯，负例/未知分支逐谓词分离，零写入断言以 cksum 与 HEAD 前后比对承载）；新增 context-cost 套件（成本治理度量：合成 wire.jsonl 夹具、基线逐项差值、样本不足 fail-closed 零 stdout、治理体积与每阶段读取集差值）；票 236 新增 ticket-repair 套件（repair 四类纠偏动作：补站/派生投影/禁 main 直提/Review 收据在场，终态与不合口径分支 fail-closed，站与投影外零写入）；票 258 执行模型硬化与快慢分层（ALL_SUITES 唯一枚举＋FAST_SUITES 短车道、per-suite 超时 TEST_SUITE_TIMEOUT 缺省 300s、子 shell 隔离、INT/TERM 清理后 exit 130、断言数下限 ASSERTION_FLOOR=1100、self-check 扩到四目标；新增 suite-harness 常驻覆盖四条负例）；票 269 新增 runtime-closure 套件（六运行脚本运行时依赖只认安装闭包：静态零工作树回退扫描、本地闭包与包工作树副本分歧时以本地为准、五入口闭包缺失 fail-closed 零写入、checkpoint-recovery 邻接 references/ 缺失 fail-closed）；POSIX sh 零外部
 #      依赖（夹具 git init/commit 依赖被测脚本自身声明的 Git；self-check 中断负例经 python3 重置 SIGINT 处置）。用法、suite 覆盖表、退出码
-#      与维护规则见同目录 README.md 专节。
+#      与维护规则见包内 scripts/README.md「test-record-layer.sh」专节。
 
 set -u
 set -f  # 关闭文件名展开：脚本不依赖 glob
@@ -93,100 +93,46 @@ TESTS_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) || exit 2
 . "$TESTS_DIR/test-helpers.sh"
 TEST_RECORD_SOURCE_ONLY=1
 export TEST_RECORD_SOURCE_ONLY
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-module-map.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-ticket-ops.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-progress.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-json-engine.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-check-package.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-append-only.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-check-artifacts.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-delivery-parser.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-stale-claims.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-absorption.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-health.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-shellcheck.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-lane-commit.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-ledger-append.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-checkpoint-write.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 272）
-. "$TESTS_DIR/suite-record-store.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-worktree.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-upgrade-check.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-install.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-authority-matrix.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-dispatch-contract.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-workflow-contract.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 161）
-. "$TESTS_DIR/suite-role-prompt.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 252）
-. "$TESTS_DIR/suite-role-permissions.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员）
-. "$TESTS_DIR/suite-ticket-run.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 236）
-. "$TESTS_DIR/suite-ticket-repair.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 233）
-. "$TESTS_DIR/suite-project-dashboard.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，票 245）
-. "$TESTS_DIR/suite-check-gates.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，规则索引生成器回归）
-. "$TESTS_DIR/suite-docs-generation.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，安装面预算回归）
-. "$TESTS_DIR/suite-governance-size.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，证据审计回归）
-. "$TESTS_DIR/suite-ticket-audit.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，合并站证据门回归）
-. "$TESTS_DIR/suite-merge.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，记录提交单点入口回归，票 288）
-. "$TESTS_DIR/suite-record-commit.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，审查证据重绑授权回归，票 288）
-. "$TESTS_DIR/suite-evidence-rebind.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，拆票批量入口回归，票 293）
-. "$TESTS_DIR/suite-ticket-split.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，成本度量回归）
-. "$TESTS_DIR/suite-context-cost.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，目录 README 结构契约回归）
-. "$TESTS_DIR/suite-dir-readme.sh"
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，运行时依赖只认安装闭包回归，票 269）
-. "$TESTS_DIR/suite-runtime-closure.sh"
+# 公共 fixture builder（票 291）：tests/test-world.sh 由本 runner 统一 source，套件只调用不复制。
+# shellcheck disable=SC1091  # 公共夹具库路径由 TESTS_DIR 动态组装（同目录约定成员）
+. "$TESTS_DIR/test-world.sh"
 
-# shellcheck disable=SC1091  # 对抗金丝雀（票 241）
-. "$TESTS_DIR/suite-adversarial.sh"
+# ---- 套件名单（唯一枚举；ALL_SUITES 恰此一处，source／派发／用法／孤儿校验均读本变量）----
+ALL_SUITES='module-map ticket-ops ticket-ops-locks progress json-engine check-package check-package-groups check-package-direct append-only check-artifacts delivery-parser stale-claims lane-commit lane-commit-boundary lane-commit-record ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract workflow-trust workflow-recovery role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge record-commit evidence-rebind ticket-split context-cost dir-readme dir-readme-migrate dir-readme-freshness runtime-closure adversarial harness'
+# ---- fast 车道（票 258）：ALL_SUITES 的短套件子集，日常回归目标 ≤180s。重活留给
+#      --suite all；成员是否 ⊆ all 由启动核对与 self-check 双向钉死 ----
+FAST_SUITES='module-map progress json-engine append-only check-artifacts delivery-parser stale-claims ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health role-permissions check-gates docs-generation governance-size context-cost ticket-repair dispatch-contract role-prompt dir-readme adversarial ticket-run'
 
-# shellcheck disable=SC1091  # 套件文件路径由 TESTS_DIR 动态组装（同目录约定成员，harness 自身硬化回归，票 258）
-. "$TESTS_DIR/suite-harness.sh"
+# 套件文件按名单动态 source（名单单一来源；孤儿文件在下方磁盘校验中 fail-closed）
+for _s in $ALL_SUITES; do
+  _suite_file="$TESTS_DIR/suite-$_s.sh"
+  [ -f "$_suite_file" ] || { printf 'test-record-layer: 套件文件缺失: %s\n' "$_suite_file" >&2; exit 2; }
+  # shellcheck disable=SC1090,SC1091  # 套件文件按 ALL_SUITES 动态组装（同目录约定成员），非字面量 source
+  . "$_suite_file" || { printf 'test-record-layer: 套件载入失败: %s\n' "$_suite_file" >&2; exit 2; }
+done
+
+# ---- 磁盘孤儿校验（票 291）：tests/suite-*.sh 集合必须与 ALL_SUITES 双向相等 ----
+# 磁盘多出未登记 suite-*.sh ＝ 孤儿套件（永远不会被派发），fail-closed；名单有而磁盘缺
+# 已在上面 source 循环逐个指名。零外部依赖：用内层循环比对，不依赖 comm 临时文件。
+_disk_suites=$(find "$TESTS_DIR" -maxdepth 1 -name 'suite-*.sh' -print | sed 's|.*/suite-||; s|\.sh$||')
+_orphans=''
+for _d in $_disk_suites; do
+  case " $ALL_SUITES " in
+    *" $_d "*) ;;
+    *) _orphans="$_orphans $_d" ;;
+  esac
+done
+if [ -n "$_orphans" ]; then
+  printf 'test-record-layer: 孤儿套件（磁盘有而 ALL_SUITES 未登记，永不派发）:%s\n' "$_orphans" >&2
+  printf 'test-record-layer: 请把套件登记进 ALL_SUITES（唯一清单）或删除该 suite-*.sh\n' >&2
+  exit 2
+fi
 
 
 SUITE='all'
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd) || exit 2
 PKG_ROOT=''
 
-# ---- 套件名单（唯一枚举；--suite all 的执行顺序）----
-ALL_SUITES='module-map ticket-ops progress json-engine check-package append-only check-artifacts delivery-parser stale-claims lane-commit ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health shellcheck install dispatch-contract workflow-contract role-prompt role-permissions ticket-run ticket-repair project-dashboard check-gates docs-generation governance-size ticket-audit merge record-commit evidence-rebind ticket-split context-cost dir-readme runtime-closure adversarial harness'
-# ---- fast 车道（票 258）：ALL_SUITES 的短套件子集，日常回归目标 ≤180s。重活
-#      （ticket-ops 全量、ticket-audit、lane-commit、check-package、install、workflow-contract
-#      等）留给 --suite all；成员是否 ⊆ all 由启动核对与 self-check 双向钉死 ----
-FAST_SUITES='module-map progress json-engine append-only check-artifacts delivery-parser stale-claims ledger-append checkpoint-write record-store authority-matrix worktree upgrade-check absorption health role-permissions check-gates docs-generation governance-size context-cost ticket-repair dispatch-contract role-prompt dir-readme adversarial ticket-run'
 
 suite_listed() {
   case " $ALL_SUITES " in
@@ -200,11 +146,12 @@ suite_fn() {
 }
 
 usage() {
-  cat <<'USAGE'
+  _usage_suites=$(printf '%s' "$ALL_SUITES" | tr ' ' '|')
+  cat <<'USAGE' | sed "s#@ALL_SUITES@#$_usage_suites#"
 用法: sh test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-root <dir>]
 参数:
-    --suite <name>      module-map | ticket-ops | progress | json-engine | check-package | append-only | check-artifacts | delivery-parser | stale-claims | lane-commit | ledger-append | checkpoint-write | record-store | authority-matrix | worktree | upgrade-check | absorption | health | shellcheck | install | dispatch-contract | workflow-contract | role-prompt | role-permissions | ticket-run | ticket-repair | project-dashboard | check-gates | docs-generation | governance-size | ticket-audit | merge | record-commit | evidence-rebind | ticket-split | context-cost | dir-readme | runtime-closure | adversarial | harness | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
-  --script-dir <dir>  被测脚本所在目录（须含八件被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
+    --suite <name>      @ALL_SUITES@ | fast | all（缺省 all；fast＝⊆all 的短套件子集，日常回归 ≤180s）
+  --script-dir <dir>  被测脚本所在目录（须含 package-manifest scripts 节登记的被测成员）；缺省＝本脚本所在目录（缺省自测同目录）
   --pkg-root <dir>    check-package 套件的包根；缺省＝script-dir 的上一级（check-package.sh 同款）
   -h / --help         打印本用法
 环境变量:
@@ -213,7 +160,7 @@ usage() {
                          FAIL 行、继续后续套件、整轮 exit 1
     TEST_ASSERTION_FLOOR 断言数下限；缺省仅 --suite all 生效（1100）；显式设置时对任意车道生效
 退出码: 0 全部断言通过；1 存在失败断言（逐项 FAIL 行见输出）；2 用法或环境错误；130 收到 INT/TERM（清理后退出）
-suite 覆盖场景表与维护规则见同目录 README.md 专节。
+suite 覆盖场景表与维护规则见包内 scripts/README.md「test-record-layer.sh」专节。
 USAGE
 }
 
@@ -250,13 +197,24 @@ for _s in $FAST_SUITES; do
   }
 done
 [ -d "$SCRIPT_DIR" ] || { printf 'test-record-layer: 被测脚本目录不存在: %s\n' "$SCRIPT_DIR" >&2; exit 2; }
-for f in generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh dp-load-rules.sh; do
-  [ -f "$SCRIPT_DIR/$f" ] || { printf 'test-record-layer: 被测成员缺失: %s/%s\n' "$SCRIPT_DIR" "$f" >&2; exit 2; }
-done
 if [ -z "$PKG_ROOT" ]; then
   PKG_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd) || exit 2
 fi
 [ -d "$PKG_ROOT" ] || { printf 'test-record-layer: 包根不存在: %s\n' "$PKG_ROOT" >&2; exit 2; }
+# 被测成员清单权威＝package-manifest.rules scripts 节（票 291：取消 runner 内硬编码清单与
+# 清单文件的双源；下方 REQUIRED_MEMBERS 只列本 harness 的运行前提，登记存在性以 manifest 为准）。
+REQUIRED_MEMBERS='generate-module-map.sh module-map.rules ticket-ops.sh generate-progress.sh check-package.sh check-append-only.sh check-artifacts.sh check-stale-claims.sh worktree-add.sh dp-load-rules.sh'
+_tm_manifest="$PKG_ROOT/scripts/package-manifest.rules"
+[ -f "$_tm_manifest" ] || { printf 'test-record-layer: 包清单缺失（被测成员登记权威）: %s\n' "$_tm_manifest" >&2; exit 2; }
+for f in $REQUIRED_MEMBERS; do
+  # 引擎自身（check-package.sh）与闭合白名单同口径：不在 pm_script 登记，单列例外。
+  if [ "$f" != 'check-package.sh' ]; then
+    LC_ALL=C grep -q "^pm_script scripts/$f " "$_tm_manifest" || {
+      printf 'test-record-layer: 被测成员未在 package-manifest scripts 节登记: %s\n' "$f" >&2; exit 2
+    }
+  fi
+  [ -f "$SCRIPT_DIR/$f" ] || { printf 'test-record-layer: 被测成员缺失: %s/%s\n' "$SCRIPT_DIR" "$f" >&2; exit 2; }
+done
 command -v git >/dev/null 2>&1 || { printf 'test-record-layer: git 不可用——module-map/ticket-ops 夹具依赖被测脚本声明的 Git\n' >&2; exit 2; }
 command -v python3 >/dev/null 2>&1 || { printf 'test-record-layer: python3 不可用——ticket-ops 套件 open 本体 schema 校验依赖（票 79）\n' >&2; exit 2; }
 

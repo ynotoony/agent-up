@@ -6,7 +6,7 @@
 #        缺失项 fail-closed（exit 非零且零 stdout）、阈值 0／空样本同样拒绝、AC5 治理三项与每阶段读取集差值、
 #        未知字段容忍与只读零写入复核。
 # Pos: context-cost 套件（成本治理度量面回归）；直接运行 sh tests/suite-context-cost.sh
-#      即跑本套件；派发表／suite 覆盖表见同目录 README.md 与 test-runner.sh。
+#      即跑本套件；派发表见 test-runner.sh 的 ALL_SUITES；suite 覆盖表见包内 scripts/README.md「test-record-layer.sh」专节。
 
 if [ "${TEST_RECORD_SOURCE_ONLY:-0}" != 1 ]; then
   TESTS_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) || exit 2

@@ -155,7 +155,7 @@ self_check_injection() {
   _si_runner=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)/test-runner.sh
   _si_all=$(sed -n "s/^ALL_SUITES='\(.*\)'$/\1/p" "$_si_runner" | tr ' ' '\n' | sed '/^$/d')
   _si_fast=$(sed -n "s/^FAST_SUITES='\(.*\)'$/\1/p" "$_si_runner" | tr ' ' '\n' | sed '/^$/d')
-  _si_usage=$(sed -n 's/^ *--suite <name> *\(module-map.*\)$/\1/p' "$_si_runner" \
+  _si_usage=$(sh "$_si_runner" --help 2>&1 | sed -n 's/^ *--suite <name> *\(module-map.*\)$/\1/p' \
     | sed 's/（.*//' | tr '|' '\n' | sed 's/^ *//; s/ *$//' | sed '/^$/d')
   _si_bad=''
   for _si_n in $_si_all; do

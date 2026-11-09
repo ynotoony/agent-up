@@ -31,33 +31,13 @@ tr_build_fixture() {
   for f in implementation-prompt.md review-prompt.md commit-prompt.md; do
     cp "$PKG_ROOT/references/prompts/$f" "$R/rules/implementation/references/prompts/"
   done
-  cat > "$R/delivery.rules" <<'EOF'
-# ==== main-only：worktree 排除清单（worktree-add.sh 读）====
-
-dp_mainonly agent-up/scripts/export-payload.sh
-EOF
+  tw_delivery_rules_mainonly "$R"
   printf 'implemented\n' > "$R/product.txt"
-  cat > "$R/facts/requirements/tickets/index.json" <<EOF
-{
-  "issues": [
-    {"id": "90-run-fixture", "status": "${status}", "complexity": "C1", "blocked_by": [], "updated_at": "2026-10-28T10:00"}
-  ]
-}
-EOF
+  tw_index_one "$R" 90-run-fixture "$status"
   # 票表生成块形态（票 277 起 README 票表由索引派生）：take/flip 走「索引改→生成器重算」
   # 真实路径；块外标题与空行保持不动。
-  cat > "$R/facts/requirements/tickets/README.md" <<EOF
-# 票据索引（fixture）
-
-## 目录清单
-
-<!-- tickets-readme: generated from=facts/requirements/tickets/index.json -->
-| 名字 | 地位 | 功能 |
-| --- | --- | --- |
-| \`90-run-fixture.json\` | 任务票 90；\`${status}\` | fixture |
-<!-- /tickets-readme -->
-EOF
-  printf '%s\n' '{"date":"2026-10-28","kind":"change","scope":"90","decision":"fixture seed","evidence_ref":"facts/requirements/tickets/90-run-fixture.json"}' > "$R/facts/project/changes.jsonl"
+  tw_readme_generated "$R" 90-run-fixture "$status" fixture
+  tw_changes_seed "$R" 90 'fixture seed' 'facts/requirements/tickets/90-run-fixture.json'
   python3 - "$R" <<'PY'
 import json, sys
 root = sys.argv[1]
@@ -86,8 +66,7 @@ with open(root + '/facts/requirements/tickets/90-run-fixture.json', 'w', encodin
     json.dump(ticket, handle, ensure_ascii=False, indent=2)
     handle.write('\n')
 PY
-  git_repo "$R"
-  tr_git_commit "$R" init
+  tw_git_init_commit "$R" init
 }
 
 tr_audit_receipt() {
