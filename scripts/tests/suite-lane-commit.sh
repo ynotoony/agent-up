@@ -41,6 +41,7 @@ lc_build_fixture() {
   cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/ticket-ops.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/generate-dir-readmes.sh" "$SCRIPT_DIR/dir-readme.rules" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$SCRIPT_DIR/checkpoint-write.sh" "$SCRIPT_DIR/ledger-append.sh" "$SCRIPT_DIR/record-store.sh" "$SCRIPT_DIR/ticket-audit.sh" "$R/rules/implementation/scripts/"
   # 分片化后同目录闭包：门禁函数库＋审计谓词注册表与分片
   cp "$SCRIPT_DIR/ticket-gates.sh" "$SCRIPT_DIR/audit-predicates.rules" "$SCRIPT_DIR/audit-p01-receipt-parseable.sh" "$SCRIPT_DIR/audit-p02-evidence-committed.sh" "$SCRIPT_DIR/audit-p03-base-sha-present.sh" "$SCRIPT_DIR/audit-p04-review-boundary-clean.sh" "$SCRIPT_DIR/audit-p05-diff-sha-bound.sh" "$SCRIPT_DIR/audit-p06-reviewer-identity-present.sh" "$SCRIPT_DIR/audit-p07-reviewer-identity-corroborated.sh" "$SCRIPT_DIR/audit-p08-reviewer-distinct-from-implementer.sh" "$SCRIPT_DIR/audit-p09-reviewed-at-valid.sh" "$SCRIPT_DIR/audit-p10-acceptance-results-present.sh" "$SCRIPT_DIR/audit-p11-policy-applicable.sh" "$R/rules/implementation/scripts/"
+  test_copy_closure "$SCRIPT_DIR" "$R/rules/implementation/scripts" generate-progress.sh generate-dir-readmes.sh json-validator.py
   printf '{"date": "2026-09-28", "lane": "micro", "whitelist": "seed.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' > "$R/facts/project/micro.jsonl"
   printf 'seed\n' > "$R/a.txt"
   git_repo "$R"
@@ -1015,6 +1016,7 @@ PY
   # 定位同目录与 PATH 双缺，收尾预检必须 fail-closed 停止。
   mkdir -p "$D/n228-bin"
   cp "$SCRIPT_DIR/lane-commit.sh" "$SCRIPT_DIR/check-gates.sh" "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/n228-bin/"
+  test_copy_closure "$SCRIPT_DIR" "$D/n228-bin" generate-progress.sh json-validator.py
   lc_git_commit "$D/n228"
   printf 'change-n228\n' > "$D/n228/a.txt"
   n228_n0=$(git -C "$D/n228" rev-list --count HEAD)

@@ -37,6 +37,7 @@ rc_build_repo() {
               workflow-executor.sh ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$rc_f" "$RC_REPO/rules/implementation/scripts/$rc_f" || return 1
   done
+  test_copy_closure "$SCRIPT_DIR" "$RC_REPO/rules/implementation/scripts" generate-dir-readmes.sh generate-progress.sh json-validator.py
   cp "$PKG_ROOT/references/schemas/ticket-record.schema.json" \
      "$PKG_ROOT/references/schemas/dispatch-contract.schema.json" \
      "$RC_REPO/rules/implementation/references/schemas/" || return 1
@@ -304,6 +305,7 @@ suite_runtime_closure() {
   for rc_f in test-checkpoint-recovery.sh workflow-executor.sh json-validator.py common-helpers.sh; do
     cp "$SCRIPT_DIR/$rc_f" "$RC_N7/scripts/$rc_f" || exit 2
   done
+  test_copy_closure "$SCRIPT_DIR" "$RC_N7/scripts" json-validator.py workflow-executor.sh
   sh "$RC_N7/scripts/test-checkpoint-recovery.sh" >"$RC_D/n7.log" 2>&1
   RC_RC=$?
   if [ "$RC_RC" -eq 1 ] && [ -s "$RC_D/n7.log" ]; then

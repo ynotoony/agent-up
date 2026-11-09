@@ -38,6 +38,7 @@ sc_build_fixture() {
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/eng/dp-load-rules.sh"
   sc_copy_shard_set "$(dirname "$1/eng/dp-load-rules.sh")"
   cp "$SCRIPT_DIR/json-validator.py" "$1/eng/json-validator.py"
+  test_copy_closure "$SCRIPT_DIR" "$1/eng" json-validator.py
   printf '# progress\n\nGit 恢复基线：占位锚点（S1 权威位置在位）\n' > "$R/facts/project/archive/progress.md"
   printf '{\n  "issues": [\n    {"id": "90-fixture", "status": "ready", "updated_at": "2026-09-22T00:00:00Z"}\n  ]\n}\n' > "$R/facts/requirements/tickets/index.json"
   printf '# projection\n\n| id | status | checkpoint_ref | updated_at |\n| --- | --- | --- | --- |\n| 90-fixture | ready | - | 2026-09-22T00:00:00Z |\n' > "$R/facts/requirements/tickets/progress-current.md"
@@ -507,6 +508,8 @@ EOF
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/$(dirname "$2")/dp-load-rules.sh"
     sc_copy_shard_set "$(dirname "$1/repo/$(dirname "$2")/dp-load-rules.sh")"
     cp "$SCRIPT_DIR/json-validator.py" "$1/repo/$(dirname "$2")/json-validator.py"
+    test_copy_closure "$SCRIPT_DIR" "$1/repo/$(dirname "$2")" json-validator.py
+    test_copy_closure "$SCRIPT_DIR" "$1/repo/eng" json-validator.py
     cp "$SC" "$1/repo/eng/check-stale-claims.sh"
     cp "$SCRIPT_DIR/common-helpers.sh" "$1/repo/eng/common-helpers.sh"
     cp "$SCRIPT_DIR/dp-load-rules.sh" "$1/repo/eng/dp-load-rules.sh"
@@ -539,6 +542,7 @@ EOF
   cp "$SCRIPT_DIR/dp-load-rules.sh" "$D/p12/repo/agent-up/scripts/dp-load-rules.sh"
   sc_copy_shard_set "$(dirname "$D/p12/repo/agent-up/scripts/dp-load-rules.sh")"
   cp "$SCRIPT_DIR/json-validator.py" "$D/p12/repo/agent-up/scripts/json-validator.py"
+  test_copy_closure "$SCRIPT_DIR" "$D/p12/repo/agent-up/scripts" json-validator.py
   ( cd "$D/p12/repo" && sh agent-up/scripts/check-stale-claims.sh ) > "$D/p12.out" 2>&1
   rc=$?
   if require_out 'suite-stale-claims 目标输出在场' "$D/p12.out" && [ "$rc" -eq 0 ] && ! grep -q '^STALE' "$D/p12.out"; then
@@ -583,6 +587,7 @@ EOF
     sc_eng_setup "$1"
     cp "$SCRIPT_DIR/generate-progress.sh" "$1/eng/generate-progress.sh"
     cp "$SCRIPT_DIR/json-validator.py" "$1/eng/json-validator.py"
+    test_copy_closure "$SCRIPT_DIR" "$1/eng" generate-progress.sh json-validator.py
   }
   sc_build_ticket_table_fixture() {
     # $1=夹具目录：票表（无生成块）在位，供生成器迁移为票表生成块

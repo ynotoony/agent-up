@@ -20,6 +20,7 @@ hs_build_fixture() {
   cp "$SCRIPT_DIR/health-summary.sh" "$SCRIPT_DIR/absorption-trigger.sh" "$SCRIPT_DIR/check-stale-claims.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-line.sh" "$SCRIPT_DIR/dp-load-rules.sh" "$SCRIPT_DIR/json-validator.py" "$1/repo/rules/implementation/scripts/"
   # 断言组分片化后同目录闭包：注册表与八件分片
   cp "$SCRIPT_DIR/stale-claims-checks.rules" "$SCRIPT_DIR/stale-s1-git-status.sh" "$SCRIPT_DIR/stale-s2-release-status.sh" "$SCRIPT_DIR/stale-s3-frontier-projection.sh" "$SCRIPT_DIR/stale-s4-count-drift.sh" "$SCRIPT_DIR/stale-s5-conclusion-annotation.sh" "$SCRIPT_DIR/stale-s6-terminal-state.sh" "$SCRIPT_DIR/stale-s7-superseded-marker.sh" "$SCRIPT_DIR/stale-s8-lesson-pointer.sh" "$1/repo/rules/implementation/scripts/"
+  test_copy_closure "$SCRIPT_DIR" "$1/repo/rules/implementation/scripts" json-validator.py
 }
 
 hs_run() {
@@ -114,6 +115,7 @@ suite_health() {
 }
 EOF
   cp "$SCRIPT_DIR/generate-progress.sh" "$SCRIPT_DIR/common-helpers.sh" "$SCRIPT_DIR/json-validator.py" "$D/p6/repo/rules/implementation/scripts/"
+  test_copy_closure "$SCRIPT_DIR" "$D/p6/repo/rules/implementation/scripts" generate-progress.sh json-validator.py
   sh "$D/p6/repo/rules/implementation/scripts/generate-progress.sh" "$D/p6/repo" >/dev/null 2>&1
   hs_run "$D/p6" > "$D/p6.out" 2>&1
   rc=$?

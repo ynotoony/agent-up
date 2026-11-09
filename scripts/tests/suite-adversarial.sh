@@ -220,6 +220,7 @@ adv_lane_fixture() {
     ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$_alf_f" "$_alf/rules/implementation/scripts/$_alf_f"
   done
+  test_copy_closure "$SCRIPT_DIR" "$_alf/rules/implementation/scripts" generate-dir-readmes.sh generate-progress.sh json-validator.py
   printf '{"date": "2026-10-01", "lane": "micro", "whitelist": "a.txt", "gates": "PASS", "verify": 1, "commit": "seed", "actual": ""}\n' \
     > "$_alf/facts/project/micro.jsonl"
   printf '%s\n' '{"date":"2026-10-01","kind":"change","scope":"fixture","decision":"seed","evidence_ref":"facts/project/changes.jsonl"}' \
@@ -318,6 +319,7 @@ adv_ticket_run_fixture() {
     ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$_atr_f" "$_atr/rules/implementation/scripts/$_atr_f"
   done
+  test_copy_closure "$SCRIPT_DIR" "$_atr/rules/implementation/scripts" generate-dir-readmes.sh generate-progress.sh json-validator.py
   cp "$PKG_ROOT/references/schemas/dispatch-contract.schema.json" "$_atr/rules/implementation/references/schemas/"
   for _atr_p in implementation-prompt.md review-prompt.md commit-prompt.md; do
     cp "$PKG_ROOT/references/prompts/$_atr_p" "$_atr/rules/implementation/references/prompts/"

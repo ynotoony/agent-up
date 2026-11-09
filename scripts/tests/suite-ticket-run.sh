@@ -26,6 +26,7 @@ tr_build_fixture() {
     ticket-gates.sh audit-predicates.rules audit-p01-receipt-parseable.sh audit-p02-evidence-committed.sh audit-p03-base-sha-present.sh audit-p04-review-boundary-clean.sh audit-p05-diff-sha-bound.sh audit-p06-reviewer-identity-present.sh audit-p07-reviewer-identity-corroborated.sh audit-p08-reviewer-distinct-from-implementer.sh audit-p09-reviewed-at-valid.sh audit-p10-acceptance-results-present.sh audit-p11-policy-applicable.sh; do
     cp "$SCRIPT_DIR/$f" "$R/rules/implementation/scripts/$f"
   done
+  test_copy_closure "$SCRIPT_DIR" "$R/rules/implementation/scripts" generate-dir-readmes.sh generate-progress.sh json-validator.py
   cp "$PKG_ROOT/references/schemas/dispatch-contract.schema.json" "$R/rules/implementation/references/schemas/"
   for f in implementation-prompt.md review-prompt.md commit-prompt.md; do
     cp "$PKG_ROOT/references/prompts/$f" "$R/rules/implementation/references/prompts/"

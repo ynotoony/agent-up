@@ -115,7 +115,7 @@ EOF
   for prog206_layout in 'agent-up/scripts' 'rules/implementation/scripts'; do
     prog206_root="${T}/prog206-$(printf '%s' "${prog206_layout}" | tr '/' '-')"
     mkdir -p "${prog206_root}/${prog206_layout}" "${prog206_root}/facts/requirements/tickets"
-    cp "${SCRIPT_DIR}/generate-progress.sh" "${SCRIPT_DIR}/common-helpers.sh" "${SCRIPT_DIR}/json-validator.py" "${prog206_root}/${prog206_layout}/"
+    test_copy_closure "${SCRIPT_DIR}" "${prog206_root}/${prog206_layout}" generate-progress.sh common-helpers.sh json-validator.py
     cat > "${prog206_root}/facts/requirements/tickets/index.json" <<'EOF'
 {
   "issues": [
@@ -147,7 +147,7 @@ EOF
   # ---- 票 206：非标落位裸跑，推导根无索引 → exit 2（fail-closed 语义保持）----
   prog206_lonely="${T}/prog206-lonely/nested/deep"
   mkdir -p "${prog206_lonely}"
-  cp "${SCRIPT_DIR}/generate-progress.sh" "${SCRIPT_DIR}/common-helpers.sh" "${SCRIPT_DIR}/json-validator.py" "${prog206_lonely}/"
+  test_copy_closure "${SCRIPT_DIR}" "${prog206_lonely}" generate-progress.sh common-helpers.sh json-validator.py
   sh "${prog206_lonely}/generate-progress.sh" >"${T}/prog206-lonely/err.log" 2>&1
   prog206_rc=$?
   if [ "${prog206_rc}" -eq 2 ]; then

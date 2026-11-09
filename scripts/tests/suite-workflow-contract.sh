@@ -50,7 +50,8 @@ fi
 #   classify <workflow.yaml>               按 executor 支持子集输出逐步骤分类 JSON
 #   positioning <workflow.yaml>            fixture 定位合同：-fixture 后缀＋描述非生产声明＋零外溢写入
 #   sidecar <sidecar.json> <workflow.yaml> sidecar 合同校验＋与实例 checkpoint_field 交叉核对
-#   pattern-equiv <schema.json> <executor.sh>  checkpoint_field pattern 与运行时正则语料等价
+#   pattern-equiv <schema.json> <engine-module.py>  checkpoint_field pattern 与运行时正则语料等价
+#                   （票 290 拆分子句：workflow 族运行时在 json-validator.py 的 jv_workflow.py 模块）
 #   mapping-check <workflow.yaml> <schema.json> <issue-index.schema.json>
 #                                          state_to_ticket_status 映射目标枚举核对＋两 schema 映射 pattern 漂移护栏
 wf_emit_validator() {
@@ -740,7 +741,7 @@ EOF
   # ---- checkpoint_field 合同一致性：schema pattern 与运行时正则语料等价 ----
 
   wf_expect_valid 'P10 checkpoint_field schema pattern 与运行时正则语料级等价' \
-    pattern-equiv "$SCHEMA" "$SCRIPT_DIR/json-validator.py"
+    pattern-equiv "$SCHEMA" "$SCRIPT_DIR/jv_workflow.py"
 
   # ---- 实例执行分类：支持子集在两实例上的机械判读 ----
 
@@ -1459,8 +1460,9 @@ PY
       "$(tail -n 4 "$D/cond-unit.log" | tr '\n' '|')"
   fi
 
-  # P18：schema 条件 pattern 与引擎词表（CONDITION_ENUM＋CHECKPOINT_CONDITION_RE）语料级等价
-  if python3 - "$SCHEMA" "$SCRIPT_DIR/json-validator.py" > "$D/cond-equiv.log" 2>&1 <<'PY'
+  # P18：schema 条件 pattern 与引擎词表（CONDITION_ENUM＋CHECKPOINT_CONDITION_RE，票 290 起
+  #      两常量随 workflow 族下沉 jv_workflow.py）语料级等价
+  if python3 - "$SCHEMA" "$SCRIPT_DIR/jv_workflow.py" > "$D/cond-equiv.log" 2>&1 <<'PY'
 import json
 import re
 import sys

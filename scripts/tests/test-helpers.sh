@@ -342,6 +342,47 @@ run_in_fixture() {
   ( cd "$_rif_dir" && "$@" )
 }
 
+# ---- 运行时同目录模块闭包（票 290 拆分）----
+# 被测脚本的运行闭包（主脚本＋同目录伴生模块）单点登记：夹具按闭包整体复制，
+# 拆分后不再有「只复制主脚本、模块缺席」的夹具假失败面。
+
+test_runtime_closure() {
+  case $1 in
+    json-validator.py)
+      printf '%s\n' 'json-validator.py jv_contract.py jv_grade.py jv_json_ops.py jv_run.py jv_ticket.py jv_ticket_check.py jv_workflow.py'
+      ;;
+    generate-progress.sh)
+      printf '%s\n' 'generate-progress.sh progress-readme.sh'
+      ;;
+    generate-dir-readmes.sh)
+      printf '%s\n' 'generate-dir-readmes.sh dir_readmes_brief.py dir_readmes_check.py dir_readmes_migrate.py dir_readmes_model.py dir_readmes_sync.py'
+      ;;
+    measure-context-cost.sh)
+      printf '%s\n' 'measure-context-cost.sh measure-context-governance.sh measure-context-session.sh'
+      ;;
+    *)
+      printf '%s\n' "$1"
+      ;;
+  esac
+}
+
+# test_copy_closure <src-dir> <dest-dir> <script>...：逐脚本按其运行闭包整组复制（缺件即报错）
+test_copy_closure() {
+  _tcc_src=$1
+  _tcc_dst=$2
+  shift 2
+  for _tcc_script in "$@"; do
+    # shellcheck disable=SC2046  # 闭包清单按空白分词为多文件参数（test_runtime_closure 单点登记）
+    for _tcc_f in $(test_runtime_closure "$_tcc_script"); do
+      cp "$_tcc_src/$_tcc_f" "$_tcc_dst/" || {
+        printf 'test-record-layer: 夹具运行闭包复制失败: %s\n' "$_tcc_src/$_tcc_f" >&2
+        return 1
+      }
+    done
+  done
+  return 0
+}
+
 # ---- 汇总 ----
 
 suite_summary() {

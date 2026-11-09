@@ -190,10 +190,23 @@ pm_script scripts/common-helpers.sh script '共享错误处理库（die1/die2/wa
 pm_script scripts/rules-lexer.sh script '共享非执行式规则表词法器（lex_bad/lex_line 唯一实现：续行拼接、单引号词法取段、引号外 shell 语法元字符与引号内命令替换/参数展开拒绝、行内制表符拒绝；check-package／install／generate-module-map／generate-adapter-diffs 四引擎只保留指令分发表；package-only，不落仓侧镜像、不入安装闭包）'
 pm_script scripts/dp-load-rules.sh script 'delivery.rules 共享解析库（dp_load_rules 唯一实现＋DP_PARSER_VERSION 单一版本来源；四消费件同目录 source，缺件与版本漂移 fail-closed；文法说明 references/delivery-rules.md）'
 pm_script scripts/json-validator.py script '唯一 JSON 引擎（模式面：ticket/grade/run 校验三入口＋json 通用操作（get/type/fields/len/pick/count-key/rows/set；rows 数字组逐元素按字段输出 TAB 行式供 check-stale-claims 消费，set 为记录层字段级改写序列化面）＋workflow 执行器操作＋ticket-check 门＋contract ticket-id；json-helpers.sh awk 行解析已退役并入本件）'
+pm_script scripts/jv_ticket.py rules 'json-validator ticket 族模块（多模式生成器拆分：票本体 schema 解释器与 --new-ticket 开票门；薄 CLI 经同目录 import 消费，共享严格 JSON 加载经 from __main__ 复用；CLI 形态与退出码不变）'
+pm_script scripts/jv_grade.py rules 'json-validator grade 族模块（多模式生成器拆分：票复杂度定级建议，profile .md 为接口保留值不读；薄 CLI 同目录 import 消费）'
+pm_script scripts/jv_run.py rules 'json-validator run 族模块（多模式生成器拆分：run record seal 校验刷新与 stats 用量聚合；薄 CLI 同目录 import 消费）'
+pm_script scripts/jv_json_ops.py rules 'json-validator json 族模块（多模式生成器拆分：get/type/fields/len/pick/count-key/rows/set 通用操作面；rows/set 记录层消费契约不变；共享严格 JSON 加载经 from __main__ 复用）'
+pm_script scripts/jv_workflow.py rules 'json-validator workflow 族模块（多模式生成器拆分：steps/state-machine 解析、条件词表预检与求值、映射强制、checkpoint sidecar 生命周期单点收敛——workflow-executor 只保留调用顺序编排；CLI 形态不变）'
+pm_script scripts/jv_ticket_check.py rules 'json-validator ticket-check 族模块（多模式生成器拆分：ticket-ops 收口/领取/开票门，报文为 ticket-ops 合同输出；薄 CLI 同目录 import 消费）'
+pm_script scripts/jv_contract.py rules 'json-validator contract 族模块（多模式生成器拆分：派发合同 TICKET_ID 提取，供 worktree-add 合同入口；薄 CLI 同目录 import 消费）'
 pm_script scripts/generate-progress.sh script '现役状态投影生成器'
+pm_script scripts/progress-readme.sh script 'README 票表生成块独立模块（多模式生成器拆分：块生成 readme_block_render／范围解析 readme_block_range／写入 readme_sync／核对 readme_check；被 generate-progress.sh 同目录 source，块外逐字节不动与逐行输出契约不变）'
 pm_script scripts/generate-docs-index.sh script '规则索引生成器（扫描包内规则块→references/rules-index.md；--check 零漂移核对，零写入）'
 pm_script scripts/generate-module-map.sh script '模块地图生成器'
 pm_script scripts/generate-dir-readmes.sh script '目录 README 校验／同步／骨架生成器（四段齐全／总行数上限 25／无成员表／无计数与状态句／正文反引号相对路径存在／正文裸露占位【填写：…】（HTML 注释、行内代码段与围栏代码块内不算）／生成块标记成对（围栏代码块内标记不算块）；--check 零写入；--sync 只重建生成块内子目录表、块外逐字节不动且幂等，子目录名含 | 时首格转义，无生成块输出 SKIP；--init 新目录四段骨架留占位；--init 与 --sync --dir 路径含空白 exit 2 零写入；三模式互斥；范围规则可 --rules 覆盖）'
+pm_script scripts/dir_readmes_model.py rules 'generate-dir-readmes 公共 markdown 模型模块（多模式生成器拆分：范围规则解析与候选集、表格/围栏/行尾原语、生成块发现与应产出块生成、问题输出；主壳与四模式模块共用）'
+pm_script scripts/dir_readmes_check.py rules 'generate-dir-readmes --check／--freshness 模块（多模式生成器拆分：四段式结构校验与生成块新鲜度只读断言，共用同一应产出块生成函数）'
+pm_script scripts/dir_readmes_sync.py rules 'generate-dir-readmes --sync／--init 模块（多模式生成器拆分：生成块重建只动块内与四段骨架写入）'
+pm_script scripts/dir_readmes_migrate.py rules 'generate-dir-readmes --migrate-dry-run 模块（多模式生成器拆分：旧格式迁移只读预演、DROP/NOTE 登记与零写入 sha256 自证）'
+pm_script scripts/dir_readmes_brief.py rules 'generate-dir-readmes --brief 模块（多模式生成器拆分：单目录素材包；artifacts 解析唯一实现＝同目录 artifacts-index.sh --brief，零第二套 YAML 解析）'
 pm_script scripts/artifacts-index.sh script 'artifacts 索引解析唯一实现（--strict 严格对账解析＝条目/枚举/path 归一唯一性全 schema 校验；--brief 宽松条目投影＝id/path 必填；check-artifacts 与 generate-dir-readmes --brief 同源；同目录定位，随 fast-lane／ticket-ops 安装闭包）'
 pm_script scripts/generate-adapter-diffs.sh script '适配器宿主差异段生成器与生成漂移核对器（数据表四节机器数据行→Markdown 差异段；check-package 检查 28 经其 --check 指名宿主与段）'
 pm_script scripts/ticket-ops.sh script '票务运维单入口（open/take/flip/close/flip-index/ledger；index.json 唯一写入方——写索引→投影再生→--check 收尾链单点，快道索引翻转经 flip-index 代理；close/flip/flip-index 至 done 需 actual_time＋ticket-audit conformant 双证，缺证据 decision-required 零写入；记录层写锁经共享库原语 record_lock_* 承载）'
@@ -223,6 +236,8 @@ pm_script scripts/absorption-trigger.sh script '吸收触发器（R-DP-041 吸�
 pm_script scripts/health-summary.sh script '体系仪表盘（四分区只读汇总：打分趋势/吸收候选/扫描报警/对账状态；零写入）'
 pm_script scripts/json-line.sh script '内联 JSON 行解析唯一实现（jval／jnum 取值原语：字符串与裸值两形态；absorption-trigger 与 health-summary 同源；同目录定位，随 ticket-ops 安装闭包）'
 pm_script scripts/measure-context-cost.sh script '成本度量复测器（只读统计会话 wire.jsonl 的 usage.record 八项指标与分布，给定基线出差值；--governance 统计安装件字符数、规则块数与四阶段读取集字符数；缺失项或样本不足 exit 非 0 且零 stdout）'
+pm_script scripts/measure-context-session.sh script '成本度量会话指标模块（多模式生成器拆分：usage.record 八项指标、样本计数与两步分布；被 measure-context-cost.sh 同目录 source，包侧独有不进安装闭包不落镜像）'
+pm_script scripts/measure-context-governance.sh script '成本度量治理指标模块（多模式生成器拆分：安装件字符数/规则块数/四阶段读取集；被 measure-context-cost.sh 同目录 source，包侧独有不进安装闭包不落镜像）'
 pm_script scripts/workflow-executor.sh script 'Workflow 运行时执行器（YAML workflow 定义驱动的流程执行器：条件跳过、工具调用、checkpoint 落盘、中断续传）'
 pm_script scripts/verify-contract.sh script '结构化验收谓词执行器（verification 对象数组逐条执行与断言；普通任务禁止空验证，纯记录须显式 record-only）'
 pm_script scripts/check-dispatch-contract.sh script '四模式派发合同校验器（--check-template 模板零漂移核对＋--check 合同文件自查＋--check-dispatch 派发前置校验：目标须 linked worktree 且票 status=in_progress＋--check-step-budget 步数预算校验：步数上限与到线收尾缺项四类指名拒绝；schema 数据件在 references/schemas/）'
@@ -344,8 +359,14 @@ pm_vague_exempt references/protocol/governance-format.md 203 'R-GF-010 Forbidden
 # 结构 --check 与生成块 --freshness 两检），包侧演化须经 generate-mirrors 同步仓侧，
 # 手改仓侧副本即被检查 13 指名（漂移闭环；仓侧副本为生成物，维护责任在包侧源）。
 pm_mirror generate-dir-readmes.sh mirror
+pm_mirror dir_readmes_brief.py mirror
+pm_mirror dir_readmes_check.py mirror
+pm_mirror dir_readmes_migrate.py mirror
+pm_mirror dir_readmes_model.py mirror
+pm_mirror dir_readmes_sync.py mirror
 pm_mirror artifacts-index.sh mirror
 pm_mirror generate-progress.sh mirror
+pm_mirror progress-readme.sh mirror
 pm_mirror ticket-ops.sh mirror
 pm_mirror absorption-trigger.sh mirror
 pm_mirror health-summary.sh mirror
@@ -551,6 +572,13 @@ pm_layout_compat_exempt references/templates/README.md 75 '取舍与过渡登记
 pm_layout_compat_exempt references/templates/README.md 76 '取舍与过渡登记回灌核对义务条目（2026-09-20，记录保护）：源仓镜像拆三前文件名与节号当时事实，非现行指引'
 pm_layout_compat_exempt references/templates/README.md 77 '取舍与过渡登记流程权威拆三条目（2026-10-01，记录保护）：拆三前单件模板文件名为条目主题历史事实，非现行指引'
 pm_mirror json-validator.py mirror
+pm_mirror jv_contract.py mirror
+pm_mirror jv_grade.py mirror
+pm_mirror jv_json_ops.py mirror
+pm_mirror jv_run.py mirror
+pm_mirror jv_ticket.py mirror
+pm_mirror jv_ticket_check.py mirror
+pm_mirror jv_workflow.py mirror
 
 # ==== retired-path：退役能力与活动创建路径（检查 29）====
 # 退役 token 在活动创建路径面内出现时，同行须带显式 legacy 标注词（退役/legacy/
