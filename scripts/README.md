@@ -28,6 +28,7 @@
 | `check-gates.sh` | 快道门禁核对器 | 分级交付道快道的门禁核对（REQ-20260904-011）：工作区实际改动 ⊆ 白名单逐项比对 + 按清单重跑验证命令并记录退出码；现行版本起对验证命令写工作区零容忍——每条 verify 前后各取一次完整快照（跟踪/未跟踪/忽略文件内容哈希、可执行位、目录、符号链接目标、索引、HEAD），allow-output 缺省为空，白名单外变化一律失败并保持现场；POSIX sh、零外部依赖。详见下文专节。 |
 | `lane-commit.sh` | 快道收尾脚本 | 分级交付道快道的合同驱动收尾（REQ-20260904-011；单写机制改造；微道预检两断言）：门禁 → 白名单产品提交 → 索引翻转（经同目录 `ticket-ops.sh` `flip-index` 代理承载索引单写＋投影再生＋`--check` 收尾链——写入方收敛，本件零直接 index.json 写入面与零直接生成器调用）→ 票正文 Status 投影打印件回写 → User Review Checkpoint 经 `checkpoint-write.sh` 追加或微账本（`facts/project/micro.jsonl`）经 `ledger-append.sh --micro` 落行（记录写职责拆分，本件零 checkpoint/账本写入面）→ 记录提交（两段式，R-RC-003）；micro 道预检两断言（白名单 ≤3 条目、改动集零新建（??）零删除（D），违者 exit 1，user-review 道不受限）；另提供 `--record-commit <repo-root> <message> <记录路径>...` 兼容委托入口（提交实现独立为同目录 `record-commit.sh`：持同一把记录层写锁、私有索引只暂存记录路径、前缀门、混提拒绝与 CAS 全在该件；本入口以 `--name lane-commit` 透传，输出行与失败语义不变）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
 | `record-commit.sh` | 记录提交单点实现（全仓唯一提交 plumbing） | `record-commit.sh [--name <输出前缀>] <repo-root> <message> <记录路径>...`：自 `lane-commit.sh --record-commit` 迁出。记录路径白名单（须在 `facts/` 下、工作树存在、仓库根内普通文件）→ 拒绝部分暂存（暂存内容与工作区不一致即报首个差异行）→ 私有索引（`GIT_INDEX_FILE`）只暂存记录路径（不写共享索引）→ 只追加账本 HEAD 旧内容须为待提交版字节前缀（与 `check-append-only.sh` 同源，违规报首个违规行号）→ 私有索引写树文件集恰为记录路径（混提拒绝）→ `write-tree`/`commit-tree`/`update-ref` CAS（断言对象＝被提交树，失败零提交、历史行零改写、并发暂存不卷入且保留现场，未改动路径显式列为已排除）。`--name` 指定输出与报错前缀（lane-commit／ticket-run 委托保持原口径）；POSIX sh、零外部依赖、fail-closed。详见下文专节。 |
+| `ticket-split.sh` | 拆票批量入口 | 批量拆票收尾单入口：批量表逐行「票 id＋账本行」，逐张复用同目录 `ticket-ops.sh` `open` 的全量校验（本体 schema／七维 profile reason 门／NN 段查重／账本行型）与幂等重放（批量层零校验副本），全部成功后经 `record-commit.sh` 一次性提交记录面（N 张票本体＋index＋changes＋progress＋tickets README 票表生成块），任一票失败零提交并指名失败票（重跑幂等收敛），记录面与 HEAD 无实质差异时不建空提交；同目录定位安装闭包依赖。POSIX sh、fail-closed。详见下文专节。 | |
 | `generate-progress.sh` | 现役状态投影生成器 | 自 `facts/requirements/tickets/index.json`（票状态真相源，一条目一行）生成 `facts/requirements/tickets/progress-current.md` 现役状态投影与 `facts/requirements/tickets/README.md` 的票表生成块（两处 Derived，生成器独占写）；`--check`／`--check-readme` 为两类投影的 dry-run 一致性核对；再生调用单点＝`ticket-ops.sh`（open/take/flip/flip-index 收尾链独占调用；快道索引翻转经 `lane-commit.sh`→`flip-index` 代理触达，零直接调用方；`check-stale-claims.sh` 仅调用 `--check`／`--check-readme` 只读一致性核对，非写链）；运行时依赖＝同目录 common-helpers.sh（die 与 resolve_repo_root）与 json-validator.py json fields 模式（条目字段解析唯一引擎，缺件 fail-closed 指名）；POSIX sh、fail-closed。详见下文专节。 |
 | `progress-readme.sh` | README 票表生成块模块 | generate-progress.sh 的第二派生对象实现（多模式生成器拆分）：票表块生成、替换范围解析、写入与核对四函数由主壳同目录 source；块外逐字节不动与逐行输出契约不变。 |
 | `generate-docs-index.sh` | 规则索引生成器 | 包内规则索引投影的唯一生成器与唯一写入方：扫描包内全部 `*.md`/`*.tmpl` 的 `#### R-<短码>-NNN` 规则块，输出 `../references/rules-index.md`（五列表：ID／标题／所属文件／Level／机制，按 ID 升序，Derived 四标注头）；`--check` 为 dry-run 一致性核对（规范化 `generated_at` 行后逐字节比对，`exit 1` 附 diff 指名差异行，零写入）；机制登记表随脚本内嵌，规则块无登记条目或登记条目无对应块即 `exit 2` fail-closed；POSIX sh，只读扫描零网络。检查 15 经其 `--check` 承载零漂移核对，检查 16/17 以生成索引为比对对象。详见下文专节。 |
@@ -902,6 +903,39 @@ sh rules/implementation/scripts/ticket-ops.sh [repo-root] <command> [options]
 
 `ticket-ops.sh` 只做票务面写入（open/take/flip/flip-index/ledger），不执行门禁核对与 Git 提交，不调用 `check-gates.sh` 与 `lane-commit.sh`（投影再生调用 `generate-progress.sh`、账本落行调用 `ledger-append.sh` 不在此限）；快道收尾（白名单核对、验证重跑、提交、记录翻转）仍归道脚本两件。非快道票（C1+ 全三阶段）的状态翻转由 `ticket-ops.sh` 承载——lane-commit 只覆盖快道，其索引条目翻转经 `flip-index` 代理复用同一单写机制（id 锚点整行替换，仅改 status/updated_at 两值）；index.json 全仓唯一写入方＝本件，lane-commit 零直接索引写入面。
 
+## ticket-split.sh（拆票批量入口：批量开票＋一次性记录提交）
+
+拆票收尾单入口：读批量拆票表，逐张复用同目录 `ticket-ops.sh` `open` 的本体 schema 校验、七维 profile reason 门、NN 段查重、账本行型预检与幂等重放（批量层零校验规则副本），全部成功后经同目录 `record-commit.sh` 一次性提交记录面路径——N 张票本体＋`facts/requirements/tickets/index.json`＋`facts/project/changes.jsonl`＋`facts/requirements/tickets/progress-current.md`＋`facts/requirements/tickets/README.md`（票表生成块）。全程持同一把记录层写锁（子调用经继承标记接管，不各自取锁）；批量表不重复承载复杂度／标题／blocked_by，三项均自票本体读取。
+
+### 用法
+
+```text
+sh rules/implementation/scripts/ticket-split.sh [repo-root] --batch <file>
+```
+
+- 批量表为非执行式文本规程：每个有效行＝`<票 id> <账本行 JSON>`——首个 ASCII 空格前为票 id（`^[0-9]{2,}-[a-z0-9-]+$`），其后整行原样作为 `open` 的 `--ledger-line`（键序/行型合同同 `ledger-append.sh`）；空行与 `#` 起始行为注释；行内制表符即账本行非法，由账本写入方预检拒绝。
+- 票本体须先落位 `facts/requirements/tickets/<id>.json`（过 `ticket-record.schema.json`）；批量层自本体派生 `complexity`／`title`／`blocked_by` 三项传给 `open`，避免索引条目与本体漂移；批内重复 id 与同 NN 异 slug 在开票前一次指名拒绝。
+- 记录提交说明按记录面规范生成：`chore(records): <YYYY-MM-DD> 拆票批量开票（票 <id1>/<id2>…）`；提交文件集恰为上述记录面路径（`record-commit.sh` 私有索引文件集断言兜底，混提即拒绝）。
+- 幂等：全部记录路径与 HEAD 无实质差异时不创建空提交（exit 0）。现役状态投影头部的 `generated_at` 注释行为派生时间戳、非内容事实——幂等重放的该行差异按「无实质变更」处理并把投影恢复为 HEAD 版本，故重跑零空提交、零重复账本行。
+
+### 失败语义
+
+| 场景 | 结果 |
+| --- | --- |
+| 批量表格式／id 口径／批内重复或 NN 撞号／票本体缺失 | exit 1，先于任何 `open` 零写入 |
+| 任一票 `open` 失败 | 继续尝试其余票以指名全部失败票；exit 1 且零提交（已成功开票的写入保留，修好后重跑同一命令按幂等路径收敛） |
+| 记录提交失败（部分暂存／前缀门／CAS 等） | exit 1，如实报告且工作区保留可重试（`record-commit.sh` 报因原样透传） |
+| 全部成功 | exit 0，一次性记录提交创建；幂等重放 exit 0 且不建提交 |
+| 用法／环境错误（缺 `--batch`、依赖件缺失、仓库根非 Git 仓库） | exit 2 |
+
+### 与 ticket-ops.sh 的职责边界
+
+批量入口只做编排与收尾提交：单票 `open` 的校验、幂等重放、索引单写、账本落行、投影与票表生成块再生的行为与输出全部归 `ticket-ops.sh`（批量层零副本、零改写）；记录提交实现归 `record-commit.sh`（本件零提交 plumbing 副本）。单票 `open` 行为不因本件存在而变化。
+
+### 回归
+
+`sh tests/suite-ticket-split.sh` 或 `sh tests/test-runner.sh --suite ticket-split`：批量正例（两张票一次开票＋一次记录提交、提交文件集恰为记录面、提交说明规范、账本行各一次、索引 ready 与复杂度自本体派生、票表生成块与投影再生、锁无残留）＋幂等重跑（零新提交、零重复账本行、工作区干净）＋提交失败与部分失败负例（零提交并指名、工作区保留）＋批量表格式五形态与用法面 fail-closed。
+
 ## install.sh（安装脚本）
 
 安装政策单源化的执行引擎（先例 `generate-module-map.sh` 表驱动化：外置数据＋引擎零专名＋结构校验 fail-closed）：按启用门控自查同目录 `install-policy.rules` 得复制集合（引擎零脚本名零门控专名，加门控＝加规则行零引擎改动），脚本件逐件 `cp` 自包 `scripts/` 至 `<target>/rules/implementation/scripts/`，数据件逐件 `cp` 自包内源路径至 `<target>/<行内落位路径>`（安装后运行时依赖闭包——schema/profile 等数据件随消费脚本同门控落位，消费脚本按自身落位形态邻接定位），并逐件 `cmp` 核验字节一致。POSIX sh（`#!/bin/sh`、`set -eu`、`set -f`）、零外部依赖（仅 POSIX 标准工具与内建，无 jq/python）、fail-closed：规则表缺失或结构校验不过 exit 2 不写任何文件；预检（源存在——脚本件与数据件同口径，删除任一已登记依赖即安装明确失败指名缺失路径、目标可写、同名件冲突）先于复制，停止零半套；包内误运行守卫（精确化：拦自写自毁三场景——目标含裸 `SKILL.md` 即包根本体、目标＝本脚本所在目录、目标落位目录＝本脚本所在目录（`cd -P` 物理解析，symlink 绕不过）；仓根含包副本但落位目的地与复制基线不同目录＝合法源仓落位，不拦）exit 1；已存在且字节一致的同名件幂等跳过，与基线不一致即停报告（reconcile 纪律：人工漂移不覆盖，检出即停报告而非覆盖）。脚本只承接已确认的复制动作——门控启用判定是用户决策（`../SKILL.md` 主流程步骤 5），不代做访谈；不代写目标治理文件（`facts/project/artifacts.yaml`、`scripts/README.md` 均归执行体）。包侧工具：只在包内语境运行，不落本仓 `scripts/` 镜像（out_of_scope 口径登记）。
@@ -1460,7 +1494,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 ```
 
 - 无参数：`--suite all`；被测脚本目录缺省＝本脚本所在目录，包根缺省＝被测脚本目录的上一级（check-package.sh 同款）。
-- `--suite module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|record-store|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|ticket-repair|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|merge|context-cost|dir-readme|adversarial|harness|fast|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
+- `--suite module-map|ticket-ops|progress|json-engine|check-package|append-only|check-artifacts|delivery-parser|stale-claims|lane-commit|ledger-append|checkpoint-write|record-store|authority-matrix|worktree|upgrade-check|absorption|health|shellcheck|install|dispatch-contract|workflow-contract|role-prompt|role-permissions|ticket-run|ticket-repair|project-dashboard|check-gates|docs-generation|governance-size|ticket-audit|merge|ticket-split|context-cost|dir-readme|adversarial|harness|fast|all`：场景参数化，缺省 all（全集以 `tests/test-runner.sh` 用法与枚举为权威）。
 - `--suite fast`：短套件车道（`FAST_SUITES`＝`ALL_SUITES` 子集，日常回归目标 ≤180s）；重活（`ticket-ops` 全量、`ticket-audit`、`lane-commit`、`workflow-contract`、`shellcheck`、`merge`、`check-package`、`install`）只在 `all` 跑。子集包含关系由启动核对与 `self-check` 双向钉死。
 - 环境变量：`TEST_SUITE_TIMEOUT` 单套件超时秒数（缺省 900——check-package 等重套件实测 400–600s，缺省 300 在 `--suite all`／pre-commit 门禁 4 会超时误判；超时机制保留，仅放宽默认值，仍可显式覆盖；超时记 FAIL 行并继续后续套件）；`TEST_ASSERTION_FLOOR` 断言数下限（缺省仅 `all` 生效＝1100，显式设置时对任意车道生效）。
 - 执行模型：每个套件在子 shell 中运行（套件内 `exit` 不终止整轮），断言经 `$T/journal.<name>` 回传父进程计数；`INT`/`TERM` 中断时先停子进程再清临时目录，按约定码退出。
@@ -1502,6 +1536,7 @@ sh scripts/test-record-layer.sh [--suite <name>] [--script-dir <dir>] [--pkg-roo
 | `ticket-repair` |  | repair 四类纠偏动作与票定位回归（夹具：mktemp 票仓，索引一条目一行）：AC1 缺站＋投影缺失 → 补建站并重建投影（`repaired`），二次 repair 收敛为 `converged`（零新提交、四状态载体 cksum 与投影不变、intent 不追加）；AC2 有实现提交无收据 → `pending-review`（exit 0，零收据），索引 `review_pass` 无收据 → `decision-required`（exit 1，不伪造结论），无站 done 票且主仓无收据 → `decision-required`（不判 converged），无站＋main 直提仍检出 1 件并 `decision-required`；AC3 main 直提 → 检出 1 件、打印 cherry-pick 建议并明拒 rebase/amend/force-push，main 与票分支 OID 不变；AC4 收据在场时 contract-build／ticket-run contract／verify-dispatch review 均 exit 0 且渲染票本体，同 NN 两件真实本体 fail-closed 逐件指名，commit 缺 Review pass 零提交；AC5 包侧与仓侧 contract-build／ticket-run 镜像 cmp 零差异；`--audit-recheck` 复跑 ticket-audit 前后逐字一致、十一谓词 PASS、HEAD 不变 |
 | `role-permissions` |  | check-role-permissions 角色归属与新建文件豁免正负例（仓侧脚本＋仓侧夹具逐件经 stdin 送入）：只改 dispatch.implementation 与 dispatch.review 的 ready 票体 → exit 0（旧实现按缩进把 dispatch 子键误判为 checkpoint 跨角色）；默认上下文（hunk 内无 `"dispatch": {` 锚点行）只改 dispatch.review 与 dispatch.commit 字段 → exit 0（按 hunk 起始行号读真实票体回溯顶层键，不再回落 checkpoint）；checkpoint 跨角色、只读字段删除行（title/id）、status 无 checkpoint.commit 三类既有拒绝路径逐件 exit 1 且报文指名；批内一件新建票文件＋一件 checkpoint 跨角色修改的混合 diff 仍 exit 1（新建豁免只作用于该文件自身），单独一件新建票文件 exit 0；消费项目语境缺件显式 SKIP，夹具 mktemp 零写入 |
 | `record-commit` |  | 记录提交单点入口独立回归：独立调用尾部追加 → exit 0、输出前缀 record-commit、提交文件集恰为记录路径、锁无残留；`--name lane-commit` 前缀保持迁出前输出口径；中间插入 → exit 1 报首个违规行号 2、零提交、工作区零改写；产品路径/部分暂存/缺失路径三类拒绝零提交；成功后 check-append-only 同源通过 |
+| `ticket-split` | 293 | 拆票批量入口正负例：批量正例（两张票一次开票＋一次记录提交、提交文件集恰为记录面六路径、提交说明按记录面规范、账本行各一次、索引 ready 且复杂度自本体派生、票表生成块与投影再生、锁无残留）＋幂等重跑（零新提交／零重复账本行／工作区干净）＋提交失败（部分暂存 → exit 非零、零提交、工作区保留）＋部分失败（第二张 open 失败 → 零提交、指名失败票、首张写入保留）＋批表格式五形态与用法面 fail-closed |
 | `evidence-rebind` |  | 审查证据重绑授权面回归：缺 `--authorize`／空授权 → exit 1 fail-closed（证据与 HEAD 零改写、零提交）；非法 sha → exit 2；证据缺失 → exit 1 指名拒绝；显式授权 → base/head/diff 重写＋cp md 同步＋changes.jsonl 复绑行留痕＋reviewer 身份提交（subject 与 author 断言） |
 | `merge` |  | 合并站证据门与合并收尾原子化正负例：`--flip` 合并后同锁内翻转 done（索引/账本/投影落地）并清场；`--flip` 翻转失败（分支在证据后提交破坏目录 README 结构的记录面改动，合并审计放行、收尾两检失败）→ 合并结果如实报告、exit 1 且不清场（索引未翻 done）；合并锁被占 → exit 1「并发冲突」零合并；main 在分支期间前进 → 显式授权（--authorize-rebind）后合并前 rebase 到最新 main 并快进成功清场；main 已前进但未授权重绑 → exit 1 fail-closed（未 rebase、未合并、证据零改写）；`--flip` × main 已前进 → 授权 rebase＋审查证据重绑（base/head/diff 改写、reviewer 身份提交、cp md 同步、changes.jsonl 复绑行留痕）后合并、翻转 done 并清场；无绑定 worktree/未提交证据 → 拒绝合并 decision-required（exit 1，worktree/分支保留）；actual_time 仅在票分支（主检出缺失）→ 仍合并放行；分支 tip 含合法 Review Checkpoint md → 允许集与 done 门同源放行；审查后产品又提交 → P04 点名拒（P02 通过）；证据后仅记录面派生件提交（`changes.jsonl`＋`tickets/README.md`）→ P04 放行、合并成功；head 重绑但 diff_sha 未重算 → P05 点名拒（P02/P04 通过）；conformant 证据 → 合并放行（ff/no-ff 模式与提交哈希打印）并强制清场（worktree remove --force＋branch -d，含站内残渣）；未合并分支/主仓不干净/参数形态负例；安装闭包 fast-lane 真跑（merge-ticket＋ticket-audit 落位与包基线字节一致） |
 | `project-dashboard` |  | 本地项目仪表盘常驻回归：静态单文件面（无外部脚本/样式引用）＋不可信文本零 HTML 注入面＋零网络 API＋零写入/删与 readwrite 面＋`mode: 'read'` 只读授权＋核心块与测试钩子在场；Node 抽取运行核心逻辑——能力检测与不支持提示／`pickDirectory` 传 `{mode:'read'}` 且缺 API 拒绝／JSON 与索引解析（畸形与缺 id 逐项报）／Markdown 与 JSON 卡片解析（标题、状态、复杂度、对象形态验收、缺字段提示）／状态合并以索引为准并记录正文冲突／全部卡片无遗漏与孤儿索引条目／地图节点边一致与未解析引用／缺失地图声明不重建／损坏与读取失败逐卡指名且不影响其他卡／不可信文本纯文本保留与转义／布局确定性／搜索与状态筛选／快照增量不改输入／自动刷新数据源（每轮重新读取、内容变更、新增与删除文件、单文件读取失败、空目录）＋指纹稳定与变更检出＋核心零写入能力＋页面文件逐字节不变；公开包登记断言（清单 scripts 节、README 成员表、安装政策 ticket-ops 行、runner 派发表）＋安装闭包真跑（登记行复制一件且与基线一致）与缺源件预检负例；搜索按生效状态与索引失败降级两组断言（worktree 栅栏环境 install.sh 不在场时，两条安装闭包断言显式 SKIP） |
