@@ -52,7 +52,7 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
 
 - 规则权威＝目标项目 `rules/project.md` 的对齐更新节（发现被改过即停、写入前备份、重复执行结果一致），本手册不复制判据，只定顺序：
   1. 先更新脚本（`install.sh --target <repo-root> <门控>`：已一致的自动跳过、复制新增件、发现被改过即停）。**源仓语境**：源仓/含包副本的仓安装目的地（`rules/implementation/scripts/`）与复制基线（`agent-up/scripts/`）是不同目录，安装器的包内误运行守卫只拦"目标即包根本体／目标＝脚本所在目录／落位目录＝脚本所在目录"三类自写自毁场景，源仓经 `install.sh` 正常安装，无须绕开脚本手工搬文件；
-     - **源仓镜像面（本仓维护语境）**：源仓 `rules/implementation/scripts/` 下 mirror 类件是包侧 `agent-up/scripts/` 的生成物，不手工复制；改动包侧源后运行 `sh agent-up/scripts/generate-mirrors.sh`（幂等、逐件 cmp 自证），只读核对用 `--check`（漂移/缺件 exit 1）；消费者逐件对齐仍走上一条 `install.sh`。package-only 件不生成；生成物不得手工编辑（check-package 检查 13 拦截）。
+     - **源仓镜像面（本仓维护语境）**：源仓 `rules/implementation/scripts/` 下 mirror 类件是包侧 `agent-up/scripts/` 的生成物，不手工复制；改动包侧源后运行 `sh dev/tools/generate-mirrors.sh`（幂等、逐件 cmp 自证），只读核对用 `--check`（漂移/缺件 exit 1）；消费者逐件对齐仍走上一条 `install.sh`。package-only 件不生成；生成物不得手工编辑（check-package 检查 13 拦截）。
   2. 再配置面（`delivery.rules` 按模板生成或按 diff 逐节对齐——锚点行逐字匹配，禁手抄）；
   3. 后更新模板生成的文件（逐件：备份现件 → 按新模板重生成 → 项目自有条款与【按项目填写】值按现件回填 → 你确认关键条款 diff）；
   4. 每件更新后重跑该件配套验证（脚本 `sh -n`＋家族夹具；条款件过包对账器）。
@@ -62,12 +62,12 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
   3. **check（结构与生成块新鲜度）**：`--check` 零写入校验四段、行数、成员表、计数/状态句、引用路径与生成块成对；`--freshness` 零写入在内存重算 `--sync` 应产出的生成块并逐行比对，漂移即 exit 1 并逐条 `path:line: 缺失行／多余行: <原文>`（补 `--check` 单独发现不了的「新增子目录未入表」）。两者可连用，失败即停并逐条报 `path:line`；旧格式或块级结构不合规被拦时，先跑 `--migrate-dry-run`（加 `--diff` 看逐件详情）取迁移清单——**只出清单、不自动改写**，按清单人工裁剪确认后才落笔。
 - 收口侧已按只读口径接线：close 与 flip／flip-index 至 done 在取锁与任何写入之前跑 `--check --blocks-only`（只校验含生成块的 README）＋`--freshness`，任一失败即 exit 1、本次零写入并指名 `path:line` 与断言；收口链**不调用 `--sync`**（漂移须按第 2 步显式修复并提交后再重跑）。升级完成后可用同款两检作为验证。
 - 生成器与范围规则表随安装政策（`install-policy.rules` 的 `fast-lane`／`ticket-ops` 两门控）在升级对齐时一并落位到 `rules/implementation/scripts/`，消费者无需手工放置；缺件时收口预检 fail-closed 指名。
-- 解析器升级（共享解析库 `scripts/dp-load-rules.sh`＋四消费件 `check-artifacts.sh`／`check-stale-claims.sh`／`export-payload.sh`／`worktree-add.sh`）整件对齐包新基线：解析版本唯一来源＝解析库 `DP_PARSER_VERSION`，消费件头部 `# dp-parser: N` 为最低要求版注记，报「共享解析器版本漂移」即解析库落后；安装语境下解析库随 fast-lane 门控与消费件同批落位（安装闭包见 `scripts/install-policy.rules`）。文法与版本详见 `delivery-rules.md`。
+- 解析器升级（共享解析库 `scripts/dp-load-rules.sh`＋载荷消费件 `check-artifacts.sh`／`check-stale-claims.sh`／`worktree-add.sh`；`export-payload.sh` 归仓根 `dev/tools/`，仅源仓语境）整件对齐包新基线：解析版本唯一来源＝解析库 `DP_PARSER_VERSION`，消费件头部 `# dp-parser: N` 为最低要求版注记，报「共享解析器版本漂移」即解析库落后；安装语境下解析库随 fast-lane 门控与消费件同批落位（安装闭包见 `scripts/install-policy.rules`）。文法与版本详见 `delivery-rules.md`。
 - 记录类产物（决策账本、状态索引、运行记录）与用户事实**不在升级范围**：模板升级不得覆盖（核心规则 C9 记录只追加口径），永不触碰。
 
 ## 5. 验证与收尾
 
-- 全套验证：包自检 `sh <pkg-dir>/scripts/check-package.sh`；仓侧检查（装好的 check-artifacts/check-stale-claims/check-gates 一族）；`upgrade-check.sh` 复跑确认自动检查面差距清零。对 `README.md`、`artifacts.yaml` 和其他项目自有正文，工具只核存在性并输出“人工核对”，不能据此宣称无保留的全同步；其中目录 `README.md` 另按 §4「目录 README 三步」跑 `--check` 核验结构、`--freshness` 核验生成块与子目录一致（两者都只读；`--sync` 是显式修复动作，不属于校验），存在性通过不等于四段契约通过。
+- 全套验证：公开包自检 `sh dev/check-package.sh`（本仓开发语境：包检引擎与检查件位于仓根 `dev/`，非载荷；消费者项目不含 check-package）；仓侧检查（装好的 check-artifacts/check-stale-claims/check-gates 一族）；`upgrade-check.sh` 复跑确认自动检查面差距清零。对 `README.md`、`artifacts.yaml` 和其他项目自有正文，工具只核存在性并输出“人工核对”，不能据此宣称无保留的全同步；其中目录 `README.md` 另按 §4「目录 README 三步」跑 `--check` 核验结构、`--freshness` 核验生成块与子目录一致（两者都只读；`--sync` 是显式修复动作，不属于校验），存在性通过不等于四段契约通过。
 - **Derived 面回访**（升级专属步骤，项目地图回访面）：对账派生文件——项目地图触发矩阵命中而未生成＝欠账，补生成；已生成但代码拓扑已变未再生＝标 `stale`（生成物产物状态机口径，恢复前不当可信导航）。三态为本步骤自定义（比对轴是拓扑新鲜度，非 §2 的包版本轴）：未生成且命中＝欠账（补）、已生成且拓扑未变＝同步、已生成但拓扑已变未再生＝落后（再生）；漂移判定不适用（Derived 可再生，不存在"人工改过"保护面）。
 - **历史票清洗扫描**（升级专属步骤，历史票清洗面）：升级时对存量票面做一次清洗扫描，专找"看着像现行规定、实际已与权威层对不上"的危险内容——票面说明与 rules 三件/specs 冲突、`superseded` 票的说明仍被现行票引用、与新版模板条款相抵的旧口径句。输出危险票名单（票 id＋冲突点＋建议处置），**交用户逐票裁决**：名单本身零改写，裁决后走收口搬运（说明提炼进规则/事实层，R-DP-039 第 4 面）或替代标记（索引登记 `superseded_by`）。不升级时不主动扫描（翻到谁处理谁）。
 - **升级演练（临时副本，零风险验证）**：正式动目标仓之前，先在临时副本上把同一套升级命令跑一遍——复制目标仓到 `mktemp` 目录并保留 `.git`（不保留则先 `git init` 建基线），记录升级来源提交（`git -C <副本> rev-parse HEAD`），按 §4 顺序执行 `install.sh <门控>`，然后逐项验收：
@@ -76,7 +76,7 @@ depends_on: agent-up/SKILL.md（主流程与模式判定）；reconcile 规则�
   3. 旧布局保留：旧 `scripts/` 内的件升级后仍在且字节不变（安装器不静默覆盖、不删除），对账器逐件标「旧布局」并提示人工核对，按 §3 确认后才移除。
   4. 人工漂移停手：预置一个与包内基线不一致的同名件，安装器须 fail-closed（`目标同名件与包内基线不一致`）、零半套、该件字节不变；此时先走 reconcile 处理漂移，再重跑同一命令。
   5. 演练副本上复跑 `upgrade-check.sh`，按 §2 三态核对差距清零；新装目录若缺 Conditional 目录 README，按 §4「目录 README 三步」的 `--init` 补齐后再复跑。
-- 包内对抗回归：`sh <pkg-dir>/scripts/tests/test-runner.sh --suite adversarial` 逐条真跑十条核心规则的负例与 G1–G5 正负例、一票 ready→done 正常路径，以及上面这套临时副本升级演练与安装后 `run-record` 落位；安装面场景需要 `install.sh` 在场（worktree 语境会显式 SKIP 并打印主检出复跑命令）。
+- 本仓对抗回归：`sh <repo>/dev/tests/test-runner.sh --suite adversarial`（仓根 `dev/tests`，非载荷）逐条真跑十条核心规则的负例与 G1–G5 正负例、一票 ready→done 正常路径，以及上面这套临时副本升级演练与安装后 `run-record` 落位；安装面场景需要 `install.sh` 在场（worktree 语境会显式 SKIP 并打印主检出复跑命令）。
 - 收尾报告按 `SKILL.md` 步骤 9，额外列：更新件清单（旧→新）、改过件的裁决结果、登记同步情况（artifacts.yaml 条目 `generated_from`/update_policy 括注随更新件刷新）、清洗扫描结果（名单与你的裁决，未执行写 `N/A + reason`）。
 - **对账报告标准四节**（升级对账的固定呈现格式，upgrade-check 输出即骨架，收尾报告照此四节组织、不再自由发挥）：①自动检查面——逐件列脚本、条件配置、规则块 ID 集结果；②差异面——落后/漂移/双布局冲突/分歧候选分类并附证据；③人工面——README、artifacts.yaml、块内语义与 Derived 回访结果；④结论行——自动检查面无差距且人工面已完成后才能称“全同步”，否则写明待核对项或待裁决差距数。
 

@@ -50,7 +50,7 @@ if [ -f "$_lexer_script" ]; then
   # shellcheck source=agent-up/scripts/rules-lexer.sh  # 路径动态计算，显式声明基线位置
   . "$_lexer_script"
 else
-  die2 "共享规则表词法器缺失: $_lexer_script（词法核心唯一实现＝同目录 rules-lexer.sh）"
+  die2 "共享规则表词法器缺失: ${_lexer_script}（词法核心唯一实现＝同目录 rules-lexer.sh）"
 fi
 
 NL='

@@ -98,7 +98,7 @@ script_dir=$(CDPATH='' cd "$(dirname -- "$0")" && pwd)
 # ---- 登记解析唯一实现（票 286 D2：与 generate-dir-readmes --brief 同源＝同目录
 #      artifacts-index.sh；本件只承载严格侧错误抬头透传与合法条目账本落盘）----
 _artifacts_parser=$(dirname -- "$0")/artifacts-index.sh
-[ -f "$_artifacts_parser" ] || die2 "共享解析器缺失: $_artifacts_parser（artifacts 索引解析唯一实现＝同目录 artifacts-index.sh，与消费件同目录分发）"
+[ -f "$_artifacts_parser" ] || die2 "共享解析器缺失: ${_artifacts_parser}（artifacts 索引解析唯一实现＝同目录 artifacts-index.sh，与消费件同目录分发）"
 enum_template="$script_dir/../references/templates/artifacts-yaml.tmpl"
 [ -f "$enum_template" ] || die2 "枚举权威模板缺失: $enum_template"
 ca_kind_values=$(awk '/^# enum kind: / { sub(/^# enum kind: /, ""); print }' "$enum_template")

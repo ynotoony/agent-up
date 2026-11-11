@@ -13,16 +13,12 @@ Entry points:
   element (check-stale-claims.sh index/ledger consumption); set is the
   record-layer field rewrite serializer (pure function, atomic replace belongs
   to record-store.sh)
-- workflow: workflow-executor.sh JSON operations (steps/state-machine parsing,
-  map-status/check-status mapping enforcement (票 221), check-conditions/
-  eval-condition condition vocabulary check and evaluation over structured step
-  results (票 209), preflight, checkpoint sidecar lifecycle)
 - ticket-check: ticket-ops.sh gates (close/deps/open-body)
 - contract: dispatch-contract TICKET_ID extraction (worktree-add.sh)
 - help: print usage to stderr; aliases -h/--help (exit 0)
 
 七族实现下沉同目录模块（票 290）：jv_ticket.py（ticket schema 解释器）、jv_grade.py、
-jv_run.py、jv_json_ops.py、jv_workflow.py（含 checkpoint 生命周期）、jv_ticket_check.py、
+jv_run.py、jv_json_ops.py、jv_ticket_check.py、
 jv_contract.py；本件只保留薄 CLI 与共享严格 JSON 加载（StrictJSONError／_strict_load／
 _load_json_file），模块经 from __main__ import 复用同一加载实现。CLI 参数面、逐行输出与
 退出码不变。
@@ -123,20 +119,6 @@ try:
         ticket_check_deps,
         ticket_check_open_body,
     )
-    from jv_workflow import (
-        wf_check_conditions,
-        wf_check_ticket_status,
-        wf_checkpoint_check,
-        wf_checkpoint_init,
-        wf_eval_condition,
-        wf_map_status,
-        wf_parse_state_machine,
-        wf_parse_steps,
-        wf_preflight,
-        wf_read_checkpoint,
-        wf_record_step,
-        wf_step_check,
-    )
 except ImportError as _import_error:
     sys.stderr.write(
         'json-validator: FAIL: 安装闭包不完整（同目录模块缺失）: %s\n' % _import_error
@@ -182,16 +164,6 @@ def print_usage():
       记录层字段级改写序列化面：输出 ensure_ascii=False＋indent=2＋末尾换行，
       纯函数零写入，原子替换归 record-store.sh）
       退出码: 0=完成, 3=路径/元素未命中, 2=用法, 1=输入不可读或非合法 JSON
-
-  workflow <steps|state-machine|map-status|check-status|check-conditions|
-            eval-condition|preflight|checkpoint-init|read-checkpoint|
-            checkpoint-check|step-check|record-step> [args]
-      workflow-executor.sh 专用 JSON 操作（逐行等价迁移自原内嵌 heredoc；map-status/
-      check-status 为票 221 映射强制：map-status 退出码 0=映射合法/3=未映射/1=越枚举；
-      check-conditions/eval-condition 为票 209 条件词表预检与结构化结果求值：
-      eval-condition 打印 true/false，record-step 含 status/exit_code/
-      verification_results 结构化结果）
-      退出码: 0=完成, 1=校验不过, 2=用法
 
   ticket-check <close|deps|open-body> [args]
       ticket-ops.sh 收口/领取/开票门（报文为 ticket-ops 合同输出）
@@ -301,46 +273,6 @@ def main():
             print(f"未知 json 子命令: {op}", file=sys.stderr)
             print_usage()
             sys.exit(2)
-
-    elif mode == 'workflow':
-        if len(sys.argv) < 3:
-            print("用法: python3 json-validator.py workflow <steps|state-machine|map-status|check-status|preflight|checkpoint-init|read-checkpoint|checkpoint-check|step-check|record-step> [args]", file=sys.stderr)
-            sys.exit(2)
-        sub = sys.argv[2]
-        try:
-            if sub == 'steps' and len(sys.argv) == 4:
-                sys.exit(wf_parse_steps(sys.argv[3]))
-            elif sub == 'state-machine' and len(sys.argv) == 4:
-                sys.exit(wf_parse_state_machine(sys.argv[3]))
-            elif sub == 'map-status' and len(sys.argv) == 5:
-                sys.exit(wf_map_status(sys.argv[3], sys.argv[4]))
-            elif sub == 'check-status' and len(sys.argv) == 4:
-                sys.exit(wf_check_ticket_status(sys.argv[3]))
-            elif sub == 'check-conditions' and len(sys.argv) == 4:
-                sys.exit(wf_check_conditions(sys.argv[3]))
-            elif sub == 'eval-condition' and len(sys.argv) == 7:
-                sys.exit(wf_eval_condition(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
-            elif sub == 'preflight' and len(sys.argv) == 5:
-                sys.exit(wf_preflight(sys.argv[3], sys.argv[4]))
-            elif sub == 'checkpoint-init' and len(sys.argv) == 4:
-                sys.exit(wf_checkpoint_init(sys.argv[3]))
-            elif sub == 'read-checkpoint' and len(sys.argv) == 4:
-                sys.exit(wf_read_checkpoint(sys.argv[3]))
-            elif sub == 'checkpoint-check' and len(sys.argv) == 7:
-                sys.exit(wf_checkpoint_check(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
-            elif sub == 'step-check' and len(sys.argv) == 6:
-                sys.exit(wf_step_check(sys.argv[3], sys.argv[4], sys.argv[5]))
-            elif sub == 'record-step' and len(sys.argv) == 12:
-                sys.exit(wf_record_step(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6],
-                                        sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10],
-                                        sys.argv[11]))
-            else:
-                print(f"workflow {sub}: 参数个数不合合同", file=sys.stderr)
-                print_usage()
-                sys.exit(2)
-        except (OSError, json.JSONDecodeError) as exc:
-            print(f"workflow {sub}: 输入不可读或非合法 JSON: {exc}", file=sys.stderr)
-            sys.exit(1)
 
     elif mode == 'ticket-check':
         if len(sys.argv) < 3:

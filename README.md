@@ -68,8 +68,8 @@ flowchart TD
     subgraph S3 [main · 记账和收尾，跟实施同时走]
         G["提交 → rebase → 合并进 main"] --> H["ticket-ops flip 翻状态"]
         H --> I["generate-progress 重新生成进度"]
-        K["test-record-layer 回归测试"]
-        L["check-package 包检查"]
+        K["test-record-layer 回归测试（开发侧）"]
+        L["check-package 包检查（开发侧）"]
     end
 
     I --> M{要发布？}

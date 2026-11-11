@@ -20,7 +20,7 @@ depends_on: rules/implementation/roles/（角色合同事实源，MUST 与权限
 
 - **角色合同**（`rules/implementation/roles/*.md`，模板见 `../templates/agents-*.md.tmpl`）是 MUST 行为规则与写入权限正文的**唯一承载面**：所需能力、可写字段白名单、Scope 边界、禁止行为、验收条件、输出格式与阶段出口只在合同展开。
 - **派发 Prompt**（本目录）只承载三类内容：**派发参数**（票信息与委派/审查/提交合同占位符）、**上下文**（角色合同与权威规则指针）、**输出槽**（输出格式指向合同对应节，不复写正文）。
-- Prompt 与合同不一致时以合同为准；Prompt 不得回填合同正文（白名单清单、规则块、阶段出口等），机械边界由记录层 harness 的 role-prompt 套件常驻断言（`sh scripts/test-record-layer.sh --suite role-prompt`）。
+- Prompt 与合同不一致时以合同为准；Prompt 不得回填合同正文（白名单清单、规则块、阶段出口等），机械边界由记录层 harness 的 role-prompt 套件常驻断言（`sh dev/tests/test-record-layer.sh --suite role-prompt`；仓根开发语境路径，非载荷——测试已迁仓根 `dev/tests/`，不随包分发）。
 
 ## 目录成员
 

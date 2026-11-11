@@ -10,7 +10,7 @@
 
 | 消费者 | 消费节 | 读取字段 |
 | --- | --- | --- |
-| `scripts/export-payload.sh` | payload | `DP_ROOT`/`DP_REMOTE`/`DP_TARGET`/`DP_LOCAL_REF`（未声明 payload 节＝拒跑） |
+| `dev/tools/export-payload.sh` | payload | `DP_ROOT`/`DP_REMOTE`/`DP_TARGET`/`DP_LOCAL_REF`（未声明 payload 节＝拒跑；源仓开发件，非载荷） |
 | 采纳仓 pre-push 安检（仓侧） | boundary | `DP_FORBID` 清单 |
 | `scripts/check-artifacts.sh` | calibration | `DP_EXEMPT`（缺该行＝豁免消失，按未登记暴露） |
 | `scripts/check-stale-claims.sh` | calibration | `DP_STALE_LIT`（未点亮＝S1/S2 断言 SKIP） |

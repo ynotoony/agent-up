@@ -145,7 +145,7 @@ if [ "${DP_MAINONLY_DECLARED:-0}" -ne 1 ]; then
   printf '%s: 拒跑：delivery.rules 未声明 main-only 节（栅栏未知 fail-closed；如本仓无 main-only 脚本，登记空节或径用 git worktree add）\n' "$prog" >&2
   printf '%s: 最小示例（分发模板 references/templates/delivery-rules.tmpl；条目行取消注释即生效，无 main-only 脚本保留空节即可）:\n' "$prog" >&2
   printf '%s:   # ==== main-only：worktree 排除清单（worktree-add.sh 读）====\n' "$prog" >&2
-  printf '%s:   # dp_mainonly agent-up/scripts/export-payload.sh\n' "$prog" >&2
+  printf '%s:   # dp_mainonly dev/tools/export-payload.sh\n' "$prog" >&2
   exit 2
 fi
 
