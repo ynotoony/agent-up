@@ -1,8 +1,8 @@
 <!-- Input: 包内全部 *.md 与 *.tmpl 的规则块标题行与块体（本文件由 generate-docs-index.sh 独占写） -->
 <!-- Output: 规则索引投影：每块一行（ID｜标题｜所属文件｜Level｜机制），按 ID 升序 -->
 <!-- Pos: 包内规则块导航投影（Derived）；规则块格式权威＝references/protocol/governance-format.md -->
-<!-- generated_from: 包内规则块扫描 ＋ scripts/generate-docs-index.sh -->
-<!-- generated_at: 2026-11-11T06:42:37Z -->
+<!-- generated_from: 包内规则块扫描 ＋ dev/tools/generate-docs-index.sh -->
+<!-- generated_at: 2026-11-11T09:27:04Z -->
 <!-- coverage: 包内 36 个规则块（36 节登记机制值），每块一行 -->
 <!-- invalidation: Derived 投影，可由生成器整文件重建；与规则块正文不一致时以正文为准 -->
 

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/issue-index.schema.json",
   "title": "Agent Up issue status index schema",
-  "description": "任务票状态索引（票状态机唯一真相源）机器 schema。落盘位置：docs/issues/index.json（终裁定稿，2026-09-18）。文件形态：单文件 JSON，一条目一行（终裁定稿：行可寻址，POSIX sh 零依赖脚本按 id 锚点整行替换）。写入 owner：快道启用时由道脚本独占写（对齐 development-process §12.5 派生载体独占写先例），非快道任务由对应阶段执行体单写。本索引是真相源（Record 类），不是 Derived；消费它的投影才是 Derived。",
+  "description": "任务票状态索引（票状态机唯一真相源）机器 schema。落盘位置：facts/requirements/tickets/index.json（终裁定稿，2026-09-18）。文件形态：单文件 JSON，一条目一行（终裁定稿：行可寻址，POSIX sh 零依赖脚本按 id 锚点整行替换）。写入 owner：快道启用时由道脚本独占写（对齐 rules/project.md §12.5 派生载体独占写先例），非快道任务由对应阶段执行体单写。本索引是真相源（Record 类），不是 Derived；消费它的投影才是 Derived。",
   "type": "object",
   "additionalProperties": false,
   "required": ["issues"],
@@ -23,7 +23,7 @@
           "status": {
             "type": "string",
             "pattern": "^(ready|in_progress|blocked(:[ a-zA-Z0-9-]+)?|review_ready|review_pass|review_fail|done|superseded)$",
-            "description": "Task 状态机取值（development-process §12.1）＋票据生命周期标签 `superseded`（语义权威＝docs/issues/README.md，仅用于索引登记历史票据，非 Task 流转取值）。"
+            "description": "Task 状态机取值（rules/project.md §12.1）＋票据生命周期标签 `superseded`（语义权威＝facts/requirements/tickets/README.md，仅用于索引登记历史票据，非 Task 流转取值）。"
           },
           "lane": {
             "type": "string",
@@ -58,7 +58,7 @@
               "result": { "type": "string", "minLength": 1, "description": "真实结果；未运行不写本对象。" },
               "at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}", "description": "ISO 8601 日期或日期时间。" }
             },
-            "description": "该票最后一次验证，口径同 run record（development-process §12.4）；未验证省略本字段。"
+            "description": "该票最后一次验证，口径同 run record（rules/project.md §12.4）；未验证省略本字段。"
           },
           "updated_at": {
             "type": "string",

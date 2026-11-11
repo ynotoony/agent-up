@@ -44,7 +44,7 @@
     },
     "status": {
       "type": "object",
-      "description": "会话与任务状态摘要（对齐 development-process 会话恢复协议三套状态机；取值固定，不得自造）。",
+      "description": "会话与任务状态摘要（对齐 rules/project.md 会话恢复协议三套状态机；取值固定，不得自造）。",
       "additionalProperties": false,
       "required": ["session", "task"],
       "properties": {

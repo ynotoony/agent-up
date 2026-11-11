@@ -1,4 +1,4 @@
-<!-- Input: 同级适配手册（`capability-contract.md`、`adapter-template.md`、五份宿主映射文件与适配差异数据表 `adapter-diffs.rules`）的定位、来源状态与短码投影（机器真相＝`../../scripts/package-manifest.rules` adapter-registry 节），以及 `../README.md` 对本目录的登记。 -->
+<!-- Input: 同级适配手册（`capability-contract.md`、`adapter-template.md`、五份宿主映射文件与适配差异数据表 `adapter-diffs.rules`）的定位、来源状态与短码投影（机器真相＝`../../../dev/package-manifest.rules` adapter-registry 节），以及 `../README.md` 对本目录的登记。 -->
 <!-- Output: `agent-up` 运行时可读取的平台适配目录索引：直接成员登记与短码导航投影（不另立登记事实）。 -->
 <!-- Pos: Skill 参考资料平台适配目录索引；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
 
@@ -24,8 +24,8 @@
 
 ## 短码投影（导航，非登记事实）
 
-- 本 README 目录清单表的短码列是导航投影：宿主短码（`ZC`/`CL`/`CX`/`PI`/`DS`）与宿主绑定事实（platform/shortcode/adapter_file/capability_coverage/role_mapping/evidence_status）的机器真相唯一承载于 `../../scripts/package-manifest.rules` `adapter-registry` 节，短码全局唯一由该节单源验证；表列与 `../README.md` adapters 行的一致性由 `check-package.sh` 检查 26 机械核对，漂移即 FAIL（表文修正归人工裁决，不静默互改）。非宿主短码 `AT` = `adapter-template.md`，`CC` = `capability-contract.md`，与 templates/protocol 短码同源登记于同表 `shortcodes` 节。去重后五宿主映射文件不设 `R-<短码>-` 规则块，宿主短码作导航与登记标识保留。
-- 新增宿主适配（R-CC-005 收敛后口径）：先在 `../../scripts/package-manifest.rules` `adapter-registry` 节登记六字段行（数据先行，短码两字母不与既有重叠），再按 `capability-contract.md` R-CC-005 落 platform 枚举登记处、按 `adapter-template.md` 结构基线创建 `adapters/<host>.md`；shortcodes 节镜像行与本 README、`../README.md` 投影行随动，漏项由检查 26 指名。
+- 本 README 目录清单表的短码列是导航投影：宿主短码（`ZC`/`CL`/`CX`/`PI`/`DS`）与宿主绑定事实（platform/shortcode/adapter_file/capability_coverage/role_mapping/evidence_status）的机器真相唯一承载于 `../../../dev/package-manifest.rules` `adapter-registry` 节，短码全局唯一由该节单源验证；表列与 `../README.md` adapters 行的一致性由 `check-package.sh` 检查 26 机械核对，漂移即 FAIL（表文修正归人工裁决，不静默互改）。非宿主短码 `AT` = `adapter-template.md`，`CC` = `capability-contract.md`，与 templates/protocol 短码同源登记于同表 `shortcodes` 节。去重后五宿主映射文件不设 `R-<短码>-` 规则块，宿主短码作导航与登记标识保留。
+- 新增宿主适配（R-CC-005 收敛后口径）：先在 `../../../dev/package-manifest.rules` `adapter-registry` 节登记六字段行（数据先行，短码两字母不与既有重叠），再按 `capability-contract.md` R-CC-005 落 platform 枚举登记处、按 `adapter-template.md` 结构基线创建 `adapters/<host>.md`；shortcodes 节镜像行与本 README、`../README.md` 投影行随动，漏项由检查 26 指名。
 
 ## 模型档位派生表
 
@@ -83,8 +83,8 @@
 
 ## 差异段生成与漂移核对
 
-本目录五份宿主映射文件的差异面（§2.2 九行能力对照表、§2.3 角色映射表行、§2.4 独立执行体声明句、§2.5 方言模板签名）以 `adapter-diffs.rules` 为数据输入，由 `../../scripts/generate-adapter-diffs.sh` 单向渲染；该生成器是差异段的唯一渲染器，不承载任何规则语义。
+本目录五份宿主映射文件的差异面（§2.2 九行能力对照表、§2.3 角色映射表行、§2.4 独立执行体声明句、§2.5 方言模板签名）以 `adapter-diffs.rules` 为数据输入，由 `../../../dev/tools/generate-adapter-diffs.sh` 单向渲染；该生成器是差异段的唯一渲染器，不承载任何规则语义。
 
-- 渲染：`sh ../../scripts/generate-adapter-diffs.sh --section cap|role|exec|dialect|all [--platform <p>]`，输出宿主文件对应段的 Markdown 行（含行内代码反引号等强调记号，与数据表字段原文一致）；`all` 四段全出、段间空行分隔。
-- 核对：`sh ../../scripts/generate-adapter-diffs.sh --check` 逐宿主逐段渲染后与现行宿主文件比对——表段只去首尾空白、按三列取单元格后**逐字节**比对（含强调记号，宿主角色列先剥 `<role-contract-dir>/` 前缀与 `.md` 后缀；单元格数非 3 的行原样输出＝漂移，不静默截断），锚语段原文在场断言；零漂移 exit 0 并输出计数汇总，漂移 exit 1 逐行指名宿主文件、段与首个差异行，数据表不合预期 exit 2。
+- 渲染：`sh ../../../dev/tools/generate-adapter-diffs.sh --section cap|role|exec|dialect|all [--platform <p>]`，输出宿主文件对应段的 Markdown 行（含行内代码反引号等强调记号，与数据表字段原文一致）；`all` 四段全出、段间空行分隔。
+- 核对：`sh ../../../dev/tools/generate-adapter-diffs.sh --check` 逐宿主逐段渲染后与现行宿主文件比对——表段只去首尾空白、按三列取单元格后**逐字节**比对（含强调记号，宿主角色列先剥 `<role-contract-dir>/` 前缀与 `.md` 后缀；单元格数非 3 的行原样输出＝漂移，不静默截断），锚语段原文在场断言；零漂移 exit 0 并输出计数汇总，漂移 exit 1 逐行指名宿主文件、段与首个差异行，数据表不合预期 exit 2。
 - 一致性由 `check-package.sh` 检查 28 常驻机械核对（与检查 27 的数据面一致性互为两层：27 按两侧同剥反引号的宽松口径断言数据 ↔ 文档，28 按逐字节严格口径断言渲染 ↔ 文档，强调记号单侧丢失即 28 FAIL）；漂移时先判来源（表文或宿主正文），人工裁决后就地修正并同批重跑两项检查。
