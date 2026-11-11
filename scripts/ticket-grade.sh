@@ -2,7 +2,7 @@
 # Input: 一个或多个任务票 JSON 路径（facts/requirements/tickets/*.json 形态，票 70 先例）；判据权威＝
 #        agent-up/references/protocol/complexity-profile.md §2.1（C0-C3 可数触发条件）
 #        与 §2.3（微任务道承重判据可数面）；车道德协议权威＝rules/assessment.md
-#        §6 分级交付道（R-DP-031，流程权威拆三件）。票的 profile 七维字段不在可算面，本脚本不读取。
+#        §6 分级交付道（R-DP-031）；流程权威见 rules/core.md 与 rules/assessment.md / rules/implementation/discipline.md / rules/project.md 三件。票的 profile 七维字段不在可算面，本脚本不读取。
 # Output: 每票一节的定级建议表（stdout）——各 C 级命中条件清单、C0-C3 建议、微道资格
 #         预审、逐条验收形态标注、与票面 actual 定级（complexity 字段＝Triage 实际定级）
 #         的逐票对照；批量末尾输出分歧账汇总。建议不裁决：输出只写「建议/命中/预审」，

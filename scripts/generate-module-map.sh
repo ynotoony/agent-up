@@ -9,7 +9,7 @@
 # Pos: 模块地图生成器（票 30 调研拍板方案 A：静态导入行提取；票 42 落位；票 43 扩展；
 #      票 44 引擎表驱动化——引擎为通用"加载规则表→按扩展名发现源码→逐行匹配捕获→按策略
 #      产边→存在性过滤→组装 JSON"管线，不含任何语言专名；语言覆盖＝规则表登记行，加语言＝
-#      加规则行＋fixture、零引擎改动）。本图是项目地图条件产物的承载视图（development-process
+#      加规则行＋fixture、零引擎改动）。本图是项目地图条件产物的承载视图（rules/project.md
 #      §5.2 触发矩阵行），只当检索索引不当 Scope 权威，不作为白名单或 watch 依据；Derived
 #      自动生成，agent 不手写。POSIX sh、无 jq 与解释器类外部依赖；两项平台标配补充：stat
 #      （BSD/GNU 双方言自动探测）与系统 SHA-256 工具（sha256sum/shasum/cksum/openssl 按序
@@ -572,7 +572,7 @@ limits_rows=$(LC_ALL=C awk -F'\t' 'length($6) > 0 { n++; printf "%s%s", (n > 1 ?
     printf '    "limits": "%s"\n' "$limits_generic"
   fi
   printf '  },\n'
-  printf '  "invalidation": "重算 fp-v1 工作区指纹（R-DP-015 算法）与 workspace_fingerprint 不一致，或文件新增/删除/移动/重命名（拓扑变化）未重新生成本图，即按 development-process R-DP-009 判 stale，不得当可信导航；指纹输入排除本图自身（避免自引用漂移）",\n'
+  printf '  "invalidation": "重算 fp-v1 工作区指纹（R-DP-015 算法）与 workspace_fingerprint 不一致，或文件新增/删除/移动/重命名（拓扑变化）未重新生成本图，即按 rules/project.md §5.5 产物状态机 R-DP-009 判 stale，不得当可信导航；指纹输入排除本图自身（避免自引用漂移）",\n'
   printf '  "workspace_fingerprint": "%s",\n' "$fingerprint"
   printf '  "note": "本图是检索索引（Derived，可整文件重建），不是 Scope 权威，不作为白名单或 watch 依据；edges 的 from=仓库根相对路径，to=导入语句文本中的模块引用原串（未做路径解析），label=导入语句类别",\n'
   if [ -n "$nodes_body" ]; then

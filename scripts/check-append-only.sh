@@ -5,7 +5,7 @@
 #        中间插入/改写历史行/截断/删除即违规，FAIL 指名文件与首个违规行号（新文件行号）；
 #        facts/project/archive/progress.md 与 facts/project/archive/changes.md（票 87 迁移后继、
 #        票 113 波④按 R14 平移）
-#        ——冻结历史档案（指针注记后零写入，development-process §11）：任何 diff 即
+#        ——冻结历史档案（指针注记后零写入，rules/project.md §5.1 生命周期五类（Record 只追加/禁覆盖））：任何 diff 即
 #        违规；迁移窗口（HEAD 尚无后继路径）以后继工作树内容与 HEAD 旧路径逐字节
 #        一致为承继通过。文件不存在跳过（懒创建语义）；无 Git 基线（无 HEAD）输出
 #        WARN 退出 0（票 49 先例：不硬猜基线）。
@@ -191,7 +191,7 @@ check_frozen_file() {
   elif cmp -s "${tmp_old}" "${repo_root}/${_f}"; then
     printf 'check-append-only: OK: %s（与 HEAD 一致，零 diff）\n' "${_f}"
   else
-    fail1 "${_f} 冻结历史档案出现 diff（冻结档案零写入，development-process §11）"
+    fail1 "${_f} 冻结历史档案出现 diff（冻结档案零写入，rules/project.md §5.1 生命周期五类（Record 只追加/禁覆盖））"
   fi
   [ -n "${_suc}" ] || return 0
   _suc_wt=0
@@ -214,7 +214,7 @@ check_frozen_file() {
     if cmp -s "${tmp_new}" "${repo_root}/${_suc}"; then
       printf 'check-append-only: OK: %s（与 HEAD 一致，零 diff）\n' "${_suc}"
     else
-      fail1 "${_suc} 冻结历史档案出现 diff（冻结档案零写入，development-process §11）"
+      fail1 "${_suc} 冻结历史档案出现 diff（冻结档案零写入，rules/project.md §5.1 生命周期五类（Record 只追加/禁覆盖））"
     fi
     return 0
   fi

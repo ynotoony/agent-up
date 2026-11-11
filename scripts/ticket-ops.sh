@@ -49,7 +49,7 @@
 #         写入并指名 path:line 与断言；收口链不调用 --sync（漂移由操作者显式修复后
 #         提交），旧格式无生成块不阻断，仅提示 --migrate-dry-run（票 266）。
 # Pos: 协调层票务运维单入口脚本（票 41，用户 2026-09-20 裁决 2.1）；行为基线＝
-#      development-process §6 零写入三段式第二段与 §12.5 票务脚本承载注记。POSIX sh、
+#      rules/implementation/discipline.md §6 零写入三段式第二段与 rules/project.md §12.5 票务脚本承载注记。POSIX sh、
 #      零外部依赖（仅 POSIX 标准工具与内建，无 jq；票 79 起 open 本体 schema 校验另用
 #      python3 标准库）；fail-closed：校验先于写入，
 #      索引排版破坏、账本行不合键序、同 NN 异 slug 撞号
@@ -476,7 +476,7 @@ else
     fi
   done
 fi
-# 票 79：open 本体落盘位与 schema 权威（development-process §5.2 开票形态注记）。
+# 票 79：open 本体落盘位与 schema 权威（rules/project.md §5.2 开票形态注记）。
 # 票 269：schema 权威只认安装闭包（本脚本邻接 references/schemas/…），不读包工作树
 # 副本；缺失由 open 预检 fail-closed 指名缺失绝对路径与升级/修补入口。
 ticket_file="${repo_root}/${issues_dir_rel}/${id}.json"
@@ -678,7 +678,7 @@ ticket_body_check() {
     die1 "新票本体不存在: ${issues_dir_rel}/${id}.json——票 79 起 open 须先落位过 schema 的票 JSON 本体再开票"
   [ -r "${ticket_file}" ] || die1 "新票本体不可读: ${ticket_file}"
   [ -f "${schema_file}" ] || \
-    die1 "ticket-record.schema.json 不存在（安装闭包缺失）: ${schema_file}——${_closure_hint}（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，development-process §5.2）"
+    die1 "ticket-record.schema.json 不存在（安装闭包缺失）: ${schema_file}——${_closure_hint}（open 本体校验 fail-closed；schema 权威＝Agent Up 包内 references/schemas/ticket-record.schema.json，rules/project.md §5.2 条件产物触发矩阵）"
   [ -r "${schema_file}" ] || die1 "schema 文件不可读: ${schema_file}"
 
   [ -f "${_engine}" ] || \
@@ -719,7 +719,7 @@ else
   if [ -n "${gen_cmd}" ]; then
     printf 'ticket-ops: 生成器定位: PATH %s\n' "${gen_cmd}"
   else
-    die1 "投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——预检停止：按 development-process §12.5 派生载体独占写，票务面写入必须伴随投影再生；将生成器落位到本脚本同目录（${scripts_dir_rel}/）或 PATH 后重跑"
+    die1 "投影生成器 generate-progress.sh 不可用（同目录与 PATH 均未找到）——预检停止：按 rules/project.md §12.5 派生载体独占写，票务面写入必须伴随投影再生；将生成器落位到本脚本同目录（${scripts_dir_rel}/）或 PATH 后重跑"
   fi
 fi
 

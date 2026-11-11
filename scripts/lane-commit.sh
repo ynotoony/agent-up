@@ -27,7 +27,7 @@
 # Pos: 分级交付道快道收尾脚本（REQ-20260904-011 / 票 26；票 37 行为基线改造；票 229
 #      职责拆分——白名单提交留本件，记录写入三类代理化：索引翻转→ticket-ops flip-index、
 #      Review Checkpoint→checkpoint-write.sh、微账本→ledger-append.sh）；行为基线 =
-#      development-process 模板 §12.5 道脚本承载注记（索引单写经 ticket-ops flip-index
+#      rules/project.md §12.5 写入所有权矩阵 道脚本承载注记（索引单写经 ticket-ops flip-index
 #      代理 → 生成正文 Status 行 → 生成投影——票 34 定稿、票 228 写入方收敛后索引写入
 #      与投影再生单点在 ticket-ops）与 R-RC-003（先产品提交后纯记录提交）；POSIX sh、零外部依赖、
 #      fail-closed（门禁不过、合同格式不合预期、索引/生成器/记录写入方缺失即停止报告，不写

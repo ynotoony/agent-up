@@ -34,7 +34,7 @@
 #      文法与版本详见 references/delivery-rules.md。四件同族脚本注记须一致。）
 
 # 用法、登记表条目说明与输出格式见同目录 README.md。
-# 状态陈述纪律见 development-process 模板 §15：状态以权威引用表达，本脚本
+# 状态陈述纪律见 rules/project.md §12 会话恢复与状态陈述：状态以权威引用表达，本脚本
 # 即"登记表条目 = 权威位置 + 核对方式"的执行器。
 
 # shellcheck disable=SC2034,SC2329  # 路径常量与辅助函数由同进程 source 的断言组分片消费（分片化见文件头 Pos 注记），单文件视野误报
@@ -276,7 +276,7 @@ fi
 #      ——终态史已由仓库历史承载，夹具快照反而成为第二本可漂移的账；非 Git 工作区
 #      WARN 跳过；索引尚无基线提交且当前行无可提取条目（无可比历史）WARN 跳过，对齐
 #      S1/S5）。对账分层：一致性对账
-#      （投影↔索引，S3）之外，终态语义由 S6 承载（development-process §5.1）。
+#      （投影↔索引，S3）之外，终态语义由 S6 承载（rules/project.md §5.5 产物状态机）。
 # S7 替代标记存在性 | facts/requirements/tickets/index.json（票状态真相源，一条目一行）
 #    | machine：superseded_by 替代标记存在性断言（R-DP-039 替代标记面配套）——索引条目
 #      含非空 superseded_by 时，指向的票 id 必须真实存在于本索引（缺失即 STALE 指名

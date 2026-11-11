@@ -21,7 +21,7 @@ check_s1() {
   _loc="$progress_rel:$(printf '%s' "$_anchor" | sed 's/:.*//')"
 
   if ! git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    emit_warn S1 "$_loc" '目标当前不是 Git 工作区，Git 状态句条目按流程退化语义跳过（对齐 development-process 例外条款）'
+    emit_warn S1 "$_loc" '目标当前不是 Git 工作区，Git 状态句条目按流程退化语义跳过（对齐 rules/project.md §12 会话恢复例外条款）'
     return 0
   fi
 
