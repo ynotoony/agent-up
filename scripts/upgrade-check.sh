@@ -279,36 +279,34 @@ else
   fi
 fi
 
-uc_heading_keys() {
-  # $1=文件：抽出 ##/### 标题的归一键（编号优先；无编号去尾括注）
-  awk '
-    /^##+ / {
-      h=$0; sub(/^##+ /,"",h)
-      if (h ~ /^[0-9]+(\.[0-9]+)* /) { n=h; sub(/ .*/,"",n); print n }
-      else { sub(/（[^）]*）$/,"",h); print h }
-    }
-  ' "$1" | LC_ALL=C sort -u
-}
-
 uc_check_chapters() {
   _target=$1
   _template=$2
   [ -f "$repo_root/$_target" ] || return 0
   [ -f "$pkg_dir/$_template" ] || return 0
-  _tkeys=$(uc_heading_keys "$pkg_dir/$_template") || _tkeys=''
-  _ikeys=$(uc_heading_keys "$repo_root/$_target") || _ikeys=''
-  _missing=''
-  while IFS= read -r _key; do
-    [ -n "$_key" ] || continue
-    printf '%s\n' "$_ikeys" | LC_ALL=C grep -qxF "$_key" || _missing="$_missing $_key"
-  done <<EOF
-$_tkeys
-EOF
-  if [ -n "$_missing" ]; then
-    printf '%s:   落后  %s 缺章节:%s\n' "$prog" "$_target" "$_missing"
+  _missing_titles=$(awk '
+    FNR==NR {
+      if ($0 ~ /^###? /) {
+        h=$0; sub(/^###? /,"",h)
+        if (h ~ /^[0-9]+(\.[0-9]+)*\.? /) { n=h; sub(/ .*/,"",n); sub(/\.$/,"",n); keys[n]=1 }
+        else { sub(/（[^）]*）$/,"",h); keys[h]=1 }
+      }
+      next
+    }
+    /^###? / {
+      title=$0; sub(/^###? /,"",title)
+      h=title
+      if (h ~ /^[0-9]+(\.[0-9]+)*\.? /) { n=h; sub(/ .*/,"",n); sub(/\.$/,"",n); key=n }
+      else { sub(/（[^）]*）$/,"",h); key=h }
+      if (!(key in keys)) print title
+    }
+  ' "$repo_root/$_target" "$pkg_dir/$_template")
+  if [ -n "$_missing_titles" ]; then
+    _missing_one=$(printf '%s\n' "$_missing_titles" | tr '\n' ' ')
+    printf '%s:   落后  %s 缺章节:%s\n' "$prog" "$_target" "$_missing_one"
     uc_behind=$((uc_behind + 1))
   else
-    printf '%s:   同步  %s（章节：模板 ⊆ 实例；项目自有条款不计漂移）\n' "$prog" "$_target"
+    printf '%s:   同步  %s（章节：模板 ⊆ 实例；含子节；项目自有条款不计漂移）\n' "$prog" "$_target"
   fi
 }
 
