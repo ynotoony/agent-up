@@ -279,6 +279,39 @@ else
   fi
 fi
 
+uc_heading_keys() {
+  # $1=文件：抽出 ##/### 标题的归一键（编号优先；无编号去尾括注）
+  awk '
+    /^##+ / {
+      h=$0; sub(/^##+ /,"",h)
+      if (h ~ /^[0-9]+(\.[0-9]+)* /) { n=h; sub(/ .*/,"",n); print n }
+      else { sub(/（[^）]*）$/,"",h); print h }
+    }
+  ' "$1" | LC_ALL=C sort -u
+}
+
+uc_check_chapters() {
+  _target=$1
+  _template=$2
+  [ -f "$repo_root/$_target" ] || return 0
+  [ -f "$pkg_dir/$_template" ] || return 0
+  _tkeys=$(uc_heading_keys "$pkg_dir/$_template") || _tkeys=''
+  _ikeys=$(uc_heading_keys "$repo_root/$_target") || _ikeys=''
+  _missing=''
+  while IFS= read -r _key; do
+    [ -n "$_key" ] || continue
+    printf '%s\n' "$_ikeys" | LC_ALL=C grep -qxF "$_key" || _missing="$_missing $_key"
+  done <<EOF
+$_tkeys
+EOF
+  if [ -n "$_missing" ]; then
+    printf '%s:   落后  %s 缺章节:%s\n' "$prog" "$_target" "$_missing"
+    uc_behind=$((uc_behind + 1))
+  else
+    printf '%s:   同步  %s（章节：模板 ⊆ 实例；项目自有条款不计漂移）\n' "$prog" "$_target"
+  fi
+}
+
 uc_check_blocks() {
   _target=$1
   _template=$2
@@ -302,7 +335,8 @@ uc_check_blocks() {
     uc_behind=$((uc_behind + 1))
   fi
   if [ -n "$_extra" ]; then
-    printf '%s:   分歧候选  %s 有包模板没有的规则块:%s（只提示，不判漂移）\n' "$prog" "$_target" "$_extra"
+    printf '%s:   漂移  %s 有包模板没有的规则块:%s\n' "$prog" "$_target" "$_extra"
+    uc_drift=$((uc_drift + 1))
   fi
   if [ -z "$_missing" ] && [ -z "$_extra" ]; then
     printf '%s:   同步  %s（规则块 ID 集与包内一致；不比较块内语义）\n' "$prog" "$_target"
@@ -310,7 +344,7 @@ uc_check_blocks() {
   fi
 }
 
-printf '%s: 规则块 ID 集（不比较块内语义）:\n' "$prog"
+printf '%s: 规则块与章节集（块内语义不比较）:\n' "$prog"
 uc_check_blocks AGENTS.md references/templates/AGENTS.md.tmpl
 if [ "$layout" = modern ] || [ "$layout" = mixed ]; then
   uc_check_blocks rules/core.md references/templates/core.md.tmpl
@@ -320,6 +354,10 @@ if [ "$layout" = modern ] || [ "$layout" = mixed ]; then
   uc_check_blocks rules/implementation/roles/implementation.md references/templates/agents-implementation.md.tmpl
   uc_check_blocks rules/implementation/roles/review.md references/templates/agents-review.md.tmpl
   uc_check_blocks rules/implementation/roles/commit.md references/templates/agents-commit.md.tmpl
+  uc_check_blocks rules/implementation/roles/triage.md references/templates/agents-triage.md.tmpl
+  uc_check_chapters rules/assessment.md references/templates/assessment.md.tmpl
+  uc_check_chapters rules/implementation/discipline.md references/templates/discipline.md.tmpl
+  uc_check_chapters rules/project.md references/templates/project.md.tmpl
 else
   printf '%s:   N/A  rules/ 与 rules/implementation/roles/ 块检查（旧式兼容布局不要求新路径）\n' "$prog"
 fi
