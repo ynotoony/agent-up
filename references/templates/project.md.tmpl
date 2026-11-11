@@ -1,10 +1,10 @@
-<!-- Input: 目标项目盘点确认的目录边界与产物清单、恢复协议事实、项目自有条款。 -->
-<!-- Output: 项目协议骨架：读取阶梯与权威层级、产物生命周期三张表、状态机取值、写入所有权与项目自有条款槽位；条款引用 rules/core.md C1–C10。 -->
-<!-- Pos: 项目规则（rules/project.md，流程权威拆三之一）；一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。 -->
+<!-- Input: 目录边界、产物清单与项目条款。 -->
+<!-- Output: 项目协议：读取阶梯、权威、生命周期、状态机与所有权。 -->
+<!-- Pos: 项目规则（rules/project.md，流程权威拆三之一）。 -->
 
 # 项目规则
 
-本文与 `rules/assessment.md`、`rules/implementation/discipline.md` 共同构成流程权威（拆三，节号共享）；根目录 `AGENTS.md` 只负责路由；可执行条款唯一在 `rules/core.md`。本件只承载目标项目自有事实与骨架表。
+本文与 `rules/assessment.md`、`rules/implementation/discipline.md` 构成流程权威（拆三，节号共享）；`AGENTS.md` 只路由；条款唯一在 `rules/core.md`。
 
 ## 2. 读取阶梯与权威层级
 
@@ -16,15 +16,15 @@
 | L3 | 与改动相关的源码、测试 |
 | L4 | 协议手册、冻结历史、架构资料（按需） |
 
-任务型最小读取：问答取 L0；文档治理取 L0-L2；实施取 L0-L3；Review 取 L0、L2、diff；Commit 取 L0、L2（含 Review pass 证据）、Git 状态。
+最小读取：问答 L0；文档治理 L0-L2；实施 L0-L3；Review L0/L2/diff；Commit L0/L2（Review pass 证据）、Git 状态。
 
-权威层级：用户决策 ＞ 代码/测试/事实记录 ＞ 规格与任务合同 ＞ 流程规则 ＞ Agent Up 模板 ＞ 派生文件；冲突即停（C5）；边界见 §12.5 写入所有权矩阵。
+权威层级：用户决策＞代码/测试/事实＞规格/合同＞流程规则＞Agent Up 模板＞派生；冲突即停（C5）；写入边界见 §12.5。
 
 ## 3. 仓库与目录边界
 
-【按项目填写：目录划分表（目录 / 用途 / 是否进 Git）。新项目默认 `facts/` 放项目事实。】
+【按项目填写：目录划分表（目录 / 用途 / 是否进 Git）；默认 `facts/` 放项目事实。】
 
-不进 Git：依赖目录、构建产物、覆盖率、日志、真实 `.env`、密钥、真实数据与临时导入文件。
+不进 Git：依赖、构建产物、覆盖率、日志、真实 `.env`、密钥、真实数据与临时文件。
 
 ### 3.1 工作隔离门槛
 
@@ -37,7 +37,7 @@
 | 跨会话 | 预计需要两次以上会话交接 |
 | 全量验收 | 需运行全量 harness |
 
-验收须在静止树上进行：运行前记录工作树指纹（`git status --porcelain` 摘要）并写入报告；两次运行指纹不同时，先前结论作废。
+验收在静止树进行：运行前记录 `git status --porcelain` 摘要；两次指纹不同即先前结论作废。
 
 ## 5. 产物生命周期
 
@@ -53,24 +53,24 @@
 
 ### 5.2 条件产物触发矩阵
 
-条件产物默认不创建（C1）；命中下表至少一条才创建。【按项目填写：逐行登记本项目条件产物与触发条件。】
+条件产物默认不创建（C1）；命中下表至少一条才创建。【按项目填写：逐行登记条件产物与触发条件。】
 
 | 产物 | 创建触发条件（满足其一） |
 | --- | --- |
 | `facts/project/CONTEXT.md` | 确认了项目特有术语、角色或状态 |
 | `facts/requirements/specs/` | 修改公共行为或接口；多条验收路径；跨会话交付；用户要求 |
 | `facts/requirements/tickets/` | 需要 ≥2 张票；存在 Blocked by 依赖；跨会话交接 |
-| `facts/requirements/runs/` | C2/C3；跨会话；发生中断；无 Git 基线 |
+| `facts/requirements/runs` | C2/C3；跨会话；发生中断；无 Git 基线 |
 | `facts/project/changes.jsonl` | 记录层拍板后首条事实（懒创建，只追加） |
 | `rules/implementation/scripts/` | 可重复验证需沉淀为共享 harness |
 
 ### 5.3 产物登记
 
-产物逐件登记 `facts/project/artifacts.yaml`，十三字段（id / path / kind / authority / owner / lifecycle / trigger / read_when / sync_on / depends_on / generated_from / platform / update_policy），缺值写 `N/A + reason`。
+产物逐件登记 `facts/project/artifacts.yaml`，十三字段（id/path/kind/authority/owner/lifecycle/trigger/read_when/sync_on/depends_on/generated_from/platform/update_policy），缺值写 `N/A + reason`。
 
 ### 5.4 同步门槛
 
-契约、拓扑、行为、派生关系四类语义变化触发级联同步；错别字与纯追加记录不触发。
+契约、拓扑、行为、派生关系四类语义变化触发级联同步；错别字与纯追加不触发。
 
 ### 5.5 产物状态机
 
@@ -78,21 +78,27 @@
 
 ## 12. 会话恢复
 
-**Session 状态**：`active` / `interrupted` / `unknown` / `recovering` / `closed`。**Task 状态**：`ready` / `in_progress` / `blocked` / `review_ready` / `review_pass` / `review_fail` / `done`。取值固定，不自造状态名（C7）。
+**Session 状态**：`active` / `interrupted` / `unknown` / `recovering` / `closed`。**Task 状态**：`ready` / `in_progress` / `blocked` / `review_ready` / `review_pass` / `review_fail` / `done`。取值固定（C7）。
 
-恢复顺序：`AGENTS.md` → 状态投影 → 任务票与 Checkpoint → run record → 实际文件与 Git → 重跑最后一条验证 → 判定 resume / blocked / conflict → 补审。事实优先级：实际文件/测试/Git ＞ Checkpoint/run record ＞ 投影 ＞ 聊天记录。
+恢复顺序：`AGENTS.md` → 状态投影 → 任务票与 Checkpoint → run record → 实际文件与 Git → 重跑最后验证 → 判定 resume / blocked / conflict → 补审。事实优先级：实际文件/测试/Git＞Checkpoint/run record＞投影＞聊天记录。
 
 ### 12.5 写入所有权矩阵
 
+按路径、字段或命令界定唯一写入者（C8）；索引单写、派生面生成器独占、阶段不越角色。
+
 | 产物 | 唯一写入者 |
 | --- | --- |
-| 票状态索引 `index.json` | 票务脚本单写（C8） |
-| 现役状态投影 `progress-current.md` | 投影生成器独占写 |
-| 变更账本 `changes.jsonl` | 账本追加脚本单写（C9） |
-| 阶段 checkpoint | 所属阶段执行体（commit 阶段由编排器 `ticket-run.sh commit` 写入，角色不直接写票） |
-| 审查结论 Checkpoint | Review 执行体单写（C3、C8） |
+| 任务合同与需求卡（`tickets/*.json`） | `ticket-ops.sh open` 等开票命令单写（语义归用户） |
+| 票状态索引 `tickets/index.json` | `ticket-ops.sh` 单写（C8） |
+| 阶段 checkpoint | 阶段执行体写本阶段字段；commit 只写 `checkpoint.commit` |
+| 阶段 receipt | `ticket-run.sh record` 落位 |
+| 审查证据 `facts/requirements/tickets/<id>.review-evidence.json` | Review 执行体单写（C3、C8） |
+| 变更账本 `changes.jsonl` | `ticket-ops.sh` 单入口（C9） |
+| 派生投影 `progress-current.md` 与 issues 状态行 | 生成器独占写 |
 | run record | 所属阶段执行体（C7、C8） |
 | `artifacts.yaml` | 产物 owner |
+
+活动票只经授权合同命令、合法状态机迁移或用户确认更新；收口票零回填（C9）。
 
 ## 项目自有条款（随生长追加）
 

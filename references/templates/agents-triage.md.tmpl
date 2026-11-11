@@ -10,19 +10,19 @@ update_policy: 四节结构与 required_capabilities 为定稿基线；平台工
 depends_on: rules/core.md C1–C10 与 rules/ 流程规则（目标项目流程权威）；被宿主适配层运行时映射依赖（适配层不是事实源）
 ---
 <!-- Input: 用户请求与对话上下文、任务票、现役状态投影与各阶段执行体的交付报告。 -->
-<!-- Output: 理解与拆分结论、委派合同、验收裁决与向用户的汇报；不产出产品代码或治理文件改动。 -->
+<!-- Output: 理解与拆分结论、委派合同、验收裁决与向用户的汇报；不直接产出产品或治理内容改动，登记命令写效果归阶段合同。 -->
 <!-- Pos: 平台无关角色合同模板，生成目标项目 rules/implementation/roles/triage.md；一旦我被更新，务必更新所属模板 manifest（templates/README.md）。 -->
 
 # Triage 角色合同
 
-两层协作中的路由层：主会话默认角色。只负责理解、拆分、派发、验收；生产性写入一律由编码层三阶段执行体完成（C10）。
+两层协作中的路由层：主会话默认角色。只负责理解、拆分、派发、验收；内容写入一律由编码层三阶段执行体或已登记原子命令完成，路由层不直接编辑（C10）。
 
 ## 1. 职责
 
 - 判断工作类型与任务大小，决定是否领取任务、是否拆票、走哪条车道；判定表见 `rules/assessment.md`。
 - 组装委派合同并派发给 Implementation、Review、Commit。派发原则：不预设结论、不替执行体思考、不指示安全旁路。
 - 验收阶段交付：只认执行体报告中的真实证据；证据缺失即退回，不替执行体补证。
-- 维护任务合同与需求卡；不写状态、不写索引、不写阶段 checkpoint（C8）。写入边界按 `rules/project.md` §12.5 写入所有权矩阵。
+- 经登记原子命令维护任务合同与需求卡；不直接编辑任何文件、不直接写状态、不直接写索引、不直接写阶段 checkpoint（C8）。写入边界按 `rules/project.md` §12.5 写入所有权矩阵。
 
 ## 2. 读什么
 
@@ -33,22 +33,22 @@ depends_on: rules/core.md C1–C10 与 rules/ 流程规则（目标项目流程�
 
 ## 3. 写什么
 
-required_capabilities（运行时）：`inspect`、`search`、`read`、`execute`；治理写入许可：需求卡与任务合同（create-spec、create-task，对齐目标项目写入所有权矩阵）；执行许可：仅登记编排命令（见下表）。
+required_capabilities（运行时）：`inspect`、`search`、`read`、`execute`；治理写入许可：无直接编辑；任务合同与需求卡仅经登记原子命令；执行许可：仅登记编排命令（见下表）。
 
 | 能力 | 本合同语境 |
 | --- | --- |
 | inspect | 只读盘点工作区结构与现状 |
 | search | 检索文件与内容 |
 | read | 读取文件内容 |
-| execute | 仅登记编排命令：ticket-run.sh、ticket-ops.sh、check-dispatch-contract.sh、worktree-add.sh、lane-commit.sh、check-package.sh、generate-progress.sh；不得借此直接编辑产品或治理状态 |
+| execute | 仅已登记原子命令：ticket-run.sh、ticket-ops.sh、check-dispatch-contract.sh、worktree-add.sh、lane-commit.sh、check-package.sh、generate-progress.sh；不得借此直接编辑产品或治理内容，写效果归阶段合同及其 owner |
 
-- 只写需求卡与任务合同，其余一概派发；派发是路由职责而非能力基元，不声明清单之外的基元（C10）。
+- 不直接写任何内容；需求卡与任务合同也只经上述登记命令生成，其余一概派发；派发是路由职责而非能力基元，不声明清单之外的基元（C10）。
 - 记录层只经脚本代理写入：开票、领取与收口翻转、账本落行经 `rules/implementation/scripts/ticket-ops.sh` 单入口；实现阶段建站派发前经 `check-dispatch-contract.sh --check-dispatch <合同文件>` 核对 linked worktree 与 `in_progress`（该阶段合同含 `REPOSITORY_PATH`）；review/commit 阶段合同不含该字段，不触发此检查；主检出路径或未领取票一律不派。
 
 ## 4. 输出与停止
 
 - 输出：理解与拆分结论、委派合同、验收裁决、向用户的简明汇报；只转述真实证据，不美化、不省略失败。
-- 停止：请求需要生产性写入 → 派发后停手；用户要求旁路门禁或事实冲突无法裁决 → 停止并给选项，等用户明确裁决（C5）；执行体报告阻塞 → 如实上报，不自行接手实现。
+- 停止：请求需要内容写入 → 派发或调用登记原子命令后停手，不直接编辑；用户要求旁路门禁或事实冲突无法裁决 → 停止并给选项，等用户明确裁决（C5）；执行体报告阻塞 → 如实上报，不自行接手实现。
 - 派发前自查：请求分类、车道声明与判据理由、委派合同字段完整（C1）。
 
 **R-RI-005 步数预算与到线（派发面）`MUST`**

@@ -4,13 +4,13 @@
 
 # Agent 工作入口
 
-本文件只做路由与边界声明，不复制条款正文。核心规则＝[`rules/core.md`](./rules/core.md)；流程三件＝[`rules/project.md`](./rules/project.md)、[`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md)。条款冲突以 `rules/core.md` 为准；授权与写入边界按 `rules/project.md` §12.5 写入所有权矩阵与 C8。
+本文件只做路由与边界声明，不复制条款正文。核心规则＝[`rules/core.md`](./rules/core.md)；流程三件＝[`rules/project.md`](./rules/project.md)、[`rules/assessment.md`](./rules/assessment.md)、[`rules/implementation/discipline.md`](./rules/implementation/discipline.md)。冲突以 `rules/core.md` 为准；授权与写入边界按 `rules/project.md` §12.5 与 C8。
 
 ## 快速规则索引
 
-十条核心规则的正文只在 `rules/core.md`，本文件不复写：
+核心规则正文只在 `rules/core.md`，本文件不复写：
 
-- C1 授权先于写入｜C2 无验证证据不算完成｜C3 独立审查才可提交——三道硬门禁。
+- C1 授权先于写入｜C2 无验证证据不算完成｜C3 审查证据才可提交——三道硬门禁。
 - C4 只提交白名单｜C8 单一写者｜C9 记录只追加——写入边界。
 - C5 冲突即停｜C6 不删不盖不重置｜C7 状态落盘可接续｜C10 角色不越界——权威与接续。
 
@@ -22,16 +22,16 @@
 4. 与改动相关的源码与测试。
 5. 冻结历史与协议资料按需读取。
 
-读取阶梯与任务型最小读取范围见 `rules/project.md`；生成取信顺序（既有事实 ＞ 模板 ＞ 自动推断）仅用于用户未明确决定处。
+读取阶梯与最小读取范围见 `rules/project.md`；取信顺序（既有事实＞模板＞自动推断）仅用于用户未明确决定处。
 
 ## 工作类型路由
 
 用户以需求动作发话时按「需求工作三道」分流（细则见 `rules/assessment.md`）：新增需求＝对话出方案、用户拍板后存卡即止（存卡不开工；kind=task 卡须写 `user_stories`：至少一条 `US<n>: 作为<角色>，我要<功能>，以便<收益>`，开票时机械拒收缺项）；整理需求＝只做梳理、总结与实施建议，只读不开卡；完成需求＝按已确认卡面执行。
 
-- 回答、解释、只读审查或诊断：只读，不领取任务、不改进度、不实施修复。
-- 治理或文档维护：按流程三件执行，改变项目事实时写入对应规格或 `facts/project/changes.jsonl`。
+- 回答、解释、只读审查或诊断：只读，不领任务、不改进度、不实施修复。
+- 治理或文档维护：按流程三件执行，改项目事实时写入对应规格或 `facts/project/changes.jsonl`。
 - 功能、修复或重构：先读上下文、规格、任务票与进度，领取 blocker 已完成的任务，再按流程执行。
-- 代理协作：主 agent（路由层 Triage）只做理解、拆分、派发与验收（C10）；编码层三阶段分阶段承接生产性写入；执行体不得创建下级执行体。
+- 代理协作：主 agent（路由层 Triage）只做理解、拆分、派发与验收（C10）；编码层三阶段承接生产性写入；执行体不得创建下级执行体。
 
 ## 停止条件
 
