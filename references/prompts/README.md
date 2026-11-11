@@ -10,7 +10,7 @@ depends_on: rules/implementation/roles/（角色合同事实源，MUST 与权限
 ---
 <!-- Input: 主 agent 查找标准派发模板。 -->
 <!-- Output: 三阶段派发 prompt 模板文件清单与占位符说明。 -->
-<!-- Pos: prompts 目录索引（rules/implementation/prompts/README.md）；一旦成员变化，务必更新本登记。 -->
+<!-- Pos: prompts 目录索引（agent-up/references/prompts/README.md；仓侧安装副本 rules/implementation/references/prompts/ 三份模板，无 README 副本）；一旦成员变化，务必更新本登记。 -->
 
 # 三阶段派发 Prompt 模板目录
 
