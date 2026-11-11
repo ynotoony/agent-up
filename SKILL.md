@@ -26,7 +26,7 @@ Agent Up 是给 AI Agent 的项目交付脚手架：本技能把"路由入口 + 
 1. **路由不复制**：`AGENTS.md` 只做路由和边界声明；流程细节只存在于规则三件（`rules/assessment.md`＋`rules/implementation/discipline.md`＋`rules/project.md`）这一事实源。
 2. **不覆盖事实**：既有文档、代码布局、命名和规则一律视为项目事实，只登记、只补缺；冲突报告用户，不静默改写。
 3. **不编造事实**：领域词汇、目录职责、验证命令来自盘点和访谈；没有依据的写 `【待定：...】` 并在报告列出。
-4. **写代码→检查→提交三步不裁剪**：Implementation -> Review -> Commit 串行、不得合并；语义变化未经用户确认不写文件，无验证证据不算完成，无独立 Review 通过不提交。小任务例外仅对 C0（最小任务）且由 Triage 定级时按准入判据声明的任务生效，执行体无权自选；C0 修正类（修复既有缺陷或既定行为的单请求小改，含语义判断）默认走用户即检查快道：免建票、免独立评审、免五处登记。快道准入判据全文、边界与收尾形态的权威在 `references/protocol/complexity-profile.md` §2.3 与生成的 `rules/assessment.md`（R-DP-031），本条不复述判据。
+4. **写代码→检查→提交三步不裁剪**：Implementation -> Review -> Commit 串行、不得合并；语义变化未经用户确认不写文件，无验证证据不算完成，提交前须取得对应车道证据（独立 Review pass／C0 用户裁决／微任务门禁）。小任务例外仅对 C0（最小任务）且由 Triage 定级时按准入判据声明的任务生效，执行体无权自选；C0 修正类（修复既有缺陷或既定行为的单请求小改，含语义判断）默认走用户即检查快道：免建票、免独立评审、免五处登记。快道准入判据全文、边界与收尾形态的权威在 `references/protocol/complexity-profile.md` §2.3 与生成的 `rules/assessment.md`（R-DP-031），本条不复述判据。
 5. **平台无关**：核心协议与模板只写能力，不写宿主专名与方言；宿主映射只在包内 `references/adapters/`。
 6. **冲突即停**：任何两个权威来源冲突时停止修改、报告双方与层级、给出选项、等用户裁决（规则见 `references/protocol/read-policy.md`）。
 
