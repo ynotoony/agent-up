@@ -80,5 +80,5 @@
 
 ## 登记分层注记（2026-10-26，README 与历史记录分层）
 
-- 本 README 的「目录清单（manifest）」节＝当前 manifest（机器真相＝`../../scripts/package-manifest.rules` `templates` 节，双向一致性由 `../../scripts/check-package.sh` 检查 5 机械核对）；「取舍与过渡登记」节＝历史迁移决策档案，按记录保护纪律原样保留、不改写不删减——其条目行号是 `package-manifest.rules` layout-compat-exempt 节的登记锚点（检查 24 按路径＋行号核对命中），增删其上文行须与该节数据及测试夹具联动迁移。
+- 本 README 的「目录清单（manifest）」节＝当前 manifest（机器真相＝`../../../dev/package-manifest.rules` `templates` 节，双向一致性由 `../../../dev/check-package.sh` 检查 5 机械核对）；「取舍与过渡登记」节＝历史迁移决策档案，按记录保护纪律原样保留、不改写不删减——其条目行号是 `package-manifest.rules` layout-compat-exempt 节的登记锚点（检查 24 按路径＋行号核对命中），增删其上文行须与该节数据及测试夹具联动迁移。
 - 本目录后续新增的迁移决策自 2026-10-26 起追加至包根 `../../CHANGELOG.md`（波级记录），不再入本 README；「取舍与过渡登记」历史全录的迁出（含豁免锚点随动与 harness 夹具同步）归后续票承载。
