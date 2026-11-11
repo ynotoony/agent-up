@@ -130,3 +130,12 @@
 - **合并与收尾原子化**：`merge-ticket.sh` 新增 `--flip`（合并成功后同锁内翻转 done 并落账本）；合并锁串行化；合并前自动 rebase 到最新 main，必要时自动重绑审查证据。
 - **测试面**：包检套件金样串改清单派生断言（清单增长不再假红）；回归 harness 增世界构建四动词与统一收据写入器；`check-stale-claims` 关闭 `changes.jsonl` 缺失时静默放行的 fail-open；`lane-commit` 白名单计数改按条目（含空格路径不再误拒）、通用 flip 落盘值不再被清空。
 - **要不要跟**：本波以包内自检工具与交付链为主，**消费项目无需改自己的治理文件**；已装脚本件的项目按 `references/upgrade.md` 常规升级（新增安装件仅 `record-store.sh`，随 `ticket-ops`／`fast-lane` 门控）。用 `--suite all` 跑 CI 的项目建议同步超时缺省变化（300 → 900 秒）。
+
+## 2026-11-11（载荷边界重构波：开发件出载荷、工作流族退役、测试不随包分发）
+
+- **载荷与开发件分家**：包自检引擎（`check-package.sh`、`checks/`、`package-manifest.rules`）、生成器（`generate-docs-index.sh`／`generate-adapter-diffs.sh`／`generate-mirrors.sh`）、测量件（`measure-context-*`）与 `export-payload.sh` 迁至仓根 `dev/`；公开包 `agent-up/` 只保留运行时脚本与文档（84 件脚本），`rules-lexer.sh` 按设计留存供 `install.sh` 自包含。
+- **测试不再随包分发**：53 个套件迁仓根 `dev/tests/`；消费者项目不会再收到维护者自测件（旧版曾因整包刷新把 tests 带进项目并大量误红）。`test-record-layer.sh` 保留为仓根开发语境的兼容入口。
+- **工作流族退役**：`workflow-executor.sh`、`jv_workflow.py`、`workflow.schema.json`、`references/workflows/` 样例与检查 30/31/36、三套 workflow 套件删除；安装闭包随之 67 → 66 件。
+- **引擎参数化**：`check-package.sh` 支持 `--engine-dir`／`AGENT_UP_ENGINE_DIR` 与 `AGENT_UP_LIB_DIR`，引擎与脚本位置解耦且缺件 fail-closed；生成器支持显式库目录与仓根布局默认值。
+- **边界与门禁适配**：`pre-commit` 改调 `dev/check-package.sh`；`pre-push` 边界按新载荷形态断言（引擎/清单/生成器不得入载荷）；`export-payload.sh` 改用 `dev/` 引擎校验导出树，`--dry-run` 不再被工作区脏检查卡死。
+- **要不要跟**：消费项目**无需改自己的治理文件**；已装项目升级时安装闭包少一件（`jv_workflow.py` 不再复制，旧副本可保留不影响运行）。CI/本地验证命令若写死 `agent-up/scripts/check-package.sh`，请注意该件已不在载荷——包检属维护者开发工具。
