@@ -317,11 +317,6 @@
               "expect_exit": {
                 "type": "integer",
                 "minimum": 0,
-                "description": "可选。期望退出码；与 expect 二选一。"
-              },
-              "expect_exit": {
-                "type": "integer",
-                "minimum": 0,
                 "maximum": 255,
                 "description": "可选。期望验证命令退出码，缺省为 0。"
               },
@@ -331,8 +326,16 @@
               }
             },
             "oneOf": [
-              {"required": ["expect"]},
-              {"required": ["expect_exit"]}
+              {
+                "required": [
+                  "expect"
+                ]
+              },
+              {
+                "required": [
+                  "expect_exit"
+                ]
+              }
             ]
           },
           "minItems": 1,
@@ -393,6 +396,30 @@
         "inline"
       ],
       "description": "可选。派发通道声明（R-DP-038 两问闸分流结果，开票/派发时声明）：script＝两问全过主 agent 亲写用完即弃脚本；agent＝需执行体判断力派发走三阶段（两问回答由本票 scope/verification 承载）；inline＝真一次性且小经用户同意直改。缺省视同 agent。存量票零回扫。"
+    },
+    "checkpoint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "阶段检查点容器（implementation/review/commit 子对象；payload 形状由角色合同承载）。",
+          "properties": {
+            "implementation": {
+              "type": "object"
+            },
+            "review": {
+              "type": "object"
+            },
+            "commit": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "string",
+          "description": "历史票只读兼容：早期票体 checkpoint 为字符串（80/82 两张），不回填。"
+        }
+      ]
     },
     "dispatch": {
       "type": "object",
@@ -458,7 +485,9 @@
     },
     "record_only": {
       "type": "object",
-      "required": ["reason"],
+      "required": [
+        "reason"
+      ],
       "additionalProperties": false,
       "properties": {
         "reason": {
@@ -495,24 +524,36 @@
     },
     {
       "if": {
-        "required": ["record_only"]
+        "required": [
+          "record_only"
+        ]
       },
       "then": {
-        "required": ["verification"],
+        "required": [
+          "verification"
+        ],
         "properties": {
-          "verification": { "const": "N/A" }
+          "verification": {
+            "const": "N/A"
+          }
         }
       }
     },
     {
       "if": {
-        "required": ["verification"],
+        "required": [
+          "verification"
+        ],
         "properties": {
-          "verification": { "const": "N/A" }
+          "verification": {
+            "const": "N/A"
+          }
         }
       },
       "then": {
-        "required": ["record_only"]
+        "required": [
+          "record_only"
+        ]
       }
     }
   ]
