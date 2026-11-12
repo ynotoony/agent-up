@@ -306,7 +306,14 @@ uc_check_chapters() {
     printf '%s:   落后  %s 缺章节:%s\n' "$prog" "$_target" "$_missing_one"
     uc_behind=$((uc_behind + 1))
   else
-    printf '%s:   同步  %s（章节：模板 ⊆ 实例；含子节；项目自有条款不计漂移）\n' "$prog" "$_target"
+    _tmpl_h=$(grep -cE '^###? ' "$pkg_dir/$_template" 2>/dev/null || true)
+    [ -n "$_tmpl_h" ] || _tmpl_h=0
+    if [ "$_tmpl_h" -eq 0 ]; then
+      printf '%s:   N/A   %s（模板无 H2/H3 章节，跳过章节同步判定）\n' "$prog" "$_target"
+    else
+      printf '%s:   同步  %s（章节：模板 ⊆ 实例；含子节；项目自有条款不计漂移）\n' "$prog" "$_target"
+      uc_sync=$((uc_sync + 1))
+    fi
   fi
 }
 

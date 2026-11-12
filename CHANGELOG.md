@@ -139,3 +139,7 @@
 - **引擎参数化**：`check-package.sh` 支持 `--engine-dir`／`AGENT_UP_ENGINE_DIR` 与 `AGENT_UP_LIB_DIR`，引擎与脚本位置解耦且缺件 fail-closed；生成器支持显式库目录与仓根布局默认值。
 - **边界与门禁适配**：`pre-commit` 改调 `dev/check-package.sh`；`pre-push` 边界按新载荷形态断言（引擎/清单/生成器不得入载荷）；`export-payload.sh` 改用 `dev/` 引擎校验导出树，`--dry-run` 不再被工作区脏检查卡死。
 - **要不要跟**：消费项目**无需改自己的治理文件**；已装项目升级时安装闭包少一件（`jv_workflow.py` 不再复制，旧副本可保留不影响运行）。CI/本地验证命令若写死 `agent-up/scripts/check-package.sh`，请注意该件已不在载荷——包检属维护者开发工具。
+## 2026-11-12（遗留项收口）
+
+- **升级对账口径**：实例规则块多于包模板时，对账器按“漂移”计入并 exit 1；章节对账把“同步”行计入自动同步计数，模板无 H2/H3 时不再误报同步。文档 references/upgrade.md 同步。
+- **测试运行器输出名**：test-runner.sh 的输出前缀由历史 test-record-layer: 统一为 test-runner:；相关 harness 断言同步。
