@@ -88,19 +88,19 @@ pm_adapter_cap dsh vcs-write 'bash' 'git add/commit 等写命令；未经用户�
 
 pm_adapter_role zcode implementation 'inspect, search, read, edit, write, execute' '[Read, Grep, Glob, Edit, Write, Bash]'
 pm_adapter_role zcode review 'inspect, search, read, readonly-execute' '[Read, Grep, Glob, Bash]'
-pm_adapter_role zcode commit 'inspect, execute' '[Read, Grep, Glob, Bash（仅 ticket-run.sh <NN> commit 编排入口）]'
+pm_adapter_role zcode commit 'inspect, vcs-read, vcs-write' '[Read, Grep, Glob, Bash（git status/log/diff 只读；提交合同白名单 git add/commit）]'
 pm_adapter_role claude-code implementation 'inspect, search, read, edit, write, execute' '[Read, Grep, Glob, Edit, Write, Bash]'
 pm_adapter_role claude-code review 'inspect, search, read, readonly-execute' '[Read, Grep, Glob, Bash]'
-pm_adapter_role claude-code commit 'inspect, execute' '[Read, Grep, Glob, Bash（仅 ticket-run.sh <NN> commit 编排入口）]'
+pm_adapter_role claude-code commit 'inspect, vcs-read, vcs-write' '[Read, Grep, Glob, Bash（git status/log/diff 只读；提交合同白名单 git add/commit）]'
 pm_adapter_role codex implementation 'inspect, search, read, edit, write, execute' 'shell + apply_patch'
 pm_adapter_role codex review 'inspect, search, read, readonly-execute' 'shell（只读命令；sandbox read-only 口径）'
-pm_adapter_role codex commit 'inspect, execute' 'shell（仅 ticket-run.sh <NN> commit 编排入口）'
+pm_adapter_role codex commit 'inspect, vcs-read, vcs-write' 'shell（git status/log/diff 只读；提交合同白名单 git add/commit）'
 pm_adapter_role pi implementation 'inspect, search, read, edit, write, execute' 'find/read、grep/find、read、edit、write、bash'
 pm_adapter_role pi review 'inspect, search, read, readonly-execute' 'find/read、grep/find、read、bash（只读命令）'
-pm_adapter_role pi commit 'inspect, execute' 'find/read、bash（仅 ticket-run.sh <NN> commit 编排入口）'
+pm_adapter_role pi commit 'inspect, vcs-read, vcs-write' 'find/read、bash（git status/log/diff 只读；提交合同白名单 git add/commit）'
 pm_adapter_role dsh implementation 'inspect, search, read, edit, write, execute' 'bash + str_replace_editor'
 pm_adapter_role dsh review 'inspect, search, read, readonly-execute' 'bash（只读命令）'
-pm_adapter_role dsh commit 'inspect, execute' 'bash（仅 ticket-run.sh <NN> commit 编排入口）'
+pm_adapter_role dsh commit 'inspect, vcs-read, vcs-write' 'bash（git status/log/diff 只读；提交合同白名单 git add/commit）'
 
 # ==== executor-status：独立执行体状态（检查 27；每平台恰一行）====
 # status 受控 token（语义单源＝本节登记）：supported＝宿主官方登记独立执行体支持；

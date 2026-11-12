@@ -61,7 +61,7 @@ depends_on: adapter-capability-contract（能力契约）；SPEC-05 §4（R-05-0
 | --- | --- | --- |
 | <role-contract-dir>/implementation.md | inspect, search, read, edit, write, execute | shell + apply_patch |
 | <role-contract-dir>/review.md | inspect, search, read, readonly-execute | shell（只读命令；sandbox read-only 口径） |
-| <role-contract-dir>/commit.md | inspect, execute | shell（仅 ticket-run.sh <NN> commit 编排入口） |
+| <role-contract-dir>/commit.md | inspect, vcs-read, vcs-write | shell（git status/log/diff 只读；提交合同白名单 git add/commit） |
 
 ### 2.4 独立执行体声明与降级路径
 
