@@ -131,7 +131,7 @@ USAGE = """用法: generate-dir-readmes.sh [--target <repo-root>] [--dir <rel>] 
                         ## BRIEF 判断证据——facts/project/artifacts.yaml 中该目录及目录内
                         条目的 id／path／kind／authority／read_when 原文，按目录／一级成员／
                         子目录内分组；authority 明确标注为待改写的层级描述，不是结论；
-                        authority／read_when 原文照录，目录外指针（如 rules/project.md §15.1）
+                        authority／read_when 原文照录，目录外指针（如 rules/project.md §5.5）
                         保留，供写指针用，不得据此读取或转述其内容；
                         ## BRIEF 现状——README.md 是否存在、四段是否齐全、缺段、占位行与
                         逐条问题（复用 --check 判定，回显原文不改写）；
