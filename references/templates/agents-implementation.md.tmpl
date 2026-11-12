@@ -45,7 +45,6 @@ required_capabilities（运行时）：`inspect`、`search`、`read`、`edit`、
 | write | 创建新文件 |
 | execute | 执行命令（可变更工作区状态） |
 
-- 票 Scope 只列包内路径（`agent-up/`）；仓侧治理文件、镜像与测试不在实现范围；需仓侧生效时由包同步升级，不直接写仓（C1、C4）。
 - 票文件只写 `checkpoint.implementation.*`；`checkpoint.review.*`、`checkpoint.commit.*`、`status` 与顶层字段只读（C8）。
 - 零 Git 写：不执行 `git add`、`git commit` 或任何版本库写操作（C4）。宿主 `git_write_enforcement` 为 host/runner-enforced 时由宿主直接拒绝；policy-only/pending 时为软约束，交付报告记该值与降级原因。
 
