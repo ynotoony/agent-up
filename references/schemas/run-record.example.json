@@ -24,7 +24,7 @@
     "result": "N/A + reason: 样例文件，不含真实验证结果",
     "at": "2026-09-03"
   },
-  "next_step": "样例文件：字段仅供格式参考，不承载真实运行数据；真实 run record 见目标项目 docs/agent/runs/。",
+  "next_step": "样例文件：字段仅供格式参考，不承载真实运行数据；真实 run record 见目标项目 facts/requirements/runs/。",
   "blocker": "",
   "network": "unknown",
   "updated_at": "2026-09-03T00:00:00+00:00",

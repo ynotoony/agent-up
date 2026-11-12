@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agent-up/references/schemas/run-record.schema.json",
   "title": "Agent Up run record schema",
-  "description": "运行记录（run record）机器 schema，落盘位置 docs/agent/runs/<run-id>.json。生成条件（满足其一）：C2/C3 任务；跨会话交接；发生中断；无 Git 基线；改动归属不明。C0/C1 任务写任务票 Checkpoint，不强制 run record。本 schema 收敛 SPEC-04 §6 字段语义、SPEC-04 §14 第一项待决（workspace_fingerprint 算法 fp-v1）与 SPEC-05 §8 第二项待决（independent_review 字段落盘位置与格式）。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。",
+  "description": "运行记录（run record）机器 schema，落盘位置 facts/requirements/runs/<run-id>.json。生成条件（满足其一）：C2/C3 任务；跨会话交接；发生中断；无 Git 基线；改动归属不明。C0/C1 任务写任务票 Checkpoint，不强制 run record。本 schema 收敛 SPEC-04 §6 字段语义、SPEC-04 §14 第一项待决（workspace_fingerprint 算法 fp-v1）与 SPEC-05 §8 第二项待决（independent_review 字段落盘位置与格式）。JSON 文件以 $id/title/description 承载导航元数据（JSON 不支持 HTML 注释契约头）。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -78,7 +78,7 @@
         "workspace_fingerprint": {
           "type": "string",
           "pattern": "^fp-v1:[0-9a-f]{16}$",
-          "description": "工作区指纹，算法定稿（fp-v1）：①收集工作区全部文件，排除 .git/、依赖与构建产物目录（node_modules/、dist/、build/、coverage/、__pycache__/、.venv/）与 docs/agent/runs/（运行记录自身不参与指纹，避免自引用漂移）；②按相对路径字典序排序，每文件一行 <相对路径>\\t<字节数>\\t<mtime 纪元秒>；③拼接后取 SHA-256 十六进制前 16 位，记 fp-v1:<hex16>。同算法两次计算不一致即工作区自基线后有变化。"
+          "description": "工作区指纹，算法定稿（fp-v1）：①收集工作区全部文件，排除 .git/、依赖与构建产物目录（node_modules/、dist/、build/、coverage/、__pycache__/、.venv/）与 facts/requirements/runs/（运行记录自身不参与指纹，避免自引用漂移）；②按相对路径字典序排序，每文件一行 <相对路径>\\t<字节数>\\t<mtime 纪元秒>；③拼接后取 SHA-256 十六进制前 16 位，记 fp-v1:<hex16>。同算法两次计算不一致即工作区自基线后有变化。"
         }
       }
     },
